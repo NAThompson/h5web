@@ -29,10 +29,7 @@ export interface Entity {
 }
 
 export type ProvidedEntity =
-  | GroupWithChildren
-  | Dataset
-  | Datatype
-  | UnresolvedEntity;
+  GroupWithChildren | Dataset | Datatype | UnresolvedEntity;
 
 export type ChildEntity = Group | Dataset | Datatype | UnresolvedEntity;
 
@@ -288,10 +285,9 @@ export interface HasType<T extends DType = DType> {
 /* ----- VALUE ----- */
 
 export type ScalarValue<T extends DType = DType> = T extends NumericLikeType
-  ?
-      | number
-      | (T extends IntegerType ? bigint : never) // let providers return bigints
-      | (T extends BooleanType ? boolean : never) // let providers return booleans
+  ? | number
+    | (T extends IntegerType ? bigint : never) // let providers return bigints
+    | (T extends BooleanType ? boolean : never) // let providers return booleans
   : T extends StringType
     ? string
     : T extends ComplexType
@@ -301,11 +297,10 @@ export type ScalarValue<T extends DType = DType> = T extends NumericLikeType
         : unknown;
 
 export type ArrayValue<T extends DType = DType> = T extends NumericLikeType
-  ?
-      | TypedArray
-      | number[]
-      | (T extends IntegerType ? BigIntTypedArray | bigint[] : never)
-      | (T extends BooleanType ? boolean[] : never) // don't use `ScalarValue` to avoid `(number | boolean)[]`
+  ? | TypedArray
+    | number[]
+    | (T extends IntegerType ? BigIntTypedArray | bigint[] : never)
+    | (T extends BooleanType ? boolean[] : never) // don't use `ScalarValue` to avoid `(number | boolean)[]`
   : ScalarValue<T>[];
 
 export type Value<D extends HasShape & HasType> = D extends HasShape<infer S> &

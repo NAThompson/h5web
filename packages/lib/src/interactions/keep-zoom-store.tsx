@@ -23,28 +23,26 @@ interface KeepZoomState {
 }
 
 function createKeepZoomStore() {
-  return createStore<KeepZoomState>()(
-    (set, get): KeepZoomState => ({
-      states: new Map(),
+  return createStore<KeepZoomState>()((set, get): KeepZoomState => ({
+    states: new Map(),
 
-      setState: (visKey, visContextKey, position, scale) => {
-        const states = new Map(get().states);
-        states.set(visKey, {
-          visContextKey,
-          position: position.clone(),
-          scale: scale.clone(),
-        });
+    setState: (visKey, visContextKey, position, scale) => {
+      const states = new Map(get().states);
+      states.set(visKey, {
+        visContextKey,
+        position: position.clone(),
+        scale: scale.clone(),
+      });
 
-        set({ states });
-      },
+      set({ states });
+    },
 
-      unset: (visKey) => {
-        const states = new Map(get().states);
-        states.delete(visKey);
-        set({ states });
-      },
-    }),
-  );
+    unset: (visKey) => {
+      const states = new Map(get().states);
+      states.delete(visKey);
+      set({ states });
+    },
+  }));
 }
 
 const StoreContext = createContext({} as StoreApi<KeepZoomState>);

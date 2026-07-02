@@ -25,8 +25,7 @@ export type TypedArrayConstructor =
 
 export type BigIntTypedArray = MaybeBigInt64Array | MaybeBigUint64Array;
 export type BigIntTypedArrayConstructor =
-  | BigInt64ArrayConstructor
-  | BigUint64ArrayConstructor;
+  BigInt64ArrayConstructor | BigUint64ArrayConstructor;
 
 export type Domain = [min: number, max: number];
 export type Axis = 'x' | 'y';
