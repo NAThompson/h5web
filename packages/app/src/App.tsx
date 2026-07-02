@@ -104,7 +104,7 @@ function App(props: Props) {
 
         <Separator className={styles.splitter} />
 
-        <Panel id={MAIN_AREA_ID} className={styles.mainArea} minSize={500}>
+        <Panel id={MAIN_AREA_ID} className={styles.mainArea}>
           <BreadcrumbsBar
             path={selectedPath}
             isSidebarOpen={isSidebarOpen}
