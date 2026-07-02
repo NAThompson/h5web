@@ -3,9 +3,9 @@ import { type Vector3 } from 'three';
 export type ModifierKey = 'Alt' | 'Control' | 'Shift';
 
 export enum MouseButton {
-  'Left' = 0,
-  'Middle' = 1,
-  'Right' = 2,
+  Left = 0,
+  Middle = 1,
+  Right = 2,
 }
 
 export type Rect = [start: Vector3, end: Vector3];
@@ -48,7 +48,7 @@ export interface UseDragState {
 }
 
 export type MouseEventName = {
-  [Key in keyof GlobalEventHandlersEventMap]: GlobalEventHandlersEventMap[Key] extends MouseEvent
-    ? Key
-    : never;
+  [
+    Key in keyof GlobalEventHandlersEventMap
+  ]: GlobalEventHandlersEventMap[Key] extends MouseEvent ? Key : never;
 }[keyof GlobalEventHandlersEventMap];
