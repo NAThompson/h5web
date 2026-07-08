@@ -112,7 +112,7 @@ export type { VisCanvasContextValue } from './vis/shared/VisCanvasProvider';
 export type { InteractionsContextValue } from './interactions/InteractionsProvider';
 
 // Utilities
-export { toTypedNdArray } from '@h5web/shared/vis-utils';
+export { toTypedNdArray, createArrayFromView } from '@h5web/shared/vis-utils';
 
 export {
   getDomain,
@@ -120,6 +120,7 @@ export {
   getCombinedDomain,
   extendDomain,
   getAxisDomain,
+  getAxisOffsets,
   getValueToIndexScale,
   createBufferAttr,
   createIndex,
