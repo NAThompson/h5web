@@ -189,6 +189,19 @@ getAxisDomain([4, 2, 0], { extensionFactor: 0.5 }); // [6, -2])
 getAxisDomain([4, 2, 0], { forceAscending: true }); // [0, 4])
 ```
 
+#### getAxisOffsets
+
+Called internally by `VisCanvas` to compute the space needed around the visualization for the title, axes labels, etc.
+Useful for implementing advanced layouts, like keeping the axes flush with the visualization in an equal-aspect canvas.
+
+```ts
+function getAxisOffsets(hasLabel?: {
+  left?: boolean; // whether left axis has label
+  bottom?: boolean; // whether bottom axis has label
+  top?: boolean; // whether visualization has title
+}): AxisOffsets;
+```
+
 #### toTypedNdArray
 
 Convert an ndarray of primitive numbers into a typed ndarray.

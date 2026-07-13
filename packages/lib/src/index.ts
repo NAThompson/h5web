@@ -120,6 +120,7 @@ export {
   getCombinedDomain,
   extendDomain,
   getAxisDomain,
+  getAxisOffsets,
   getValueToIndexScale,
   createBufferAttr,
   createIndex,
@@ -248,7 +249,6 @@ export {
   useBoundsWithErrors,
   useValidDomainForScale,
 } from './vis/hooks';
-export { getAxisOffsets } from './vis/utils';
 export {
   getBounds,
   getBoundsWithErrors,
