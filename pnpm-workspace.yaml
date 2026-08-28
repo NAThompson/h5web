@@ -24,6 +24,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@h5web/*'
   - '@esrf/eslint-config'
+  - ndarray@1.1.1
+  - '@types/ndarray@1.1.0'
 
 # Save exact dependency versions in `package.json`
 savePrefix: ''
@@ -32,3 +34,8 @@ savePrefix: ''
 requiredScripts:
   - 'lint:eslint'
   - 'lint:tsc'
+
+# Local float16 support, not yet released upstream
+overrides:
+  '@types/ndarray': '1.1.0'
+  h5wasm: 'file:/Users/nathompson7/dev/pkgs/h5wasm-0.10.3-float16.tgz'

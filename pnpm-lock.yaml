@@ -203,6 +203,10 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+overrides:
+  '@types/ndarray': 1.1.0
+  h5wasm: file:/Users/nathompson7/dev/pkgs/h5wasm-0.10.3-float16.tgz
+
 importers:
 
   .:
@@ -260,7 +264,7 @@ importers:
         version: link:../../packages/h5wasm
       h5wasm-plugins:
         specifier: 0.3.0
-        version: 0.3.0(h5wasm@0.10.3)
+        version: 0.3.0
       modern-normalize:
         specifier: 3.0.1
         version: 3.0.1
@@ -344,8 +348,8 @@ importers:
         specifier: 3.0.1
         version: 3.0.1
       ndarray:
-        specifier: 1.0.19
-        version: 1.0.19
+        specifier: 1.1.1
+        version: 1.1.1
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -378,8 +382,8 @@ importers:
         specifier: ~3.0.4
         version: 3.0.4
       '@types/ndarray':
-        specifier: 1.0.14
-        version: 1.0.14
+        specifier: 1.1.0
+        version: 1.1.0
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.2
@@ -423,14 +427,14 @@ importers:
         specifier: ~3.0.4
         version: 3.0.4
       '@types/ndarray':
-        specifier: 1.0.14
-        version: 1.0.14
+        specifier: 1.1.0
+        version: 1.1.0
       d3-format:
         specifier: 3.1.2
         version: 3.1.2
       ndarray:
-        specifier: 1.0.19
-        version: 1.0.19
+        specifier: 1.1.1
+        version: 1.1.1
       ndarray-ops:
         specifier: 1.2.2
         version: 1.2.2
@@ -526,8 +530,8 @@ importers:
         specifier: 4.4.2
         version: 4.4.2
       h5wasm:
-        specifier: 0.10.3
-        version: 0.10.3
+        specifier: file:/Users/nathompson7/dev/pkgs/h5wasm-0.10.3-float16.tgz
+        version: file:../pkgs/h5wasm-0.10.3-float16.tgz
       nanoid:
         specifier: 5.1.16
         version: 5.1.16
@@ -608,8 +612,8 @@ importers:
         specifier: ~3.1.0
         version: 3.1.0
       '@types/ndarray':
-        specifier: ~1.0.14
-        version: 1.0.14
+        specifier: 1.1.0
+        version: 1.1.0
       '@types/react-slider':
         specifier: ~1.3.6
         version: 1.3.6
@@ -647,8 +651,8 @@ importers:
         specifier: 3.1.0
         version: 3.1.0
       ndarray:
-        specifier: 1.0.19
-        version: 1.0.19
+        specifier: 1.1.1
+        version: 1.1.1
       ndarray-ops:
         specifier: 1.2.2
         version: 1.2.2
@@ -744,8 +748,8 @@ importers:
         specifier: ~3.0.4
         version: 3.0.4
       '@types/ndarray':
-        specifier: ~1.0.14
-        version: 1.0.14
+        specifier: 1.1.0
+        version: 1.1.0
       '@types/ndarray-ops':
         specifier: ~1.2.7
         version: 1.2.7
@@ -765,8 +769,8 @@ importers:
         specifier: 9.39.4
         version: 9.39.4(supports-color@8.1.1)
       ndarray:
-        specifier: 1.0.19
-        version: 1.0.19
+        specifier: 1.1.1
+        version: 1.1.1
       ndarray-ops:
         specifier: 1.2.2
         version: 1.2.2
@@ -2008,8 +2012,8 @@ packages:
   '@types/ndarray-ops@1.2.7':
     resolution: {integrity: sha512-dQKT1Kfpw83LhzuJp6N7nO03m8Bjv84E1cew3poHK5DgojCXppJPLONQafVzOK3gQNW5sZfjRQgOZG2aSZdQJg==}
 
-  '@types/ndarray@1.0.14':
-    resolution: {integrity: sha512-oANmFZMnFQvb219SSBIhI1Ih/r4CvHDOzkWyJS/XRqkMrGH5/kaPSA1hQhdIBzouaE+5KpE/f5ylI9cujmckQg==}
+  '@types/ndarray@1.1.0':
+    resolution: {integrity: sha512-go+C6vHBUuO9jH6Tj6qEZ63JEGoMSxFdmd+6QAtthGD6xumBfIz3RbNDDs2aoRVLf9naH8lk5jnWy2UHHKgYQQ==}
 
   '@types/node@24.13.2':
     resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
@@ -3229,6 +3233,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -3471,14 +3476,10 @@ packages:
 
   h5wasm-plugins@0.3.0:
     resolution: {integrity: sha512-0L3XSaNa44sWQYfyI6b8aNm4uORJaFV9Q/+6DY/4J7M8lyO7B7ZBZCh4D7BVHpIK5XrfensRWOnuXArugMqfaQ==}
-    peerDependencies:
-      h5wasm: ^0.10.1
-    peerDependenciesMeta:
-      h5wasm:
-        optional: true
 
-  h5wasm@0.10.3:
-    resolution: {integrity: sha512-W4Jy5ExtX/VNbyD8GdOBckDuj6AL16TemppVNxZsV3rJZEWCv2sxlCzOttZLer3zkMttbDYsWHl0qt1z3Bln+Q==}
+  h5wasm@file:../pkgs/h5wasm-0.10.3-float16.tgz:
+    resolution: {integrity: sha512-ZtqZKcD0tjlejyVUZALHJ+1eCOx3o19O+cHZpDWCZUGCM8pLBEvUCx/JWrZC7ReUotziykvoZX/AXtgo+J/32Q==, tarball: file:../pkgs/h5wasm-0.10.3-float16.tgz}
+    version: 0.10.3
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -4185,8 +4186,8 @@ packages:
   ndarray-ops@1.2.2:
     resolution: {integrity: sha512-BppWAFRjMYF7N/r6Ie51q6D4fs0iiGmeXIACKY66fLpnwIui3Wc3CXiD/30mgLbDjPpSLrsqcp3Z62+IcHZsDw==}
 
-  ndarray@1.0.19:
-    resolution: {integrity: sha512-B4JHA4vdyZU30ELBw3g7/p9bZupyew5a7tX1Y/gGeF2hafrPaQZhgrGQfsvgfYbgdFZjYwuEcnaobeM/WMW+HQ==}
+  ndarray@1.1.1:
+    resolution: {integrity: sha512-AsE8w/M2MS+0pD3nP5qbRRtJFeJJJaJ+qXZaZr0XjVGXhy6LIj2TERTlkpdK2AI3WufoOP+pwPk3q2ilAJcZ9g==}
 
   node-exports-info@1.6.2:
     resolution: {integrity: sha512-kXs9Go0cah0qHVV2v389IXQLdLCeE1xfFtjOAF+iobu0OIoG1pje8At2vMHyaPMiPMnG/LWP50twML21eMcAag==}
@@ -6421,9 +6422,9 @@ snapshots:
 
   '@types/ndarray-ops@1.2.7':
     dependencies:
-      '@types/ndarray': 1.0.14
+      '@types/ndarray': 1.1.0
 
-  '@types/ndarray@1.0.14': {}
+  '@types/ndarray@1.1.0': {}
 
   '@types/node@24.13.2':
     dependencies:
@@ -8118,11 +8119,11 @@ snapshots:
 
   greenlet@1.1.0: {}
 
-  h5wasm-plugins@0.3.0(h5wasm@0.10.3):
-    optionalDependencies:
-      h5wasm: 0.10.3
+  h5wasm-plugins@0.3.0:
+    dependencies:
+      h5wasm: file:../pkgs/h5wasm-0.10.3-float16.tgz
 
-  h5wasm@0.10.3: {}
+  h5wasm@file:../pkgs/h5wasm-0.10.3-float16.tgz: {}
 
   has-bigints@1.1.0: {}
 
@@ -8938,7 +8939,7 @@ snapshots:
     dependencies:
       cwise-compiler: 1.1.3
 
-  ndarray@1.0.19:
+  ndarray@1.1.1:
     dependencies:
       iota-array: 1.0.0
       is-buffer: 1.1.6
