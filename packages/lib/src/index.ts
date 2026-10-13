@@ -3,10 +3,12 @@ export { default as MatrixVis } from './vis/matrix/MatrixVis';
 export { default as LineVis } from './vis/line/LineVis';
 export { default as HeatmapVis } from './vis/heatmap/HeatmapVis';
 export { default as ScatterVis } from './vis/scatter/ScatterVis';
+export { default as SurfaceVis } from './vis/surface/SurfaceVis';
 export type { MatrixVisProps } from './vis/matrix/MatrixVis';
 export type { LineVisProps } from './vis/line/LineVis';
 export type { HeatmapVisProps } from './vis/heatmap/HeatmapVis';
 export type { ScatterVisProps } from './vis/scatter/ScatterVis';
+export type { SurfaceVisProps } from './vis/surface/SurfaceVis';
 
 // Toolbar and controls
 export { default as Toolbar } from './toolbar/Toolbar';
@@ -261,7 +263,4 @@ export {
   assertNonNull,
 } from '@h5web/shared/guards';
 export type { TiledHeatmapMeshProps } from './vis/tiles/TiledHeatmapMesh';
-export { default as SurfaceVis } from './vis/surface/SurfaceVis';
-export type { SurfaceVisProps } from './vis/surface/SurfaceVis';
-export { default as SurfaceMeshGeometry } from './vis/surface/surfaceMeshGeometry';
 export { default as R3FCanvas } from './vis/shared/R3FCanvas';
