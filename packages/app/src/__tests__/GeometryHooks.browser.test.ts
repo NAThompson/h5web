@@ -182,11 +182,15 @@ describe('useContours', () => {
     expect(result.current.contours?.[0]?.level).toBe(100.5);
     await expect.poll(() => result.current.contours?.[0]?.level).toBe(200.5);
 
-    // Image of another shape: previous contours are not drawn on it
-    const other = ramp(1200, 1000);
+    // Another image (e.g. the next slice), even of the same shape: previous contours are not drawn on it
+    const other = ramp(1100, 1000);
     await rerender({ data: other, levels: [200.5] });
     expect(result.current.contours).toBeUndefined();
     await expect.poll(() => result.current.contours?.[0]?.level).toBe(200.5);
+
+    // No levels: nothing to compute
+    await rerender({ data: other, levels: [] });
+    expect(result.current.contours).toStrictEqual([]);
     expect(result.current.error).toBeUndefined();
   });
 

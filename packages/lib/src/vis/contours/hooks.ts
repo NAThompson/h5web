@@ -34,7 +34,7 @@ export function getLabelOptions(shape: number[]): LabelOptions {
 
 interface AsyncResult {
   contours: ContourResult[];
-  shape: string; // shape of the image the contours were computed on
+  source: object; // image the contours were computed on
 }
 
 /*
@@ -52,19 +52,23 @@ export function useContours(
 ): ContoursState {
   const { scaleType, ignoreValue, withLabels = false } = opts;
   const [rows, cols] = dataArray.shape;
-  const shapeKey = `${rows}x${cols}`;
 
   // Stable dependency for arrays of levels recreated on every render
   const levelsKey = levels.join(',');
   const stableLevels = useMemo(() => levels, [levelsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const labels = withLabels ? getLabelOptions([rows, cols]) : undefined;
-  const labelsKey = labels && JSON.stringify(labels);
+  const labelsKey = withLabels ? `${rows}x${cols}` : undefined;
+  const labels = useMemo(
+    () => (labelsKey ? getLabelOptions([rows, cols]) : undefined),
+    [labelsKey], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
+  const hasLevels = levels.length > 0;
   const visits = rows * cols * levels.length;
   const loadFailure = getWorkerLoadFailure();
   const isSync =
-    visits <= SYNC_BUDGET || (!!loadFailure && visits <= FALLBACK_BUDGET);
+    hasLevels &&
+    (visits <= SYNC_BUDGET || (!!loadFailure && visits <= FALLBACK_BUDGET));
 
   const source = useMemo(
     () => ({ dataArray, ignoreValue }),
@@ -89,11 +93,11 @@ export function useContours(
           labels,
         ),
       ),
-    [syncValues, rows, cols, stableLevels, scaleType, labelsKey], // eslint-disable-line react-hooks/exhaustive-deps
+    [syncValues, rows, cols, stableLevels, scaleType, labels],
   );
 
   // Send the image to the worker once, then only levels and options with each request
-  const isWorkerNeeded = useLatch(!isSync && levels.length > 0, source);
+  const isWorkerNeeded = useLatch(!isSync && hasLevels, source);
   const { dataId, error: dataError } = useWorkerData(
     isWorkerNeeded,
     source,
@@ -108,7 +112,7 @@ export function useContours(
   const [error, setError] = useState<Error>();
 
   useEffect(() => {
-    if (isSync) {
+    if (isSync || !hasLevels) {
       setProgress(undefined);
       setError(undefined);
       return undefined;
@@ -139,7 +143,7 @@ export function useContours(
       try {
         const contours = await task.promise;
         if (status.isActive) {
-          setAsyncResult({ contours, shape: shapeKey });
+          setAsyncResult({ contours, source });
         }
       } catch (error_) {
         if (status.isActive) {
@@ -156,16 +160,28 @@ export function useContours(
       status.isActive = false;
       task.cancel();
     };
-  }, [isSync, loadFailure, dataId, stableLevels, scaleType, labelsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    isSync,
+    hasLevels,
+    loadFailure,
+    dataId,
+    source,
+    stableLevels,
+    scaleType,
+    labels,
+  ]);
+
+  if (!hasLevels) {
+    return { contours: [], progress: undefined, error: undefined };
+  }
 
   if (isSync) {
     return { contours: syncContours, progress: undefined, error: undefined };
   }
 
-  // Never draw contours computed on an image of another shape (e.g. a previous slice of another size)
+  // Never draw contours computed on another image (e.g. a previous slice): only keep them while levels change
   return {
-    contours:
-      asyncResult?.shape === shapeKey ? asyncResult.contours : undefined,
+    contours: asyncResult?.source === source ? asyncResult.contours : undefined,
     progress,
     error: error ?? dataError,
   };

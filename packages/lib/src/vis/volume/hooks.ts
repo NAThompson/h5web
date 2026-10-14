@@ -193,7 +193,17 @@ export function useIsosurfaces(
     );
   }
 
+  const lastSourceIdRef = useRef<number>(undefined);
+
   useEffect(() => {
+    // Forget failures when the data changes, so that a new array gets a fresh chance
+    if (lastSourceIdRef.current !== sourceId) {
+      lastSourceIdRef.current = sourceId;
+      failedRef.current.clear();
+      retriesRef.current.clear();
+      setError(undefined);
+    }
+
     const tasks = tasksRef.current;
     const wantedKeys = new Set(levels.map(getKey));
 
@@ -300,13 +310,6 @@ export function useIsosurfaces(
       })();
     }
   }, [sourceId, dataId, generation, loadFailure, levelsKey, scaleKey, step]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Forget failures when the data changes, so that a new array gets a fresh chance
-  useEffect(() => {
-    failedRef.current.clear();
-    retriesRef.current.clear();
-    setError(undefined);
-  }, [source]);
 
   // Cancel everything on unmount
   useEffect(() => {
