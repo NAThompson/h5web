@@ -14,7 +14,9 @@ export function useActiveVis(
   } = useLocalStorageValue<string>('h5web:preferredVis');
 
   const preferredVis = preferredVisName
-    ? supportedVis.find((v) => v.name === preferredVisName)
+    ? supportedVis.find(
+        (v) => v.name === preferredVisName && !v.isNeverPreferred,
+      )
     : undefined;
 
   const lastSupportedIndex = supportedVis.length - 1;
@@ -28,7 +30,9 @@ export function useActiveVis(
     (index: number) => {
       const vis = supportedVis[index];
 
-      if (index < lastSupportedIndex) {
+      if (vis.isNeverPreferred) {
+        // Keep the current preference, if any
+      } else if (index < lastSupportedIndex) {
         // When user explicitly selects another vis than the last, save it as the preferred vis in local storage
         savePreferredVisName(vis.name);
       } else if (index === lastSupportedIndex && preferredVisName) {

@@ -115,6 +115,7 @@ export const CORE_VIS = {
     Icon: FiBox,
     Container: VolumeVisContainer,
     ConfigProvider: VolumeConfigProvider,
+    isNeverPreferred: true,
     supportsDataset: async (dataset, dataContext) => {
       if (
         !hasArrayShape(dataset) ||
