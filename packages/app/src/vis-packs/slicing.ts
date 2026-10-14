@@ -2,7 +2,6 @@ import {
   type DimensionMapperProps,
   type DimensionMapping,
   getSliceSelection,
-  type PlaybackRange,
 } from '@h5web/lib';
 import {
   type ArrayShape,
@@ -10,22 +9,14 @@ import {
   type ScalarShape,
 } from '@h5web/shared/hdf5-models';
 import { useUnmountEffect } from '@react-hookz/web';
-import { type QueryFunction, skipToken, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { usePlaybackSettingsState } from '../dim-mapping-store';
-import {
-  type DataContextValue,
-  useDataContext,
-} from '../providers/DataProvider';
+import { useDataContext } from '../providers/DataProvider';
 import { type ValueQueryParams } from '../providers/models';
 import { hasValueFailed, isValueInCache } from '../utils';
 import { useConfirmedSize } from './fetch-confirmation';
-import {
-  getGuardKey,
-  getMaxAutoFetchSize,
-  getSizeToConfirm,
-} from './LargeValueGuard';
+import { getGuardKey, getMaxAutoFetchSize } from './LargeValueGuard';
 import { type NxData } from './nexus/models';
 import { getNxValueRequests } from './nexus/NxValuesFetcher';
 import { type PlaybackRangeValue } from './playback-range';
@@ -33,9 +24,8 @@ import {
   createPrefetchState,
   prefetchSlices,
   releasePrefetches,
-  trackPlaybackQuery,
 } from './prefetch';
-import { getValueSize, MAX_SEQUENCE_RANGE_SIZE } from './utils';
+import { useSequenceRange } from './sequence-range';
 
 export type SlicingProps = Required<
   Pick<
@@ -88,14 +78,16 @@ export function useSlicingProps(
   });
 
   const { playbackRange, isRangePending, rangeHint, startSequence } =
-    usePlaybackRange(
+    useSequenceRange({
       dataContext,
+      prefetchState: state,
       getRequests,
       dimMapping,
       mapMapping,
-      withPlaybackRange ? playbackSettings.range : 'frame',
+      range: withPlaybackRange ? playbackSettings.range : 'frame',
+      playingDim,
       maxAutoFetchSize,
-    );
+    });
 
   function requestsFor(mapping: DimensionMapping): ValueQueryParams[] {
     return getRequests(getSliceSelection(mapMapping(mapping)));
@@ -112,7 +104,7 @@ export function useSlicingProps(
 
     // Playback can show slices whose values are in cache or failed to load (to show the error)
     isSliceReady: (mapping) =>
-      !isRangePending &&
+      !isRangePending() &&
       requestsFor(mapping).every(
         ({ dataset, selection }) =>
           isValueInCache(dataContext, dataset, selection) ||
@@ -141,121 +133,6 @@ export function useSlicingProps(
   };
 
   return { slicingProps, playbackRange };
-}
-
-/* Mapping of the whole sequence of slices along dimension `dim` */
-function getSequenceMapping(
-  dimMapping: DimensionMapping,
-  dim: number,
-  mapMapping: MapMapping,
-): DimensionMapping {
-  return mapMapping(dimMapping.map((val, i) => (i === dim ? null : val)));
-}
-
-/* Fetch values of a whole sequence, if affordable (size budget, large value guard) */
-function useSequenceValues(
-  dataContext: DataContextValue,
-  signalRequest: ValueQueryParams | undefined,
-  maxAutoFetchSize: number,
-) {
-  const isAffordable =
-    !!signalRequest &&
-    getValueSize(signalRequest.dataset, signalRequest.selection) <=
-      MAX_SEQUENCE_RANGE_SIZE &&
-    getSizeToConfirm(dataContext, [signalRequest], maxAutoFetchSize) === 0;
-
-  const sequenceQuery =
-    signalRequest &&
-    dataContext.queries.value(signalRequest.dataset, signalRequest.selection);
-  const { data: sequenceValue, isError: hasSequenceFailed } = useQuery({
-    queryKey: sequenceQuery?.queryKey ?? [dataContext.filepath, 'no-sequence'],
-    queryFn:
-      (isAffordable && (sequenceQuery?.queryFn as QueryFunction | undefined)) ||
-      skipToken,
-    gcTime: 0, // evict once no longer needed (e.g. other sequence played), given its size
-  });
-
-  // Keep its error in cache if it fails, rather than refetching it (cf. `VisBoundary`)
-  const sequenceKey = isAffordable ? sequenceQuery?.queryKey : undefined;
-  useEffect(() => {
-    if (sequenceKey) {
-      trackPlaybackQuery(dataContext.queryClient, sequenceKey);
-    }
-  }, [dataContext, sequenceKey]);
-
-  return { isAffordable, sequenceValue, hasSequenceFailed };
-}
-
-/* Value range for playback: whole sequence's range when it's affordable to fetch, otherwise
- * running range of slices shown so far. Kept after pausing, until the sequence changes (other
- * dimension sliced, axes remapped) or a new sequence is played. */
-function usePlaybackRange(
-  dataContext: DataContextValue,
-  getRequests: GetRequests,
-  dimMapping: DimensionMapping,
-  mapMapping: MapMapping,
-  range: PlaybackRange,
-  maxAutoFetchSize: number,
-) {
-  const [sequence, setSequence] = useState<{ dim: number; key: string }>();
-
-  // Sequence is identified by played dimension, other dimensions' slicing and datasets fetched
-  const datasetsKey = getGuardKey(getRequests(undefined));
-  function getSequenceKey(dim: number): string {
-    const mapping = getSequenceMapping(dimMapping, dim, mapMapping);
-    return `${dim}:${mapping.join(',')}:${datasetsKey}`;
-  }
-
-  const sequenceMapping =
-    sequence && getSequenceMapping(dimMapping, sequence.dim, mapMapping);
-  const key = sequence && getSequenceKey(sequence.dim);
-  const isActive = range === 'sequence' && !!sequence && key === sequence.key;
-
-  // Forget sequence once it changes (rather than reviving its range if it comes back)
-  const isStale = !!sequence && key !== sequence.key;
-  useEffect(() => {
-    if (isStale) {
-      setSequence(undefined);
-    }
-  }, [isStale]);
-
-  // Fetch values of the whole sequence if affordable, to get its range from the start
-  const signalRequest: ValueQueryParams | undefined = isActive
-    ? getRequests(getSliceSelection(sequenceMapping))[0]
-    : undefined;
-  const { isAffordable, sequenceValue, hasSequenceFailed } = useSequenceValues(
-    dataContext,
-    signalRequest,
-    maxAutoFetchSize,
-  );
-
-  const seenDomains = useMemo(() => new Map(), [key]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
-
-  const playbackRange = useMemo(
-    () =>
-      isActive && key
-        ? {
-            key,
-            sequenceValue: isAffordable ? sequenceValue : undefined,
-            seenDomains,
-          }
-        : undefined,
-    [isActive, key, isAffordable, sequenceValue, seenDomains],
-  );
-
-  return {
-    playbackRange,
-    // Wait for the sequence's range before moving on, so it applies from the first slice played
-    isRangePending:
-      isAffordable && sequenceValue === undefined && !hasSequenceFailed,
-    rangeHint:
-      range === 'sequence' && signalRequest && !isAffordable
-        ? 'Sequence too large to get its range: using range of slices shown so far'
-        : undefined,
-    startSequence: (dim: number) => {
-      setSequence({ dim, key: getSequenceKey(dim) });
-    },
-  };
 }
 
 export function useDatasetSlicingProps(

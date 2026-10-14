@@ -162,6 +162,39 @@ export function prefetchSlices(
   return isNextAllowed;
 }
 
+/* Put values of slices in cache (e.g. split from values of a whole sequence), so they don't
+ * need fetching; they are then evicted like values fetched for playback */
+export function seedSlices(
+  dataContext: DataContextValue,
+  state: PrefetchState,
+  entries: { request: ValueQueryParams; value: unknown }[],
+  limits = DEFAULT_LIMITS,
+): void {
+  const { queries, queryClient } = dataContext;
+
+  for (const { request, value } of entries) {
+    const { queryKey } = queries.value(request.dataset, request.selection);
+    if (queryClient.getQueryData(queryKey) !== undefined) {
+      continue;
+    }
+
+    const hash = hashKey(queryKey);
+    queryClient.setQueryData(queryKey, value);
+    state.fetched.delete(hash);
+    state.fetched.set(hash, {
+      queryKey,
+      size: getValueSize(request.dataset, request.selection),
+    });
+  }
+
+  evictPlayedValues(
+    dataContext,
+    state,
+    new Set([...state.wanted.keys(), ...state.current]),
+    limits.maxCacheSize,
+  );
+}
+
 /* On unmount: cancel pending prefetches and evict values fetched for playback (except those
  * of the current slice and those still in use) */
 export function releasePrefetches(

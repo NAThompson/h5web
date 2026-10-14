@@ -7,8 +7,10 @@ import { createContext, useContext, useEffect, useMemo } from 'react';
  * in place of the current slice's data domain. */
 export interface PlaybackRangeValue {
   key: string; // identifies the sequence; ranges are reset when it changes
-  sequenceValue: unknown; // values of all slices of the sequence, if known
+  sequenceValue: unknown; // values of all slices of the sequence, provided briefly once fetched
+  sequenceDomains: Map<string, Domain>; // range of whole sequence, per kind of domain
   seenDomains: Map<string, Domain>; // range of slices shown so far, per kind of domain
+  loading?: { queryHash: string; cancel: () => void }; // while fetching whole sequence
 }
 
 export const PlaybackRangeContext = createContext<
@@ -38,13 +40,22 @@ export function useStableDomain(
   const range = useContext(PlaybackRangeContext);
   const sequenceValue = range?.sequenceValue;
 
-  const sequenceDomain = useMemo(
+  const computedDomain = useMemo(
     () =>
       sequenceValue === undefined
         ? undefined
         : getSequenceDomain(sequenceValue),
     [sequenceValue, kind], // eslint-disable-line react-hooks/exhaustive-deps -- `kind` identifies `getSequenceDomain`
   );
+
+  // Sequence's values are dropped once its range is known, so remember it (outside of render)
+  useEffect(() => {
+    if (range && computedDomain) {
+      range.sequenceDomains.set(kind, computedDomain);
+    }
+  }, [range, kind, computedDomain]);
+
+  const sequenceDomain = computedDomain ?? range?.sequenceDomains.get(kind);
 
   const seenDomain = extendDomain(range?.seenDomains.get(kind), frameDomain);
 
