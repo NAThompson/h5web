@@ -68,21 +68,28 @@ function MappedComplexHeatmapVis(props: Props) {
   const phaseArray = useMappedArray(phase, ...mappingArgs);
   const amplitudeArray = useMappedArray(amplitude, ...mappingArgs);
 
-  const phaseDomain = useDomain(phase, { scaleType }) || DEFAULT_DOMAIN;
-  const amplitudeDomain = useDomain(amplitude, { scaleType }) || DEFAULT_DOMAIN;
+  // During playback, use range of whole sequence (cf. `useStableDomain`)
+  const phaseDomain =
+    useStableDomain(
+      useDomain(phase, { scaleType }),
+      `phase:${scaleType}`,
+      (seq) =>
+        getDomain(getPhaseAmplitude(seq as typeof value).phase, { scaleType }),
+    ) || DEFAULT_DOMAIN;
+  const amplitudeDomain =
+    useStableDomain(
+      useDomain(amplitude, { scaleType }),
+      `amplitude:${scaleType}`,
+      (seq) =>
+        getDomain(getPhaseAmplitude(seq as typeof value).amplitude, {
+          scaleType,
+        }),
+    ) || DEFAULT_DOMAIN;
 
-  const isPhase = complexVisType !== ComplexVisType.Amplitude;
-  const [dataArray, frameDomain] = isPhase
-    ? [phaseArray, phaseDomain]
-    : [amplitudeArray, amplitudeDomain];
-
-  const dataDomain =
-    useStableDomain(frameDomain, `${complexVisType}:${scaleType}`, (seq) => {
-      const seqValues = getPhaseAmplitude(seq as typeof value);
-      return getDomain(isPhase ? seqValues.phase : seqValues.amplitude, {
-        scaleType,
-      });
-    }) || DEFAULT_DOMAIN;
+  const [dataArray, dataDomain] =
+    complexVisType !== ComplexVisType.Amplitude
+      ? [phaseArray, phaseDomain]
+      : [amplitudeArray, amplitudeDomain];
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
