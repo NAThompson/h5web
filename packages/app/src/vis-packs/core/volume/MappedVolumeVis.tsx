@@ -14,9 +14,12 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
+import { type NumArray } from '@h5web/shared/vis-models';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useAttrValue } from '../../../hooks';
+import { findScalarStrAttr } from '../../../utils';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import {
   useIgnoreValue,
@@ -34,8 +37,9 @@ interface Props {
   toolbarContainer: HTMLDivElement | undefined;
   config: VolumeConfig;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
-  /* Whether axis values can be used to size the volume (i.e. they share a unit) */
+  /* Whether axis values can be used to size the volume and for gradients (i.e. they share a unit) */
   withPhysicalAspect?: boolean;
+  axisUnit?: string;
 }
 
 function MappedVolumeVis(props: Props) {
@@ -46,6 +50,7 @@ function MappedVolumeVis(props: Props) {
     config,
     axisValues = [],
     withPhysicalAspect = false,
+    axisUnit,
   } = props;
   const {
     customDomain,
@@ -78,23 +83,42 @@ function MappedVolumeVis(props: Props) {
     axisValues[2],
   ]);
   const axisCoords = useMemo(
-    () => [xValues, yValues, zValues] as const,
+    (): [NumArray | undefined, NumArray | undefined, NumArray | undefined] => [
+      xValues,
+      yValues,
+      zValues,
+    ],
     [xValues, yValues, zValues],
   );
   const boxSize = withPhysicalAspect
-    ? getBoxSizeFromAxes(dataArray.shape, [...axisCoords])
+    ? getBoxSizeFromAxes(dataArray.shape, axisCoords)
     : undefined;
 
+  // Gradients in axis units only if all three axes are usable and share a unit; otherwise per voxel
+  const isoAxisValues = useMemo(
+    () => (boxSize ? axisCoords : undefined),
+    [boxSize !== undefined, axisCoords], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const dataUnit = useAttrValue(dataset, findScalarStrAttr(dataset, 'units'));
+  const gradientLabel = getGradientLabel(
+    dataUnit,
+    isoAxisValues ? (axisUnit ?? 'axis unit') : 'voxel',
+  );
+
   const visibleLevels = isoLevels.filter((level) => level.visible);
-  const { geometries, progress, step } = useIsosurfaces(
+  const { geometries, progress, step, error, workerError } = useIsosurfaces(
     dataArray,
     visibleLevels.map((level) => level.value),
-    {
-      scaleType,
-      ignoreValue,
-      axisValues: useMemo(() => [...axisCoords], [axisCoords]),
-    },
+    { scaleType, ignoreValue, axisValues: isoAxisValues },
   );
+
+  const message = error
+    ? `Isosurface extraction failed: ${error.message}`
+    : !showVolume && visibleLevels.length === 0
+      ? 'Volume hidden and no visible isosurface: add a level or show the volume'
+      : workerError
+        ? `${workerError.message}: extracting on the main thread`
+        : undefined;
 
   const isosurfaces = visibleLevels.flatMap((level, i) => {
     const geometry = geometries[i];
@@ -142,10 +166,16 @@ function MappedVolumeVis(props: Props) {
         isoColorMode={isoColorMode}
         gradientDomain={gradientDomain}
         isoProgress={progress}
+        isoMessage={message}
+        gradientLabel={gradientLabel}
         boxSize={boxSize}
       />
     </>
   );
+}
+
+function getGradientLabel(dataUnit: string | undefined, per: string): string {
+  return `|∇f| (${dataUnit ? `${dataUnit} ` : ''}per ${per})`;
 }
 
 export default MappedVolumeVis;

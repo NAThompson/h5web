@@ -22,7 +22,8 @@ function VolumeVisContainer(props: VisContainerProps) {
 
   const config = useVolumeConfig();
 
-  // Size the volume by its axes only if they share a unit, as `keepRatio` does for heatmaps
+  // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
+  // as `keepRatio` does for heatmaps
   const dimUnits = useDimUnits(entity);
   const withPhysicalAspect =
     dimUnits.length === 3 && dimUnits.every((unit) => unit === dimUnits[0]);
@@ -42,6 +43,7 @@ function VolumeVisContainer(props: VisContainerProps) {
                 config={config}
                 axisValues={axisValues}
                 withPhysicalAspect={withPhysicalAspect}
+                axisUnit={withPhysicalAspect ? dimUnits[0] : undefined}
               />
             )}
           />

@@ -123,8 +123,9 @@ function createVolumeConfigStore() {
       {
         name: 'h5web:volume',
         version: 1,
-        // Iso levels depend on the dataset, so don't restore them after a reload
-        partialize: ({ isoLevels, ...state }) => state,
+        // Iso levels depend on the dataset, so don't restore them after a reload, nor a hidden
+        // volume (which, without levels, would leave an empty canvas)
+        partialize: ({ isoLevels, showVolume, ...state }) => state,
       },
     ),
   );
