@@ -43,7 +43,11 @@ function HeatmapVisContainer(props: VisContainerProps) {
   });
   const selection = getSliceSelection(dimMapping);
 
-  const slicingProps = useDatasetSlicingProps(entity);
+  const { slicingProps, playbackRange } = useDatasetSlicingProps(
+    entity,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -55,7 +59,11 @@ function HeatmapVisContainer(props: VisContainerProps) {
         {...slicingProps}
         onChange={setDimMapping}
       />
-      <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>
+      <VisBoundary
+        resetKey={dimMapping}
+        isSlice={selection !== undefined}
+        playbackRange={playbackRange}
+      >
         <ValueFetcher
           dataset={entity}
           selection={selection}

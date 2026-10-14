@@ -24,6 +24,17 @@ function getPlaybackQueries(queryClient: QueryClient): Set<string> {
   return hashes;
 }
 
+/* Flag a query as made for playback (e.g. values of a whole sequence, to get its range) */
+export function trackPlaybackQuery(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+): void {
+  getPlaybackQueries(queryClient).add(hashKey(queryKey));
+}
+
+// Rough memory taken by a cache entry besides its value (query, observers, keys...)
+const CACHE_ENTRY_OVERHEAD = 1024; // bytes
+
 export interface PrefetchLimits {
   maxPrefetchSize: number; // max size of slices fetched ahead of the current one (the next slice is always fetched)
   maxCacheSize: number; // max size of slices kept in cache after being fetched for playback
@@ -119,7 +130,7 @@ export function prefetchSlices(
       state.fetched.delete(hash);
       state.fetched.set(hash, {
         queryKey: options.queryKey,
-        size: getValueSize(dataset, selection),
+        size: getValueSize(dataset, selection) + CACHE_ENTRY_OVERHEAD,
       });
 
       if (query?.state.fetchStatus !== 'fetching') {
@@ -152,6 +163,40 @@ export function prefetchSlices(
   }
 
   return isNextAllowed;
+}
+
+/* Put values of slices in cache (e.g. split from values of a whole sequence), so they don't
+ * need fetching; they are then evicted like values fetched for playback */
+export function seedSlices(
+  dataContext: DataContextValue,
+  state: PrefetchState,
+  entries: { request: ValueQueryParams; value: unknown }[],
+  limits = DEFAULT_LIMITS,
+): void {
+  const { queries, queryClient } = dataContext;
+
+  for (const { request, value } of entries) {
+    const { queryKey } = queries.value(request.dataset, request.selection);
+    if (queryClient.getQueryData(queryKey) !== undefined) {
+      continue;
+    }
+
+    const hash = hashKey(queryKey);
+    queryClient.setQueryData(queryKey, value);
+    state.fetched.delete(hash);
+    state.fetched.set(hash, {
+      queryKey,
+      size:
+        getValueSize(request.dataset, request.selection) + CACHE_ENTRY_OVERHEAD,
+    });
+  }
+
+  evictPlayedValues(
+    dataContext,
+    state,
+    new Set([...state.wanted.keys(), ...state.current]),
+    limits.maxCacheSize,
+  );
 }
 
 /* On unmount: cancel pending prefetches and evict values fetched for playback (except those

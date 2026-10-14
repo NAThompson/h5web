@@ -23,7 +23,7 @@ function ScalarVisContainer(props: VisContainerProps) {
 
   const config = useScalarConfig();
   const selection = getSliceSelection(dimMapping);
-  const slicingProps = useDatasetSlicingProps(entity);
+  const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
 
   return (
     <>

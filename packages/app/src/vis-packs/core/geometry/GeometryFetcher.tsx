@@ -5,7 +5,7 @@ import { type ReactNode, useMemo } from 'react';
 import { useValue, useValues } from '../../../hooks';
 import LargeValueGuard from '../../LargeValueGuard';
 import { useIgnoreValues, usePackings } from '../../netcdf/hooks';
-import { unpackNumArray } from '../../netcdf/utils';
+import { type Packing, unpackNumArray } from '../../netcdf/utils';
 import { toNumArray } from '../utils';
 import { splitVertices, toCoordinateArray, useGeometry } from './hooks';
 import {
@@ -22,6 +22,7 @@ export interface GeometryData {
   shape: number[]; // `[N]` for curves, `[rows, cols]` for surfaces
   labels: [string | undefined, string | undefined, string | undefined];
   ignoreValue: IgnoreValue | undefined; // invalid values of the field (NetCDF)
+  packing: Packing | undefined; // packing of the field (NetCDF), e.g. to unpack other slices
 }
 
 interface Props {
@@ -93,6 +94,7 @@ function VertexValues(props: {
       shape: [dims[dims.length - 2]],
       labels: [`x${suffix}`, `y${suffix}`, z ? `z${suffix}` : undefined],
       ignoreValue: undefined,
+      packing: undefined,
     };
   }, [vertices, value, packing, ignoreValue, unit]);
 
@@ -152,8 +154,9 @@ function CoordinatesValues(props: {
       shape: xDef.dataset.shape.dims,
       labels: [xDef.label, yDef.label, zDef.label],
       ignoreValue: fieldIgnoreValue,
+      packing: fieldPacking,
     }),
-    [x, y, z, values, fieldIgnoreValue, xDef, yDef, zDef],
+    [x, y, z, values, fieldIgnoreValue, fieldPacking, xDef, yDef, zDef],
   );
 
   return render(data);

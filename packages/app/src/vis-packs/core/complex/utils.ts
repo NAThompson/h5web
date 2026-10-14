@@ -1,3 +1,4 @@
+import { getBounds, getValidDomainForScale } from '@h5web/lib';
 import { isComplexArray } from '@h5web/shared/guards';
 import {
   type ArrayValue,
@@ -5,7 +6,13 @@ import {
   type H5WebComplex,
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
-import { ComplexVisType, type NumArray } from '@h5web/shared/vis-models';
+import {
+  type Bounds,
+  ComplexVisType,
+  type Domain,
+  type NumArray,
+  type ScaleType,
+} from '@h5web/shared/vis-models';
 
 import { toNumArray } from '../utils';
 
@@ -87,4 +94,57 @@ export function getPhaseAmplitudeArrays(
   });
 
   return { phaseArrays, unwrappedPhaseArrays, amplitudeArrays };
+}
+
+const CHUNK_SIZE = 65_536;
+
+function mergeBounds(
+  a: Bounds | undefined,
+  b: Bounds | undefined,
+): Bounds | undefined {
+  if (!a || !b) {
+    return a ?? b;
+  }
+  return {
+    min: Math.min(a.min, b.min),
+    max: Math.max(a.max, b.max),
+    positiveMin: Math.min(a.positiveMin, b.positiveMin),
+    strictPositiveMin: Math.min(a.strictPositiveMin, b.strictPositiveMin),
+  };
+}
+
+/* Domain of the phase or amplitude of (possibly complex) values, computed chunk by chunk so
+ * that phase and amplitude arrays are never materialised for all values (e.g. whole sequence
+ * of slices during playback) */
+export function getPhaseAmplitudeDomain(
+  values: ArrayValue<NumericLikeType | ComplexType>,
+  part: 'phase' | 'amplitude',
+  scaleType: ScaleType,
+): Domain | undefined {
+  const complexValues = isComplexArray(values) ? values : undefined;
+  const realValues = complexValues
+    ? undefined
+    : toNumArray(values as ArrayValue<NumericLikeType>);
+  const chunk = new Float64Array(Math.min(CHUNK_SIZE, values.length));
+
+  let bounds: Bounds | undefined;
+  for (let start = 0; start < values.length; start += CHUNK_SIZE) {
+    const end = Math.min(start + CHUNK_SIZE, values.length);
+
+    for (let i = start; i < end; i += 1) {
+      if (complexValues) {
+        const [real, imag] = complexValues[i];
+        chunk[i - start] =
+          part === 'phase' ? Math.atan2(imag, real) : Math.hypot(real, imag);
+      } else {
+        // Consider real numbers as complex numbers with no imaginary parts (cf. `getPhaseAmplitudeArrays`)
+        chunk[i - start] =
+          part === 'phase' ? 0 : Math.abs(realValues?.[i] ?? 0);
+      }
+    }
+
+    bounds = mergeBounds(bounds, getBounds(chunk.subarray(0, end - start)));
+  }
+
+  return bounds && getValidDomainForScale(bounds, scaleType);
 }

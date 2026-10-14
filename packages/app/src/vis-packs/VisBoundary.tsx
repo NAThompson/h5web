@@ -4,37 +4,53 @@ import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../ErrorFallback';
 import { useDataContext } from '../providers/DataProvider';
 import visualizerStyles from '../visualizer/Visualizer.module.css';
+import {
+  PlaybackRangeContext,
+  type PlaybackRangeValue,
+} from './playback-range';
+import PlaybackRangeNotice from './PlaybackRangeNotice';
 import { isPlaybackQuery } from './prefetch';
 import ValueLoader from './ValueLoader';
 
 interface Props {
   resetKey?: unknown;
   isSlice?: boolean;
+  playbackRange?: PlaybackRangeValue; // value range to use during playback (cf. `useSlicingProps`)
 }
 
 function VisBoundary(props: PropsWithChildren<Props>) {
-  const { resetKey, isSlice, children } = props;
+  const { resetKey, isSlice, playbackRange, children } = props;
   const { queryClient } = useDataContext();
 
   return (
-    <ErrorBoundary
-      resetKeys={[resetKey]}
-      fallbackRender={(args) => (
-        <ErrorFallback className={visualizerStyles.vis} {...args} />
+    <>
+      {playbackRange?.loading && (
+        <PlaybackRangeNotice
+          key={playbackRange.loading.queryHash}
+          loading={playbackRange.loading}
+        />
       )}
-      onError={() => {
-        queryClient.removeQueries({
-          // Keep errors of slices prefetched for playback until playback stops (to avoid refetching them)
-          predicate: (query) =>
-            query.state.status === 'error' &&
-            !isPlaybackQuery(queryClient, query),
-        });
-      }}
-    >
-      <Suspense fallback={<ValueLoader isSlice={isSlice} />}>
-        {children}
-      </Suspense>
-    </ErrorBoundary>
+      <ErrorBoundary
+        resetKeys={[resetKey]}
+        fallbackRender={(args) => (
+          <ErrorFallback className={visualizerStyles.vis} {...args} />
+        )}
+        onError={() => {
+          queryClient.removeQueries({
+            // Keep errors of slices prefetched for playback until playback stops (to avoid refetching them)
+            predicate: (query) =>
+              query.state.status === 'error' &&
+              !isPlaybackQuery(queryClient, query),
+          });
+        }}
+      >
+        <Suspense fallback={<ValueLoader isSlice={isSlice} />}>
+          <PlaybackRangeContext value={playbackRange}>
+            {children}
+          </PlaybackRangeContext>
+        </Suspense>
+      </ErrorBoundary>
+    </>
   );
 }
 

@@ -41,7 +41,7 @@ function NxRgbContainer(props: VisContainerProps) {
   const axisLabels = axisDefs.map((def) => def?.label);
   const config = useRgbConfig();
 
-  const slicingProps = useNxSlicingProps(nxData);
+  const { slicingProps } = useNxSlicingProps(nxData, dimMapping);
 
   return (
     <>

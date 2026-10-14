@@ -45,7 +45,11 @@ function GeometryVisContainer(props: Props) {
 
   const selection = getSliceSelection(dimMapping);
   const dimHints = useDimHints(entity);
-  const slicingProps = useDatasetSlicingProps(entity);
+  const { slicingProps, playbackRange } = useDatasetSlicingProps(
+    entity,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -59,7 +63,11 @@ function GeometryVisContainer(props: Props) {
           onChange={setDimMapping}
         />
       )}
-      <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>
+      <VisBoundary
+        resetKey={dimMapping}
+        isSlice={selection !== undefined}
+        playbackRange={playbackRange}
+      >
         <GeometryFetcher
           dataset={entity}
           selection={selection}

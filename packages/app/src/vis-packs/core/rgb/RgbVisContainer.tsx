@@ -44,7 +44,7 @@ function RgbVisContainer(props: VisContainerProps) {
 
   const dimHints = useDimHints(entity);
 
-  const slicingProps = useDatasetSlicingProps(entity);
+  const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
 
   return (
     <>

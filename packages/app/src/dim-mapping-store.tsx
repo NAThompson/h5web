@@ -1,4 +1,5 @@
 import {
+  clampPlaybackFps,
   DEFAULT_PLAYBACK_SETTINGS,
   type DimensionMapping,
   initDimMapping,
@@ -13,6 +14,7 @@ import {
   useState,
 } from 'react';
 import { createStore, type StoreApi, useStore } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 import { type DefaultSlice } from './vis-packs/nexus/models';
 import { applyDefaultSlice, areSameDims } from './vis-packs/nexus/utils';
@@ -23,7 +25,6 @@ interface DimMappingState {
   lockedDimsCount: number;
   mapping: DimensionMapping;
   multiDim: number | undefined;
-  playbackSettings: PlaybackSettings; // kept across datasets
 }
 
 function createDimMappingStore() {
@@ -33,18 +34,82 @@ function createDimMappingStore() {
     lockedDimsCount: 0,
     mapping: [],
     multiDim: undefined,
-    playbackSettings: DEFAULT_PLAYBACK_SETTINGS,
   }));
 }
 
+interface PlaybackSettingsState {
+  playbackSettings: PlaybackSettings;
+}
+
+/* Playback settings are remembered across datasets, files and reloads (in a separate store, so
+ * slicing doesn't write to local storage) */
+const PLAYBACK_MODES = new Set<unknown>(['loop', 'bounce', 'once']);
+const PLAYBACK_TIMINGS = new Set<unknown>(['wait', 'realtime']);
+const PLAYBACK_RANGES = new Set<unknown>(['sequence', 'frame']);
+
+/* Persisted settings may be invalid (e.g. edited or saved by another version): use defaults */
+export function sanitizePlaybackSettings(settings: unknown): PlaybackSettings {
+  const { fps, mode, timing, range } = (
+    typeof settings === 'object' && settings !== null ? settings : {}
+  ) as Partial<Record<keyof PlaybackSettings, unknown>>;
+  const defaults = DEFAULT_PLAYBACK_SETTINGS;
+
+  return {
+    fps:
+      typeof fps === 'number' && Number.isFinite(fps)
+        ? clampPlaybackFps(fps)
+        : defaults.fps,
+    mode: PLAYBACK_MODES.has(mode)
+      ? (mode as PlaybackSettings['mode'])
+      : defaults.mode,
+    timing: PLAYBACK_TIMINGS.has(timing)
+      ? (timing as PlaybackSettings['timing'])
+      : defaults.timing,
+    range: PLAYBACK_RANGES.has(range)
+      ? (range as PlaybackSettings['range'])
+      : defaults.range,
+  };
+}
+
+function createPlaybackSettingsStore() {
+  return createStore<PlaybackSettingsState>()(
+    persist(
+      (): PlaybackSettingsState => ({
+        playbackSettings: DEFAULT_PLAYBACK_SETTINGS,
+      }),
+      {
+        name: 'h5web:playback',
+        version: 2,
+        migrate: (persisted) => persisted as PlaybackSettingsState, // sanitized in `merge`
+        merge: (persisted) => ({
+          playbackSettings: sanitizePlaybackSettings(
+            (persisted as Partial<PlaybackSettingsState> | undefined)
+              ?.playbackSettings,
+          ),
+        }),
+      },
+    ),
+  );
+}
+
 const StoreContext = createContext({} as StoreApi<DimMappingState>);
+const PlaybackStoreContext = createContext(
+  {} as StoreApi<PlaybackSettingsState>,
+);
 
 export function DimMappingProvider(props: PropsWithChildren) {
   const { children } = props;
 
   const [store] = useState(createDimMappingStore);
+  const [playbackStore] = useState(createPlaybackSettingsStore);
 
-  return <StoreContext value={store}>{children}</StoreContext>;
+  return (
+    <StoreContext value={store}>
+      <PlaybackStoreContext value={playbackStore}>
+        {children}
+      </PlaybackStoreContext>
+    </StoreContext>
+  );
 }
 
 export function useDimMappingState(opts: {
@@ -129,7 +194,7 @@ export function usePlaybackSettingsState(): [
   PlaybackSettings,
   (settings: PlaybackSettings) => void,
 ] {
-  const store = useContext(StoreContext);
+  const store = useContext(PlaybackStoreContext);
   const settings = useStore(store, (state) => state.playbackSettings);
   const setSettings = useCallback(
     (playbackSettings: PlaybackSettings) =>
