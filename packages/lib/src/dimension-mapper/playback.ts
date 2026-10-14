@@ -45,6 +45,7 @@ export interface PlaybackCursor {
 export interface PlaybackClock {
   cursor: PlaybackCursor;
   frameTime: number; // time at which the current frame was due
+  window?: number[]; // real-time mode: frames being prefetched since the last advance
 }
 
 export interface TickResult {
@@ -155,9 +156,9 @@ export function tickPlayback(
     return {
       clock,
       ended: false,
-      upcoming: toValues(
-        getUpcomingFrames(clock.cursor, settings, prefetchCount),
-      ),
+      upcoming:
+        clock.window ??
+        toValues(getUpcomingFrames(clock.cursor, settings, prefetchCount)),
       delay: Math.max(interval - elapsed, 1),
     };
   }
@@ -198,14 +199,35 @@ export function tickPlayback(
   );
 
   if (steps === 0) {
-    return { clock, ended: false, upcoming, delay: READY_POLL_INTERVAL };
+    if (timing === 'wait') {
+      return { clock, ended: false, upcoming, delay: READY_POLL_INTERVAL };
+    }
+
+    /* In real-time mode, the frames being prefetched may become late before they finish loading;
+     * keep prefetching them anyway (rather than cancelling them in favour of later frames, which
+     * may never finish loading either), until one of them can be shown. Only drop them if they
+     * are no longer part of the sequence (e.g. after changing the mode). */
+    const candidateValues = new Set(toValues(candidates));
+    const isWindowValid = clock.window?.some((val) => candidateValues.has(val));
+    const window = isWindowValid && clock.window ? clock.window : upcoming;
+
+    return {
+      clock: window === clock.window ? clock : { ...clock, window },
+      ended: false,
+      upcoming: window,
+      delay: READY_POLL_INTERVAL,
+    };
   }
 
   const isLate = timing === 'wait' && elapsed >= 2 * interval;
   const frameTime = isLate ? now : clock.frameTime + steps * interval;
 
   return {
-    clock: { cursor: candidates[shownIndex], frameTime },
+    clock: {
+      cursor: candidates[shownIndex],
+      frameTime,
+      window: timing === 'realtime' ? upcoming : undefined,
+    },
     ended: false,
     upcoming,
     delay: Math.max(frameTime + interval - now, 1),

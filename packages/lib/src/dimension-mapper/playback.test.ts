@@ -30,6 +30,10 @@ function allReady(): boolean {
   return true;
 }
 
+function noneReady(): boolean {
+  return false;
+}
+
 describe('getNextFrame', () => {
   it('should loop back to start', () => {
     expect(sequence('loop', 4, 1, 1, 6)).toStrictEqual([2, 3, 0, 1, 2, 3]);
@@ -174,7 +178,43 @@ describe('tickPlayback', () => {
       settings('realtime'),
       (val) => val > 5,
     );
-    expect(res.clock).toBe(clock);
+    expect(res.clock.cursor).toBe(clock.cursor);
+    expect(res.clock.frameTime).toBe(0);
+    expect(res.upcoming).toStrictEqual([5, 6, 7, 8, 9]);
+  });
+
+  it('should keep prefetching late frames in real-time mode until one is shown', () => {
+    const first = tickPlayback(clock, 100, settings('realtime'), noneReady);
+    expect(first.upcoming).toStrictEqual([1, 2, 3, 4, 5]);
+
+    // Frames being prefetched are late, but don't cancel them in favour of later ones
+    const second = tickPlayback(
+      first.clock,
+      900,
+      settings('realtime'),
+      noneReady,
+    );
+    expect(second.upcoming).toStrictEqual([1, 2, 3, 4, 5]);
+
+    // Once one is ready, skip to it and prefetch from the current position
+    const third = tickPlayback(
+      second.clock,
+      950,
+      settings('realtime'),
+      (val) => val === 3,
+    );
+    expect(third.clock.cursor.value).toBe(3);
+    expect(third.upcoming).toStrictEqual([9, 10, 11, 12, 13]);
+  });
+
+  it('should drop prefetched frames no longer in sequence in real-time mode', () => {
+    const staleClock = { ...clock, window: [42] };
+    const res = tickPlayback(
+      staleClock,
+      550,
+      settings('realtime'),
+      () => false,
+    );
     expect(res.upcoming).toStrictEqual([5, 6, 7, 8, 9]);
   });
 
