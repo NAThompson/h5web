@@ -1,6 +1,49 @@
 import { type AuxiliaryParams, type AxisParams } from '@h5web/lib';
-import { type NumArray } from '@h5web/shared/vis-models';
-import { type NdArray } from 'ndarray';
+import { type DimensionMapping, type NumArray } from '@h5web/shared/vis-models';
+import { formatTick } from '@h5web/shared/vis-utils';
+import ndarray, { type NdArray } from 'ndarray';
+
+// Map multi-plotting dimension to `y` axis so that all its slices are fetched at once and become the rows of a 2D array
+export function getMultiPlotMapping(
+  dimMapping: DimensionMapping,
+  multiDim: number | undefined,
+): DimensionMapping {
+  if (multiDim === undefined) {
+    return dimMapping;
+  }
+
+  return dimMapping.map((val, i) => (i === multiDim ? 'y' : val));
+}
+
+// Label slice of multi-plotting dimension with its dimension scale value when available
+// (e.g. HDF5 dimension scale, NeXus axis), or with its index otherwise
+export function getMultiPlotSliceLabel(
+  dim: number,
+  index: number,
+  axisLabel: string | undefined,
+  axisValues: NumArray | undefined,
+): string {
+  const scaleValue = axisValues?.[index];
+  if (scaleValue === undefined) {
+    return `D${dim}[${index}]`;
+  }
+
+  return `${axisLabel ?? `D${dim}`}: ${formatTick(scaleValue)}`;
+}
+
+// Split 2D array into its rows without copying (mapped arrays are contiguous)
+export function getRows(array: NdArray<NumArray>): NdArray<NumArray>[] {
+  const { data, shape } = array;
+  const [rowCount, rowLength] = shape;
+
+  return Array.from({ length: rowCount }, (_, i) => {
+    const start = i * rowLength;
+    const end = start + rowLength;
+    return ndarray(
+      Array.isArray(data) ? data.slice(start, end) : data.subarray(start, end),
+    );
+  });
+}
 
 export function generateCsv(
   name: string,

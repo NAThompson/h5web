@@ -4,6 +4,7 @@ import {
   assertDataset,
   assertNumericLikeType,
 } from '@h5web/shared/guards';
+import { useMemo } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
@@ -14,6 +15,7 @@ import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
 import MappedLineVis from './MappedLineVis';
+import { getMultiPlotMapping } from './utils';
 
 function LineVisContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -22,13 +24,18 @@ function LineVisContainer(props: VisContainerProps) {
   assertNumericLikeType(entity);
 
   const { dims } = entity.shape;
-  const [dimMapping, setDimMapping] = useDimMappingState({
-    dims,
-    axesCount: 1,
-  });
+  const [dimMapping, setDimMapping, multiDim, setMultiDim] = useDimMappingState(
+    { dims, axesCount: 1 },
+  );
+
+  const lineMapping = useMemo(
+    () => getMultiPlotMapping(dimMapping, multiDim),
+    [dimMapping, multiDim],
+  );
 
   const config = useLineConfig();
-  const selection = getSliceSelection(dimMapping);
+  const selection = getSliceSelection(lineMapping);
+  const isCached = useValuesInCache(entity);
 
   const { axisLabels, axisValues } = useDimScales(entity);
 
@@ -39,10 +46,12 @@ function LineVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={axisLabels}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
+        canSliceFast={(m) => isCached(getMultiPlotMapping(m, multiDim))}
         onChange={setDimMapping}
+        multiDim={multiDim}
+        onMultiDimChange={setMultiDim}
       />
-      <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>
+      <VisBoundary resetKey={lineMapping} isSlice={selection !== undefined}>
         <ValueFetcher
           dataset={entity}
           selection={selection}
@@ -50,7 +59,7 @@ function LineVisContainer(props: VisContainerProps) {
             <MappedLineVis
               dataset={entity}
               value={value}
-              dimMapping={dimMapping}
+              dimMapping={lineMapping}
               axisLabels={axisLabels}
               axisValues={axisValues}
               title={entity.name}

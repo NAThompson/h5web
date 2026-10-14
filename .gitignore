@@ -11,6 +11,7 @@ dist*/
 /coverage/
 /packages/app/.vitest-attachments/
 /packages/app/src/__tests__/__screenshots__/
+.vitest-attachments/
 /support/h5grove/__pycache__/
 /support/hsds/hsdstest/
 
