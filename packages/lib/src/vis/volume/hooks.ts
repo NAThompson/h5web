@@ -116,6 +116,13 @@ export function useIsosurfaces(
       return next.size === prev.size ? prev : next;
     });
 
+    // Drop surfaces of previous volumes
+    setCache((prev) => {
+      const prefix = `${volumeId}|`;
+      const next = new Map([...prev].filter(([key]) => key.startsWith(prefix)));
+      return next.size === prev.size ? prev : next;
+    });
+
     if (volumeId === undefined) {
       return;
     }
@@ -182,10 +189,17 @@ export function useIsosurfaces(
         progressValues.length
       : undefined;
 
+  // Keep the same array while surfaces don't change, e.g. for memoizing their gradient domain
+  const geometries = useMemo(
+    () =>
+      levels.map((level) =>
+        volumeId === undefined ? undefined : cache.get(getKey(level)),
+      ),
+    [cache, volumeId, levelsKey, scaleKey, step], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   return {
-    geometries: levels.map((level) =>
-      volumeId === undefined ? undefined : cache.get(getKey(level)),
-    ),
+    geometries,
     progress,
     step,
     error,
