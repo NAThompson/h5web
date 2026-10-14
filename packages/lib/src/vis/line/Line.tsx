@@ -1,6 +1,6 @@
 import { type IgnoreValue, type NumArray } from '@h5web/shared/vis-models';
-import { extend } from '@react-three/fiber';
-import { type ComponentProps, useMemo } from 'react';
+import { extend, type ThreeElement } from '@react-three/fiber';
+import { useMemo } from 'react';
 import { Line2 as ThreeLine2 } from 'three/addons/lines/Line2.js';
 import {
   LineMaterial as ThreeLineMaterial,
@@ -21,7 +21,7 @@ import { Interpolation } from './models';
 const Line2 = extend(ThreeLine2);
 const LineMaterial = extend(ThreeLineMaterial);
 
-interface Props extends ComponentProps<typeof Line2> {
+interface Props extends ThreeElement<typeof ThreeLine2> {
   abscissas: NumArray;
   ordinates: NumArray;
   color: string;
