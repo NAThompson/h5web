@@ -9,7 +9,8 @@ import {
 import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useDimScales } from '../../dimscales/hooks';
+import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
+import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import { useHeatmapConfig } from '../heatmap/config';
@@ -32,14 +33,14 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
   const config = useHeatmapConfig();
   const selection = getSliceSelection(dimMapping);
 
-  const { axisLabels, axisValues } = useDimScales(entity);
+  const dimHints = useDimHints(entity);
 
   return (
     <>
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
-        dimHints={axisLabels}
+        dimHints={dimHints}
         dimMapping={dimMapping}
         canSliceFast={useValuesInCache(entity)}
         onChange={setDimMapping}
@@ -49,15 +50,20 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
           dataset={entity}
           selection={selection}
           render={(value) => (
-            <MappedComplexHeatmapVis
-              value={value}
-              dims={dims}
-              dimMapping={dimMapping}
-              axisLabels={axisLabels}
-              axisValues={axisValues}
-              title={entity.name}
-              toolbarContainer={toolbarContainer}
-              config={config}
+            <DimScalesFetcher
+              dataset={entity}
+              render={({ axisLabels, axisValues }) => (
+                <MappedComplexHeatmapVis
+                  value={value}
+                  dims={dims}
+                  dimMapping={dimMapping}
+                  axisLabels={axisLabels}
+                  axisValues={axisValues}
+                  title={entity.name}
+                  toolbarContainer={toolbarContainer}
+                  config={config}
+                />
+              )}
             />
           )}
         />

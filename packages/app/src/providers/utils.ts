@@ -14,6 +14,7 @@ import {
   type BigIntTypedArrayConstructor,
   type TypedArrayConstructor,
 } from '@h5web/shared/vis-models';
+import { CancelledError } from '@tanstack/react-query';
 import { type AxiosError, type AxiosInstance } from 'axios';
 
 import { type DataProviderApi } from './api';
@@ -270,4 +271,26 @@ export class FetcherError extends Error {
     super(`Request failed: ${status} ${statusText}`, { cause });
     this.name = 'FetcherError';
   }
+}
+
+/* Names are matched rather than classes, as names survive worker boundaries.
+ * `ReadError` is the name `@h5web/h5wasm` gives to failed reads of lazily-fetched files. */
+const TRANSPORT_ERROR_NAMES = new Set([
+  'AbortError',
+  'TimeoutError',
+  'NetworkError',
+  'ReadError',
+]);
+
+/* Whether an error occurred while getting data in or out of HDF5 (failed,
+ * cancelled or timed-out request, unrecognised server error, etc.) rather than
+ * being reported by HDF5 itself. Such an error says nothing about the data, so
+ * it must not be mistaken for missing or unusable data. */
+export function isTransportError(error: unknown): boolean {
+  return (
+    error instanceof FetcherError || // not recognised as an HDF5 error by the provider
+    error instanceof CancelledError ||
+    error instanceof TypeError || // `fetch` rejects with `TypeError` on network failure
+    (error instanceof Error && TRANSPORT_ERROR_NAMES.has(error.name))
+  );
 }

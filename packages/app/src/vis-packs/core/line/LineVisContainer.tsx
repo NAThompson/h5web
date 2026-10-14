@@ -9,7 +9,8 @@ import { useMemo } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useDimScales } from '../../dimscales/hooks';
+import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
+import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
@@ -37,14 +38,14 @@ function LineVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(lineMapping);
   const isCached = useValuesInCache(entity);
 
-  const { axisLabels, axisValues } = useDimScales(entity);
+  const dimHints = useDimHints(entity);
 
   return (
     <>
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
-        dimHints={axisLabels}
+        dimHints={dimHints}
         dimMapping={dimMapping}
         canSliceFast={(m) => isCached(getMultiPlotMapping(m, multiDim))}
         onChange={setDimMapping}
@@ -56,15 +57,20 @@ function LineVisContainer(props: VisContainerProps) {
           dataset={entity}
           selection={selection}
           render={(value) => (
-            <MappedLineVis
+            <DimScalesFetcher
               dataset={entity}
-              value={value}
-              dimMapping={lineMapping}
-              axisLabels={axisLabels}
-              axisValues={axisValues}
-              title={entity.name}
-              toolbarContainer={toolbarContainer}
-              config={config}
+              render={({ axisLabels, axisValues }) => (
+                <MappedLineVis
+                  dataset={entity}
+                  value={value}
+                  dimMapping={lineMapping}
+                  axisLabels={axisLabels}
+                  axisValues={axisValues}
+                  title={entity.name}
+                  toolbarContainer={toolbarContainer}
+                  config={config}
+                />
+              )}
             />
           )}
         />

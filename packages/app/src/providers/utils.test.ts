@@ -1,7 +1,13 @@
+import { CancelledError } from '@tanstack/react-query';
 import { type AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createAxiosFetcher, createBasicFetcher, FetcherError } from './utils';
+import {
+  createAxiosFetcher,
+  createBasicFetcher,
+  FetcherError,
+  isTransportError,
+} from './utils';
 
 const TOO_LARGE_HINT = 'may be too large to be loaded in the browser';
 
@@ -73,6 +79,37 @@ describe('createAxiosFetcher', () => {
       createAxiosFetcher(axiosInstance)('/data', {}),
     ).rejects.toThrow(
       `Failed to read response; the requested data ${TOO_LARGE_HINT}`,
+    );
+  });
+});
+
+describe('isTransportError', () => {
+  it('should detect errors raised while fetching data', () => {
+    expect(isTransportError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(
+      isTransportError(
+        new FetcherError(502, 'Bad Gateway', new ArrayBuffer(0)),
+      ),
+    ).toBe(true);
+    expect(isTransportError(new CancelledError())).toBe(true);
+    expect(isTransportError(new DOMException('', 'TimeoutError'))).toBe(true);
+  });
+
+  it('should detect failed reads named across a worker boundary', () => {
+    // Workers transfer errors as plain `Error` objects with the original name
+    const error = Object.assign(new Error('Could not fetch range'), {
+      name: 'ReadError',
+    });
+    expect(isTransportError(error)).toBe(true);
+  });
+
+  it('should not mistake HDF5 errors for transport errors', () => {
+    expect(isTransportError(new Error('No entity found at /foo'))).toBe(false);
+
+    // Provider recognised the server's error payload as an HDF5 error
+    const cause = new FetcherError(404, 'Not Found', new ArrayBuffer(0));
+    expect(isTransportError(new Error('not a valid path', { cause }))).toBe(
+      false,
     );
   });
 });

@@ -15,6 +15,7 @@ import {
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 
 import { type DataContextValue } from '../../providers/DataProvider';
+import { isTransportError } from '../../providers/utils';
 import {
   findAttribute,
   findScalarStrAttr,
@@ -98,7 +99,7 @@ export function isUsableScale(
  * bin centres still gets an axis. The spec allows a scale of "any rank and
  * shape" and leaves it "up to the application to interpret or resolve the
  * difference", so an unusable scale falls back to the index axis rather than
- * erroring. */
+ * erroring. Errors that are not HDF5's own (e.g. network errors) are rethrown. */
 async function findUsableScale(
   scalePaths: string[],
   dimSize: number,
@@ -116,7 +117,13 @@ async function findUsableScale(
         assertValue(value, entity);
         return { dataset: entity, value };
       }
-    } catch {
+    } catch (error) {
+      /* A network error, say, tells nothing about the scale: falling back to the
+       * index axis would plot the data against the wrong axis, and cache it. */
+      if (isTransportError(error)) {
+        throw error;
+      }
+
       // Unlinked or unreadable scale, say: try the next one, else fall back to the index axis
     }
   }

@@ -8,7 +8,8 @@ import {
 import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useDimScales } from '../../dimscales/hooks';
+import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
+import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import { useLineConfig } from '../line/config';
@@ -30,14 +31,14 @@ function ComplexLineVisContainer(props: VisContainerProps) {
   const config = useLineConfig();
   const selection = getSliceSelection(dimMapping);
 
-  const { axisLabels, axisValues } = useDimScales(entity);
+  const dimHints = useDimHints(entity);
 
   return (
     <>
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
-        dimHints={axisLabels}
+        dimHints={dimHints}
         dimMapping={dimMapping}
         canSliceFast={useValuesInCache(entity)}
         onChange={setDimMapping}
@@ -47,15 +48,20 @@ function ComplexLineVisContainer(props: VisContainerProps) {
           dataset={entity}
           selection={selection}
           render={(value) => (
-            <MappedComplexLineVis
-              value={value}
-              dims={dims}
-              dimMapping={dimMapping}
-              axisLabels={axisLabels}
-              axisValues={axisValues}
-              title={entity.name}
-              toolbarContainer={toolbarContainer}
-              config={config}
+            <DimScalesFetcher
+              dataset={entity}
+              render={({ axisLabels, axisValues }) => (
+                <MappedComplexLineVis
+                  value={value}
+                  dims={dims}
+                  dimMapping={dimMapping}
+                  axisLabels={axisLabels}
+                  axisValues={axisValues}
+                  title={entity.name}
+                  toolbarContainer={toolbarContainer}
+                  config={config}
+                />
+              )}
             />
           )}
         />

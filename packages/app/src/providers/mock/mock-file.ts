@@ -556,6 +556,13 @@ export function makeMockFile(): GroupWithChildren {
           // `error_value` has the right shape but can't be read, so `X` is used
           scales: [['/dimension_scales/error_value', '/dimension_scales/X']],
         }),
+        array('network_error_value', { valueId: 'X' }), // see `MockApi#getValue`
+        withDimScales(array('oneD_network_error_scale', { valueId: 'oneD' }), {
+          // Can't tell whether `network_error_value` is usable, so `X` must not be used instead
+          scales: [
+            ['/dimension_scales/network_error_value', '/dimension_scales/X'],
+          ],
+        }),
         withDimScales(array('twoD', { valueId: 'twoD' }), {
           labels: [undefined, 'column'],
           scales: [[], ['/dimension_scales/X']],
