@@ -15,6 +15,7 @@ import {
   type ComplexHeatmapVisType,
   ComplexVisType,
   type ExportEntry,
+  ScaleType,
 } from '@h5web/shared/vis-models';
 import {
   MdAspectRatio,
@@ -50,6 +51,54 @@ interface Props {
   onCustomContourLevelsChange?: (levels: number[]) => void;
 }
 
+/**
+ * Settings that toolbar controls are bound to, depending on what is shown:
+ * - 3D surfaces have their own keep-ratio setting;
+ * - 3D surfaces of complex values have their own complex mode and height domain;
+ * - phase of complex values is coloured with its own (cyclic) colour map, in 2D and 3D;
+ * - phase as height is always linear.
+ */
+function getBoundSettings(
+  config: HeatmapConfig,
+  isComplex: boolean,
+  showSurface: boolean,
+) {
+  const isComplexSurface = isComplex && showSurface;
+  const complexVisType = isComplexSurface
+    ? config.surfaceComplexVisType
+    : config.complexVisType;
+  const showsPhaseColors =
+    isComplex && complexVisType !== ComplexVisType.Amplitude;
+
+  return {
+    complexVisType,
+    setComplexVisType: isComplexSurface
+      ? config.setSurfaceComplexVisType
+      : config.setComplexVisType,
+    customDomain: isComplexSurface
+      ? config.surfaceCustomDomain
+      : config.customDomain,
+    setCustomDomain: isComplexSurface
+      ? config.setSurfaceCustomDomain
+      : config.setCustomDomain,
+    keepRatio: showSurface ? config.surfaceKeepRatio : config.keepRatio,
+    setKeepRatio: showSurface
+      ? config.setSurfaceKeepRatio
+      : config.setKeepRatio,
+    colorMap: showsPhaseColors ? config.phaseColorMap : config.colorMap,
+    setColorMap: showsPhaseColors
+      ? config.setPhaseColorMap
+      : config.setColorMap,
+    invertColorMap: showsPhaseColors
+      ? config.invertPhaseColorMap
+      : config.invertColorMap,
+    setInvertColorMap: showsPhaseColors
+      ? config.setInvertPhaseColorMap
+      : config.setInvertColorMap,
+    withScale: !(isComplexSurface && complexVisType === ComplexVisType.Phase),
+  };
+}
+
 function HeatmapToolbar(props: Props) {
   const visArea = useVisArea();
   const {
@@ -64,48 +113,36 @@ function HeatmapToolbar(props: Props) {
     onCustomContourLevelsChange = () => {},
   } = props;
   const {
-    customDomain,
-    colorMap,
-    invertColorMap,
     scaleType,
-    complexVisType,
     showGrid,
-    keepRatio,
     flipXAxis,
     flipYAxis,
     surface,
     heightScale,
     shading,
-    setCustomDomain,
-    setColorMap,
-    setInvertColorMap,
     setScaleType,
-    setComplexVisType,
     setShowGrid,
-    setKeepRatio,
     setFlipXAxis,
     setFlipYAxis,
     setSurface,
     setHeightScale,
     setShading,
-    phaseColorMap,
-    setPhaseColorMap,
   } = config;
 
-  const showSurface = withSurface && surface;
-
-  // On 3D surfaces of complex values, colour shows phase (unless in amplitude mode) with a cyclic colour map
-  const showsPhaseColors =
-    isComplex && showSurface && complexVisType !== ComplexVisType.Amplitude;
-
-  function toggleSurface() {
-    // For complex values, start from the "analytic landscape": height = amplitude, colour = phase
-    if (isComplex && !surface && complexVisType === ComplexVisType.Amplitude) {
-      setComplexVisType(ComplexVisType.PhaseAmplitude);
-    }
-
-    setSurface(!surface);
-  }
+  const showSurface = !!withSurface && surface;
+  const {
+    complexVisType,
+    setComplexVisType,
+    customDomain,
+    setCustomDomain,
+    keepRatio,
+    setKeepRatio,
+    colorMap,
+    setColorMap,
+    invertColorMap,
+    setInvertColorMap,
+    withScale,
+  } = getBoundSettings(config, !!isComplex, showSurface);
 
   return (
     <Toolbar
@@ -120,7 +157,7 @@ function HeatmapToolbar(props: Props) {
             aria-label="Show as 3D surface"
             Icon={MdViewInAr}
             value={surface}
-            onToggle={toggleSurface}
+            onToggle={() => setSurface(!surface)}
           />
 
           {surface && (
@@ -145,25 +182,28 @@ function HeatmapToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={scaleType}
+        scaleType={withScale ? scaleType : ScaleType.Linear}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
 
       <ColorMapSelector
-        value={showsPhaseColors ? phaseColorMap : colorMap}
-        onValueChange={showsPhaseColors ? setPhaseColorMap : setColorMap}
+        value={colorMap}
+        onValueChange={setColorMap}
         invert={invertColorMap}
         onInversionChange={() => setInvertColorMap(!invertColorMap)}
       />
 
       <Separator />
 
-      <ScaleSelector
-        value={scaleType}
-        onScaleChange={setScaleType}
-        options={COLOR_SCALE_TYPES}
-      />
+      {/* Phase as height is always linear */}
+      {withScale && (
+        <ScaleSelector
+          value={scaleType}
+          onScaleChange={setScaleType}
+          options={COLOR_SCALE_TYPES}
+        />
+      )}
 
       {isComplex && (
         <ComplexVisTypeSelector

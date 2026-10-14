@@ -33,7 +33,7 @@ test(
 
     await user.click(surfaceBtn());
 
-    // Switches to "Phase & Amplitude": amplitude as height, phase as colour
+    // 3D has its own mode, "Phase & Amplitude" by default: amplitude as height, phase as colour
     const figure = page.getByRole('figure', {
       name: 'twoD_complex (phase & amplitude)',
     });
@@ -48,10 +48,13 @@ test(
     expect(figure.getByLabelText('Max: 3.142e+0')).toBeVisible();
     expect(page.getByRole('combobox', { name: /HSL/u })).toBeVisible();
 
-    // Back to 2D: phase coloured, amplitude as alpha
+    // Back to 2D: amplitude, as before (2D mode untouched)
     await user.click(surfaceBtn());
     expect(resetViewBtn()).not.toBeInTheDocument();
-    await expect.element(figure).toBeVisible();
+    await expect
+      .element(page.getByRole('figure', { name: 'twoD_complex (amplitude)' }))
+      .toBeVisible();
+    expect(page.getByRole('combobox', { name: '𝓐 Amplitude' })).toBeVisible();
   },
   SURFACE_TEST_TIMEOUT,
 );
@@ -82,6 +85,96 @@ test(
     const { user } = await renderApp('/nexus/image_complex');
     await user.click(surfaceBtn());
     await expect.element(resetViewBtn()).toBeVisible();
+  },
+  SURFACE_TEST_TIMEOUT,
+);
+
+test(
+  'keep 2D and 3D complex modes separate, across reloads',
+  async () => {
+    const { user, unmount } = await renderApp('/arrays/twoD_complex');
+
+    // 2D: phase
+    await user.click(page.getByRole('combobox', { name: '𝓐 Amplitude' }));
+    await user.click(page.getByRole('option', { name: 'φ Phase' }));
+
+    // 3D: amplitude
+    await user.click(surfaceBtn());
+    await user.click(page.getByRole('combobox', { name: 'φ𝓐 Phase & Amp.' }));
+    await user.click(page.getByRole('option', { name: '𝓐 Amplitude' }));
+    await expect
+      .element(page.getByRole('figure', { name: 'twoD_complex (amplitude)' }))
+      .toBeVisible();
+
+    await user.click(surfaceBtn());
+    await expect
+      .element(page.getByRole('figure', { name: 'twoD_complex (phase)' }))
+      .toBeVisible();
+
+    // Reload: 2D opens in phase mode (3D mode itself is not restored)...
+    await unmount();
+    const { user: user2 } = await renderApp('/arrays/twoD_complex');
+    await expect
+      .element(page.getByRole('figure', { name: 'twoD_complex (phase)' }))
+      .toBeVisible();
+    expect(resetViewBtn()).not.toBeInTheDocument();
+
+    // ... and 3D comes back in amplitude mode
+    await user2.click(surfaceBtn());
+    await expect
+      .element(page.getByRole('figure', { name: 'twoD_complex (amplitude)' }))
+      .toBeVisible();
+    await expect.element(resetViewBtn()).toBeVisible();
+  },
+  SURFACE_TEST_TIMEOUT,
+);
+
+test(
+  'colour phase with cyclic colour map in 2D too, and keep phase height linear',
+  async () => {
+    const { user } = await renderApp('/arrays/twoD_complex');
+
+    // 2D phase: cyclic colour map, while amplitude keeps Viridis
+    expect(page.getByRole('combobox', { name: /Viridis/u })).toBeVisible();
+    await user.click(page.getByRole('combobox', { name: '𝓐 Amplitude' }));
+    await user.click(page.getByRole('option', { name: 'φ Phase' }));
+    expect(page.getByRole('combobox', { name: /HSL/u })).toBeVisible();
+
+    // Log scale for amplitude...
+    await user.click(page.getByRole('combobox', { name: /Linear/u }));
+    await user.click(page.getByRole('option', { name: 'Log', exact: true }));
+
+    // ... does not apply to phase as height: no scale selector
+    await user.click(surfaceBtn());
+    await user.click(page.getByRole('combobox', { name: 'φ𝓐 Phase & Amp.' }));
+    await user.click(page.getByRole('option', { name: 'φ Phase' }));
+    await expect
+      .element(page.getByRole('figure', { name: 'twoD_complex (phase)' }))
+      .toBeVisible();
+    expect(
+      page.getByRole('combobox', { name: /Linear|Log/u }),
+    ).not.toBeInTheDocument();
+  },
+  SURFACE_TEST_TIMEOUT,
+);
+
+test(
+  'show transposed complex slices in 3D',
+  async () => {
+    const { user } = await renderApp('/arrays/twoD_complex');
+    await user.click(surfaceBtn());
+    await expect.element(resetViewBtn()).toBeVisible();
+
+    // Swap axes: height and colour arrays are both transposed views
+    const xRadioGroup = page.getByLabelText('Dimension as x axis');
+    await user.click(xRadioGroup.getByRole('radio', { name: 'D0' }));
+
+    const figure = page.getByRole('figure', {
+      name: 'twoD_complex (phase & amplitude)',
+    });
+    await expect.element(figure).toBeVisible();
+    expect(resetViewBtn()).toBeVisible();
+    expect(figure.getByLabelText('Max: 3.142e+0')).toBeVisible();
   },
   SURFACE_TEST_TIMEOUT,
 );
