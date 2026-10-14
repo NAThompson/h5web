@@ -56,3 +56,21 @@ test('open and close files in strict mode', async () => {
   await unmount();
   await vi.waitFor(() => expect(cleanUpSpy).toHaveBeenCalledTimes(2));
 });
+
+test('open file with wasm64 build of h5wasm', async () => {
+  await render(
+    <div style={{ height: '100vh' }}>
+      <H5WasmBufferProvider
+        filename="wasm64.h5"
+        buffer={await createFileBuffer('baz')}
+        wasm64
+      >
+        <App />
+      </H5WasmBufferProvider>
+    </div>,
+  );
+
+  await expect
+    .element(page.getByRole('treeitem', { name: 'baz', exact: true }))
+    .toBeVisible();
+});
