@@ -1,4 +1,9 @@
-import { hashKey, type Query, type QueryKey } from '@tanstack/react-query';
+import {
+  hashKey,
+  type Query,
+  type QueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 
 import { type DataContextValue } from '../providers/DataProvider';
 import { type ValueQueryParams } from '../providers/models';
@@ -6,8 +11,18 @@ import { isValueInCache } from '../utils';
 import { getSizeToConfirm } from './LargeValueGuard';
 import { getValueSize } from './utils';
 
-// Marks queries created for playback, so errors are kept in cache until playback stops
-export const PLAYBACK_QUERY_META = 'h5web:playback';
+/* Hashes of queries created for playback, so their errors are kept in cache until playback
+ * stops (tracked separately from query options, which observers overwrite) */
+const playbackQueries = new WeakMap<QueryClient, Set<string>>();
+
+function getPlaybackQueries(queryClient: QueryClient): Set<string> {
+  let hashes = playbackQueries.get(queryClient);
+  if (!hashes) {
+    hashes = new Set();
+    playbackQueries.set(queryClient, hashes);
+  }
+  return hashes;
+}
 
 export interface PrefetchLimits {
   maxPrefetchSize: number; // max size of slices fetched ahead of the current one (the next slice is always fetched)
@@ -34,8 +49,11 @@ export function createPrefetchState(): PrefetchState {
   return { wanted: new Map(), fetched: new Map(), current: new Set() };
 }
 
-export function isPlaybackQuery(query: Query): boolean {
-  return query.meta?.[PLAYBACK_QUERY_META] === true;
+export function isPlaybackQuery(
+  queryClient: QueryClient,
+  query: Query,
+): boolean {
+  return getPlaybackQueries(queryClient).has(query.queryHash);
 }
 
 /* Fetch the values of upcoming slices ahead of playback, cancel prefetches that are no longer
@@ -105,12 +123,10 @@ export function prefetchSlices(
       });
 
       if (query?.state.fetchStatus !== 'fetching') {
-        void ignoreErrors(
-          queryClient.query({
-            ...options,
-            meta: { [PLAYBACK_QUERY_META]: true },
-          }),
-        );
+        if (!query) {
+          getPlaybackQueries(queryClient).add(hash);
+        }
+        void ignoreErrors(queryClient.query(options));
       }
     }
   }
@@ -226,12 +242,17 @@ function evictPlayedValues(
 }
 
 function removeFailedPlaybackQueries(dataContext: DataContextValue): void {
-  const { filepath, queryClient } = dataContext;
-  queryClient.removeQueries({
-    queryKey: [filepath, 'value'],
-    predicate: (query) =>
-      query.state.status === 'error' &&
-      query.getObserversCount() === 0 &&
-      isPlaybackQuery(query),
-  });
+  const { queryClient } = dataContext;
+  const queryCache = queryClient.getQueryCache();
+  const hashes = getPlaybackQueries(queryClient);
+
+  for (const hash of hashes) {
+    const query = queryCache.get(hash);
+    if (query?.state.status === 'error' && query.getObserversCount() === 0) {
+      queryCache.remove(query);
+    }
+    if (query?.state.fetchStatus !== 'fetching') {
+      hashes.delete(hash); // no longer needs tracking
+    }
+  }
 }

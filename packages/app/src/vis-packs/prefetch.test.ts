@@ -7,6 +7,7 @@ import { type DataContextValue } from '../providers/DataProvider';
 import { type ValueQueryParams } from '../providers/models';
 import {
   createPrefetchState,
+  isPlaybackQuery,
   type PrefetchLimits,
   prefetchSlices,
   releasePrefetches,
@@ -211,6 +212,11 @@ describe('prefetchSlices', () => {
 
     prefetch([1]);
     expect(queryFn).toHaveBeenCalledOnce();
+
+    // Failed query is flagged even once the vis observes it (with its own options)
+    const query = queryClient.getQueryCache().find({ queryKey: key });
+    query?.setOptions({ queryKey: key, queryFn });
+    expect(query && isPlaybackQuery(queryClient, query)).toBe(true);
 
     // Errors are cleared when playback stops, so slices can be retried
     prefetch([], 0);

@@ -26,7 +26,8 @@ function VisBoundary(props: PropsWithChildren<Props>) {
         queryClient.removeQueries({
           // Keep errors of slices prefetched for playback until playback stops (to avoid refetching them)
           predicate: (query) =>
-            query.state.status === 'error' && !isPlaybackQuery(query),
+            query.state.status === 'error' &&
+            !isPlaybackQuery(queryClient, query),
         });
       }}
     >
