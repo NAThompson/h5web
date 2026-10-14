@@ -2,6 +2,11 @@ import { createMemo } from '@h5web/shared/createMemo';
 import { useSyncedRef, useUnmountEffect } from '@react-hookz/web';
 import { type DependencyList, useEffect, useMemo, useRef } from 'react';
 
+import {
+  initPlaybackClock,
+  type PlaybackSettings,
+  tickPlayback,
+} from './playback';
 import { getSlicedDimsAndMapping } from './utils';
 
 export const useSlicedDimsAndMapping = createMemo(getSlicedDimsAndMapping);
@@ -58,4 +63,83 @@ export function useDynamicDebouncedCallback<
       timeout.current = setTimeout(execute, getDelayRef.current(...args));
     };
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+interface PlaybackParams {
+  isPlaying: boolean;
+  value: number;
+  length: number;
+  stride: number;
+  settings: PlaybackSettings;
+  isReady: (value: number) => boolean;
+  onFrame: (value: number) => void;
+  onEnd: () => void;
+  onPrefetch?: (values: number[]) => void;
+}
+
+/* Advance a slicing value over time while `isPlaying` is true. Without `onPrefetch`, nothing
+ * loads frames ahead of time, so wait for the current frame to be ready before moving on
+ * (instead of waiting for the next frame, which would never be fetched). */
+export function usePlayback(params: PlaybackParams): void {
+  const { isPlaying } = params;
+  const paramsRef = useSyncedRef(params);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      return undefined;
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let lastUpcoming = '';
+    let lastOnPrefetch: ((values: number[]) => void) | undefined;
+
+    const initial = paramsRef.current;
+    let clock = initPlaybackClock(
+      initial.value,
+      { ...initial, mode: initial.settings.mode },
+      Date.now(),
+    );
+    if (clock.cursor.value !== initial.value) {
+      initial.onFrame(clock.cursor.value);
+    }
+
+    function tick() {
+      const { settings, length, stride, isReady, onFrame, onEnd, onPrefetch } =
+        paramsRef.current;
+
+      const current = clock.cursor.value;
+      const result = tickPlayback(
+        clock,
+        Date.now(),
+        { ...settings, length, stride },
+        onPrefetch ? isReady : () => isReady(current),
+      );
+
+      const upcomingKey = result.upcoming.join(',');
+      if (onPrefetch && upcomingKey !== lastUpcoming) {
+        lastUpcoming = upcomingKey;
+        lastOnPrefetch = onPrefetch;
+        onPrefetch(result.upcoming);
+      }
+
+      if (result.ended) {
+        onEnd();
+        return;
+      }
+
+      if (result.clock.cursor.value !== current) {
+        onFrame(result.clock.cursor.value);
+      }
+
+      ({ clock } = result);
+      timeout = setTimeout(tick, result.delay);
+    }
+
+    tick();
+
+    return () => {
+      clearTimeout(timeout);
+      lastOnPrefetch?.([]); // let consumer cancel pending prefetches
+    };
+  }, [isPlaying, paramsRef]);
 }

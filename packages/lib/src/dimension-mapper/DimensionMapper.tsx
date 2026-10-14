@@ -1,5 +1,5 @@
 import { type DimensionMapping } from '@h5web/shared/vis-models';
-import { type HTMLAttributes } from 'react';
+import { type HTMLAttributes, useState } from 'react';
 
 import AxisMapper from './AxisMapper';
 import styles from './DimensionMapper.module.css';
@@ -16,6 +16,8 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   multiDim?: number;
   maxMultiDimLength?: number;
   onMultiDimChange?: (dim: number | undefined) => void; // shows multi-plotting checkboxes when provided
+  withPlaybackControls?: boolean;
+  prefetchSlices?: (nextMappings: DimensionMapping[]) => void; // called during playback with upcoming slices (empty array on stop)
 }
 
 function DimensionMapper(props: Props) {
@@ -30,8 +32,14 @@ function DimensionMapper(props: Props) {
     multiDim,
     maxMultiDimLength = 20,
     onMultiDimChange,
+    withPlaybackControls = false,
+    prefetchSlices,
     ...htmlProps
   } = props;
+
+  // Only one dimension plays at a time, to avoid conflicting mapping updates
+  const [playingDim, setPlayingDim] = useState<number>();
+
   if (dims.length !== dimMapping.length) {
     throw new Error('Expected dimensions and mapping arrays of same length');
   }
@@ -41,6 +49,7 @@ function DimensionMapper(props: Props) {
   }
 
   function handleAxisChange(newMapping: DimensionMapping) {
+    setPlayingDim(undefined);
     onChange(newMapping);
 
     // Reset multi-plotting dimension if it gets mapped to an axis
@@ -83,6 +92,12 @@ function DimensionMapper(props: Props) {
             return undefined;
           }
 
+          function withMapping(newVal: number): DimensionMapping {
+            const newMapping = [...dimMapping];
+            newMapping[index] = newVal;
+            return newMapping;
+          }
+
           const slider = (
             <SlicingSlider
               key={index} // eslint-disable-line react/no-array-index-key
@@ -91,18 +106,18 @@ function DimensionMapper(props: Props) {
               initialValue={val}
               withControls={withSlicingControls}
               isFastSlice={
-                canSliceFast &&
-                ((newVal) => {
-                  const newMapping = [...dimMapping];
-                  newMapping[index] = newVal;
-                  return canSliceFast(newMapping);
-                })
+                canSliceFast && ((newVal) => canSliceFast(withMapping(newVal)))
               }
-              onChange={(newVal) => {
-                const newMapping = [...dimMapping];
-                newMapping[index] = newVal;
-                onChange(newMapping);
+              onChange={(newVal) => onChange(withMapping(newVal))}
+              withPlayback={withPlaybackControls}
+              isPlaying={playingDim === index && multiDim !== index}
+              onPlayingChange={(isPlaying) => {
+                setPlayingDim(isPlaying ? index : undefined);
               }}
+              onPrefetch={
+                prefetchSlices &&
+                ((values) => prefetchSlices(values.map(withMapping)))
+              }
             />
           );
 
@@ -140,6 +155,9 @@ function DimensionMapper(props: Props) {
                     isTooLong
                   }
                   onChange={() => {
+                    if (playingDim === index) {
+                      setPlayingDim(undefined); // can't play multi-plotting dimension
+                    }
                     onMultiDimChange(isMultiDim ? undefined : index);
                   }}
                 />

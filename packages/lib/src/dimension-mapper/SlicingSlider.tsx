@@ -3,12 +3,18 @@ import {
   Thumb as SliderThumb,
 } from '@radix-ui/react-slider';
 import { useSize } from '@radix-ui/react-use-size';
-import { useMeasure } from '@react-hookz/web';
+import { useMeasure, useSyncedRef } from '@react-hookz/web';
 import { useId, useState } from 'react';
 import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 import Btn from '../toolbar/controls/Btn';
-import { useDynamicDebouncedCallback } from './hooks';
+import { useDynamicDebouncedCallback, usePlayback } from './hooks';
+import {
+  DEFAULT_PLAYBACK_SETTINGS,
+  getNextFrame,
+  type PlaybackSettings,
+} from './playback';
+import PlaybackControls from './PlaybackControls';
 import styles from './SlicingSlider.module.css';
 
 const ID = 'h5w-slider';
@@ -23,6 +29,10 @@ interface Props {
   withControls: boolean;
   isFastSlice?: (value: number) => boolean;
   onChange: (value: number) => void;
+  withPlayback?: boolean;
+  isPlaying?: boolean;
+  onPlayingChange?: (isPlaying: boolean) => void;
+  onPrefetch?: (values: number[]) => void;
 }
 
 function SlicingSlider(props: Props) {
@@ -33,6 +43,10 @@ function SlicingSlider(props: Props) {
     withControls,
     isFastSlice,
     onChange,
+    withPlayback = false,
+    isPlaying = false,
+    onPlayingChange,
+    onPrefetch,
   } = props;
 
   if (length <= 0) {
@@ -43,11 +57,56 @@ function SlicingSlider(props: Props) {
   const strideInputId = useId();
 
   const [value, setValue] = useState(initialValue);
+
+  // During playback, frames are only shown once ready, so there is no need to debounce
+  const isPlayingRef = useSyncedRef(isPlaying);
   const onDebouncedChange = useDynamicDebouncedCallback(
     onChange,
     [onChange],
-    (val) => (isFastSlice?.(val) ? SHORT_DELAY : LONG_DELAY),
+    (val) => {
+      if (isPlayingRef.current) {
+        return 0;
+      }
+      return isFastSlice?.(val) ? SHORT_DELAY : LONG_DELAY;
+    },
   );
+
+  const [playbackSettings, setPlaybackSettings] = useState<PlaybackSettings>(
+    DEFAULT_PLAYBACK_SETTINGS,
+  );
+
+  usePlayback({
+    isPlaying: isPlaying && length > 1,
+    value,
+    length,
+    stride,
+    settings: playbackSettings,
+    isReady: (val) => isFastSlice?.(val) ?? true,
+    onFrame: (newValue) => {
+      setValue(newValue);
+      onDebouncedChange(newValue);
+    },
+    onEnd: () => onPlayingChange?.(false),
+    onPrefetch,
+  });
+
+  function pause() {
+    if (isPlaying) {
+      onPlayingChange?.(false);
+    }
+  }
+
+  function step(direction: 1 | -1) {
+    pause();
+    const next = getNextFrame(
+      { value, direction },
+      { length, stride, mode: 'once' },
+    );
+    if (next) {
+      setValue(next.value);
+      onDebouncedChange(next.value);
+    }
+  }
 
   const [containerSize, containerRef] = useMeasure<HTMLDivElement>();
 
@@ -73,7 +132,9 @@ function SlicingSlider(props: Props) {
             max={length - 1}
             step={1}
             value={[value]}
+            onPointerDown={pause}
             onValueChange={([newValue]) => {
+              pause();
               setValue(newValue);
               onDebouncedChange(newValue);
             }}
@@ -92,6 +153,13 @@ function SlicingSlider(props: Props) {
               ref={setThumb}
               className={styles.thumb}
               aria-labelledby={sliderLabelId}
+              aria-keyshortcuts={withPlayback ? 'Space' : undefined}
+              onKeyDown={(evt) => {
+                if (withPlayback && evt.key === ' ') {
+                  evt.preventDefault(); // don't scroll
+                  onPlayingChange?.(!isPlaying);
+                }
+              }}
               style={
                 thumbSize?.height
                   ? { translate: `0 ${(0.5 - value / (length - 1)) * 100}%` }
@@ -102,6 +170,17 @@ function SlicingSlider(props: Props) {
             </SliderThumb>
           </SliderRoot>
 
+          {withPlayback && (
+            <PlaybackControls
+              dimension={dimension}
+              isPlaying={isPlaying}
+              settings={playbackSettings}
+              onTogglePlay={() => onPlayingChange?.(!isPlaying)}
+              onSettingsChange={setPlaybackSettings}
+              onStep={step}
+            />
+          )}
+
           {withControls && (
             <div className={styles.slicingControls}>
               <Btn
@@ -109,22 +188,14 @@ function SlicingSlider(props: Props) {
                 Icon={FiChevronUp}
                 iconOnly
                 small
-                onClick={() => {
-                  const newValue = Math.min(value + stride, length - 1);
-                  setValue(newValue);
-                  onDebouncedChange(newValue);
-                }}
+                onClick={() => step(1)}
               />
               <Btn
                 label="Previous slice"
                 Icon={FiChevronDown}
                 iconOnly
                 small
-                onClick={() => {
-                  const newValue = Math.max(value - stride, 0);
-                  setValue(newValue);
-                  onDebouncedChange(newValue);
-                }}
+                onClick={() => step(-1)}
               />
               <div className={styles.stride} title={`D${dimension} stride`}>
                 <label

@@ -89,6 +89,13 @@ export const WithSlicingControls = Default.extend({
   },
 });
 
+export const WithPlaybackControls = Default.extend({
+  args: {
+    withPlaybackControls: true,
+    canSliceFast: () => true,
+  },
+});
+
 export const MultiPlotting = Default.extend({
   render: (args) => {
     const { dimMapping: initialMapping, ...otherArgs } = args;
