@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { getFilenameFromUrl, parseDiagnostics, resolveUrl } from './utils';
+import {
+  getEnhancedError,
+  getFilenameFromUrl,
+  parseDiagnostics,
+  resolveUrl,
+} from './utils';
 
 const HDF5_ERROR_MESSAGE = `HDF5-DIAG: Error detected in HDF5 (1.14.2) thread 0:
   #000: /__w/libhdf5-wasm/libhdf5-wasm/build/1.14.2/_deps/hdf5-src/src/H5D.c line 1061 in H5Dread(): can't synchronously read data
@@ -87,5 +92,15 @@ describe('getFilenameFromUrl', () => {
     expect(getFilenameFromUrl('https://example.com/100%.h5')).toBe('100%.h5');
     expect(getFilenameFromUrl('https://example.com/')).toBe('example.com');
     expect(getFilenameFromUrl('not a url')).toBe('not a url');
+  });
+});
+
+describe('getEnhancedError', () => {
+  it('should explain buffer allocation failures', () => {
+    const error = getEnhancedError(
+      new RangeError('Array buffer allocation failed'),
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/too large to be loaded/u);
   });
 });

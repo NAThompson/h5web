@@ -24,7 +24,18 @@ const DIAG_PREDICATES: ((diag: HDF5Diag) => boolean)[] = [
   },
 ];
 
+// Thrown when a typed array can't be allocated, e.g. above Electron's ~2 GB per-buffer limit
+const ALLOCATION_ERROR_REGEX =
+  /array buffer allocation failed|invalid (?:typed )?array (?:buffer )?length/iu;
+
 export function getEnhancedError(error: unknown): unknown {
+  if (error instanceof Error && ALLOCATION_ERROR_REGEX.test(error.message)) {
+    return new Error(
+      'Value too large to be loaded: it exceeds the largest buffer this environment can allocate (about 2 GB in VS Code). Select a smaller slice, e.g. by choosing a visualization with fewer dimensions.',
+      { cause: error },
+    );
+  }
+
   if (!(error instanceof Error) || !error.message.startsWith('HDF5-DIAG')) {
     return error;
   }
