@@ -25,6 +25,7 @@ import {
   MdWbSunny,
 } from 'react-icons/md';
 
+import { useVisArea } from '../../../visualizer/vis-area';
 import { getImageInteractions, SURFACE_INTERACTIONS } from '../utils';
 import { type HeatmapConfig } from './config';
 import HeightScaleSlider from './HeightScaleSlider';
@@ -45,6 +46,7 @@ interface Props {
 }
 
 function HeatmapToolbar(props: Props) {
+  const visArea = useVisArea();
   const { dataDomain, isSlice, isComplex, withSurface, config, exportEntries } =
     props;
   const {
@@ -179,7 +181,7 @@ function HeatmapToolbar(props: Props) {
         <ExportMenu isSlice={isSlice} entries={exportEntries} />
       )}
 
-      <SnapshotBtn />
+      <SnapshotBtn target={visArea} />
     </Toolbar>
   );
 }

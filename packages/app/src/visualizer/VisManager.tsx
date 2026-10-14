@@ -6,6 +6,7 @@ import { useDataContext } from '../providers/DataProvider';
 import { FetchConfirmationProvider } from '../vis-packs/fetch-confirmation';
 import { type VisDef } from '../vis-packs/models';
 import { useActiveVis } from './hooks';
+import { VisAreaContext } from './vis-area';
 import VisSelector from './VisSelector';
 import styles from './Visualizer.module.css';
 
@@ -29,6 +30,7 @@ function VisManager(props: Props) {
   const { Container } = activeVis;
 
   const [visBarElem, setVisBarElem] = useState<HTMLDivElement>();
+  const [visAreaElem, setVisAreaElem] = useState<HTMLDivElement | null>(null);
 
   const { filepath, queryClient } = useDataContext();
   function onVisChange(index: number) {
@@ -52,10 +54,12 @@ function VisManager(props: Props) {
         />
       </div>
 
-      <div className={styles.visArea}>
-        <FetchConfirmationProvider scope={activeVis.name}>
-          <Container entity={entity} toolbarContainer={visBarElem} />
-        </FetchConfirmationProvider>
+      <div ref={setVisAreaElem} className={styles.visArea}>
+        <VisAreaContext value={visAreaElem}>
+          <FetchConfirmationProvider scope={activeVis.name}>
+            <Container entity={entity} toolbarContainer={visBarElem} />
+          </FetchConfirmationProvider>
+        </VisAreaContext>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import {
 } from '@h5web/lib';
 import { COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
 
+import { useVisArea } from '../../../visualizer/vis-area';
 import { type VolumeConfig } from './config';
 import RangeControl from './RangeControl';
 
@@ -28,6 +29,7 @@ interface Props {
 }
 
 function VolumeToolbar(props: Props) {
+  const visArea = useVisArea();
   const { dataDomain, config } = props;
   const {
     customDomain,
@@ -116,7 +118,7 @@ function VolumeToolbar(props: Props) {
       />
       <Separator />
 
-      <SnapshotBtn />
+      <SnapshotBtn target={visArea} />
     </Toolbar>
   );
 }

@@ -218,6 +218,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
           <button
             className={styles.resetBtn}
             type="button"
+            data-snapshot-ignore
             onClick={() => resetRef.current?.()}
           >
             <span className={styles.btnLike}>Reset view</span>
