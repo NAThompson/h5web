@@ -188,7 +188,11 @@ export function getSampleIndices(size: number, step: number): Int32Array {
   return Int32Array.from(indices);
 }
 
-const SLABS_PER_STEP = 4;
+/* Cells visited between progress reports (i.e. chances to cancel), whatever the shape of the volume */
+const CELLS_PER_STEP = 1 << 16;
+
+/* Crossings this close to a grid point are snapped to it, so vertices at grid values equal to the level are shared */
+const SNAP_EPSILON = 1e-6;
 
 export function* marchingCubesSteps(
   values: ArrayLike<number>,
@@ -286,6 +290,50 @@ export function* marchingCubesSteps(
   let vertexCount = 0;
   const gA = new Float64Array(6);
 
+  function pushNormalAndGradient(
+    nxv: number,
+    nyv: number,
+    nzv: number,
+    magnitude: number,
+  ): void {
+    const len = Math.hypot(nxv, nyv, nzv);
+    if (len > 0) {
+      normals.push(nxv / len);
+      normals.push(nyv / len);
+      normals.push(nzv / len);
+    } else {
+      normals.push(0);
+      normals.push(0);
+      normals.push(1);
+    }
+    gradients.push(magnitude);
+    vertexCount += 1;
+  }
+
+  // Vertex on a grid point (sampled-grid indices), shared by all edges and cells around it
+  let slab = 0;
+  let cornersLower = new Int32Array(0);
+  let cornersUpper = new Int32Array(0);
+
+  function getCornerVertex(si: number, sj: number, sk: number): number {
+    const store = sk === slab ? cornersLower : cornersUpper;
+    const offset = sj * NX + si;
+    if (store[offset] < 0) {
+      positions.push(xs[si]);
+      positions.push(ys[sj]);
+      positions.push(zs[sk]);
+      gradientAt(si, sj, sk);
+      pushNormalAndGradient(
+        grad[0],
+        grad[1],
+        grad[2],
+        Math.hypot(grad[3], grad[4], grad[5]),
+      );
+      store[offset] = vertexCount - 1;
+    }
+    return store[offset];
+  }
+
   // Interpolate the crossing on the edge between sampled grid points A and B
   function addVertex(
     ai: number,
@@ -298,6 +346,13 @@ export function* marchingCubesSteps(
     vb: number,
   ): number {
     const t = crossingRatio(va, vb, level, transform.fn);
+    if (t <= SNAP_EPSILON) {
+      return getCornerVertex(ai, aj, ak);
+    }
+    if (t >= 1 - SNAP_EPSILON) {
+      return getCornerVertex(bi, bj, bk);
+    }
+
     positions.push(xs[ai] + t * (xs[bi] - xs[ai]));
     positions.push(ys[aj] + t * (ys[bj] - ys[aj]));
     positions.push(zs[ak] + t * (zs[bk] - zs[ak]));
@@ -306,29 +361,16 @@ export function* marchingCubesSteps(
     gA.set(grad);
     gradientAt(bi, bj, bk);
 
-    const nxv = gA[0] + t * (grad[0] - gA[0]);
-    const nyv = gA[1] + t * (grad[1] - gA[1]);
-    const nzv = gA[2] + t * (grad[2] - gA[2]);
-    const len = Math.hypot(nxv, nyv, nzv);
-    if (len > 0) {
-      normals.push(nxv / len);
-      normals.push(nyv / len);
-      normals.push(nzv / len);
-    } else {
-      normals.push(0);
-      normals.push(0);
-      normals.push(1);
-    }
-
-    gradients.push(
+    pushNormalAndGradient(
+      gA[0] + t * (grad[0] - gA[0]),
+      gA[1] + t * (grad[1] - gA[1]),
+      gA[2] + t * (grad[2] - gA[2]),
       Math.hypot(
         gA[3] + t * (grad[3] - gA[3]),
         gA[4] + t * (grad[4] - gA[4]),
         gA[5] + t * (grad[5] - gA[5]),
       ),
     );
-
-    vertexCount += 1;
     return vertexCount - 1;
   }
 
@@ -364,6 +406,15 @@ export function* marchingCubesSteps(
     return vertexCount - 1;
   }
 
+  // Skip triangles collapsed by snapping (two corners on the same vertex)
+  function pushTriangle(a: number, b: number, c: number): void {
+    if (a !== b && b !== c && a !== c) {
+      indices.push(a);
+      indices.push(b);
+      indices.push(c);
+    }
+  }
+
   // Welded vertex indices for x/y edges on the lower and upper planes of the current slab, and z edges between them
   const planeSize = NX * NY;
   let xLower = new Int32Array(planeSize).fill(-1);
@@ -371,6 +422,9 @@ export function* marchingCubesSteps(
   let yLower = new Int32Array(planeSize).fill(-1);
   let yUpper = new Int32Array(planeSize).fill(-1);
   const zEdges = new Int32Array(planeSize);
+  cornersLower = new Int32Array(planeSize).fill(-1);
+  cornersUpper = new Int32Array(planeSize).fill(-1);
+  let cellsSinceYield = 0;
 
   const cornerValues = new Float64Array(8);
   const cornerOffsets = new Int32Array(8);
@@ -380,6 +434,7 @@ export function* marchingCubesSteps(
 
   for (let sk = 0; sk < NZ - 1; sk += 1) {
     zEdges.fill(-1);
+    slab = sk;
 
     zOffsets[0] = zs[sk] * sliceSize;
     zOffsets[1] = zs[sk + 1] * sliceSize;
@@ -387,6 +442,13 @@ export function* marchingCubesSteps(
     for (let sj = 0; sj < NY - 1; sj += 1) {
       yOffsets[0] = ys[sj] * nx;
       yOffsets[1] = ys[sj + 1] * nx;
+
+      // Report progress by number of cells, so wide and shallow volumes can be cancelled too
+      cellsSinceYield += NX - 1;
+      if (cellsSinceYield >= CELLS_PER_STEP) {
+        cellsSinceYield = 0;
+        yield (sk + sj / (NY - 1)) / (NZ - 1);
+      }
 
       for (let si = 0; si < NX - 1; si += 1) {
         let caseIndex = 0;
@@ -475,20 +537,22 @@ export function* marchingCubesSteps(
           cellVertices[CENTROID_BASE + i] = addCentroid(loop, cellVertices);
         });
 
-        for (const edge of triangles) {
-          indices.push(cellVertices[edge]);
+        for (let t = 0; t < triangles.length; t += 3) {
+          pushTriangle(
+            cellVertices[triangles[t]],
+            cellVertices[triangles[t + 1]],
+            cellVertices[triangles[t + 2]],
+          );
         }
       }
     }
 
     [xLower, xUpper] = [xUpper, xLower];
     [yLower, yUpper] = [yUpper, yLower];
+    [cornersLower, cornersUpper] = [cornersUpper, cornersLower];
     xUpper.fill(-1);
     yUpper.fill(-1);
-
-    if (sk % SLABS_PER_STEP === SLABS_PER_STEP - 1) {
-      yield (sk + 1) / (NZ - 1);
-    }
+    cornersUpper.fill(-1);
   }
 
   return result();

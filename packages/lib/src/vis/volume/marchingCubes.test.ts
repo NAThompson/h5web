@@ -10,6 +10,7 @@ import {
   getSampleIndices,
   type IsosurfaceGeometry,
   marchingCubes,
+  marchingCubesSteps,
 } from './marchingCubes';
 
 type Field = (x: number, y: number, z: number) => number;
@@ -301,6 +302,109 @@ describe('marchingCubes', () => {
       expect(Math.abs(Math.hypot(x - c, y - c, z - c) - 12)).toBeLessThan(0.2);
     }
     expectClosedManifold(coarse);
+  });
+});
+
+function seededRandom(initialSeed: number): () => number {
+  let seed = initialSeed;
+  return () => {
+    seed = (seed * 1_664_525 + 1_013_904_223) % 2 ** 32;
+    return seed / 2 ** 32;
+  };
+}
+
+function countDegenerate(geom: IsosurfaceGeometry): number {
+  let count = 0;
+  for (let t = 0; t < geom.indices.length; t += 3) {
+    const [a, b, c] = [0, 1, 2].map((e) => vertex(geom, geom.indices[t + e]));
+    const u = b.map((val, i) => val - a[i]);
+    const w = c.map((val, i) => val - a[i]);
+    const area = Math.hypot(
+      u[1] * w[2] - u[2] * w[1],
+      u[2] * w[0] - u[0] * w[2],
+      u[0] * w[1] - u[1] * w[0],
+    );
+    if (area < 1e-9) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+describe('marchingCubes robustness', () => {
+  it('should weld vertices at grid values equal to the level', () => {
+    // Integer field with many grid points exactly on the level (e.g. 3² + 4² = 5²)
+    const n = 21;
+    const c = 10;
+    const values = sampleField(
+      [n, n, n],
+      (x, y, z) => (x - c) ** 2 + (y - c) ** 2 + (z - c) ** 2,
+    );
+
+    const geom = marchingCubes(values, [n, n, n], 25);
+    const triangles = geom.indices.length / 3;
+    expect(triangles).toBeGreaterThan(500);
+    expect(countDegenerate(geom)).toBeLessThan(triangles * 0.01);
+
+    // No two vertices at the same position
+    const keys = new Set<string>();
+    for (let v = 0; v < geom.positions.length / 3; v += 1) {
+      keys.add(vertex(geom, v).join(','));
+    }
+    expect(keys.size).toBe(geom.positions.length / 3);
+
+    expectClosedManifold(geom);
+  });
+
+  it.each([1, 7, 99])(
+    'should stay closed when decimating random fields (seed %i)',
+    (seed) => {
+      const random = seededRandom(seed);
+      const n = 23;
+      const values = sampleField([n, n, n], (x, y, z) => {
+        const onBorder = [x, y, z].some((v) => v === 0 || v === n - 1);
+        return onBorder ? 1 : random() * 2 - 1;
+      });
+
+      for (const step of [2, 3, 4]) {
+        const geom = marchingCubes(values, [n, n, n], 0, { step });
+        // Decimated grids end with a full-resolution layer: its border cells are positive too
+        const { edges } = expectClosedManifold(geom);
+        expect(edges).toBeGreaterThan(0);
+      }
+    },
+  );
+
+  it('should stay closed on random integer fields with values on the level', () => {
+    const random = seededRandom(5);
+    const n = 14;
+    const values = sampleField([n, n, n], (x, y, z) => {
+      const onBorder = [x, y, z].some((v) => v === 0 || v === n - 1);
+      return onBorder ? 2 : Math.floor(random() * 5) - 2; // -2..2, many zeros
+    });
+
+    const geom = marchingCubes(values, [n, n, n], 0);
+    expect(countDegenerate(geom)).toBeLessThan(
+      (geom.indices.length / 3) * 0.02,
+    );
+  });
+
+  it('should report progress regularly whatever the shape of the volume', () => {
+    // Wide and shallow: only one slab of cells
+    const shape: [number, number, number] = [2, 400, 400];
+    const values = sampleField(shape, (x, y) => x + y);
+    const gen = marchingCubesSteps(values, shape, 400);
+
+    let yields = 0;
+    let res = gen.next();
+    while (!res.done) {
+      yields += 1;
+      expect(res.value).toBeGreaterThanOrEqual(0);
+      expect(res.value).toBeLessThanOrEqual(1);
+      res = gen.next();
+    }
+    expect(yields).toBeGreaterThan(1);
+    expect(res.value.indices.length).toBeGreaterThan(0);
   });
 });
 
