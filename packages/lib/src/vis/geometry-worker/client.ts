@@ -41,7 +41,11 @@ let worker: Worker | undefined;
 let isReady = false;
 let loadFailure: WorkerError | undefined;
 let generation = 0;
+let crashCount = 0; // consecutive crashes without a successful job
 let nextId = 1;
+
+/* Give up on the worker after this many consecutive crashes (e.g. data too large for its memory) */
+const MAX_CRASHES = 2;
 
 const pending = new Map<number, PendingJob>();
 const dataGenerations = new Map<number, number>(); // generation of the worker that holds each data array
@@ -68,10 +72,18 @@ export function getWorkerLoadFailure(): WorkerError | undefined {
   return loadFailure;
 }
 
-function handleFailure(reason: string): void {
-  const error = isReady
-    ? new WorkerError(`Background worker crashed (${reason})`, false)
-    : new WorkerError(`Background worker could not start (${reason})`, true);
+function handleFailure(reason: string, hasRun: boolean): void {
+  if (hasRun) {
+    crashCount += 1;
+  }
+  const error = !hasRun
+    ? new WorkerError(`Background worker could not start (${reason})`, true)
+    : crashCount >= MAX_CRASHES
+      ? new WorkerError(
+          `Background worker crashed repeatedly (${reason})`,
+          true,
+        )
+      : new WorkerError(`Background worker crashed (${reason})`, false);
 
   const jobs = [...pending.values()];
   pending.clear();
@@ -81,8 +93,8 @@ function handleFailure(reason: string): void {
 
   worker?.terminate();
   worker = undefined;
-  if (!isReady) {
-    loadFailure = error; // don't retry: the environment doesn't allow the worker
+  if (error.isLoadFailure) {
+    loadFailure = error; // don't retry: the environment doesn't allow the worker, or it keeps crashing
   }
   isReady = false;
   dataGenerations.clear();
@@ -114,10 +126,12 @@ function handleMessage(evt: MessageEvent<WorkerResponse>): void {
       break;
     case 'isosurface':
       pending.delete(msg.jobId);
+      crashCount = 0;
       job.resolve(msg.geometry as never);
       break;
     case 'contours':
       pending.delete(msg.jobId);
+      crashCount = 0;
       job.resolve(msg.contours as never);
       break;
     default:
@@ -143,10 +157,12 @@ function getWorker(): Worker {
     worker.addEventListener('message', handleMessage);
     worker.addEventListener('error', (evt) => {
       evt.preventDefault();
-      handleFailure(evt.message || 'failed to load or run');
+      // Errors thrown by the worker's code have a message (and may beat the "ready" message);
+      // a script that can't load (e.g. blocked by a Content Security Policy) gives none
+      handleFailure(evt.message || 'failed to load', isReady || !!evt.message);
     });
     worker.addEventListener('messageerror', () => {
-      handleFailure('message could not be deserialized');
+      handleFailure('message could not be deserialized', true);
     });
   }
 
@@ -241,6 +257,7 @@ export function resetGeometryWorker(factory?: WorkerFactory): void {
   worker = undefined;
   isReady = false;
   loadFailure = undefined;
+  crashCount = 0;
   pending.clear();
   dataGenerations.clear();
   generation += 1;
