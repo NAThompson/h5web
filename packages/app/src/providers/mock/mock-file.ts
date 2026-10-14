@@ -590,6 +590,58 @@ export function makeMockFile(): GroupWithChildren {
           scales: [['/dimension_scales/T']],
         }),
       ]),
+      group('geometry', [
+        array('knot_x'),
+        array('knot_y'),
+        array('knot_z'),
+        array('knot_speed', {
+          attributes: [scalarAttr('coordinates', 'knot_x knot_y knot_z')],
+        }),
+        array('torus_x', { attributes: [scalarAttr('units', 'm')] }),
+        array('torus_y', { attributes: [scalarAttr('units', 'm')] }),
+        array('torus_z', { attributes: [scalarAttr('units', 'm')] }),
+        array('torus_curvature', {
+          attributes: [
+            scalarAttr('coordinates', 'torus_x torus_y torus_z'),
+            scalarAttr('long_name', 'Gaussian curvature'),
+            scalarAttr('units', 'm^-2'),
+          ],
+        }),
+        array('torus_waves', {
+          attributes: [
+            // Absolute paths are supported too; leading dimension can be sliced
+            scalarAttr(
+              'coordinates',
+              '/geometry/torus_x /geometry/torus_y /geometry/torus_z',
+            ),
+          ],
+        }),
+        array('helix', {
+          attributes: [scalarAttr('interpretation', 'vertex')],
+        }),
+        // Not curves or surfaces
+        array('helix_table', { valueId: 'helix' }), // no `interpretation`
+        array('knot_coordinates_missing', {
+          valueId: 'knot_speed',
+          attributes: [scalarAttr('coordinates', 'knot_x knot_y unknown')],
+        }),
+        array('torus_curvilinear', {
+          valueId: 'torus_curvature',
+          attributes: [scalarAttr('coordinates', 'torus_x torus_y')], // e.g. lon/lat grid
+        }),
+        nxGroup('nx_torus', 'NXdata', {
+          attributes: [scalarAttr('signal', 'curvature')],
+          children: [
+            array('curvature', {
+              valueId: 'torus_curvature',
+              attributes: [scalarAttr('coordinates', 'x y z')],
+            }),
+            array('x', { valueId: 'torus_x' }),
+            array('y', { valueId: 'torus_y' }),
+            array('z', { valueId: 'torus_z' }),
+          ],
+        }),
+      ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),
         scalar('slow_value', 42),
