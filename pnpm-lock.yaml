@@ -587,8 +587,8 @@ importers:
         specifier: 4.4.2
         version: 4.4.2
       h5wasm:
-        specifier: 0.10.3
-        version: 0.10.3
+        specifier: file:../../vendor/h5wasm-0.10.3-fork-5f68a5f.tgz
+        version: file:vendor/h5wasm-0.10.3-fork-5f68a5f.tgz
       nanoid:
         specifier: 5.1.16
         version: 5.1.16
@@ -3659,6 +3659,10 @@ packages:
 
   h5wasm@0.10.3:
     resolution: {integrity: sha512-W4Jy5ExtX/VNbyD8GdOBckDuj6AL16TemppVNxZsV3rJZEWCv2sxlCzOttZLer3zkMttbDYsWHl0qt1z3Bln+Q==}
+
+  h5wasm@file:vendor/h5wasm-0.10.3-fork-5f68a5f.tgz:
+    resolution: {integrity: sha512-f0RsjewNLdnsucLdo4J1UNimKF1OQCN5XYB/xOQ+EbVzbQuGhX2MqPYoV2Ago00Vu8WoMr4Il7/HkA63vEnNEw==, tarball: file:vendor/h5wasm-0.10.3-fork-5f68a5f.tgz}
+    version: 0.10.3
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -8393,7 +8397,10 @@ snapshots:
     optionalDependencies:
       h5wasm: 0.10.3
 
-  h5wasm@0.10.3: {}
+  h5wasm@0.10.3:
+    optional: true
+
+  h5wasm@file:vendor/h5wasm-0.10.3-fork-5f68a5f.tgz: {}
 
   has-bigints@1.1.0: {}
 
