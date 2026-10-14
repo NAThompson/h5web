@@ -5,10 +5,12 @@ import {
   useSafeDomain,
   useVisDomain,
 } from '@h5web/lib';
+import { type ArrayValue, type NumericType } from '@h5web/shared/hdf5-models';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type CurveConfig, LINE_WIDTH_PX } from './config';
@@ -24,7 +26,7 @@ interface Props {
 
 function MappedCurveVis(props: Props) {
   const { data, title, toolbarContainer, config } = props;
-  const { x, y, z, values, shape, labels, ignoreValue } = data;
+  const { x, y, z, values, shape, labels, ignoreValue, packing } = data;
   const {
     customDomain,
     colorMap,
@@ -48,10 +50,15 @@ function MappedCurveVis(props: Props) {
       scaleType,
       (seq) =>
         values // without scalar field, colour by point index, which doesn't change
-          ? getDomain(toNumArray(seq as typeof values), {
-              scaleType,
-              ignoreValue,
-            })
+          ? getDomain(
+              toNumArray(
+                unpackNumArray(seq as ArrayValue<NumericType>, packing),
+              ),
+              {
+                scaleType,
+                ignoreValue,
+              },
+            )
           : undefined,
     ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);

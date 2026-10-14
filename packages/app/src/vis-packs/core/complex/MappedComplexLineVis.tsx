@@ -112,16 +112,15 @@ function MappedComplexLineVis(props: Props) {
       ]),
       `${complexVisType}:${yScaleType}:${valueVisible}`,
       (seq) => {
-        if (!valueVisible) {
+        // Unwrapped phase depends on each slice as a whole: use range of slices shown so far
+        if (!valueVisible || complexVisType === ComplexVisType.PhaseUnwrapped) {
           return undefined;
         }
         const seqArrays = getPhaseAmplitudeArrays([seq as typeof value]);
         const [seqArray] =
           complexVisType === ComplexVisType.Amplitude
             ? seqArrays.amplitudeArrays
-            : complexVisType === ComplexVisType.Phase
-              ? seqArrays.phaseArrays
-              : seqArrays.unwrappedPhaseArrays;
+            : seqArrays.phaseArrays;
         return getDomain(seqArray, { scaleType: yScaleType });
       },
     ) || DEFAULT_DOMAIN;

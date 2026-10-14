@@ -59,8 +59,7 @@ export function useStableDomain(
     return frameDomain;
   }
 
-  // Include current slice's domain in case it isn't fully covered (e.g. errors, auxiliaries)
-  return sequenceDomain
-    ? extendDomain(sequenceDomain, frameDomain)
-    : seenDomain;
+  // Include range of slices shown so far, in case the sequence's values don't cover all that is
+  // plotted (e.g. errors, auxiliary signals)
+  return extendDomain(sequenceDomain, seenDomain);
 }

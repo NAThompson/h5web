@@ -5,11 +5,13 @@ import {
   useSafeDomain,
   useVisDomain,
 } from '@h5web/lib';
+import { type ArrayValue, type NumericType } from '@h5web/shared/hdf5-models';
 import ndarray from 'ndarray';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type GeometryData } from './GeometryFetcher';
@@ -25,7 +27,7 @@ interface Props {
 
 function MappedParamSurfaceVis(props: Props) {
   const { data, title, toolbarContainer, config } = props;
-  const { x, y, z, values, shape, labels, ignoreValue } = data;
+  const { x, y, z, values, shape, labels, ignoreValue, packing } = data;
   const {
     customDomain,
     colorMap,
@@ -55,10 +57,13 @@ function MappedParamSurfaceVis(props: Props) {
       useDomain(arrays.values.data, { scaleType, ignoreValue }),
       scaleType,
       (seq) =>
-        getDomain(toNumArray(seq as NonNullable<typeof values>), {
-          scaleType,
-          ignoreValue,
-        }),
+        getDomain(
+          toNumArray(unpackNumArray(seq as ArrayValue<NumericType>, packing)),
+          {
+            scaleType,
+            ignoreValue,
+          },
+        ),
     ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
