@@ -203,9 +203,9 @@ function VolumeMesh(props: Props) {
 
   /* Convert to half floats in workers, then upload chunk by chunk. Chunks are only referenced
    * until uploaded; they are converted again if the texture needs to be filled again (e.g.
-   * on remount or when the WebGL context is restored). */
+   * on remount). A lost WebGL context is reported as an error (see below), which unmounts
+   * the mesh, so a restored context gets a new texture. */
   const [filledTexture, setFilledTexture] = useState<Data3DTexture>();
-  const [contextRestoredCount, setContextRestoredCount] = useState(0);
   useEffect(() => {
     if (!halfFloatNormalization) {
       return undefined;
@@ -267,19 +267,7 @@ function VolumeMesh(props: Props) {
     shape,
     textureSafeValues,
     invalidate,
-    contextRestoredCount,
   ]);
-
-  useEffect(() => {
-    const canvas = gl.domElement;
-    function handleContextRestored() {
-      setContextRestoredCount((count) => count + 1);
-    }
-
-    canvas.addEventListener('webglcontextrestored', handleContextRestored);
-    return () =>
-      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
-  }, [gl]);
 
   // Don't render half-float textures before they are filled
   const isVolumeReady =
