@@ -1,19 +1,13 @@
-import { type DimensionMapping, getSliceSelection } from '@h5web/lib';
-import { isDefined } from '@h5web/shared/guards';
-import {
-  type ArrayShape,
-  type Dataset,
-  type ScalarShape,
-} from '@h5web/shared/hdf5-models';
-import { useUnmountEffect } from '@react-hookz/web';
-import { hashKey, type QueryKey } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { hashKey, type Query, type QueryKey } from '@tanstack/react-query';
 
-import {
-  type DataContextValue,
-  useDataContext,
-} from '../providers/DataProvider';
-import { getValueSize, MAX_AUTO_FETCH_SIZE } from './utils';
+import { type DataContextValue } from '../providers/DataProvider';
+import { type ValueQueryParams } from '../providers/models';
+import { isValueInCache } from '../utils';
+import { getSizeToConfirm } from './LargeValueGuard';
+import { getValueSize } from './utils';
+
+// Marks queries created for playback, so errors are kept in cache until playback stops
+export const PLAYBACK_QUERY_META = 'h5web:playback';
 
 export interface PrefetchLimits {
   maxPrefetchSize: number; // max size of slices fetched ahead of the current one (the next slice is always fetched)
@@ -31,74 +25,51 @@ interface TrackedQuery {
 }
 
 export interface PrefetchState {
-  wanted: Map<string, QueryKey>; // slices currently requested ahead of playback
-  fetched: Map<string, TrackedQuery>; // slices fetched for playback, least recently used first
-  requested: Map<string, Set<string | undefined>>; // selections requested by anyone, per dataset path (even if failed and since evicted)
+  wanted: Map<string, QueryKey>; // values currently requested ahead of playback
+  fetched: Map<string, TrackedQuery>; // values fetched for playback, least recently used first
+  current: Set<string>; // values of the current slice
 }
 
 export function createPrefetchState(): PrefetchState {
-  return { wanted: new Map(), fetched: new Map(), requested: new Map() };
+  return { wanted: new Map(), fetched: new Map(), current: new Set() };
 }
 
-/* Remember which slices get requested (i.e. were allowed by `LargeValueGuard`) */
-export function trackRequestedSlices(
-  dataContext: DataContextValue,
-  state: PrefetchState,
-): () => void {
-  const { filepath, queryClient } = dataContext;
-
-  return queryClient.getQueryCache().subscribe((event) => {
-    const [scope, type, path, selection] = event.query.queryKey;
-    if (event.type === 'added' && scope === filepath && type === 'value') {
-      const selections = state.requested.get(path as string) ?? new Set();
-      selections.add(selection as string | undefined);
-      state.requested.set(path as string, selections);
-    }
-  });
+export function isPlaybackQuery(query: Query): boolean {
+  return query.meta?.[PLAYBACK_QUERY_META] === true;
 }
 
-/* Returns a function to pass to `DimensionMapper`'s `prefetchSlices` prop (cf. `prefetchSlices`) */
-export function useSlicePrefetcher(
-  ...datasets: (Dataset<ScalarShape | ArrayShape> | undefined)[]
-): (nextMappings: DimensionMapping[]) => void {
-  const dataContext = useDataContext();
-  const [state] = useState(createPrefetchState);
-
-  useEffect(
-    () => trackRequestedSlices(dataContext, state),
-    [dataContext, state],
-  );
-
-  useUnmountEffect(() => {
-    prefetchSlices(dataContext, state, [], []); // cancel pending prefetches
-  });
-
-  const definedDatasets = datasets.filter(isDefined);
-
-  return (nextMappings) => {
-    prefetchSlices(dataContext, state, definedDatasets, nextMappings);
-  };
-}
-
-/* Fetch upcoming slices of the given datasets ahead of playback, cancel prefetches that are no
- * longer needed, and evict slices fetched for playback once they take up too much memory.
- * Called repeatedly during playback, so it must be cheap and idempotent. */
+/* Fetch the values of upcoming slices ahead of playback, cancel prefetches that are no longer
+ * needed, and evict values fetched for playback once they take up too much memory. Each slice
+ * is given as the list of values the vis fetches to display it. Slices that `LargeValueGuard`
+ * would ask confirmation for (given `maxAutoFetchSize`) are not fetched; returns `false` if this
+ * is the case of the next slice. Called repeatedly during playback, so must be cheap and
+ * idempotent; called with no upcoming slices once playback stops. */
 export function prefetchSlices(
   dataContext: DataContextValue,
   state: PrefetchState,
-  datasets: Dataset<ScalarShape | ArrayShape>[],
-  nextMappings: DimensionMapping[],
+  upcoming: ValueQueryParams[][],
+  current: ValueQueryParams[],
+  maxAutoFetchSize: number,
   limits = DEFAULT_LIMITS,
-): void {
+): boolean {
   const { queries, queryClient } = dataContext;
   const queryCache = queryClient.getQueryCache();
   const wanted = new Map<string, QueryKey>();
 
+  state.current.clear();
+  for (const { dataset, selection } of current) {
+    state.current.add(hashKey(queries.value(dataset, selection).queryKey));
+  }
+
+  let isNextAllowed = true;
   let totalSize = 0;
-  for (const [index, mapping] of nextMappings.entries()) {
-    const selection = getSliceSelection(mapping);
-    const sliceSize = datasets.reduce(
-      (acc, dataset) => acc + getValueSize(dataset, selection),
+  for (const [index, requests] of upcoming.entries()) {
+    const uncached = requests.filter(
+      ({ dataset, selection }) =>
+        !isValueInCache(dataContext, dataset, selection),
+    );
+    const sliceSize = uncached.reduce(
+      (acc, { dataset, selection }) => acc + getValueSize(dataset, selection),
       0,
     );
 
@@ -107,11 +78,12 @@ export function prefetchSlices(
     }
     totalSize += sliceSize;
 
-    if (!isSizeAllowed(dataContext, state, datasets, selection, sliceSize)) {
-      break; // let `LargeValueGuard` ask for confirmation first (all slices have the same size)
+    if (getSizeToConfirm(dataContext, requests, maxAutoFetchSize) > 0) {
+      isNextAllowed = index > 0;
+      break; // let `LargeValueGuard` ask for confirmation first
     }
 
-    for (const dataset of datasets) {
+    for (const { dataset, selection } of requests) {
       const options = queries.value(dataset, selection);
       const hash = hashKey(options.queryKey);
       wanted.set(hash, options.queryKey);
@@ -123,7 +95,7 @@ export function prefetchSlices(
       }
 
       if (query?.state.status === 'error') {
-        continue; // don't retry on every call; the vis shows the error once playback reaches the slice
+        continue; // don't retry: the vis shows the error once playback reaches the slice
       }
 
       state.fetched.delete(hash);
@@ -131,61 +103,59 @@ export function prefetchSlices(
         queryKey: options.queryKey,
         size: getValueSize(dataset, selection),
       });
-      void ignoreErrors(queryClient.query(options));
+
+      if (query?.state.fetchStatus !== 'fetching') {
+        void ignoreErrors(
+          queryClient.query({
+            ...options,
+            meta: { [PLAYBACK_QUERY_META]: true },
+          }),
+        );
+      }
     }
   }
 
   cancelUnwanted(dataContext, state, wanted);
 
-  // Protect previously wanted slices too: one of them may have just been selected for display
+  // Protect previously wanted values too: one of them may have just been selected for display
   // without being observed by the vis yet
-  evictPlayedSlices(
+  evictPlayedValues(
     dataContext,
     state,
-    new Set([...state.wanted.keys(), ...wanted.keys()]),
+    new Set([...state.wanted.keys(), ...wanted.keys(), ...state.current]),
     limits.maxCacheSize,
   );
+
   state.wanted.clear();
   for (const [hash, queryKey] of wanted) {
     state.wanted.set(hash, queryKey);
   }
+
+  if (upcoming.length === 0) {
+    removeFailedPlaybackQueries(dataContext); // so they can be retried outside of playback
+  }
+
+  return isNextAllowed;
+}
+
+/* On unmount: cancel pending prefetches and evict values fetched for playback (except those
+ * of the current slice and those still in use) */
+export function releasePrefetches(
+  dataContext: DataContextValue,
+  state: PrefetchState,
+): void {
+  cancelUnwanted(dataContext, state, new Map());
+  state.wanted.clear();
+  evictPlayedValues(dataContext, state, state.current, 0);
+  removeFailedPlaybackQueries(dataContext);
 }
 
 async function ignoreErrors(promise: Promise<unknown>): Promise<void> {
   try {
     await promise;
   } catch {
-    // e.g. cancellation; if the slice ends up being displayed, the vis refetches it and shows any error
+    // e.g. cancellation; errors are shown by the vis if playback reaches the slice
   }
-}
-
-/* Slices too large to be fetched automatically can only be prefetched once slices at least as
- * large have been requested for every dataset, i.e. after the user has confirmed fetching them */
-function isSizeAllowed(
-  dataContext: DataContextValue,
-  state: PrefetchState,
-  datasets: Dataset<ScalarShape | ArrayShape>[],
-  selection: string | undefined,
-  totalSize: number,
-): boolean {
-  if (totalSize <= MAX_AUTO_FETCH_SIZE) {
-    return true;
-  }
-
-  const { filepath, queryClient } = dataContext;
-  const queryCache = queryClient.getQueryCache();
-
-  return datasets.every((dataset) => {
-    const size = getValueSize(dataset, selection);
-    const cachedSelections = queryCache
-      .findAll({ queryKey: [filepath, 'value', dataset.path] })
-      .map(({ queryKey }) => queryKey[3] as string | undefined);
-    const requestedSelections = state.requested.get(dataset.path) ?? [];
-
-    return [...cachedSelections, ...requestedSelections].some(
-      (sel) => getValueSize(dataset, sel) >= size,
-    );
-  });
 }
 
 function touch(fetched: Map<string, TrackedQuery>, hash: string): void {
@@ -196,7 +166,8 @@ function touch(fetched: Map<string, TrackedQuery>, hash: string): void {
   }
 }
 
-/* Cancel prefetches no longer wanted, unless something else needs them (e.g. the vis) */
+/* Cancel prefetches no longer wanted, unless something else needs them (e.g. the vis, or the
+ * slice that just got selected) */
 function cancelUnwanted(
   dataContext: DataContextValue,
   state: PrefetchState,
@@ -208,6 +179,7 @@ function cancelUnwanted(
     const query = queryCache.get(hash);
     if (
       !wanted.has(hash) &&
+      !state.current.has(hash) &&
       query?.state.fetchStatus === 'fetching' &&
       query.getObserversCount() === 0
     ) {
@@ -216,7 +188,7 @@ function cancelUnwanted(
   }
 }
 
-function evictPlayedSlices(
+function evictPlayedValues(
   dataContext: DataContextValue,
   state: PrefetchState,
   protectedHashes: Set<string>,
@@ -251,4 +223,15 @@ function evictPlayedSlices(
       cachedSize -= size;
     }
   }
+}
+
+function removeFailedPlaybackQueries(dataContext: DataContextValue): void {
+  const { filepath, queryClient } = dataContext;
+  queryClient.removeQueries({
+    queryKey: [filepath, 'value'],
+    predicate: (query) =>
+      query.state.status === 'error' &&
+      query.getObserversCount() === 0 &&
+      isPlaybackQuery(query),
+  });
 }
