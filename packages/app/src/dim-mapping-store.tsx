@@ -24,30 +24,37 @@ interface DimMappingState {
   lockedDimsCount: number;
   mapping: DimensionMapping;
   multiDim: number | undefined;
-  playbackSettings: PlaybackSettings; // kept across datasets
 }
 
 function createDimMappingStore() {
-  return createStore<DimMappingState>()(
+  return createStore<DimMappingState>(() => ({
+    dims: [],
+    axesCount: 0,
+    lockedDimsCount: 0,
+    mapping: [],
+    multiDim: undefined,
+  }));
+}
+
+interface PlaybackSettingsState {
+  playbackSettings: PlaybackSettings;
+}
+
+/* Playback settings are remembered across datasets, files and reloads (in a separate store, so
+ * slicing doesn't write to local storage) */
+function createPlaybackSettingsStore() {
+  return createStore<PlaybackSettingsState>()(
     persist(
-      (): DimMappingState => ({
-        dims: [],
-        axesCount: 0,
-        lockedDimsCount: 0,
-        mapping: [],
-        multiDim: undefined,
+      (): PlaybackSettingsState => ({
         playbackSettings: DEFAULT_PLAYBACK_SETTINGS,
       }),
       {
-        // Only playback settings are remembered (across datasets, files and reloads)
         name: 'h5web:playback',
         version: 1,
-        partialize: (state) => ({ playbackSettings: state.playbackSettings }),
-        merge: (persisted, current) => ({
-          ...current,
+        merge: (persisted) => ({
           playbackSettings: {
             ...DEFAULT_PLAYBACK_SETTINGS,
-            ...(persisted as Partial<DimMappingState> | undefined)
+            ...(persisted as Partial<PlaybackSettingsState> | undefined)
               ?.playbackSettings,
           },
         }),
@@ -57,13 +64,23 @@ function createDimMappingStore() {
 }
 
 const StoreContext = createContext({} as StoreApi<DimMappingState>);
+const PlaybackStoreContext = createContext(
+  {} as StoreApi<PlaybackSettingsState>,
+);
 
 export function DimMappingProvider(props: PropsWithChildren) {
   const { children } = props;
 
   const [store] = useState(createDimMappingStore);
+  const [playbackStore] = useState(createPlaybackSettingsStore);
 
-  return <StoreContext value={store}>{children}</StoreContext>;
+  return (
+    <StoreContext value={store}>
+      <PlaybackStoreContext value={playbackStore}>
+        {children}
+      </PlaybackStoreContext>
+    </StoreContext>
+  );
 }
 
 export function useDimMappingState(opts: {
@@ -148,7 +165,7 @@ export function usePlaybackSettingsState(): [
   PlaybackSettings,
   (settings: PlaybackSettings) => void,
 ] {
-  const store = useContext(StoreContext);
+  const store = useContext(PlaybackStoreContext);
   const settings = useStore(store, (state) => state.playbackSettings);
   const setSettings = useCallback(
     (playbackSettings: PlaybackSettings) =>
