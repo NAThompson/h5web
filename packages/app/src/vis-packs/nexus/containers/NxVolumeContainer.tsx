@@ -53,7 +53,11 @@ function NxVolumeContainer(props: VisContainerProps) {
   // Stable dimensions, so that presentation changes don't make a new data array (and drop cached isosurfaces)
   const volumeDims = useMemo(() => dims.slice(-3), [dims]);
 
-  const { slicingProps } = useNxSlicingProps(nxDataToFetch, dimMapping);
+  const { slicingProps, playbackRange } = useNxSlicingProps(
+    nxDataToFetch,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -65,7 +69,7 @@ function NxVolumeContainer(props: VisContainerProps) {
         {...slicingProps}
         onChange={setDimMapping}
       />
-      <VisBoundary resetKey={dimMapping}>
+      <VisBoundary resetKey={dimMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
           nxData={nxDataToFetch}
           selection={getSliceSelection(dimMapping)}

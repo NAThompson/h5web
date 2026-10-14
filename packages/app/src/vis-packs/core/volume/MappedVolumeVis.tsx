@@ -1,5 +1,6 @@
 import {
   getBoxSizeFromAxes,
+  getDomain,
   getGradientDomain,
   useDomain,
   useIsosurfaces,
@@ -26,8 +27,10 @@ import {
   usePacking,
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
+import { unpackNumArray } from '../../netcdf/utils';
+import { useStableDomain } from '../../playback-range';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
-import { DEFAULT_DOMAIN } from '../utils';
+import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type VolumeConfig } from './config';
 import VolumeToolbar from './VolumeToolbar';
 
@@ -77,8 +80,17 @@ function MappedVolumeVis(props: Props) {
   const dataArray = useBaseArray(numArray, dims);
 
   const ignoreValue = useIgnoreValue(dataset);
+  // During playback of a volume sequence (NX Volume), use range of whole sequence when affordable
   const dataDomain =
-    useDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useDomain(dataArray, { scaleType, ignoreValue }),
+      scaleType,
+      (seq) =>
+        getDomain(
+          toNumArray(unpackNumArray(seq as ArrayValue<NumericType>, packing)),
+          { scaleType, ignoreValue },
+        ),
+    ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
