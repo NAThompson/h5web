@@ -10,7 +10,11 @@ import MappedRgbVis from '../../core/rgb/MappedRgbVis';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
-import { useNxData, useNxValuesCached } from '../hooks';
+import {
+  useNxData,
+  useNxSlicePrefetcher,
+  useNxValuesCached,
+} from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
 
 function NxRgbContainer(props: VisContainerProps) {
@@ -48,6 +52,8 @@ function NxRgbContainer(props: VisContainerProps) {
         dimHints={axisLabels}
         dimMapping={dimMapping}
         canSliceFast={useNxValuesCached(nxData)}
+        withPlaybackControls
+        prefetchSlices={useNxSlicePrefetcher(nxData)}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping}>

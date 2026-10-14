@@ -10,6 +10,7 @@ import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../../models';
+import { useSlicePrefetcher } from '../../prefetch';
 import VisBoundary from '../../VisBoundary';
 import { useMatrixConfig } from '../matrix/config';
 import ValueFetcher from '../ValueFetcher';
@@ -38,6 +39,8 @@ function CompoundVisContainer(props: VisContainerProps) {
         dims={dims}
         dimMapping={dimMapping}
         canSliceFast={useValuesInCache(entity)}
+        withPlaybackControls
+        prefetchSlices={useSlicePrefetcher(entity)}
         onChange={setDimMapping}
       />
       <VisBoundary isSlice={selection !== undefined}>

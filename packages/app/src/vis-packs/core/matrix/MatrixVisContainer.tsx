@@ -9,6 +9,7 @@ import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../../models';
+import { useSlicePrefetcher } from '../../prefetch';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useMatrixConfig } from './config';
@@ -34,6 +35,8 @@ function MatrixVisContainer(props: VisContainerProps) {
         dims={dims}
         dimMapping={dimMapping}
         canSliceFast={useValuesInCache(entity)}
+        withPlaybackControls
+        prefetchSlices={useSlicePrefetcher(entity)}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>

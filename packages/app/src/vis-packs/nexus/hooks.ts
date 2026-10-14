@@ -11,6 +11,7 @@ import {
   type DataContextValue,
   useDataContext,
 } from '../../providers/DataProvider';
+import { useSlicePrefetcher } from '../prefetch';
 import { type FieldDef, type NxData } from './models';
 import {
   assertNxDataGroup,
@@ -103,6 +104,18 @@ export function useNxValuesCached(
   const { signalDef, auxDefs } = nxData;
 
   return useValuesInCache(
+    signalDef.dataset,
+    signalDef.errorDataset,
+    ...auxDefs.flatMap((def) => [def.dataset, def.errorDataset]),
+  );
+}
+
+export function useNxSlicePrefetcher(
+  nxData: NxData,
+): (nextMappings: DimensionMapping[]) => void {
+  const { signalDef, auxDefs } = nxData;
+
+  return useSlicePrefetcher(
     signalDef.dataset,
     signalDef.errorDataset,
     ...auxDefs.flatMap((def) => [def.dataset, def.errorDataset]),

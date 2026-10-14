@@ -5,6 +5,7 @@ import { useDimMappingState } from '../../../dim-mapping-store';
 import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../../models';
+import { useSlicePrefetcher } from '../../prefetch';
 import VisBoundary from '../../VisBoundary';
 import { useScalarConfig } from './config';
 import MappedScalarVis from './MappedScalarVis';
@@ -24,6 +25,7 @@ function ScalarVisContainer(props: VisContainerProps) {
   const config = useScalarConfig();
   const selection = getSliceSelection(dimMapping);
   const canSliceFast = useValuesInCache(entity);
+  const prefetchSlices = useSlicePrefetcher(entity);
 
   return (
     <>
@@ -33,6 +35,8 @@ function ScalarVisContainer(props: VisContainerProps) {
           dims={dims}
           dimMapping={dimMapping}
           canSliceFast={canSliceFast}
+          withPlaybackControls
+          prefetchSlices={prefetchSlices}
           onChange={setDimMapping}
         />
       )}

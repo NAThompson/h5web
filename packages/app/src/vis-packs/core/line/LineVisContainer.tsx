@@ -12,6 +12,7 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useSlicePrefetcher } from '../../prefetch';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
@@ -37,6 +38,7 @@ function LineVisContainer(props: VisContainerProps) {
   const config = useLineConfig();
   const selection = getSliceSelection(lineMapping);
   const isCached = useValuesInCache(entity);
+  const prefetch = useSlicePrefetcher(entity);
 
   const dimHints = useDimHints(entity);
 
@@ -48,6 +50,10 @@ function LineVisContainer(props: VisContainerProps) {
         dimHints={dimHints}
         dimMapping={dimMapping}
         canSliceFast={(m) => isCached(getMultiPlotMapping(m, multiDim))}
+        withPlaybackControls
+        prefetchSlices={(ms) => {
+          prefetch(ms.map((m) => getMultiPlotMapping(m, multiDim)));
+        }}
         onChange={setDimMapping}
         multiDim={multiDim}
         onMultiDimChange={setMultiDim}

@@ -19,6 +19,7 @@ import VisBoundary from '../../VisBoundary';
 import {
   useNxData,
   useNxHeatmapDataToFetch,
+  useNxSlicePrefetcher,
   useNxValuesCached,
 } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
@@ -69,7 +70,9 @@ function NxHeatmapContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={axisLabels}
         dimMapping={dimMapping}
-        canSliceFast={useNxValuesCached(nxData)}
+        canSliceFast={useNxValuesCached(nxDataToFetch)}
+        withPlaybackControls
+        prefetchSlices={useNxSlicePrefetcher(nxDataToFetch)}
         onChange={setDimMapping}
       />
 

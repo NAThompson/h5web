@@ -11,6 +11,7 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useSlicePrefetcher } from '../../prefetch';
 import VisBoundary from '../../VisBoundary';
 import { useLineConfig } from '../line/config';
 import ValueFetcher from '../ValueFetcher';
@@ -41,6 +42,8 @@ function ComplexLineVisContainer(props: VisContainerProps) {
         dimHints={dimHints}
         dimMapping={dimMapping}
         canSliceFast={useValuesInCache(entity)}
+        withPlaybackControls
+        prefetchSlices={useSlicePrefetcher(entity)}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>
