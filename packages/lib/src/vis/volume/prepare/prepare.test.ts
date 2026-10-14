@@ -90,9 +90,8 @@ describe('toHalfFloatBits', () => {
 /* Runs the worker's logic in the same thread */
 class FakeWorker extends EventTarget {
   public static instances = 0;
+  public static boundsRequests = 0;
   public static failing = false;
-
-  private part: Float32Array | undefined;
 
   public constructor() {
     super();
@@ -108,16 +107,21 @@ class FakeWorker extends EventTarget {
         return;
       }
 
+      const chunk = new Float32Array(msg.buffer);
       let response: PrepareResponse;
       if (msg.type === 'bounds') {
-        this.part = new Float32Array(msg.buffer);
-        response = { type: 'bounds', bounds: getFloat32Bounds(this.part) };
+        FakeWorker.boundsRequests += 1;
+        response = {
+          type: 'bounds',
+          id: msg.id,
+          bounds: getFloat32Bounds(chunk),
+        };
       } else {
-        const { buffer } = toHalfFloatBits(
-          this.part!, // eslint-disable-line @typescript-eslint/no-non-null-assertion
-          msg.normalization,
-        );
-        response = { type: 'halfFloats', buffer };
+        response = {
+          type: 'halfFloats',
+          id: msg.id,
+          buffer: toHalfFloatBits(chunk, msg.normalization).buffer,
+        };
       }
       this.dispatchEvent(new MessageEvent('message', { data: response }));
     });
@@ -131,6 +135,7 @@ class FakeWorker extends EventTarget {
 describe('prepareVolume', () => {
   afterEach(() => {
     FakeWorker.instances = 0;
+    FakeWorker.boundsRequests = 0;
     FakeWorker.failing = false;
     vi.restoreAllMocks();
   });
@@ -138,30 +143,47 @@ describe('prepareVolume', () => {
   setPrepareWorkerFactory(() => new FakeWorker() as unknown as Worker);
 
   it('should compute bounds in workers', async () => {
-    const values = randomValues(2 ** 24 + 1000); // 2 parts
-    const prepared = await prepareVolume(values);
+    const values = randomValues(2 ** 24 + 1000);
+    const prepared = await prepareVolume(values, 1000);
 
     expect(FakeWorker.instances).toBeGreaterThan(1);
     expect(prepared.bounds).toStrictEqual(getBounds(values));
     expect(prepared.halfFloats).toBeUndefined(); // small enough for 32-bit float texture
 
     // Same promise for same array
-    expect(prepareVolume(values)).toBe(prepareVolume(values));
+    expect(prepareVolume(values, 1000)).toBe(prepareVolume(values, 1000));
   });
 
-  it('should prepare half floats for volumes larger than 1 GiB', async () => {
-    const values = new Float32Array(2 ** 28 + 16);
+  it('should prepare half floats in chunks of whole slices for volumes larger than 1 GiB', async () => {
+    const sliceLength = 3000 * 1000; // chunks of 2 slices
+    const values = new Float32Array(sliceLength * 90); // 1.08 GB
     values[0] = -1;
     values[values.length - 1] = 3;
     values[2 ** 27] = Number.NaN;
 
-    const prepared = await prepareVolume(values);
+    const prepared = await prepareVolume(values, sliceLength);
     expect(prepared.bounds).toMatchObject({ min: -1, max: 3 });
 
     const halfFloats = getPreparedHalfFloats(values);
     assertDefined(halfFloats);
     expect(halfFloats).toMatchObject({ offset: -1, scale: 4 });
-    const floats = new Float16Array(halfFloats.values.buffer);
+
+    const { chunks } = halfFloats;
+    expect(chunks).toHaveLength(45);
+    expect(chunks.map((chunk) => chunk.start)).toStrictEqual(
+      Array.from({ length: 45 }, (_, i) => i * 2),
+    );
+    expect(
+      chunks.every((chunk) => chunk.values.length === 2 * sliceLength),
+    ).toBe(true);
+
+    const floats = new Float16Array(values.length);
+    for (const chunk of chunks) {
+      floats.set(
+        new Float16Array(chunk.values.buffer),
+        chunk.start * sliceLength,
+      );
+    }
     expect(floats[0]).toBe(0);
     expect(floats[1]).toBe(0.25);
     expect(floats[2 ** 27]).toBeNaN();
@@ -169,7 +191,7 @@ describe('prepareVolume', () => {
 
     releasePreparedHalfFloats(values);
     expect(getPreparedHalfFloats(values)).toBeUndefined();
-    const preparedAgain = await prepareVolume(values);
+    const preparedAgain = await prepareVolume(values, sliceLength);
     expect(preparedAgain.halfFloats).toBeUndefined();
   });
 
@@ -178,7 +200,7 @@ describe('prepareVolume', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const values = randomValues(2 ** 24);
-    const prepared = await prepareVolume(values);
+    const prepared = await prepareVolume(values, 1000);
     expect(prepared.bounds).toStrictEqual(getBounds(values));
     expect(console.warn).toHaveBeenCalledOnce(); // eslint-disable-line no-console
   });

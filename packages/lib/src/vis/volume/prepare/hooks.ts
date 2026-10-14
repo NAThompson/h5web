@@ -28,7 +28,10 @@ export function useVolumeDomain(
     data.length >= MIN_WORKER_VALUES &&
     !ignoreValue; // `ignoreValue` is a function, which can't be sent to workers
 
-  const prepared = usesWorkers ? use(prepareVolume(data)) : undefined;
+  const sliceLength = dataArray.shape.slice(1).reduce((acc, n) => acc * n, 1);
+  const prepared = usesWorkers
+    ? use(prepareVolume(data, sliceLength))
+    : undefined;
   const mainThreadDomain = useDomain(usesWorkers ? NO_VALUES : dataArray, {
     scaleType,
     ignoreValue,

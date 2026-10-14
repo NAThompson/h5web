@@ -4,7 +4,7 @@ import {
   type ScaleType,
 } from '@h5web/shared/vis-models';
 import { useFrame, useThree } from '@react-three/fiber';
-import ndarray, { type NdArray } from 'ndarray';
+import { type NdArray } from 'ndarray';
 import {
   type RefObject,
   useEffect,
@@ -23,7 +23,7 @@ import {
   Vector3,
 } from 'three';
 
-import { type ColorMap } from '../heatmap/models';
+import { type ColorMap, type TextureSafeTypedArray } from '../heatmap/models';
 import {
   getColorMapTexture,
   scaleDomain,
@@ -34,6 +34,7 @@ import { getUniforms } from '../utils';
 import { type VolumeQuality, type VolumeRenderMode } from './models';
 import {
   getPreparedHalfFloats,
+  type HalfFloatChunk,
   releasePreparedHalfFloats,
 } from './prepare/client';
 import { getVolumeFragmentShader, VOLUME_VERTEX_SHADER } from './shaders';
@@ -43,10 +44,12 @@ import {
   canUseHalfFloats,
   getBoxSize,
   getGLErrors,
+  getHalfFloatTexture,
   getVolumeTexture,
   SAMPLES_PER_VOXEL,
   toContiguousArray,
   toNormalizedHalfFloats,
+  uploadHalfFloatChunks,
   withMemoryCheck,
 } from './utils';
 
@@ -110,52 +113,65 @@ function VolumeMesh(props: Props) {
     );
   }
 
-  const { values, valueOffset, valueScale } = useMemo(() => {
-    const ctx = gl.getContext() as WebGL2RenderingContext;
+  const { values, halfFloatChunks, shape, valueOffset, valueScale } =
+    useMemo((): {
+      values?: NdArray<TextureSafeTypedArray>;
+      halfFloatChunks?: HalfFloatChunk[];
+      shape: number[];
+      valueOffset: number;
+      valueScale: number;
+    } => {
+      const ctx = gl.getContext() as WebGL2RenderingContext;
 
-    // Fall back to half floats if texture is too large (e.g. Chromium caps textures at 1 GiB)
-    if (
-      textureSafeValues.dtype === 'float32' &&
-      canUseHalfFloats() &&
-      !canAllocateVolumeTexture(ctx, textureSafeValues.shape, ctx.R32F)
-    ) {
-      // Use half floats prepared in workers along with the domain, if any (cf. `useVolumeDomain`)
-      const prepared = getPreparedHalfFloats(
-        textureSafeValues.data as Float32Array,
-      );
-      const normalized = prepared
-        ? {
-            values: ndarray(prepared.values, textureSafeValues.shape),
-            offset: prepared.offset,
-            scale: prepared.scale,
-          }
-        : withMemoryCheck(() =>
-            toNormalizedHalfFloats(textureSafeValues as NdArray<Float32Array>),
-          );
+      // Fall back to half floats if texture is too large (e.g. Chromium caps textures at 1 GiB)
+      if (
+        textureSafeValues.dtype === 'float32' &&
+        canUseHalfFloats() &&
+        !canAllocateVolumeTexture(ctx, textureSafeValues.shape, ctx.R32F)
+      ) {
+        // Use half floats prepared in workers along with the domain, if any (cf. `useVolumeDomain`)
+        const prepared = getPreparedHalfFloats(
+          textureSafeValues.data as Float32Array,
+        );
+        if (prepared) {
+          return {
+            shape: textureSafeValues.shape,
+            halfFloatChunks: prepared.chunks,
+            valueOffset: prepared.offset,
+            valueScale: prepared.scale,
+          };
+        }
+
+        const normalized = withMemoryCheck(() =>
+          toNormalizedHalfFloats(textureSafeValues as NdArray<Float32Array>),
+        );
+        return {
+          values: normalized.values,
+          shape: normalized.values.shape,
+          valueOffset: normalized.offset,
+          valueScale: normalized.scale,
+        };
+      }
+
       return {
-        values: normalized.values,
-        valueOffset: normalized.offset,
-        valueScale: normalized.scale,
+        values: textureSafeValues,
+        shape: textureSafeValues.shape,
+        valueOffset: 0,
+        // revert WebGL's automatic normalization of UNSIGNED_BYTE with RED format
+        valueScale: textureSafeValues.dtype.startsWith('uint8') ? 255 : 1,
       };
-    }
-
-    return {
-      values: textureSafeValues,
-      valueOffset: 0,
-      // revert WebGL's automatic normalization of UNSIGNED_BYTE with RED format
-      valueScale: textureSafeValues.dtype.startsWith('uint8') ? 255 : 1,
-    };
-  }, [textureSafeValues, gl]);
-  const { shape } = values;
+    }, [textureSafeValues, gl]);
 
   const volumeTexture = useMemo(
     () =>
-      getVolumeTexture(
-        values,
-        values.dtype !== 'float32' ||
-          gl.extensions.has('OES_texture_float_linear'),
-      ),
-    [values, gl],
+      values
+        ? getVolumeTexture(
+            values,
+            values.dtype !== 'float32' ||
+              gl.extensions.has('OES_texture_float_linear'),
+          )
+        : getHalfFloatTexture(shape), // filled with `halfFloatChunks` on upload
+    [values, shape, gl],
   );
 
   const colorMapTexture = useMemo(
@@ -169,9 +185,11 @@ function VolumeMesh(props: Props) {
     getGLErrors(ctx); // clear previous errors
     gl.initTexture(volumeTexture);
 
-    // Prepared half floats are now held by the texture only
-    if (textureSafeValues.data instanceof Float32Array) {
-      releasePreparedHalfFloats(textureSafeValues.data);
+    if (halfFloatChunks) {
+      uploadHalfFloatChunks(gl, volumeTexture, halfFloatChunks);
+
+      // Drop prepared half floats once on the GPU (prepared again if needed, e.g. on remount)
+      releasePreparedHalfFloats(textureSafeValues.data as Float32Array);
     }
 
     const errors = getGLErrors(ctx);
@@ -184,7 +202,7 @@ function VolumeMesh(props: Props) {
         ),
       );
     }
-  }, [gl, volumeTexture, textureSafeValues]);
+  }, [gl, volumeTexture, halfFloatChunks, textureSafeValues]);
 
   // Some browsers lose the WebGL context instead of reporting OUT_OF_MEMORY
   useEffect(() => {

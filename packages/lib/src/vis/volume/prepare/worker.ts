@@ -1,4 +1,4 @@
-/* Web worker computing the bounds of a part of a volume and converting it to half floats */
+/* Web worker computing the bounds of chunks of a volume or converting them to half floats */
 
 import {
   getFloat32Bounds,
@@ -7,41 +7,54 @@ import {
 } from './utils';
 
 export type PrepareRequest =
-  | { type: 'bounds'; buffer: ArrayBuffer } // part of the volume (`Float32Array`), kept for `halfFloats`
-  | { type: 'halfFloats'; normalization: HalfFloatNormalization };
+  | { type: 'bounds'; id: number; buffer: ArrayBuffer } // chunk (`Float32Array`), ignored by `processChunk`
+  | {
+      type: 'halfFloats';
+      id: number;
+      buffer: ArrayBuffer;
+      normalization: HalfFloatNormalization;
+    };
 
 export type PrepareResponse =
-  | { type: 'bounds'; bounds: ReturnType<typeof getFloat32Bounds> }
-  | { type: 'halfFloats'; buffer: ArrayBuffer }
-  | { type: 'error'; message: string };
+  | { type: 'bounds'; id: number; bounds: ReturnType<typeof getFloat32Bounds> }
+  | { type: 'halfFloats'; id: number; buffer: ArrayBuffer }
+  | { type: 'error'; id: number; message: string };
 
-let part: Float32Array | undefined;
+/* Also used on the main thread, which processes some chunks itself (without copying them) */
+export function processChunk(
+  msg: PrepareRequest,
+  chunk: Float32Array,
+): PrepareResponse {
+  const { id } = msg;
 
-function post(msg: PrepareResponse, transfer: Transferable[] = []): void {
-  globalThis.postMessage(msg, { transfer });
+  if (msg.type === 'bounds') {
+    return { type: 'bounds', id, bounds: getFloat32Bounds(chunk) };
+  }
+
+  const { buffer } = toHalfFloatBits(chunk, msg.normalization);
+  return { type: 'halfFloats', id, buffer };
 }
 
-globalThis.addEventListener('message', (evt: MessageEvent<PrepareRequest>) => {
-  const msg = evt.data;
+// Don't listen to messages when imported on the main thread
+if ('importScripts' in globalThis) {
+  globalThis.addEventListener(
+    'message',
+    (evt: MessageEvent<PrepareRequest>) => {
+      const msg = evt.data;
+      let response: PrepareResponse;
+      try {
+        response = processChunk(msg, new Float32Array(msg.buffer));
+      } catch (error) {
+        response = {
+          type: 'error',
+          id: msg.id,
+          message: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
 
-  try {
-    if (msg.type === 'bounds') {
-      part = new Float32Array(msg.buffer);
-      post({ type: 'bounds', bounds: getFloat32Bounds(part) });
-      return;
-    }
-
-    if (!part) {
-      throw new Error('No data to convert');
-    }
-
-    const { buffer } = toHalfFloatBits(part, msg.normalization);
-    part = undefined;
-    post({ type: 'halfFloats', buffer }, [buffer]);
-  } catch (error) {
-    post({
-      type: 'error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+      globalThis.postMessage(response, {
+        transfer: response.type === 'halfFloats' ? [response.buffer] : [],
+      });
+    },
+  );
+}

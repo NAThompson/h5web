@@ -1,10 +1,18 @@
 import { createArrayFromView } from '@h5web/shared/vis-utils';
 import ndarray, { type NdArray } from 'ndarray';
-import { Data3DTexture, LinearFilter, NearestFilter, RedFormat } from 'three';
+import {
+  Data3DTexture,
+  HalfFloatType,
+  LinearFilter,
+  NearestFilter,
+  RedFormat,
+  type WebGLRenderer,
+} from 'three';
 
 import { type TextureSafeTypedArray } from '../heatmap/models';
 import { TEXTURE_TYPES } from '../heatmap/utils';
 import { VolumeQuality } from './models';
+import { type HalfFloatChunk } from './prepare/client';
 import {
   getFloat32Bounds,
   getHalfFloatNormalization,
@@ -103,6 +111,59 @@ export function getVolumeTexture(
   texture.needsUpdate = true;
 
   return texture;
+}
+
+/* Half-float texture whose storage is allocated without data, to be filled chunk by chunk
+ * with `uploadHalfFloatChunks` once initialized (cf. `WebGLRenderer#initTexture`) */
+export function getHalfFloatTexture(shape: number[]): Data3DTexture {
+  const [depth, rows, cols] = shape;
+
+  const texture = new Data3DTexture(null, cols, rows, depth);
+  texture.format = RedFormat;
+  texture.type = HalfFloatType;
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.unpackAlignment = 1;
+  texture.source.dataReady = false; // allocate storage only
+  texture.needsUpdate = true;
+
+  return texture;
+}
+
+/* Upload chunks of whole slices of half floats one after the other, which avoids
+ * assembling them into a single large array first */
+export function uploadHalfFloatChunks(
+  renderer: WebGLRenderer,
+  texture: Data3DTexture,
+  chunks: HalfFloatChunk[],
+): void {
+  const ctx = renderer.getContext() as WebGL2RenderingContext;
+  const { width, height } = texture.image;
+  const { __webglTexture } = renderer.properties.get(texture) as {
+    __webglTexture?: WebGLTexture;
+  };
+  if (!__webglTexture) {
+    return; // texture failed to initialize
+  }
+
+  renderer.state.bindTexture(ctx.TEXTURE_3D, __webglTexture); // keep three.js' state cache valid
+  ctx.pixelStorei(ctx.UNPACK_ALIGNMENT, 1);
+  for (const { start, values } of chunks) {
+    const depth = values.length / (width * height);
+    ctx.texSubImage3D(
+      ctx.TEXTURE_3D,
+      0,
+      0,
+      0,
+      start,
+      width,
+      height,
+      depth,
+      ctx.RED,
+      ctx.HALF_FLOAT,
+      values,
+    );
+  }
 }
 
 export interface NormalizedVolume {
