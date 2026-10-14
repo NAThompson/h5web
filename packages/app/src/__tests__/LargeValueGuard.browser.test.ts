@@ -32,18 +32,24 @@ test('wait for confirmation before playing through large slices', async () => {
     .element(page.getByText(/too large to be loaded automatically/u))
     .toBeVisible();
 
-  // Playback must not fetch large slices without confirmation
-  await page.getByRole('button', { name: 'Play D0' }).click();
-  await new Promise((resolve) => {
-    setTimeout(resolve, 500);
-  });
+  // Playback must not fetch large slices without confirmation, and says so
+  const playBtn = page.getByRole('button', { name: 'Play D0' });
+  await playBtn.click();
+  await expect
+    .element(playBtn)
+    .toHaveAttribute(
+      'title',
+      expect.stringContaining('Waiting for confirmation to load next slice'),
+    );
   const slider = page.getByRole('slider', { name: 'D0' });
   expect(slider).toHaveValue(0);
 
   // Once a slice is confirmed, slices of the same size get fetched for playback
   await page.getByRole('button', { name: 'Load anyway?' }).click();
   await expect
-    .poll(() => Number(slider.element().getAttribute('aria-valuenow')))
+    .poll(() => Number(slider.element().getAttribute('aria-valuenow')), {
+      timeout: 5000,
+    })
     .toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Pause D0' }).click();
+  await playBtn.click();
 });

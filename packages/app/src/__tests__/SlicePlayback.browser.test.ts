@@ -17,50 +17,86 @@ function getSliderValue(): number {
   return Number(getSlider().element().getAttribute('aria-valuenow'));
 }
 
+function getPlayBtn() {
+  return page.getByRole('button', { name: 'Play D0' });
+}
+
+function isPlaying(): boolean {
+  return getPlayBtn().element().getAttribute('aria-pressed') === 'true';
+}
+
 async function openSettings() {
   await page.getByRole('button', { name: 'D0 playback settings' }).click();
   return page.getByRole('dialog', { name: 'D0 playback settings' });
+}
+
+async function setSettings(opts: { fps?: number; option?: string }) {
+  const dialog = await openSettings();
+  if (opts.option) {
+    await dialog.getByLabelText(opts.option).click();
+  }
+  if (opts.fps) {
+    await dialog.getByLabelText('Speed').fill(opts.fps.toString());
+  }
+  await userEvent.keyboard('{Escape}');
+}
+
+/* Fake timers (and clock) used by playback, so tests don't depend on machine load */
+function installFakeTimers() {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+}
+
+async function advance(ms: number) {
+  await vi.advanceTimersByTimeAsync(ms);
+
+  // Let React render (its scheduler relies on `MessageChannel`, which isn't faked)
+  for (let i = 0; i < 3; i += 1) {
+    // eslint-disable-next-line no-await-in-loop -- sequential tasks
+    await new Promise<void>((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.addEventListener('message', () => resolve(), {
+        once: true,
+      });
+      channel.port1.start();
+      channel.port2.postMessage(undefined); // eslint-disable-line unicorn/require-post-message-target-origin -- not a window
+    });
+  }
 }
 
 // `threeD` has dims [9, 20, 41], so D0 goes from 0 to 8
 test('play and pause slicing', async () => {
   await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Heatmap });
   expect(getSlider()).toHaveValue(0);
+  installFakeTimers();
 
-  await page.getByRole('button', { name: 'Play D0' }).click();
-  await expect.poll(getSliderValue).toBeGreaterThan(1);
+  await getPlayBtn().click(); // 10 slices/s by default
+  expect(isPlaying()).toBe(true);
+  await advance(350);
+  expect(getSliderValue()).toBe(3);
 
-  await page.getByRole('button', { name: 'Pause D0' }).click();
-  const pausedValue = getSliderValue();
-  await new Promise((resolve) => {
-    setTimeout(resolve, 300);
-  });
-  expect(getSliderValue()).toBe(pausedValue);
-  expect(page.getByRole('button', { name: 'Play D0' })).toBeVisible();
+  await getPlayBtn().click();
+  expect(isPlaying()).toBe(false);
+  await advance(1000);
+  expect(getSliderValue()).toBe(3);
 });
 
 test('advance at the requested speed', async () => {
   await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Heatmap });
-  await userEvent.keyboard('{Escape}');
+  await setSettings({ fps: 4 }); // 250 ms per slice
+  installFakeTimers();
 
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
-
-  const dialog = await openSettings();
-  await dialog.getByLabelText('Slices per second').fill('4'); // 250 ms per slice
-  await userEvent.keyboard('{Escape}');
-
-  await page.getByRole('button', { name: 'Play D0' }).click();
-  await vi.advanceTimersByTimeAsync(200);
+  await getPlayBtn().click();
+  await advance(200);
   expect(getSliderValue()).toBe(0);
 
-  await vi.advanceTimersByTimeAsync(100);
+  await advance(100);
   expect(getSliderValue()).toBe(1);
 
-  await vi.advanceTimersByTimeAsync(500);
+  await advance(500);
   expect(getSliderValue()).toBe(3);
 });
 
-async function playFromLastSlice(mode: string, fps: number) {
+async function playFromLastSlice(option: string) {
   await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Heatmap });
 
   const slider = getSlider();
@@ -68,32 +104,55 @@ async function playFromLastSlice(mode: string, fps: number) {
   await userEvent.keyboard('{End}');
   await expect.element(slider).toHaveValue(8);
 
-  const dialog = await openSettings();
-  await dialog.getByLabelText(mode).click();
-  await dialog.getByLabelText('Slices per second').fill(fps.toString());
+  await setSettings({ option, fps: 10 });
+  installFakeTimers();
+  await advance(500); // let debounced slicing through
 
-  await page.getByRole('button', { name: 'Play D0' }).click();
+  await getPlayBtn().click();
 }
 
 test('loop back to the first slice', async () => {
-  await playFromLastSlice('Loop', 60);
-  await expect.poll(getSliderValue).toBeLessThan(8);
-  await page.getByRole('button', { name: 'Pause D0' }).click();
+  await playFromLastSlice('Loop');
+  await advance(100);
+  expect(getSliderValue()).toBe(0);
+  await advance(100);
+  expect(getSliderValue()).toBe(1);
 });
 
 test('bounce back from the last slice', async () => {
-  await playFromLastSlice('Bounce', 2); // slow enough not to miss slice 7
-  await expect.poll(getSliderValue).toBe(7);
-  await page.getByRole('button', { name: 'Pause D0' }).click();
+  await playFromLastSlice('Bounce');
+  await advance(100);
+  expect(getSliderValue()).toBe(7);
+  await advance(100);
+  expect(getSliderValue()).toBe(6);
 });
 
 test('play once from the first slice to the last', async () => {
-  await playFromLastSlice('Once', 20);
-  await expect.poll(getSliderValue).toBeLessThan(8); // restart from first slice
-  await expect
-    .element(page.getByRole('button', { name: 'Play D0' }))
-    .toBeVisible();
+  await playFromLastSlice('Once');
+  await advance(100);
+  expect(getSliderValue()).toBe(0); // restart from first slice
+
+  await advance(800);
   expect(getSliderValue()).toBe(8);
+  await advance(200); // stop once last slice has been shown for its duration
+  expect(isPlaying()).toBe(false);
+
+  await advance(500);
+  expect(getSliderValue()).toBe(8);
+});
+
+test('keep playback settings when slider is remounted', async () => {
+  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
+  await setSettings({ fps: 4, option: 'Bounce' });
+
+  // Map D0 to X axis and back, which unmounts D0's slider
+  const xRadioGroup = page.getByLabelText('Dimension as x axis');
+  await xRadioGroup.getByRole('radio', { name: 'D0' }).click();
+  await xRadioGroup.getByRole('radio', { name: 'D2' }).click();
+
+  const dialog = await openSettings();
+  await expect.element(dialog.getByLabelText('Speed')).toHaveValue(4);
+  await expect.element(dialog.getByLabelText('Bounce')).toBeChecked();
 });
 
 test('wait for each slice to load before showing it', async () => {
@@ -106,27 +165,59 @@ test('wait for each slice to load before showing it', async () => {
 
   resolveAll(); // first slice
   await expect.element(page.getByRole('figure')).toBeVisible();
+  installFakeTimers();
 
-  await page.getByRole('button', { name: 'Play D0' }).click();
+  await getPlayBtn().click();
 
   // Next slices are being prefetched, but playback can't advance until they're loaded
-  await new Promise((resolve) => {
-    setTimeout(resolve, 300);
-  });
+  await advance(1000);
   expect(getSliderValue()).toBe(0);
   expect(page.getByTestId(/^Loading/u)).not.toBeInTheDocument(); // keep showing current slice
+  expect(getPlayBtn()).toHaveAttribute('aria-busy', 'true');
+  expect(getPlayBtn()).toHaveAttribute(
+    'title',
+    expect.stringContaining('Waiting for next slice to load'),
+  );
 
   resolveAll();
-  await expect.poll(getSliderValue).toBeGreaterThan(0);
-  await expect.element(page.getByRole('figure')).toBeVisible();
+  await advance(100);
+  expect(getSliderValue()).toBe(1);
+  expect(getPlayBtn()).toHaveAttribute('aria-busy', 'false');
 
-  await page.getByRole('button', { name: 'Pause D0' }).click();
-
-  // Pending prefetches get cancelled
+  // Pending prefetches get cancelled on pause
+  await getPlayBtn().click();
+  await advance(100);
   const signals = vi.mocked(delay).mock.calls.map(([signal]) => signal);
-  await expect
-    .poll(() => signals.filter((signal) => signal?.aborted).length)
-    .toBeGreaterThan(0);
+  expect(signals.filter((signal) => signal?.aborted).length).toBeGreaterThan(0);
+});
+
+test('keep fetching slice picked by user during playback', async () => {
+  const resolveAll = mockDelay();
+  await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Heatmap,
+    waitForLoaders: false,
+  });
+
+  resolveAll(); // first slice
+  await expect.element(page.getByRole('figure')).toBeVisible();
+  installFakeTimers();
+
+  await getPlayBtn().click();
+  await advance(200); // slices 1 to 5 are being prefetched
+  const fetchCount = vi.mocked(delay).mock.calls.length;
+
+  // Picking slice 1 pauses playback, but its pending fetch is reused, not cancelled
+  (getSlider().element() as HTMLElement).focus();
+  await userEvent.keyboard('{ArrowUp}');
+  expect(isPlaying()).toBe(false);
+  await advance(500);
+  expect(delay).toHaveBeenCalledTimes(fetchCount);
+
+  resolveAll();
+  await advance(100);
+  expect(getSliderValue()).toBe(1);
+  expect(page.getByRole('figure')).toBeVisible();
 });
 
 test('skip slices to keep up when data is slow', async () => {
@@ -139,23 +230,19 @@ test('skip slices to keep up when data is slow', async () => {
 
   resolveAll(); // first slice
   await expect.element(page.getByRole('figure')).toBeVisible();
+  await setSettings({ option: 'Skip slices to keep up', fps: 10 });
+  installFakeTimers();
 
-  const settings = await openSettings();
-  await settings.getByLabelText('Skip slices to keep up').click();
-  await settings.getByLabelText('Slices per second').fill('10');
-  await page.getByRole('button', { name: 'Play D0' }).click();
+  await getPlayBtn().click();
 
   // Slices take a while to load: by then, they're all late
-  await new Promise((resolve) => {
-    setTimeout(resolve, 800);
-  });
+  await advance(800);
   expect(getSliderValue()).toBe(0);
 
   // Show latest slice that is due rather than the next one
   resolveAll();
-  await expect.poll(getSliderValue).toBeGreaterThan(1);
-  await page.getByRole('button', { name: 'Pause D0' }).click();
-  resolveAll();
+  await advance(50);
+  expect(getSliderValue()).toBeGreaterThan(1);
 });
 
 test('keep playing when slicing another dimension', async () => {
@@ -168,31 +255,24 @@ test('keep playing when slicing another dimension', async () => {
 
   resolveAll(); // first slice
   await expect.element(page.getByRole('figure')).toBeVisible();
+  installFakeTimers();
 
-  await page.getByRole('button', { name: 'Play D0' }).click();
-  await new Promise((resolve) => {
-    setTimeout(resolve, 200);
-  });
+  await getPlayBtn().click();
+  await advance(200);
   expect(getSliderValue()).toBe(0); // waiting for next slice
 
   // Slice another dimension: upcoming D0 slices must be fetched for the new D1 index
   const d1Slider = page.getByRole('slider', { name: 'D1' });
   await d1Slider.click();
   await userEvent.keyboard('{ArrowUp}');
-  await expect.element(d1Slider).toHaveValue(1);
-  await new Promise((resolve) => {
-    setTimeout(resolve, 500); // wait for debounced mapping change
-  });
+  await advance(500); // debounced slicing
+  expect(d1Slider).toHaveValue(1);
 
-  await expect
-    .poll(() => {
-      resolveAll();
-      return getSliderValue();
-    })
-    .toBeGreaterThan(0);
-
-  await page.getByRole('button', { name: 'Pause D0' }).click();
-  resolveAll();
+  for (let i = 0; i < 3; i += 1) {
+    resolveAll();
+    await advance(100); // eslint-disable-line no-await-in-loop -- sequential ticks
+  }
+  expect(getSliderValue()).toBeGreaterThan(0);
 });
 
 test('show slices that fail to load instead of stalling', async () => {
@@ -211,13 +291,18 @@ test('show slices that fail to load instead of stalling', async () => {
     preferredVis: Vis.Heatmap,
   });
 
-  const settings = await openSettings();
-  await settings.getByLabelText('Slices per second').fill('4');
-  await page.getByRole('button', { name: 'Play D0' }).click();
+  await setSettings({ fps: 4 });
+  await getPlayBtn().click();
 
-  await expect.element(page.getByText('Slice failed to load')).toBeVisible();
-  await expect.poll(getSliderValue).toBeGreaterThan(1); // playback goes on
-  await page.getByRole('button', { name: 'Pause D0' }).click();
+  await expect
+    .element(page.getByText('Slice failed to load'), { timeout: 5000 })
+    .toBeVisible();
+  await expect.poll(getSliderValue, { timeout: 5000 }).toBeGreaterThan(1); // playback goes on
+
+  // Failed slices are fetched once per playback, not again on every pass
+  const failedCount = callCount;
+  await expect.poll(getSliderValue, { timeout: 5000 }).toBeGreaterThan(5);
+  expect(callCount).toBeLessThanOrEqual(failedCount + 4);
 });
 
 test('pause when interacting with slider', async () => {
@@ -226,30 +311,21 @@ test('pause when interacting with slider', async () => {
 
   // Toggle playback with Space key on slider
   await slider.click();
+  installFakeTimers();
   await userEvent.keyboard(' ');
-  await expect
-    .element(page.getByRole('button', { name: 'Pause D0' }))
-    .toBeVisible();
+  expect(isPlaying()).toBe(true);
 
   await userEvent.keyboard('{Home}');
-  await expect
-    .element(page.getByRole('button', { name: 'Play D0' }))
-    .toBeVisible();
-  await new Promise((resolve) => {
-    setTimeout(resolve, 300);
-  });
+  expect(isPlaying()).toBe(false);
+  await advance(1000);
   expect(getSliderValue()).toBe(0);
 
   // Step buttons also pause
   await userEvent.keyboard(' ');
-  await expect
-    .element(page.getByRole('button', { name: 'Pause D0' }))
-    .toBeVisible();
+  expect(isPlaying()).toBe(true);
   const dialog = await openSettings();
   await dialog.getByRole('button', { name: 'Step back' }).click();
-  await expect
-    .element(page.getByRole('button', { name: 'Play D0' }))
-    .toBeVisible();
+  expect(isPlaying()).toBe(false);
 });
 
 test('stop when changing dataset', async () => {
@@ -258,16 +334,14 @@ test('stop when changing dataset', async () => {
     preferredVis: Vis.Heatmap,
   });
 
-  await page.getByRole('button', { name: 'Play D0' }).click();
-  await expect.poll(getSliderValue).toBeGreaterThan(0);
+  await getPlayBtn().click();
+  await expect.poll(getSliderValue, { timeout: 5000 }).toBeGreaterThan(0);
 
   await selectExplorerNode('threeD_boolean');
-  await expect
-    .element(page.getByRole('button', { name: 'Play D0' }))
-    .toBeVisible();
+  expect(isPlaying()).toBe(false);
+
+  installFakeTimers();
   const value = getSliderValue();
-  await new Promise((resolve) => {
-    setTimeout(resolve, 300);
-  });
+  await advance(1000);
   expect(getSliderValue()).toBe(value);
 });
