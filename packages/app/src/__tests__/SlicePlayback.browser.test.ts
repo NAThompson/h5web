@@ -129,6 +129,35 @@ test('wait for each slice to load before showing it', async () => {
     .toBeGreaterThan(0);
 });
 
+test('skip slices to keep up when data is slow', async () => {
+  const resolveAll = mockDelay();
+  await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Heatmap,
+    waitForLoaders: false,
+  });
+
+  resolveAll(); // first slice
+  await expect.element(page.getByRole('figure')).toBeVisible();
+
+  const settings = await openSettings();
+  await settings.getByLabelText('Skip slices to keep up').click();
+  await settings.getByLabelText('Slices per second').fill('10');
+  await page.getByRole('button', { name: 'Play D0' }).click();
+
+  // Slices take a while to load: by then, they're all late
+  await new Promise((resolve) => {
+    setTimeout(resolve, 800);
+  });
+  expect(getSliderValue()).toBe(0);
+
+  // Show latest slice that is due rather than the next one
+  resolveAll();
+  await expect.poll(getSliderValue).toBeGreaterThan(1);
+  await page.getByRole('button', { name: 'Pause D0' }).click();
+  resolveAll();
+});
+
 test('keep playing when slicing another dimension', async () => {
   const resolveAll = mockDelay();
   await renderApp({
