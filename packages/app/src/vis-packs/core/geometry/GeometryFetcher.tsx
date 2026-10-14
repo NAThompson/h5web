@@ -11,6 +11,7 @@ import { toNumArray } from '../utils';
 import { splitVertices, toCoordinateArray, useGeometry } from './hooks';
 import {
   type CoordinatesGeometry,
+  type GeometryKind,
   type NumDataset,
   type VertexGeometry,
 } from './utils';
@@ -27,6 +28,7 @@ export interface GeometryData {
 
 interface Props {
   dataset: NumDataset;
+  kind: GeometryKind;
   selection: string | undefined; // slice of leading dimensions, if any
   render: (data: GeometryData) => ReactNode;
 }
@@ -34,8 +36,11 @@ interface Props {
 /* Resolve geometry of dataset, then fetch its coordinates and scalar field
  * (render within a `VisBoundary`) */
 function GeometryFetcher(props: Props): ReactNode {
-  const { dataset, selection, render } = props;
+  const { dataset, kind, selection, render } = props;
   const geometry = useGeometry(dataset);
+  if (geometry.kind !== kind) {
+    throw new Error(`Expected dataset to describe a ${kind}`);
+  }
 
   if (geometry.source === 'vertex') {
     return (

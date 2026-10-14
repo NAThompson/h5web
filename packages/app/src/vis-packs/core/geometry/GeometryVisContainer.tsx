@@ -14,11 +14,12 @@ import { type DefaultSlice } from '../../nexus/models';
 import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import GeometryFetcher, { type GeometryData } from './GeometryFetcher';
-import { useGeometry } from './hooks';
+import { useCachedGeometry } from './hooks';
 import {
   type GeometryKind,
   getGeometryDefaultSlice,
   getGeometryDimsCount,
+  guessGeometryDimsCount,
 } from './utils';
 
 interface Props extends VisContainerProps {
@@ -35,14 +36,15 @@ function GeometryVisContainer(props: Props) {
   assertArrayShape(entity);
   assertNumericType(entity);
 
-  // Already resolved (and cached) when the visualization was offered
-  const geometry = useGeometry(entity);
-  if (geometry.kind !== kind) {
-    throw new Error(`Expected ${kind}`);
-  }
+  /* Geometry was resolved (and cached) when the visualization was offered; read it without
+   * suspending, as errors must be caught by the `VisBoundary` below. If it was evicted from the
+   * cache, guess from attributes until `GeometryFetcher` resolves it again. */
+  const geometry = useCachedGeometry(entity);
+  const lockedDimsCount = geometry
+    ? getGeometryDimsCount(geometry)
+    : guessGeometryDimsCount(entity, kind);
 
   const { dims } = entity.shape;
-  const lockedDimsCount = getGeometryDimsCount(geometry);
   const [dimMapping, setDimMapping] = useDimMappingState({
     dims,
     axesCount: 0,
@@ -69,6 +71,7 @@ function GeometryVisContainer(props: Props) {
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>
         <GeometryFetcher
           dataset={entity}
+          kind={kind}
           selection={selection}
           render={(data) => render(data, entity.name)}
         />
