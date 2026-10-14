@@ -43,6 +43,12 @@ test('open NXdata with a 3D signal and an axis on every dimension as a volume', 
   await expect
     .element(page.getByLabelText('Gradient magnitude'), { timeout: 10_000 })
     .toHaveTextContent('|∇f| (eV per 1/a)');
+
+  // Presentation changes keep the extracted surface (no new extraction)
+  await expect.poll(() => document.querySelector('[role="status"]')).toBeNull();
+  await user.click(page.getByRole('radio', { name: 'Solid' }));
+  await user.click(page.getByRole('button', { name: 'Show volume' }));
+  expect(document.querySelector('[role="status"]')).toBeNull();
 }, 20_000); // WebGL contexts and extraction are slow when many test files run in parallel
 
 test('offer volume for stacks of images without making it the default', async () => {

@@ -1,5 +1,6 @@
 import { DimensionMapper, getSliceSelection } from '@h5web/lib';
 import { assertGroup, assertMinDims } from '@h5web/shared/guards';
+import { useMemo } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -21,9 +22,19 @@ function NxVolumeContainer(props: VisContainerProps) {
   assertGroup(entity);
 
   const nxData = useNxData(entity);
-  assertNumericNxData(nxData);
 
-  const { signalDef, axisDefs, defaultSlice, silxStyle } = nxData;
+  // Auxiliary signals and errors don't apply to volumes: don't fetch (nor validate) them
+  const nxDataToFetch = useMemo(
+    () => ({
+      ...nxData,
+      signalDef: { ...nxData.signalDef, errorDataset: undefined },
+      auxDefs: [],
+    }),
+    [nxData],
+  );
+  assertNumericNxData(nxDataToFetch);
+
+  const { signalDef, axisDefs, defaultSlice, silxStyle } = nxDataToFetch;
   assertMinDims(signalDef.dataset, 3);
 
   const { dims } = signalDef.dataset.shape;
@@ -43,11 +54,9 @@ function NxVolumeContainer(props: VisContainerProps) {
     volumeAxisDefs.length === 3 &&
     volumeAxisDefs.every((def) => def && def.unit === axisUnit);
 
-  const nxDataToFetch = {
-    ...nxData,
-    signalDef: { ...signalDef, errorDataset: undefined },
-    auxDefs: [],
-  };
+  // Stable dimensions, so that presentation changes don't make a new data array (and drop cached isosurfaces)
+  const volumeDims = useMemo(() => dims.slice(-3), [dims]);
+
   const slicingProps = useNxSlicingProps(nxDataToFetch);
 
   return (
@@ -71,7 +80,7 @@ function NxVolumeContainer(props: VisContainerProps) {
               <MappedVolumeVis
                 dataset={signalDef.dataset}
                 value={signal}
-                dims={dims.slice(-3)}
+                dims={volumeDims}
                 axisValues={axisValues.slice(-3)}
                 title={title}
                 toolbarContainer={toolbarContainer}
