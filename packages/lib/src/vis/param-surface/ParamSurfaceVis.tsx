@@ -139,7 +139,12 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
   const colors = useMemo(
     () =>
       getVertexColors(
-        getColorParams(sampled.values.data, colorDomain, scaleType, ignoreValue),
+        getColorParams(
+          sampled.values.data,
+          colorDomain,
+          scaleType,
+          ignoreValue,
+        ),
         colorLut,
       ),
     [sampled, colorDomain, scaleType, ignoreValue, colorLut],
@@ -164,6 +169,7 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
       scaleType={scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
+      headlight
     >
       <ParamSurfaceMesh
         buffers={buffers}

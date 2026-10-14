@@ -72,7 +72,10 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
   } = props;
 
   const count = Math.min(x.length, y.length, z?.length ?? Infinity);
-  const field = useMemo(() => values ?? getPointIndices(count), [values, count]);
+  const field = useMemo(
+    () => values ?? getPointIndices(count),
+    [values, count],
+  );
 
   const colorDomain = useMemo(
     () =>
@@ -134,6 +137,7 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
       scaleType={scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
+      headlight
     >
       <CurveMesh
         buffers={buffers}

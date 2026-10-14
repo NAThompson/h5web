@@ -6,6 +6,7 @@ import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs, type VisScaleType } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
+import Headlight from './Headlight';
 import OrbitFraming from './OrbitFraming';
 import styles from './Vis3D.module.css';
 
@@ -25,6 +26,7 @@ interface Props extends ClassStyleAttrs {
   scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
+  headlight?: boolean; // light follows camera, rather than lighting the box from above
 }
 
 /**
@@ -39,6 +41,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     scaleType,
     colorMap,
     invertColorMap,
+    headlight = false,
     children,
     className = '',
     style,
@@ -57,11 +60,17 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
         {title && <p className={styles.title}>{title}</p>}
         <div className={styles.canvasArea}>
           <R3FCanvas className={styles.canvas}>
-            <ambientLight intensity={EXTRA_AMBIENT_INTENSITY} />
-            <directionalLight
-              position={LIGHT_POSITION}
-              intensity={DIRECTIONAL_INTENSITY}
-            />
+            {headlight ? (
+              <Headlight />
+            ) : (
+              <>
+                <ambientLight intensity={EXTRA_AMBIENT_INTENSITY} />
+                <directionalLight
+                  position={LIGHT_POSITION}
+                  intensity={DIRECTIONAL_INTENSITY}
+                />
+              </>
+            )}
             <OrbitFraming boxSize={boxSize} resetRef={resetRef} />
             {children}
           </R3FCanvas>
