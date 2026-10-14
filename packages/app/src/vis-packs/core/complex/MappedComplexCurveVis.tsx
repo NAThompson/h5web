@@ -20,11 +20,16 @@ import { createPortal } from 'react-dom';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { LINE_WIDTH_PX } from '../geometry/config';
 import { useMappedArray, useToNumArrays } from '../hooks';
+import { useStableDomain } from '../../playback-range';
 import { DEFAULT_DOMAIN } from '../utils';
 import ComplexCurveToolbar from './ComplexCurveToolbar';
 import { type ComplexCurveConfig } from './curve-config';
 import { usePhaseAmplitude, useRealImag } from './hooks';
-import { decimateCurve, getCurveAbscissas } from './utils';
+import {
+  decimateCurve,
+  getCurveAbscissas,
+  getPhaseAmplitudeDomain,
+} from './utils';
 
 // Colour domain of phase: fixed, so that a cyclic colour map wraps around at ±π
 const PHASE_DOMAIN: Domain = [-Math.PI, Math.PI];
@@ -79,8 +84,14 @@ function MappedComplexCurveVis(props: Props) {
   const phaseArray = useMappedArray(phase, ...mappingArgs);
   const amplitudeArray = useMappedArray(amplitude, ...mappingArgs);
 
+  // During playback, use amplitude range of whole sequence (cf. `useStableDomain`)
   const amplitudeDomain =
-    useDomain(amplitudeArray, { scaleType }) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useDomain(amplitudeArray, { scaleType }),
+      `amplitude:${scaleType}`,
+      (seq) =>
+        getPhaseAmplitudeDomain(seq as typeof value, 'amplitude', scaleType),
+    ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, amplitudeDomain);
   const [safeDomain] = useSafeDomain(visDomain, amplitudeDomain, scaleType);
 

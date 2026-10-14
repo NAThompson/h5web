@@ -33,7 +33,11 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
 
   const dimHints = useDimHints(entity);
 
-  const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
+  const { slicingProps, playbackRange } = useDatasetSlicingProps(
+    entity,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -45,7 +49,11 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
         {...slicingProps}
         onChange={setDimMapping}
       />
-      <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>
+      <VisBoundary
+        resetKey={dimMapping}
+        isSlice={selection !== undefined}
+        playbackRange={playbackRange}
+      >
         <ValueFetcher
           dataset={entity}
           selection={selection}

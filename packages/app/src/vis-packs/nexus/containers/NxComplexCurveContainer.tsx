@@ -35,7 +35,11 @@ function NxComplexCurveContainer(props: VisContainerProps) {
   const config = useComplexCurveConfig();
   // Errors and auxiliary signals are not drawn: don't fetch them (neither to render, nor to slice or play back)
   const signalOnly = useMemo(() => getSignalOnly(nxData), [nxData]);
-  const { slicingProps } = useNxSlicingProps(signalOnly, dimMapping);
+  const { slicingProps, playbackRange } = useNxSlicingProps(
+    signalOnly,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -47,7 +51,7 @@ function NxComplexCurveContainer(props: VisContainerProps) {
         {...slicingProps}
         onChange={setDimMapping}
       />
-      <VisBoundary resetKey={dimMapping}>
+      <VisBoundary resetKey={dimMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
           nxData={signalOnly}
           selection={getSliceSelection(dimMapping)}
