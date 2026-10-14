@@ -1,6 +1,7 @@
 import { type IgnoreValue, type NumArray } from '@h5web/shared/vis-models';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { extend } from '@react-three/fiber';
+import { rgb } from 'd3-color';
 import { type NdArray } from 'ndarray';
 import { Fragment, useEffect, useMemo } from 'react';
 import { Vector3 } from 'three';
@@ -31,7 +32,7 @@ interface Props {
   showLabels?: boolean;
   /* Line width in CSS pixels */
   lineWidth?: number;
-  /* Draw a dark halo under the lines to make them stand out (e.g. when coloured with the colour map) */
+  /* Outline lines with a darker shade to make them stand out (e.g. when coloured with the colour map) */
   withHalo?: boolean;
   formatLabel?: (level: number) => string;
 }
@@ -161,11 +162,12 @@ function ContourLines(props: Props) {
             <Fragment key={level}>
               {withHalo && (
                 <LineSegments2 geometry={geometry} renderOrder={1}>
+                  {/* Opaque, so overlapping segment ends don't look dotted */}
                   <LineMaterial
-                    color="black"
-                    linewidth={lineWidth + 2}
-                    transparent
-                    opacity={0.45 * opacity}
+                    color={rgb(colorOf(level)).darker(2).formatHex()}
+                    linewidth={lineWidth + 1.5}
+                    transparent={opacity < 1}
+                    opacity={opacity}
                     depthTest={false}
                   />
                 </LineSegments2>
