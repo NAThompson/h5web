@@ -1,4 +1,4 @@
-import { type Endpoint, type Remote, wrap } from 'comlink';
+import { type Remote, wrap } from 'comlink';
 
 import LocalWorker from './worker?worker&inline';
 import { type H5WasmWorkerAPI } from './worker-api';
@@ -9,9 +9,9 @@ export function getH5WasmRemote(wasm64 = false): Remote<H5WasmWorkerAPI> {
   let remote = remotes.get(wasm64);
 
   if (!remote) {
-    remote = wrap<H5WasmWorkerAPI>(
-      wasm64 ? createWasm64Endpoint() : new LocalWorker(),
-    );
+    remote = wasm64
+      ? createLazyRemote(loadWasm64Worker)
+      : wrap<H5WasmWorkerAPI>(new LocalWorker());
     remotes.set(wasm64, remote);
   }
 
@@ -19,30 +19,38 @@ export function getH5WasmRemote(wasm64 = false): Remote<H5WasmWorkerAPI> {
 }
 
 /* The wasm64 worker embeds a second copy of HDF5, so load it on demand (separate chunk).
- * Every call awaits the same promise, so the order of messages is preserved. */
-function createWasm64Endpoint(): Endpoint {
-  const workerReady = loadWasm64Worker();
+ * If loading fails (e.g. chunk can't be fetched), API calls reject with the error so it can be
+ * reported, and the next call tries again. */
+export function createLazyRemote(
+  loadWorker: () => Promise<Worker>,
+): Remote<H5WasmWorkerAPI> {
+  let remotePromise: Promise<Remote<H5WasmWorkerAPI>> | undefined;
 
-  return {
-    postMessage: (message: unknown, transfer?: Transferable[]) => {
-      void (async () => {
-        const worker = await workerReady;
-        worker.postMessage(message, transfer ?? []);
-      })();
+  async function loadRemote(): Promise<Remote<H5WasmWorkerAPI>> {
+    try {
+      return wrap<H5WasmWorkerAPI>(await loadWorker());
+    } catch (error) {
+      remotePromise = undefined; // don't cache failure
+      throw error;
+    }
+  }
+
+  return new Proxy({} as Remote<H5WasmWorkerAPI>, {
+    get(_, method) {
+      if (typeof method !== 'string' || method === 'then') {
+        return undefined; // not a thenable
+      }
+
+      return async (...args: unknown[]) => {
+        remotePromise = remotePromise ?? loadRemote();
+        const remote = (await remotePromise) as unknown as Record<
+          string,
+          (...params: unknown[]) => Promise<unknown>
+        >;
+        return remote[method](...args);
+      };
     },
-    addEventListener: (type, listener, options) => {
-      void (async () => {
-        const worker = await workerReady;
-        worker.addEventListener(type, listener, options);
-      })();
-    },
-    removeEventListener: (type, listener, options) => {
-      void (async () => {
-        const worker = await workerReady;
-        worker.removeEventListener(type, listener, options);
-      })();
-    },
-  };
+  });
 }
 
 async function loadWasm64Worker(): Promise<Worker> {
