@@ -1,0 +1,90 @@
+import { DimensionMapper, getSliceSelection } from '@h5web/lib';
+import { assertGroup, assertMinDims } from '@h5web/shared/guards';
+
+import { useDimMappingState } from '../../../dim-mapping-store';
+import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { useVolumeConfig } from '../../core/volume/config';
+import MappedVolumeVis from '../../core/volume/MappedVolumeVis';
+import { type VisContainerProps } from '../../models';
+import { useNxSlicingProps } from '../../slicing';
+import VisBoundary from '../../VisBoundary';
+import { assertNumericNxData } from '../guards';
+import { useNxData } from '../hooks';
+import NxValuesFetcher from '../NxValuesFetcher';
+
+/*
+ * The last three dimensions of the signal form the volume (`[z, y, x]`); leading dimensions,
+ * if any, are sliced. Auxiliary signals and errors don't apply to volumes and are not fetched.
+ */
+function NxVolumeContainer(props: VisContainerProps) {
+  const { entity, toolbarContainer } = props;
+  assertGroup(entity);
+
+  const nxData = useNxData(entity);
+  assertNumericNxData(nxData);
+
+  const { signalDef, axisDefs, defaultSlice, silxStyle } = nxData;
+  assertMinDims(signalDef.dataset, 3);
+
+  const { dims } = signalDef.dataset.shape;
+  const [dimMapping, setDimMapping] = useDimMappingState({
+    dims,
+    axesCount: 0,
+    lockedDimsCount: 3,
+    defaultSlice,
+  });
+
+  const config = useVolumeConfig({ scaleType: silxStyle.signalScaleType });
+
+  // Size the volume by its axes (and express gradients in their unit) only if all three share a unit
+  const volumeAxisDefs = axisDefs.slice(-3);
+  const axisUnit = volumeAxisDefs[0]?.unit;
+  const withPhysicalAspect =
+    volumeAxisDefs.length === 3 &&
+    volumeAxisDefs.every((def) => def && def.unit === axisUnit);
+
+  const nxDataToFetch = {
+    ...nxData,
+    signalDef: { ...signalDef, errorDataset: undefined },
+    auxDefs: [],
+  };
+  const slicingProps = useNxSlicingProps(nxDataToFetch);
+
+  return (
+    <>
+      <DimensionMapper
+        className={visualizerStyles.dimMapper}
+        dims={dims}
+        dimHints={axisDefs.map((def) => def?.label)}
+        dimMapping={dimMapping}
+        {...slicingProps}
+        onChange={setDimMapping}
+      />
+      <VisBoundary resetKey={dimMapping}>
+        <NxValuesFetcher
+          nxData={nxDataToFetch}
+          selection={getSliceSelection(dimMapping)}
+          render={(nxValues) => {
+            const { signal, axisValues, title } = nxValues;
+
+            return (
+              <MappedVolumeVis
+                dataset={signalDef.dataset}
+                value={signal}
+                dims={dims.slice(-3)}
+                axisValues={axisValues.slice(-3)}
+                title={title}
+                toolbarContainer={toolbarContainer}
+                config={config}
+                withPhysicalAspect={withPhysicalAspect}
+                axisUnit={withPhysicalAspect ? axisUnit : undefined}
+              />
+            );
+          }}
+        />
+      </VisBoundary>
+    </>
+  );
+}
+
+export default NxVolumeContainer;

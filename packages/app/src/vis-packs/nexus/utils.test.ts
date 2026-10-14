@@ -1,4 +1,9 @@
-import { arrayShape, floatType } from '@h5web/shared/hdf5-utils';
+import {
+  arrayShape,
+  cplxType,
+  floatType,
+  intType,
+} from '@h5web/shared/hdf5-utils';
 import { arrayAttr, dataset, group } from '@h5web/shared/mock-utils';
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
@@ -8,6 +13,8 @@ import {
   applyDefaultSlice,
   findAuxErrorDataset,
   findAuxiliaryDatasets,
+  isPrimaryVolume,
+  isVolumeSignal,
 } from './utils';
 
 describe('applyDefaultSlice', () => {
@@ -89,5 +96,59 @@ describe('findAuxErrorDataset', () => {
     expect(
       findAuxErrorDataset(group('nx', [aux, badAuxErrors]), aux),
     ).toBeUndefined();
+  });
+});
+
+function vol(dims: number[]) {
+  return dataset('signal', arrayShape(dims), floatType());
+}
+
+describe('isVolumeSignal', () => {
+  it('should accept numeric signals with at least three dimensions', () => {
+    expect(isVolumeSignal(vol([4, 5, 6]), undefined)).toBe(true);
+    expect(isVolumeSignal(vol([2, 4, 5, 6]), 'image')).toBe(true);
+    expect(
+      isVolumeSignal(dataset('s', arrayShape([4, 4, 4]), intType()), undefined),
+    ).toBe(true);
+  });
+
+  it('should reject other signals', () => {
+    expect(isVolumeSignal(vol([5, 6]), undefined)).toBe(false);
+    expect(isVolumeSignal(vol([1, 5, 6]), undefined)).toBe(false); // flat volume
+    expect(isVolumeSignal(vol([5, 6, 3]), 'rgb-image')).toBe(false);
+    expect(isVolumeSignal(vol([5, 6, 4]), 'rgba-image')).toBe(false);
+    expect(
+      isVolumeSignal(
+        dataset('s', arrayShape([4, 4, 4]), cplxType(floatType())),
+        undefined,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('isPrimaryVolume', () => {
+  const axis = dataset('k', arrayShape([4]), floatType());
+  const cube = vol([4, 4, 4]);
+
+  it('should make 3D signals with an axis on every dimension and no interpretation default', () => {
+    expect(isPrimaryVolume(undefined, cube, [axis, axis, axis])).toBe(true);
+  });
+
+  it('should keep heatmap as default otherwise', () => {
+    // Stack of images
+    expect(isPrimaryVolume('image', cube, [axis, axis, axis])).toBe(false);
+    // Axes missing along some dimensions (e.g. frame index)
+    expect(isPrimaryVolume(undefined, cube, [undefined, axis, axis])).toBe(
+      false,
+    );
+    expect(isPrimaryVolume(undefined, cube, [])).toBe(false);
+    // More than three dimensions
+    const fourD = dataset('signal', arrayShape([2, 4, 4, 4]), floatType());
+    expect(isPrimaryVolume(undefined, fourD, [axis, axis, axis, axis])).toBe(
+      false,
+    );
+    // Too large to load at once
+    const big = dataset('signal', arrayShape([300, 300, 300]), floatType());
+    expect(isPrimaryVolume(undefined, big, [axis, axis, axis])).toBe(false);
   });
 });

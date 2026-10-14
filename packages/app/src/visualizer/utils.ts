@@ -17,6 +17,7 @@ import {
 } from '../vis-packs/core/visualizations';
 import { type VisDef } from '../vis-packs/models';
 import {
+  findAxesDatasets,
   findSignalDataset,
   getNxClass,
   isNxDataGroup,
@@ -80,10 +81,17 @@ async function resolvePath(
 
     const supportedVis = results.filter(isDefined);
     if (supportedVis.length > 0) {
+      const axisDatasets = await findAxesDatasetsSafely(
+        entity,
+        signal,
+        dataContext,
+      );
       return {
         entity,
         supportedVis,
-        primaryVis: supportedVis.find((v) => v.isPrimary(interpretation)),
+        primaryVis: supportedVis.find((v) =>
+          v.isPrimary(interpretation, signal, axisDatasets),
+        ),
       };
     }
   }
@@ -99,6 +107,17 @@ async function resolvePath(
   return dataContext.queryClient.query(
     resolvePathQuery(nxDefaultPath, dataContext),
   );
+}
+
+/* Malformed axes are reported by the visualizations themselves */
+async function findAxesDatasetsSafely(
+  ...args: Parameters<typeof findAxesDatasets>
+): Promise<Awaited<ReturnType<typeof findAxesDatasets>>> {
+  try {
+    return await findAxesDatasets(...args);
+  } catch {
+    return [];
+  }
 }
 
 async function getSupportedCoreVis(
