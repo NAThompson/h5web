@@ -42,6 +42,8 @@ import {
 } from 'h5wasm';
 import { nanoid } from 'nanoid';
 
+import { type LazyFile } from './lazy-file';
+
 export const PLUGINS_FOLDER = 'plugins'; // path to plugins on EMScripten virtual file system
 export const WORKERFS_FOLDER = 'workerfs';
 
@@ -82,6 +84,71 @@ export async function mountWorkerFS(
 
   return workerFSRootNode;
 }
+
+let lastReadError: unknown; // cause of last failed read of a lazy file, if any
+
+/* Report the actual cause of failed reads of lazy files (e.g. network error,
+ * file changed on server, etc.) instead of the generic HDF5 error. */
+export function withReadErrors<T>(fn: () => T): T {
+  lastReadError = undefined;
+
+  try {
+    return fn();
+  } catch (error) {
+    throw lastReadError ?? error;
+  }
+}
+
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+export function createLazyFileNode(
+  FS: FS.FileSystemType,
+  rootNode: unknown,
+  fileName: string,
+  lazyFile: LazyFile,
+): () => void {
+  const { WORKERFS } = FS.filesystems;
+  const { ErrnoError, destroyNode } = FS as unknown as {
+    ErrnoError: new (errno: number) => Error;
+    destroyNode: (node: unknown) => void;
+  };
+
+  // Create read-only file node with WORKERFS, then override its `read` operation
+  const node = WORKERFS.createNode(
+    rootNode,
+    fileName,
+    WORKERFS.FILE_MODE,
+    0,
+    lazyFile, // WORKERFS only uses `size` when creating the node
+  );
+
+  node.stream_ops = {
+    ...WORKERFS.stream_ops,
+    read(
+      _: unknown,
+      buffer: Int8Array,
+      offset: number,
+      length: number,
+      position: number,
+    ): number {
+      try {
+        const bytes = new Uint8Array(buffer.buffer, buffer.byteOffset);
+        return lazyFile.read(bytes, offset, length, position);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(error);
+        lastReadError = error;
+        throw new ErrnoError(29); // EIO - lets HDF5 fail gracefully
+      }
+    },
+  };
+
+  // WORKERFS doesn't support unlinking files, so remove node manually
+  return () => {
+    destroyNode(node);
+    delete node.parent.contents[fileName]; // eslint-disable-line @typescript-eslint/no-dynamic-delete
+  };
+}
+/* eslint-enable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
 export function getAvailableFileName(
   FS: FS.FileSystemType,
