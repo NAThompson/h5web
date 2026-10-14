@@ -1,11 +1,21 @@
 import { assertDefined } from '@h5web/shared/guards';
 // eslint-disable-next-line import-x/no-namespace -- same as `worker.ts`
 import * as h5wasm from 'h5wasm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import {
   checkDirectRead,
   copyChunkSelection,
+  createBlobReader,
+  createUrlReader,
   executeDirectRead,
   planDirectRead,
   type RangeReader,
@@ -355,5 +365,80 @@ describe('copyChunkSelection', () => {
     );
     // Only column 3 of rows 2-3 falls in both: chunk values 1 and 4
     expect([...out]).toEqual([0, 0, 0, 1, 0, 4]);
+  });
+});
+
+describe('createUrlReader', () => {
+  const FILE = Uint8Array.from({ length: 1000 }, (_, i) => i % 256);
+  const VERSION = { etag: '"v1"', lastModified: null };
+
+  function mockFetch(opts: { etag?: string; status?: number; extra?: number }) {
+    const { etag = '"v1"', status = 206, extra = 0 } = opts;
+    return vi.fn<typeof fetch>(async (_url, init) => {
+      const range = (init?.headers as Record<string, string>).Range;
+      const [, start, end] = /bytes=(\d+)-(\d+)/u.exec(range) ?? [];
+      const body = FILE.slice(Number(start), Number(end) + 1 + extra);
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            // deliver in several pieces, as over the network
+            for (let i = 0; i < body.length; i += 64) {
+              controller.enqueue(body.slice(i, i + 64));
+            }
+            controller.close();
+          },
+        }),
+        {
+          status,
+          headers: {
+            ETag: etag,
+            'Content-Range': `bytes ${start}-${end}/${FILE.length}`,
+          },
+        },
+      );
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('should stream range into destination', async () => {
+    vi.stubGlobal('fetch', mockFetch({}));
+    const dest = new Uint8Array(300);
+    await createUrlReader('file.h5', FILE.length, VERSION).readRange(
+      100,
+      400,
+      dest,
+    );
+    expect(dest).toEqual(FILE.slice(100, 400));
+  });
+
+  it('should fail if file changed, range is not supported or too many bytes', async () => {
+    const urlReader = createUrlReader('file.h5', FILE.length, VERSION);
+
+    vi.stubGlobal('fetch', mockFetch({ etag: '"v2"' }));
+    await expect(
+      urlReader.readRange(0, 10, new Uint8Array(10)),
+    ).rejects.toThrow('File changed');
+
+    vi.stubGlobal('fetch', mockFetch({ status: 200 }));
+    await expect(
+      urlReader.readRange(0, 10, new Uint8Array(10)),
+    ).rejects.toThrow('Expected partial content');
+
+    vi.stubGlobal('fetch', mockFetch({ extra: 5 }));
+    await expect(
+      urlReader.readRange(0, 10, new Uint8Array(10)),
+    ).rejects.toThrow('Too many bytes');
+  });
+});
+
+describe('createBlobReader', () => {
+  it('should read range of blob', async () => {
+    const bytes = Uint8Array.from({ length: 100 }, (_, i) => i);
+    const dest = new Uint8Array(20);
+    await createBlobReader(new Blob([bytes])).readRange(10, 30, dest);
+    expect(dest).toEqual(bytes.slice(10, 30));
   });
 });
