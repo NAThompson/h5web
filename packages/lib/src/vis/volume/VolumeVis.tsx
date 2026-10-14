@@ -103,7 +103,6 @@ function VolumeVis(props: PropsWithChildren<Props>) {
       aria-label={title}
       data-keep-canvas-colors
     >
-      {title && <p className={styles.title}>{title}</p>}
       <R3FCanvas className={styles.canvas} ambientIntensity={0.35}>
         <color attach="background" args={[background]} />
         <VolumeControls interactingRef={interactingRef} />
@@ -147,6 +146,8 @@ function VolumeVis(props: PropsWithChildren<Props>) {
         </lineSegments>
         {children}
       </R3FCanvas>
+      {/* After the canvas to paint over it, but without z-index to stay under toolbar popovers */}
+      {title && <p className={styles.title}>{title}</p>}
       <VolumeLegend
         domain={domain}
         scaleType={scaleType}
