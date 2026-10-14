@@ -4,26 +4,37 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # Curves and surfaces with a scalar field in HDF5
 
-_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 1._
+_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 2._
 
 The idea, borrowed from ParaView: a curve or surface is a set of points in 3D, and a scalar field is defined on those points (time, curvature, temperature...). The convention reuses existing standards rather than inventing attributes:
 
 - the **CF conventions' `coordinates` attribute** ([CF §5, auxiliary coordinate variables](https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#coordinate-system)) to attach point coordinates to a field — exactly how NetCDF files describe curvilinear grids and trajectories;
 - the **NeXus `@interpretation="vertex"`** value ([NXdata](https://manual.nexusformat.org/classes/base_classes/NXdata.html)) for an array of points without a field;
-- CF `units`, `long_name` and `axis` attributes for labels and axis order.
+- the **CF `featureType`** attribute ([CF §9, discrete sampling geometries](https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#discrete-sampling-geometries)) to tell a trajectory (connected points) from other point sets;
+- CF `axis`, `standard_name`, `units`, `positive` and `long_name` attributes to identify X, Y, Z and label the axes.
+
+String attributes may be scalar strings or arrays holding a single string (as some writers store them); attributes of any other type are treated as absent.
 
 ## 1. Field on a curve or surface: CF `coordinates`
 
-A numeric dataset `F` is a scalar field on a curve or a surface if it has a string attribute `coordinates` listing (blank-separated) the names of the datasets holding the X, Y and Z coordinates of its points.
+A numeric dataset `F` is a scalar field on a curve or a surface if it has a string attribute `coordinates` listing (blank-separated) the names of the datasets holding the X, Y and Z coordinates of its points. Fewer than three names is never a geometry (and costs no further request).
 
-- **Name resolution**: a name is resolved relative to the group containing `F`; a name starting with `/` is an absolute path.
+- **Name resolution** ([CF 1.8 groups](https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#groups)):
+  - absolute path (`/grid/x`): as is;
+  - relative path (`../x`, `./sub/x`, `sub/x`): relative to the group containing `F`, `..` never going above the root;
+  - bare name (`x`): searched by proximity - the group containing `F`, then each ancestor group up to the root; the nearest match wins.
 - **Matching coordinates**: a listed dataset is a coordinate of the geometry if it is numeric, 1D or 2D, and its shape equals the **trailing dimensions** of `F`. Other listed variables (scalar coordinates such as a time stamp, string labels, variables that do not exist) are ignored, as CF allows `coordinates` to list them.
-- **Which is X, Y, Z**:
-  - if any matching coordinate has a CF `axis` attribute (`X`, `Y` or `Z`), the coordinates are picked by `axis` - exactly one of each is then required, and the order in `coordinates` does not matter;
-  - otherwise, coordinates with `axis="T"` are left out, and exactly three must remain: they are X, Y and Z in the order listed.
+- **Which is X, Y, Z** - the role of each matching coordinate is identified as in CF §4, by order of precedence:
+  1. `axis` attribute: `X`, `Y`, `Z` or `T`;
+  2. `standard_name`: `longitude`, `grid_longitude`, `projection_x_coordinate` → X; `latitude`, `grid_latitude`, `projection_y_coordinate` → Y; `height`, `altitude`, `depth`, `height_above_*`, `air_pressure` → Z; `time` → T;
+  3. `units`: `degrees_east` (and variants `degree_E`, `degreesE`...) → X; `degrees_north` (and variants) → Y; a time reference such as `"s since 2000-01-01"` or `"days since 1970-01-01"` → T;
+  4. `positive` = `up` or `down` → Z.
+
+  Time coordinates are then left out. Each of X, Y, Z must be held by exactly one coordinate - with one allowance: if a single role is missing and a single coordinate is unidentified, it takes that role (e.g. longitude and latitude identified by their units, plus an altitude in metres). Only when **no** coordinate is identified are the remaining coordinates taken as X, Y, Z in the order listed, and exactly three must remain. So with `lat` and `lon` identified, X is longitude and Y latitude, whatever their order in `coordinates`.
+
 - **Kind of geometry** - given by the rank of the coordinates (all three must have the same shape):
-  - 1D coordinates of shape `(N,)`: **curve**, a polyline through the N points in index order;
-  - 2D coordinates of shape `(Nu, Nv)`: **parametric surface** x(u, v), y(u, v), z(u, v), triangulated along the grid (at least 2 × 2).
+  - 1D coordinates of shape `(N,)`: **curve**, a polyline through the N points in index order - _only for trajectories_: 1D auxiliary coordinates do not imply that points are connected (CF `timeSeries` or `point` features, station networks...). The points form a curve only if `F` has a `featureType` attribute equal to `trajectory` (opt-in for any file), or else if the file's global (root) `featureType` attribute is `trajectory`. A `featureType` on `F` overrides the global one;
+  - 2D coordinates of shape `(Nu, Nv)`: **parametric surface** x(u, v), y(u, v), z(u, v), triangulated along the grid (at least 2 × 2) - grid connectivity is implied, so no `featureType` is needed.
 - **Extra dimensions**: `F` may have leading dimensions in front of the geometry dimensions, e.g. `(Nt, Nu, Nv)` for a field that evolves over time on a fixed surface. They are sliced with the dimension mapper.
 - **Missing values**: `NaN` (or a CF `_FillValue`, `valid_min`/`valid_max`/`valid_range` value) in coordinates or in the field leaves a gap in a curve and a hole in a surface. Packed NetCDF data (`scale_factor`, `add_offset`) is unpacked.
 - **Labels**: axis labels are the coordinates' `long_name` (or dataset name), followed by their `units` in parentheses.
@@ -43,6 +54,7 @@ with h5py.File("geometry.h5", "w") as f:
     knot["x"], knot["y"], knot["z"] = np.cos(3 * t + 0.7), np.cos(5 * t + 1), np.cos(7 * t)
     knot["t"] = t
     knot["t"].attrs["coordinates"] = "x y z"
+    knot["t"].attrs["featureType"] = "trajectory"  # points are connected
 
     # Parametric surface: torus coloured by its Gaussian curvature
     u, v = np.meshgrid(np.linspace(0, 2 * np.pi, 64), np.linspace(0, 2 * np.pi, 128), indexing="ij")
@@ -62,14 +74,29 @@ with h5py.File("geometry.h5", "w") as f:
     wave = torus.create_dataset("wave", data=np.stack([np.sin(3 * v - p) for p in np.linspace(0, 6, 10)]))
     wave.attrs["coordinates"] = "/torus/x /torus/y /torus/z"  # absolute paths work too
 
-    # CF trajectory: `axis` decides which coordinate is X, Y, Z; `time` (axis T) is left out
+    # CF trajectory: roles identified by `axis`, `standard_name` and `units`; `time` is left out
     traj = f.create_group("trajectory")
     s = np.linspace(0, 20, 500)
-    for name, data, axis in [("time", s, "T"), ("alt", s / 4, "Z"), ("lat", np.sin(s), "Y"), ("lon", np.cos(s), "X")]:
+    for name, data, attrs in [
+        ("time", s, {"units": "s since 2026-01-01"}),
+        ("alt", s / 4, {"standard_name": "altitude", "units": "km"}),
+        ("lat", np.sin(s), {"units": "degrees_north"}),
+        ("lon", np.cos(s), {"axis": "X", "units": "degrees_east"}),
+    ]:
         traj[name] = data
-        traj[name].attrs["axis"] = axis
+        traj[name].attrs.update(attrs)
     traj["temp"] = 15 - s
     traj["temp"].attrs["coordinates"] = "time alt lat lon"
+    traj["temp"].attrs["featureType"] = "trajectory"  # or as a global attribute: f.attrs["featureType"]
+
+    # Station time series: same kind of coordinates, but not a curve (stations are not connected)
+    stations = f.create_group("stations")
+    for name, units in [("lat", "degrees_north"), ("lon", "degrees_east"), ("alt", "m")]:
+        stations[name] = np.random.default_rng(0).uniform(size=20)
+        stations[name].attrs["units"] = units
+    stations["temp"] = np.zeros((100, 20))  # (time, station)
+    stations["temp"].attrs["coordinates"] = "lat lon alt"
+    stations["temp"].attrs["featureType"] = "timeSeries"
 ```
 
 ## 2. Curve without a field: NeXus `interpretation="vertex"`
@@ -102,7 +129,8 @@ nxdata["K"] = f["torus/K"]  # has `coordinates = "x y z"`
 
 - Coordinates that vary along the sliced dimensions (moving geometry): coordinates must match the trailing dimensions only.
 - Unstructured meshes (triangles with explicit connectivity), closed-curve flags, vector fields.
-- Planar curves via `coordinates` need an explicit Z coordinate (use a vertex array for 2-column data).
+- Planar curves via `coordinates` need an explicit Z coordinate (use a vertex array for 2-column data). A flat coordinate (e.g. Z = 0 everywhere) gives a box of zero thickness along that axis.
+- `trajectoryProfile` and other CF discrete sampling geometries: only `featureType = "trajectory"` makes 1D coordinates a curve. Ragged arrays (contiguous or indexed) are not supported.
 
 ## Library components
 
