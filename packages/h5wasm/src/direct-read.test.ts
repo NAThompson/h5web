@@ -324,10 +324,28 @@ describe('direct reads', () => {
 
     expect(checkDirectRead(getDataset('chunked'), ranges, value)).toBe(true);
 
-    const corrupted = Float32Array.from(value as Float32Array);
-    corrupted[corrupted.length - 1] += 1;
-    expect(checkDirectRead(getDataset('chunked'), ranges, corrupted)).toBe(
-      false,
+    // Corruption of the last value, or of a chunk in the middle (e.g. wrong chunk address)
+    const middle = Math.round(value.length / 3);
+    for (const [from, to] of [
+      [value.length - 1, value.length],
+      [middle - 500, middle + 500],
+    ]) {
+      const corrupted = Float32Array.from(value as Float32Array);
+      corrupted.fill(-1, from, to);
+      expect(checkDirectRead(getDataset('chunked'), ranges, corrupted)).toBe(
+        false,
+      );
+    }
+
+    // Also with partial selections
+    const partial: [number, number][] = [
+      [2, 19],
+      [3, 29],
+      [5, 38],
+    ];
+    const expected = getDataset('chunked').slice(partial) as Float32Array;
+    expect(checkDirectRead(getDataset('chunked'), partial, expected)).toBe(
+      true,
     );
   });
 

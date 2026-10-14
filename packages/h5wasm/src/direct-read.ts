@@ -592,25 +592,25 @@ export async function executeDirectRead(
   return new Constructor(buffer);
 }
 
-/* Read the first few selected values with HDF5 and check that they match those read
- * directly, to guard against any misinterpretation of the storage information
- * (e.g. addresses relative to a user block). */
+const MAX_CHECK_SAMPLES = 16; // values checked across the selection, besides the first ones
+
+/* Read a few selected values with HDF5 and check that they match those read directly, to
+ * guard against any misinterpretation of the storage information (e.g. addresses relative
+ * to a user block): the first 16 values, the last one, and a few spread across the selection
+ * (and so across requests and chunks). Each check reads little more than one value. */
 export function checkDirectRead(
   h5wDataset: H5WasmDataset,
   ranges: [number, number][],
   value: ArrayLike<number | bigint>,
+  samples = MAX_CHECK_SAMPLES, // e.g. one per request, up to the maximum
 ): boolean {
+  const sampleCount = Math.max(1, Math.min(samples, MAX_CHECK_SAMPLES));
   const probeRanges = ranges.map<[number, number]>(([start, stop], d) =>
     d === ranges.length - 1
       ? [start, Math.min(stop, start + 16)]
       : [start, start + 1],
   );
   const probe = h5wDataset.slice(probeRanges) as ArrayLike<number | bigint>;
-
-  // Also check the last selected value, which comes from another request
-  const endProbe = h5wDataset.slice(
-    ranges.map(([, stop]) => [stop - 1, stop]),
-  ) as ArrayLike<number | bigint>;
 
   // eslint-disable-next-line unicorn/no-for-loop -- `probe` may be a plain array-like
   for (let i = 0; i < probe.length; i += 1) {
@@ -619,5 +619,24 @@ export function checkDirectRead(
     }
   }
 
-  return Object.is(endProbe[0], value[value.length - 1]);
+  const sizes = ranges.map(([start, stop]) => stop - start);
+  const positions = Array.from({ length: sampleCount }, (_, i) =>
+    Math.round(((i + 1) * (value.length - 1)) / sampleCount),
+  ); // last position is the last value
+
+  return positions.every((position) => {
+    // Coordinates of flat `position` in the selection (row-major)
+    let rest = position;
+    const coords = [...sizes].reverse().map((size) => {
+      const coord = rest % size;
+      rest = Math.floor(rest / size);
+      return coord;
+    });
+    coords.reverse();
+
+    const sample = h5wDataset.slice(
+      ranges.map(([start], d) => [start + coords[d], start + coords[d] + 1]),
+    ) as ArrayLike<number | bigint>;
+    return Object.is(sample[0], value[position]);
+  });
 }

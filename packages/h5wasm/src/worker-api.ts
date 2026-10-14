@@ -225,7 +225,9 @@ async function readDirectly(
     ]);
     if (
       !fileReaders.has(fileId) || // file closed in the meantime
-      !withReadErrors(() => checkDirectRead(dataset, ranges, value))
+      !withReadErrors(() =>
+        checkDirectRead(dataset, ranges, value, plan.ops.length),
+      )
     ) {
       // eslint-disable-next-line no-console
       console.warn(`Direct read of ${path} failed check; reading with HDF5`);
