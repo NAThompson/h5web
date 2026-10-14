@@ -40,8 +40,21 @@ export class LazyFile {
     const firstIndex = Math.floor(position / BLOCK_SIZE);
     const lastIndex = Math.floor((end - 1) / BLOCK_SIZE);
 
-    // Don't let large reads (e.g. of big contiguous datasets) evict all cached blocks (e.g. metadata)
-    const shouldCache = lastIndex - firstIndex + 1 <= MAX_REQUEST_BLOCKS;
+    /* Large reads (e.g. of big dataset chunks) bypass the cache, so they don't evict all cached
+     * blocks (e.g. metadata). Fetch exactly the requested range rather than whole blocks, as
+     * partial blocks at either end would not be cached, so would be fetched again by adjacent
+     * reads (e.g. of the next chunk). */
+    if (lastIndex - firstIndex + 1 > MAX_REQUEST_BLOCKS) {
+      const maxRequestSize = MAX_REQUEST_BLOCKS * BLOCK_SIZE;
+      for (let start = position; start < end; start += maxRequestSize) {
+        const bytes = this.fetchRange(
+          start,
+          Math.min(start + maxRequestSize, end),
+        );
+        buffer.set(bytes, offset + start - position);
+      }
+      return end - position;
+    }
 
     // Copy bytes that fall within the requested range to the destination buffer
     function copy(chunkStart: number, chunk: Uint8Array): void {
@@ -83,15 +96,10 @@ export class LazyFile {
       // Consume response right away so it can be garbage-collected before next request
       copy(runStart, bytes);
 
-      if (shouldCache) {
-        for (let i = index; i <= runEnd; i += 1) {
-          const blockOffset = (i - index) * BLOCK_SIZE;
-          // Copy block so cache doesn't retain entire response
-          this.cacheBlock(
-            i,
-            bytes.slice(blockOffset, blockOffset + BLOCK_SIZE),
-          );
-        }
+      for (let i = index; i <= runEnd; i += 1) {
+        const blockOffset = (i - index) * BLOCK_SIZE;
+        // Copy block so cache doesn't retain entire response
+        this.cacheBlock(i, bytes.slice(blockOffset, blockOffset + BLOCK_SIZE));
       }
 
       index = runEnd + 1;

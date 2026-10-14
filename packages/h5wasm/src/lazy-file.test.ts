@@ -151,14 +151,38 @@ describe('LazyFile', () => {
     const buffer = new Uint8Array(size);
     expect(file.read(buffer, 0, size, 0)).toBe(size);
     expect(requestedRanges).toEqual([
-      `bytes=${MiB}-${(MAX_REQUEST_BLOCKS + 1) * MiB - 1}`,
-      `bytes=${(MAX_REQUEST_BLOCKS + 1) * MiB}-${size - 1}`,
+      `bytes=0-${MAX_REQUEST_BLOCKS * MiB - 1}`,
+      `bytes=${MAX_REQUEST_BLOCKS * MiB}-${size - 1}`,
     ]);
 
     // First block remains cached; others were not cached
     read(file, 0, 10);
     read(file, 2 * MiB, 10);
     expect(requestedRanges).toHaveLength(3);
+  });
+
+  it('fetch exact range of large unaligned reads', () => {
+    const size = 3 * MAX_REQUEST_BLOCKS * MiB;
+    fileSize = size;
+    const file = new LazyFile('big.h5', size, VERSION);
+
+    // e.g. two consecutive dataset chunks of `MAX_REQUEST_BLOCKS` MiB, not aligned with blocks
+    const chunkSize = MAX_REQUEST_BLOCKS * MiB;
+    const start = MiB / 2;
+    const buffer = new Uint8Array(chunkSize);
+    expect(file.read(buffer, 0, chunkSize, start)).toBe(chunkSize);
+    expectFileBytes(
+      buffer.subarray(0, FILE.length - start),
+      start,
+      FILE.length,
+    );
+    expect(file.read(buffer, 0, chunkSize, start + chunkSize)).toBe(chunkSize);
+
+    expect(requestedRanges).toEqual([
+      `bytes=${start}-${start + chunkSize - 1}`,
+      `bytes=${start + chunkSize}-${start + 2 * chunkSize - 1}`,
+    ]);
+    expect(file['cache'].size).toBe(0); // eslint-disable-line @typescript-eslint/dot-notation
   });
 
   it('cache blocks in their own buffers', () => {
