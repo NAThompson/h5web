@@ -44,6 +44,7 @@ interface Props {
   threshold: number;
   quality: VolumeQuality;
   interactingRef: RefObject<boolean>;
+  boxSize?: [number, number, number];
 }
 
 function VolumeMesh(props: Props) {
@@ -58,6 +59,7 @@ function VolumeMesh(props: Props) {
     threshold,
     quality,
     interactingRef,
+    boxSize,
   } = props;
 
   const gl = useThree((state) => state.gl);
@@ -203,7 +205,7 @@ function VolumeMesh(props: Props) {
   });
 
   return (
-    <mesh scale={getBoxSize(shape)} material={material}>
+    <mesh scale={boxSize ?? getBoxSize(shape)} material={material}>
       <boxGeometry />
     </mesh>
   );

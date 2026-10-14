@@ -10,7 +10,20 @@ export type { LineVisProps } from './vis/line/LineVis';
 export type { HeatmapVisProps } from './vis/heatmap/HeatmapVis';
 export type { ScatterVisProps } from './vis/scatter/ScatterVis';
 export type { VolumeVisProps } from './vis/volume/VolumeVis';
-export { VolumeQuality, VolumeRenderMode } from './vis/volume/models';
+export {
+  IsoColorMode,
+  VolumeQuality,
+  VolumeRenderMode,
+} from './vis/volume/models';
+export type { IsosurfaceParams } from './vis/volume/models';
+export type { IsosurfaceGeometry } from './vis/volume/marchingCubes';
+export {
+  useIsosurfaces,
+  getGradientDomain,
+  DEFAULT_CELL_BUDGET,
+} from './vis/volume/hooks';
+export type { IsosurfacesState } from './vis/volume/hooks';
+export { getBoxSizeFromAxes } from './vis/volume/utils';
 export type { SurfaceVisProps } from './vis/surface/SurfaceVis';
 
 // Toolbar and controls
@@ -23,6 +36,7 @@ export { default as ToggleGroup } from './toolbar/controls/ToggleGroup/ToggleGro
 export { default as RadioGroup } from './toolbar/controls/RadioGroup';
 export { default as Checkbox } from './toolbar/controls/Checkbox';
 export { default as Menu } from './toolbar/controls/Menu';
+export { default as Popover } from './toolbar/controls/Popover';
 export { default as MenuSeparator } from './toolbar/controls/MenuSeparator';
 export { default as DomainWidget } from './toolbar/controls/DomainWidget/DomainWidget';
 export { default as DomainSlider } from './toolbar/controls/DomainWidget/DomainSlider';
@@ -36,6 +50,7 @@ export { default as InteractionHelp } from './toolbar/controls/InteractionHelp';
 export { default as NotationToggleGroup } from './toolbar/controls/NotationToggleGroup';
 export { default as Histogram } from './toolbar/controls/Histogram/Histogram';
 export type { ToolbarProps } from './toolbar/Toolbar';
+export type { PopoverProps } from './toolbar/controls/Popover';
 export type { DomainWidgetProps } from './toolbar/controls/DomainWidget/DomainWidget';
 export type { DomainSliderProps } from './toolbar/controls/DomainWidget/DomainSlider';
 export type { DomainControlsHandle } from './toolbar/controls/DomainWidget/DomainControls';
@@ -70,12 +85,22 @@ export { default as Glyphs } from './vis/line/Glyphs';
 export { default as ErrorBars } from './vis/line/ErrorBars';
 export { default as ColorBar } from './vis/heatmap/ColorBar';
 export { default as HeatmapMesh } from './vis/heatmap/HeatmapMesh';
+export { default as ContourLines } from './vis/contours/ContourLines';
 export type { DataCurveProps } from './vis/line/DataCurve';
 export type { LineProps } from './vis/line/Line';
 export type { GlyphsProps } from './vis/line/Glyphs';
 export type { ErrorBarsProps } from './vis/line/ErrorBars';
 export type { ColorBarProps } from './vis/heatmap/ColorBar';
 export type { HeatmapMeshProps } from './vis/heatmap/HeatmapMesh';
+export type { ContourLinesProps } from './vis/contours/ContourLines';
+export {
+  getContourLevels,
+  getLevelColors,
+  parseLevels,
+} from './vis/contours/utils';
+export { useContours } from './vis/contours/hooks';
+export type { ContoursState } from './vis/contours/hooks';
+export type { ContourResult } from './vis/geometry-worker/models';
 
 // Interactions
 export { default as DefaultInteractions } from './interactions/DefaultInteractions';
@@ -120,6 +145,7 @@ export type { InteractionsContextValue } from './interactions/InteractionsProvid
 export { toTypedNdArray, createArrayFromView } from '@h5web/shared/vis-utils';
 
 export {
+  createScale,
   getDomain,
   getDomains,
   getCombinedDomain,
