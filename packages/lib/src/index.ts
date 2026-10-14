@@ -26,6 +26,7 @@ export {
 } from './vis/volume/hooks';
 export type { IsosurfacesState } from './vis/volume/hooks';
 export { getBoxSizeFromAxes } from './vis/volume/utils';
+export { useVolumeDomain } from './vis/volume/prepare/hooks';
 export {
   resetGeometryWorker, // e.g. to simulate a worker blocked by a Content Security Policy in tests
   WorkerError,

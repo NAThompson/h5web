@@ -5,6 +5,11 @@ import { Data3DTexture, LinearFilter, NearestFilter, RedFormat } from 'three';
 import { type TextureSafeTypedArray } from '../heatmap/models';
 import { TEXTURE_TYPES } from '../heatmap/utils';
 import { VolumeQuality } from './models';
+import {
+  getFloat32Bounds,
+  getHalfFloatNormalization,
+  toHalfFloatBits,
+} from './prepare/utils';
 
 // Ray-marching samples per voxel (halved while the camera is moving)
 export const SAMPLES_PER_VOXEL: Record<VolumeQuality, number> = {
@@ -119,39 +124,10 @@ export function canUseHalfFloats(): boolean {
 export function toNormalizedHalfFloats(
   arr: NdArray<Float32Array>,
 ): NormalizedVolume {
-  const { data } = arr;
-
-  // Single pass over finite values (only ever sees `Float32Array`, so faster than `getBounds`)
-  let min = Infinity;
-  let max = -Infinity;
-  // eslint-disable-next-line @typescript-eslint/prefer-for-of, unicorn/no-for-loop -- classic for loop is more efficient
-  for (let i = 0; i < data.length; i += 1) {
-    const val = data[i];
-    // Plain comparisons are several times faster than `Math.min` and `Math.max`
-    if (val < min && val !== -Infinity) {
-      min = val;
-    }
-    if (val > max && val !== Infinity) {
-      max = val;
-    }
-  }
-
-  const offset = Number.isFinite(min) ? min : 0;
-  const range = Number.isFinite(min) ? max - min : 0;
-  const scale = range > 0 ? range : 1;
-  const factor = 1 / scale;
-
-  const halfFloats = new Float16Array(data.length);
-  // eslint-disable-next-line unicorn/no-for-loop -- classic for loop is more efficient
-  for (let i = 0; i < data.length; i += 1) {
-    halfFloats[i] = (data[i] - offset) * factor;
-  }
-
-  const { buffer, byteOffset, length } = halfFloats;
+  const normalization = getHalfFloatNormalization(getFloat32Bounds(arr.data));
   return {
-    values: ndarray(new Uint16Array(buffer, byteOffset, length), arr.shape),
-    offset,
-    scale,
+    values: ndarray(toHalfFloatBits(arr.data, normalization), arr.shape),
+    ...normalization,
   };
 }
 

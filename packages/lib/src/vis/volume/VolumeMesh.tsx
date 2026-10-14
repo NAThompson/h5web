@@ -4,7 +4,7 @@ import {
   type ScaleType,
 } from '@h5web/shared/vis-models';
 import { useFrame, useThree } from '@react-three/fiber';
-import { type NdArray } from 'ndarray';
+import ndarray, { type NdArray } from 'ndarray';
 import {
   type RefObject,
   useEffect,
@@ -32,6 +32,10 @@ import {
 import { type VisScaleType } from '../models';
 import { getUniforms } from '../utils';
 import { type VolumeQuality, type VolumeRenderMode } from './models';
+import {
+  getPreparedHalfFloats,
+  releasePreparedHalfFloats,
+} from './prepare/client';
 import { getVolumeFragmentShader, VOLUME_VERTEX_SHADER } from './shaders';
 import SurfaceDepthPass from './SurfaceDepthPass';
 import {
@@ -115,9 +119,19 @@ function VolumeMesh(props: Props) {
       canUseHalfFloats() &&
       !canAllocateVolumeTexture(ctx, textureSafeValues.shape, ctx.R32F)
     ) {
-      const normalized = withMemoryCheck(() =>
-        toNormalizedHalfFloats(textureSafeValues as NdArray<Float32Array>),
+      // Use half floats prepared in workers along with the domain, if any (cf. `useVolumeDomain`)
+      const prepared = getPreparedHalfFloats(
+        textureSafeValues.data as Float32Array,
       );
+      const normalized = prepared
+        ? {
+            values: ndarray(prepared.values, textureSafeValues.shape),
+            offset: prepared.offset,
+            scale: prepared.scale,
+          }
+        : withMemoryCheck(() =>
+            toNormalizedHalfFloats(textureSafeValues as NdArray<Float32Array>),
+          );
       return {
         values: normalized.values,
         valueOffset: normalized.offset,
@@ -155,6 +169,11 @@ function VolumeMesh(props: Props) {
     getGLErrors(ctx); // clear previous errors
     gl.initTexture(volumeTexture);
 
+    // Prepared half floats are now held by the texture only
+    if (textureSafeValues.data instanceof Float32Array) {
+      releasePreparedHalfFloats(textureSafeValues.data);
+    }
+
     const errors = getGLErrors(ctx);
     if (errors.length > 0) {
       setGpuError(
@@ -165,7 +184,7 @@ function VolumeMesh(props: Props) {
         ),
       );
     }
-  }, [gl, volumeTexture]);
+  }, [gl, volumeTexture, textureSafeValues]);
 
   // Some browsers lose the WebGL context instead of reporting OUT_OF_MEMORY
   useEffect(() => {
