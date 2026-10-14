@@ -1,10 +1,10 @@
 import {
   getBoxSizeFromAxes,
   getGradientDomain,
-  useDomain,
   useIsosurfaces,
   useSafeDomain,
   useVisDomain,
+  useVolumeDomain,
   VolumeVis,
 } from '@h5web/lib';
 import {
@@ -72,7 +72,7 @@ function MappedVolumeVis(props: Props) {
 
   const ignoreValue = useIgnoreValue(dataset);
   const dataDomain =
-    useDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
+    useVolumeDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
