@@ -2,15 +2,13 @@ import { ScaleType } from '@h5web/shared/vis-models';
 import ndarray from 'ndarray';
 import { describe, expect, it } from 'vitest';
 
+import { getLinearColorLut } from '../three-d/utils';
 import {
   buildSurfaceBuffers,
-  getAxisTicks,
   getCellCenters,
   getCoordsDomain,
   getDownsamplingStride,
   getFootprint,
-  getFramingDistance,
-  getLinearColorLut,
   getSampledIndices,
   getSurfaceColors,
   isSurfaceSupported,
@@ -116,40 +114,6 @@ describe('getFootprint', () => {
   it('should respect ratio between axis extents with longest side of 1', () => {
     expect(getFootprint([0, 40], [0, 20], true)).toEqual([1, 0.5]);
     expect(getFootprint([0, 10], [-20, 20], true)).toEqual([0.25, 1]);
-  });
-});
-
-describe('getAxisTicks', () => {
-  it('should return nice ticks within domain', () => {
-    expect(getAxisTicks([0, 1], 5, false)).toEqual([0, 0.2, 0.4, 0.6, 0.8, 1]);
-    expect(getAxisTicks([-18, 21], 4, false)).toEqual([-10, 0, 10, 20]);
-  });
-
-  it('should support descending domains', () => {
-    expect(getAxisTicks([21, -18], 4, false)).toEqual([20, 10, 0, -10]);
-  });
-
-  it('should return integer ticks for index axes', () => {
-    expect(getAxisTicks([0, 3], 10, true)).toEqual([0, 1, 2, 3]);
-  });
-});
-
-describe('getFramingDistance', () => {
-  it('should fit sphere vertically in landscape viewport', () => {
-    // sin(45 / 2) ~ 0.383
-    expect(getFramingDistance(1, 45, 2)).toBeCloseTo(2.613, 3);
-  });
-
-  it('should fit sphere horizontally in portrait viewport', () => {
-    expect(getFramingDistance(1, 45, 0.5)).toBeGreaterThan(
-      getFramingDistance(1, 45, 1) ?? Infinity,
-    );
-  });
-
-  it('should return undefined for zero-sized viewport', () => {
-    expect(getFramingDistance(1, 45, Number.NaN)).toBeUndefined();
-    expect(getFramingDistance(1, 45, Infinity)).toBeUndefined();
-    expect(getFramingDistance(1, 45, 0)).toBeUndefined();
   });
 });
 

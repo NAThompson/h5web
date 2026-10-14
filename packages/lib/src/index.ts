@@ -5,6 +5,8 @@ export { default as HeatmapVis } from './vis/heatmap/HeatmapVis';
 export { default as ScatterVis } from './vis/scatter/ScatterVis';
 export { default as VolumeVis } from './vis/volume/VolumeVis';
 export { default as SurfaceVis } from './vis/surface/SurfaceVis';
+export { default as Curve3DVis } from './vis/curve/Curve3DVis';
+export { default as ParamSurfaceVis } from './vis/param-surface/ParamSurfaceVis';
 export type { MatrixVisProps } from './vis/matrix/MatrixVis';
 export type { LineVisProps } from './vis/line/LineVis';
 export type { HeatmapVisProps } from './vis/heatmap/HeatmapVis';
@@ -29,6 +31,9 @@ export {
   WorkerError,
 } from './vis/geometry-worker/client';
 export type { SurfaceVisProps } from './vis/surface/SurfaceVis';
+export type { Curve3DVisProps } from './vis/curve/Curve3DVis';
+export type { ParamSurfaceVisProps } from './vis/param-surface/ParamSurfaceVis';
+export { SurfaceRepresentation } from './vis/param-surface/models';
 
 // Toolbar and controls
 export { default as Toolbar } from './toolbar/Toolbar';

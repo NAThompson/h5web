@@ -181,6 +181,67 @@ const threeD_rgba = () =>
     [2, 2, 4],
   );
 
+// Lissajous knot (3, 5, 7) and its speed |r'(t)|
+const KNOT_SAMPLES = 200;
+const knotParams = () =>
+  range(KNOT_SAMPLES).map((i) => (2 * Math.PI * i) / (KNOT_SAMPLES - 1));
+const knot_x = () => ndarray(knotParams().map((t) => Math.cos(3 * t + 0.7)));
+const knot_y = () => ndarray(knotParams().map((t) => Math.cos(5 * t + 1)));
+const knot_z = () => ndarray(knotParams().map((t) => Math.cos(7 * t)));
+const knot_speed = () =>
+  ndarray(
+    knotParams().map((t) =>
+      Math.hypot(
+        3 * Math.sin(3 * t + 0.7),
+        5 * Math.sin(5 * t + 1),
+        7 * Math.sin(7 * t),
+      ),
+    ),
+  );
+
+// Torus (R = 2, r = 0.75) on a (u, v) grid, and its Gaussian curvature
+const TORUS_SHAPE = [24, 48];
+const [TORUS_R, TORUS_RR] = [2, 0.75];
+function torusGrid(fn: (u: number, v: number) => number) {
+  const [rows, cols] = TORUS_SHAPE;
+  return ndarray(
+    range(rows).flatMap((i) =>
+      range(cols).map((j) =>
+        fn((2 * Math.PI * i) / (rows - 1), (2 * Math.PI * j) / (cols - 1)),
+      ),
+    ),
+    TORUS_SHAPE,
+  );
+}
+const torus_x = () =>
+  torusGrid((u, v) => (TORUS_R + TORUS_RR * Math.cos(u)) * Math.cos(v));
+const torus_y = () =>
+  torusGrid((u, v) => (TORUS_R + TORUS_RR * Math.cos(u)) * Math.sin(v));
+const torus_z = () => torusGrid((u) => TORUS_RR * Math.sin(u));
+const torus_curvature = () =>
+  torusGrid(
+    (u) => Math.cos(u) / (TORUS_RR * (TORUS_R + TORUS_RR * Math.cos(u))),
+  );
+const torus_waves = () => {
+  const phases = [0, 1, 2];
+  return ndarray(
+    phases.flatMap(
+      (phase) => torusGrid((u, v) => Math.sin(3 * v + 2 * u + phase)).data,
+    ),
+    [phases.length, ...TORUS_SHAPE],
+  );
+};
+
+// Conical helix, as rows of vertex coordinates (x, y, z)
+const helix = () =>
+  ndarray(
+    range(120).flatMap((i) => {
+      const t = i / 10;
+      return [t * Math.cos(t), t * Math.sin(t), t];
+    }),
+    [120, 3],
+  );
+
 export const mockValues = {
   oneD,
   oneD_linear: () => ndarray(range1()),
@@ -402,6 +463,16 @@ export const mockValues = {
       [2, 2],
     ),
   position: () => ndarray([-1, 1, 3]), // pixel boundaries (N + 1)
+  knot_x,
+  knot_y,
+  knot_z,
+  knot_speed,
+  torus_x,
+  torus_y,
+  torus_z,
+  torus_curvature,
+  torus_waves,
+  helix,
   scatter_data: () =>
     ndarray(range1().map((val) => Math.cos((val * 3.14) / 40))),
   Y_scatter: () =>

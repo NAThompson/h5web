@@ -10,7 +10,7 @@ interface Props {
   resetRef: RefObject<(() => void) | undefined>;
 }
 
-// Look at the surface from the front-left, slightly from above (z is up)
+// Look at the box from the front-left, slightly from above (z is up)
 const VIEW_DIRECTION = new Vector3(-0.8, -1.4, 1).normalize();
 const FOV = 40;
 const LABELS_MARGIN = 1.1; // leave room for axis labels around the box
@@ -25,7 +25,7 @@ function getBoxRadius(w: number, h: number, zHeight: number): number {
   return (LABELS_MARGIN * Math.hypot(w, h, zHeight)) / 2;
 }
 
-function SurfaceControls(props: Props) {
+function OrbitFraming(props: Props) {
   const { boxSize, resetRef } = props;
   const [w, h, zHeight] = boxSize;
 
@@ -113,6 +113,12 @@ function SurfaceControls(props: Props) {
       return;
     }
 
+    // From or to a flat box (e.g. planar curve), the view cannot be scaled: frame it anew
+    if (prevHeight === 0 || zHeight === 0) {
+      frameRef.current();
+      return;
+    }
+
     const zRatio = zHeight / prevHeight;
     const sizeRatio =
       getBoxRadius(w, h, zHeight) / getBoxRadius(w, h, prevHeight);
@@ -149,4 +155,4 @@ function SurfaceControls(props: Props) {
   return null;
 }
 
-export default SurfaceControls;
+export default OrbitFraming;
