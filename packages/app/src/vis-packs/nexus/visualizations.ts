@@ -40,7 +40,7 @@ import {
   NxVolumeContainer,
 } from './containers';
 import NxNoteContainer from './containers/NxNoteContainer';
-import { findAxesDatasets, isPrimaryVolume, isVolumeSignal } from './utils';
+import { findAxesDatasets, isPrimaryVolume, supportsVolume } from './utils';
 
 export const NX_NOTE_VIS = {
   name: 'NX Note',
@@ -98,8 +98,9 @@ export const NX_DATA_VIS = {
     Icon: FiBox,
     Container: NxVolumeContainer,
     ConfigProvider: VolumeConfigProvider,
-    supports: async (_, signal, interpretation) =>
-      isVolumeSignal(signal, interpretation),
+    supports: async (_, signal, interpretation, dataContext) =>
+      supportsVolume(signal, interpretation, dataContext),
+    isNeverPreferred: true,
     isPrimary: isPrimaryVolume,
   },
 

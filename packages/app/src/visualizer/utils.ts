@@ -20,10 +20,16 @@ import {
   findAxesDatasets,
   findSignalDataset,
   getNxClass,
+  isMalformedError,
   isNxDataGroup,
   isNxNoteGroup,
 } from '../vis-packs/nexus/utils';
-import { NX_DATA_VIS, NX_NOTE_VIS } from '../vis-packs/nexus/visualizations';
+import {
+  NX_DATA_VIS,
+  NX_NOTE_VIS,
+  NxDataVis,
+  type NxDataVisDef,
+} from '../vis-packs/nexus/visualizations';
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function resolvePathQuery(path: string, dataContext: DataContextValue) {
@@ -81,16 +87,20 @@ async function resolvePath(
 
     const supportedVis = results.filter(isDefined);
     if (supportedVis.length > 0) {
-      const axisDatasets = await findAxesDatasetsSafely(
-        entity,
-        signal,
-        dataContext,
-      );
+      // Axes only matter to decide whether a volume is the primary vis
+      const axisDatasets = supportedVis.includes(
+        NX_DATA_VIS[NxDataVis.NxVolume],
+      )
+        ? await findAxesForPrimaryVis(entity, signal, dataContext)
+        : [];
       return {
         entity,
         supportedVis,
-        primaryVis: supportedVis.find((v) =>
-          v.isPrimary(interpretation, signal, axisDatasets),
+        primaryVis: findPrimaryVis(
+          supportedVis,
+          interpretation,
+          signal,
+          axisDatasets,
         ),
       };
     }
@@ -109,15 +119,35 @@ async function resolvePath(
   );
 }
 
-/* Malformed axes are reported by the visualizations themselves */
-async function findAxesDatasetsSafely(
+/*
+ * Malformed axes are reported by the visualizations themselves; transient errors (e.g. network)
+ * are rethrown, so that the resolution is not cached without a primary vis.
+ */
+export async function findAxesForPrimaryVis(
   ...args: Parameters<typeof findAxesDatasets>
 ): Promise<Awaited<ReturnType<typeof findAxesDatasets>>> {
   try {
     return await findAxesDatasets(...args);
-  } catch {
-    return [];
+  } catch (error) {
+    if (isMalformedError(error)) {
+      return [];
+    }
+    throw error;
   }
+}
+
+/* Volumes are primary only as a last resort: e.g. RGB images and geometries take precedence */
+export function findPrimaryVis(
+  supportedVis: NxDataVisDef[],
+  ...args: Parameters<NxDataVisDef['isPrimary']>
+): NxDataVisDef | undefined {
+  const volume = NX_DATA_VIS[NxDataVis.NxVolume];
+  return (
+    supportedVis.find((vis) => vis !== volume && vis.isPrimary(...args)) ??
+    (supportedVis.includes(volume) && volume.isPrimary(...args)
+      ? volume
+      : undefined)
+  );
 }
 
 async function getSupportedCoreVis(

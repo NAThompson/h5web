@@ -417,6 +417,19 @@ export function isVolumeSignal(
   );
 }
 
+/* Signal that NX Volume supports: volume-like and not an image (e.g. `CLASS=IMAGE` RGB data) */
+export async function supportsVolume(
+  signal: Dataset<ArrayShape, NumericLikeType | ComplexType>,
+  interpretation: string | undefined,
+  dataContext: DataContextValue,
+): Promise<boolean> {
+  if (!isVolumeSignal(signal, interpretation)) {
+    return false;
+  }
+  const classAttr = findScalarStrAttr(signal, 'CLASS');
+  return (await getAttributeValue(signal, classAttr, dataContext)) !== 'IMAGE';
+}
+
 /*
  * NX Volume is the default visualization only for signals that look like a field sampled on a 3D grid:
  * exactly three dimensions, each with a NeXus axis, no `interpretation` (a 3D `image` signal is a stack
@@ -437,4 +450,23 @@ export function isPrimaryVolume(
     signal.shape.dims.reduce((acc, size) => acc * size, 1) <=
       MAX_DEFAULT_VOLUME_SIZE
   );
+}
+
+/*
+ * `default_slice` for a volume: the last three dimensions always form the volume, so indices on them
+ * are ignored, and leading dimensions are always sliced (at index 0 if not given).
+ */
+export function getVolumeDefaultSlice(
+  defaultSlice: DefaultSlice,
+): DefaultSlice {
+  const volumeStart = defaultSlice.length - 3;
+  return defaultSlice.map((val, i) =>
+    i >= volumeStart ? '.' : val === '.' ? 0 : val,
+  );
+}
+
+/* Errors thrown on malformed metadata (by guards and NeXus utilities, which all start with
+ * "Expected"), as opposed to transient errors (e.g. network) */
+export function isMalformedError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('Expected');
 }
