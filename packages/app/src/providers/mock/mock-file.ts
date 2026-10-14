@@ -599,6 +599,19 @@ export function makeMockFile(): GroupWithChildren {
           ],
         }),
         array('twoD_contours'),
+        // Same band as NeXus data: offered as NX Volume (default: 3D signal, axis on every dimension)
+        nxData('fermi_nxdata', {
+          signal: withNxAttr(array('energy', { valueId: 'threeD_fermi' }), {
+            units: 'eV',
+          }),
+          axes: {
+            kz: withNxAttr(array('kz', { valueId: 'K' }), { units: '1/a' }),
+            ky: withNxAttr(array('ky', { valueId: 'K' }), { units: '1/a' }),
+            kx: withNxAttr(array('kx', { valueId: 'K' }), { units: '1/a' }),
+          },
+          axesAttr: ['kz', 'ky', 'kx'],
+          title: scalar('title', 'Tight-binding band'),
+        }),
       ]),
       group('geometry', [
         array('knot_x'),

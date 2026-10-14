@@ -104,6 +104,10 @@ test('prioritize primary over preferred visualization', async () => {
   await selectNexusExplorerNode('image');
 
   // Check that the preferred visualization is NOT restored
-  expect(getVisTabs()).toEqual([NxDataVis.NxLine, NxDataVis.NxHeatmap]);
+  expect(getVisTabs()).toEqual([
+    NxDataVis.NxLine,
+    NxDataVis.NxVolume,
+    NxDataVis.NxHeatmap,
+  ]);
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
 });

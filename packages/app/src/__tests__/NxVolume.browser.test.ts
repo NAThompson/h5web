@@ -1,0 +1,71 @@
+import { afterEach, beforeEach, expect, test } from 'vitest';
+import { page } from 'vitest/browser';
+
+import { getSelectedVisTab, getVisTabs, renderApp } from '../test-utils';
+import { NxDataVis } from '../vis-packs/nexus/visualizations';
+
+// Leave room for the whole volume toolbar, so no control moves to the overflow menu
+beforeEach(async () => {
+  await page.viewport(2560, 1080);
+});
+
+afterEach(async () => {
+  await page.viewport(1920, 1080);
+});
+
+test('open NXdata with a 3D signal and an axis on every dimension as a volume', async () => {
+  const { user } = await renderApp('/dimension_scales/fermi_nxdata');
+
+  expect(getVisTabs()).toEqual([
+    NxDataVis.NxLine,
+    NxDataVis.NxVolume,
+    NxDataVis.NxHeatmap,
+  ]);
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxVolume);
+
+  await expect
+    .element(page.getByRole('figure', { name: 'Tight-binding band' }))
+    .toBeVisible();
+
+  // Same controls as the core Volume vis, including isosurfaces
+  expect(page.getByRole('button', { name: 'Show volume' })).toBeVisible();
+  expect(
+    page.getByRole('radiogroup', { name: 'Rendering mode' }),
+  ).toBeVisible();
+
+  await user.click(
+    page.getByRole('button', { name: 'Isosurfaces', exact: true }),
+  );
+  await user.click(page.getByRole('button', { name: 'Add level' }));
+  await user.click(page.getByRole('radio', { name: '|∇f|' }));
+
+  // Gradients are expressed in the units of the signal and of the NeXus axes
+  await expect
+    .element(page.getByLabelText('Gradient magnitude'), { timeout: 10_000 })
+    .toHaveTextContent('|∇f| (eV per 1/a)');
+});
+
+test('offer volume for stacks of images without making it the default', async () => {
+  const { selectVisTab } = await renderApp('/nexus/image');
+
+  expect(getVisTabs()).toContain(NxDataVis.NxVolume);
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
+
+  // 4D signal: the leading dimension is sliced, the last three form the volume
+  await selectVisTab(NxDataVis.NxVolume);
+  await expect.element(page.getByRole('slider', { name: 'D0' })).toBeVisible();
+  expect(page.getByRole('slider', { name: 'D1' })).not.toBeInTheDocument();
+  expect(
+    page.getByRole('button', { name: 'Isosurfaces', exact: true }),
+  ).toBeVisible();
+});
+
+test.each<`/${string}`>([
+  '/nexus/spectrum', // 1D
+  '/nexus/NXdata', // 2D
+  '/nexus/rgba-image',
+  '/nexus/image_complex',
+])('do not offer volume for %s', async (path) => {
+  await renderApp(path);
+  expect(getVisTabs()).not.toContain(NxDataVis.NxVolume);
+});
