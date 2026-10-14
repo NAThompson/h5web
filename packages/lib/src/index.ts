@@ -24,6 +24,10 @@ export {
 } from './vis/volume/hooks';
 export type { IsosurfacesState } from './vis/volume/hooks';
 export { getBoxSizeFromAxes } from './vis/volume/utils';
+export {
+  resetGeometryWorker, // e.g. to simulate a worker blocked by a Content Security Policy in tests
+  WorkerError,
+} from './vis/geometry-worker/client';
 export type { SurfaceVisProps } from './vis/surface/SurfaceVis';
 
 // Toolbar and controls

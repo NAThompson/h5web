@@ -74,10 +74,7 @@ function SurfaceDepthPass(props: Props) {
     const volume = volumeRef.current;
     if (volume) {
       uniforms.surfaceDepth.value = target.depthTexture;
-      (uniforms.depthTexelSize.value as Vector2).set(
-        1 / size.x,
-        1 / size.y,
-      );
+      (uniforms.depthTexelSize.value as Vector2).set(1 / size.x, 1 / size.y);
       (uniforms.depthToBox.value as Matrix4)
         .copy(volume.matrixWorld)
         .invert()
