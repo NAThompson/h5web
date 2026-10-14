@@ -245,7 +245,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: 4.1.9
-        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
       wait-on:
         specifier: 9.0.10
         version: 9.0.10
@@ -573,7 +573,7 @@ importers:
         version: 0.1.3(react-dom@19.3.0(react@19.3.0))(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
       vitest:
         specifier: 4.1.9
-        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
       vitest-browser-react:
         specifier: 2.2.0
         version: 2.2.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@4.1.9)
@@ -587,8 +587,8 @@ importers:
         specifier: 4.4.2
         version: 4.4.2
       h5wasm:
-        specifier: file:../../vendor/h5wasm-0.10.3-fork-51abeec.tgz
-        version: file:vendor/h5wasm-0.10.3-fork-51abeec.tgz
+        specifier: file:../../vendor/h5wasm-0.10.3-fork-a693eba.tgz
+        version: file:vendor/h5wasm-0.10.3-fork-a693eba.tgz
       nanoid:
         specifier: 5.1.16
         version: 5.1.16
@@ -643,7 +643,7 @@ importers:
         version: 8.1.2(@types/node@24.13.2)(esbuild@0.28.1)
       vitest:
         specifier: 4.1.9
-        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
       vitest-browser-react:
         specifier: 2.2.0
         version: 2.2.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@4.1.9)
@@ -797,7 +797,7 @@ importers:
         version: 1.16.0(lightningcss@1.32.0)(postcss@8.5.16)(rollup@4.62.2)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
       vitest:
         specifier: 4.1.9
-        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
 
   packages/shared:
     devDependencies:
@@ -839,7 +839,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: 4.1.9
-        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+        version: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
       zustand:
         specifier: 5.0.15
         version: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.6.0(react@19.3.0))
@@ -3666,8 +3666,8 @@ packages:
   h5wasm@0.10.3:
     resolution: {integrity: sha512-W4Jy5ExtX/VNbyD8GdOBckDuj6AL16TemppVNxZsV3rJZEWCv2sxlCzOttZLer3zkMttbDYsWHl0qt1z3Bln+Q==}
 
-  h5wasm@file:vendor/h5wasm-0.10.3-fork-51abeec.tgz:
-    resolution: {integrity: sha512-kgWmnLYVGF4vrK+/t4yXYHKfyfoguk9Qok0Vrcqlcbx821p0KhNAFjU02zt5tXS+HsfwtN7IagIs4oF6PEWobA==, tarball: file:vendor/h5wasm-0.10.3-fork-51abeec.tgz}
+  h5wasm@file:vendor/h5wasm-0.10.3-fork-a693eba.tgz:
+    resolution: {integrity: sha512-OSTDgUMhRbHKmMZepEUwT3ej6uIJOs/Os4wuTO8IbTSrlZ4RIOdfC1bIb1/45sOCMx4qfBIFi6yLl86QvHotXQ==, tarball: file:vendor/h5wasm-0.10.3-fork-a693eba.tgz}
     version: 0.10.3
 
   has-bigints@1.1.0:
@@ -5397,7 +5397,6 @@ packages:
       '@vitest/ui': 4.1.9
       happy-dom: '*'
       jsdom: '*'
-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -7112,7 +7111,7 @@ snapshots:
       '@vitest/mocker': 4.1.9(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
       playwright: 1.61.1
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -7128,7 +7127,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
@@ -7148,7 +7147,7 @@ snapshots:
       obug: 2.1.3
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
     optionalDependencies:
       '@vitest/browser': 4.1.9(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))(vitest@4.1.9)
 
@@ -7160,7 +7159,7 @@ snapshots:
     optionalDependencies:
       '@typescript-eslint/eslint-plugin': 8.59.0(@typescript-eslint/parser@8.59.0(eslint@9.39.4)(typescript@6.0.3))(eslint@9.39.4)(typescript@6.0.3)
       typescript: 6.0.3
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -7224,7 +7223,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -8407,7 +8406,7 @@ snapshots:
   h5wasm@0.10.3:
     optional: true
 
-  h5wasm@file:vendor/h5wasm-0.10.3-fork-51abeec.tgz: {}
+  h5wasm@file:vendor/h5wasm-0.10.3-fork-a693eba.tgz: {}
 
   has-bigints@1.1.0: {}
 
@@ -10358,7 +10357,7 @@ snapshots:
     dependencies:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
     optionalDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
@@ -10368,9 +10367,9 @@ snapshots:
       '@vitest/utils': 4.1.9
       chalk: 5.6.2
       vite: 8.1.2(@types/node@24.13.2)(esbuild@0.28.1)
-      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
+      vitest: 4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1)
 
-  vitest@4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1)):
+  vitest@4.1.9(@types/node@24.13.2)(@vitest/browser-playwright@4.1.9)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(esbuild@0.28.1):
     dependencies:
       '@vitest/expect': 4.1.9
       '@vitest/mocker': 4.1.9(vite@8.1.2(@types/node@24.13.2)(esbuild@0.28.1))
@@ -10398,7 +10397,18 @@ snapshots:
       '@vitest/coverage-v8': 4.1.9(@vitest/browser@4.1.9)(vitest@4.1.9)
       '@vitest/ui': 4.1.9(vitest@4.1.9)
     transitivePeerDependencies:
+      - '@vitejs/devtools'
+      - esbuild
+      - jiti
+      - less
       - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
 
   wait-on@9.0.10:
     dependencies:
