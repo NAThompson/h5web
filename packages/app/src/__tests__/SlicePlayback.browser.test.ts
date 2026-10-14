@@ -60,7 +60,7 @@ test('advance at the requested speed', async () => {
   expect(getSliderValue()).toBe(3);
 });
 
-test('loop, bounce or stop at the end', async () => {
+async function playFromLastSlice(mode: string, fps: number) {
   await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Heatmap });
 
   const slider = getSlider();
@@ -69,30 +69,27 @@ test('loop, bounce or stop at the end', async () => {
   await expect.element(slider).toHaveValue(8);
 
   const dialog = await openSettings();
-  await dialog.getByLabelText('Slices per second').fill('60');
+  await dialog.getByLabelText(mode).click();
+  await dialog.getByLabelText('Slices per second').fill(fps.toString());
 
-  // Loop: from the last slice back to the first
   await page.getByRole('button', { name: 'Play D0' }).click();
+}
+
+test('loop back to the first slice', async () => {
+  await playFromLastSlice('Loop', 60);
   await expect.poll(getSliderValue).toBeLessThan(8);
   await page.getByRole('button', { name: 'Pause D0' }).click();
+});
 
-  // Bounce: from the last slice back down
-  await slider.click();
-  await userEvent.keyboard('{End}');
-  const bounceDialog = await openSettings();
-  await bounceDialog.getByLabelText('Bounce').click();
-  await bounceDialog.getByLabelText('Slices per second').fill('2'); // slow enough not to miss slice 7
-  await page.getByRole('button', { name: 'Play D0' }).click();
+test('bounce back from the last slice', async () => {
+  await playFromLastSlice('Bounce', 2); // slow enough not to miss slice 7
   await expect.poll(getSliderValue).toBe(7);
   await page.getByRole('button', { name: 'Pause D0' }).click();
+});
 
-  // Once: restart from the first slice and stop at the last one
-  const onceDialog = await openSettings();
-  await onceDialog.getByLabelText('Once').click();
-  await onceDialog.getByLabelText('Slices per second').fill('60');
-  await slider.click();
-  await userEvent.keyboard('{End}');
-  await page.getByRole('button', { name: 'Play D0' }).click();
+test('play once from the first slice to the last', async () => {
+  await playFromLastSlice('Once', 20);
+  await expect.poll(getSliderValue).toBeLessThan(8); // restart from first slice
   await expect
     .element(page.getByRole('button', { name: 'Play D0' }))
     .toBeVisible();
