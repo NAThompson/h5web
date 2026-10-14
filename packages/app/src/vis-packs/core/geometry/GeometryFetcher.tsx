@@ -1,4 +1,5 @@
 import { type IgnoreValue } from '@h5web/lib';
+import { type ArrayValue, type NumericType } from '@h5web/shared/hdf5-models';
 import { type NumArray } from '@h5web/shared/vis-models';
 import { type ReactNode, useMemo } from 'react';
 
@@ -10,6 +11,7 @@ import { toNumArray } from '../utils';
 import { splitVertices, toCoordinateArray, useGeometry } from './hooks';
 import {
   type CoordinatesGeometry,
+  type GeometryKind,
   type NumDataset,
   type VertexGeometry,
 } from './utils';
@@ -27,6 +29,7 @@ export interface GeometryData {
 
 interface Props {
   dataset: NumDataset;
+  kind: GeometryKind;
   selection: string | undefined; // slice of leading dimensions, if any
   render: (data: GeometryData) => ReactNode;
 }
@@ -34,8 +37,11 @@ interface Props {
 /* Resolve geometry of dataset, then fetch its coordinates and scalar field
  * (render within a `VisBoundary`) */
 function GeometryFetcher(props: Props): ReactNode {
-  const { dataset, selection, render } = props;
+  const { dataset, kind, selection, render } = props;
   const geometry = useGeometry(dataset);
+  if (geometry.kind !== kind) {
+    throw new Error(`Expected dataset to describe a ${kind}`);
+  }
 
   if (geometry.source === 'vertex') {
     return (
@@ -53,7 +59,9 @@ function GeometryFetcher(props: Props): ReactNode {
     <LargeValueGuard
       requests={[
         { dataset: geometry.field, selection },
-        ...geometry.coords.map((coord) => ({ dataset: coord.dataset })),
+        ...geometry.coords
+          .filter((coord) => coord !== undefined)
+          .map((coord) => ({ dataset: coord.dataset })),
       ]}
     >
       <CoordinatesValues
@@ -119,10 +127,17 @@ function CoordinatesValues(props: {
     field: { dataset: field, selection },
     x: xDef.dataset,
     y: yDef.dataset,
-    z: zDef.dataset,
-  });
+    ...(zDef && { z: zDef.dataset }), // planar curve from dimension scales
+  }) as Record<
+    'field' | 'x' | 'y' | 'z',
+    ArrayValue<NumericType> | undefined
+  > & {
+    field: ArrayValue<NumericType>;
+    x: ArrayValue<NumericType>;
+    y: ArrayValue<NumericType>;
+  };
 
-  const datasets = [field, xDef.dataset, yDef.dataset, zDef.dataset];
+  const datasets = [field, xDef.dataset, yDef.dataset, zDef?.dataset];
   const [fieldPacking, xPacking, yPacking, zPacking] = usePackings(datasets);
   const [fieldIgnoreValue, xIgnoreValue, yIgnoreValue, zIgnoreValue] =
     useIgnoreValues(datasets);
@@ -137,7 +152,7 @@ function CoordinatesValues(props: {
     [yValue, yPacking, yIgnoreValue],
   );
   const z = useMemo(
-    () => toCoordinateArray(zValue, zPacking, zIgnoreValue),
+    () => zValue && toCoordinateArray(zValue, zPacking, zIgnoreValue),
     [zValue, zPacking, zIgnoreValue],
   );
   const values = useMemo(
@@ -152,7 +167,7 @@ function CoordinatesValues(props: {
       z,
       values,
       shape: xDef.dataset.shape.dims,
-      labels: [xDef.label, yDef.label, zDef.label],
+      labels: [xDef.label, yDef.label, zDef?.label],
       ignoreValue: fieldIgnoreValue,
       packing: fieldPacking,
     }),

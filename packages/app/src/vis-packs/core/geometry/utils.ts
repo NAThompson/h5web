@@ -24,6 +24,7 @@ import { findAttribute, getAttributeValue, hasAttribute } from '../../../utils';
 export const COORDINATES_ATTR = 'coordinates'; // CF auxiliary coordinate variables
 export const FEATURE_TYPE_ATTR = 'featureType'; // CF discrete sampling geometries
 export const TRAJECTORY_FEATURE_TYPE = 'trajectory';
+export const DIMENSION_LIST_ATTR = 'DIMENSION_LIST'; // HDF5 dimension scales attached to a dataset
 export const INTERPRETATION_ATTR = 'interpretation'; // NeXus
 export const VERTEX_INTERPRETATION = 'vertex'; // NeXus: last dimension holds vertex coordinates
 
@@ -41,12 +42,13 @@ export interface CoordinateDef {
 }
 
 /* Scalar field `field` defined on a curve or surface whose points are given by
- * auxiliary coordinate datasets (CF `coordinates` attribute) */
+ * auxiliary coordinate datasets (CF `coordinates` attribute), or on a curve whose
+ * points are given by the HDF5 dimension scales attached to its last dimension */
 export interface CoordinatesGeometry {
-  source: 'coordinates';
+  source: 'coordinates' | 'dimension-scales';
   kind: GeometryKind;
   field: NumDataset;
-  coords: [CoordinateDef, CoordinateDef, CoordinateDef]; // x, y, z
+  coords: [CoordinateDef, CoordinateDef, CoordinateDef | undefined]; // x, y, z (planar curve without z)
 }
 
 /* Curve whose points are the rows of an `(..., N, 2 | 3)` dataset with NeXus `interpretation="vertex"` */
@@ -65,6 +67,10 @@ export type Geometry = CoordinatesGeometry | VertexGeometry;
 export interface GeometryContext {
   getEntity: (path: string) => Promise<ProvidedEntity | undefined>;
   getStrAttr: (entity: Entity, name: string) => Promise<string | undefined>;
+  // Paths of scales attached to each dimension; `null` if the provider cannot dereference `DIMENSION_LIST`
+  getDimensionScales: (
+    dataset: Dataset<ArrayShape>,
+  ) => Promise<string[][] | null | undefined>;
 }
 
 /** String attribute: scalar string, or array holding a single string (e.g. NetCDF, MATLAB). */
@@ -109,6 +115,8 @@ export function createGeometryContext(
   return {
     getEntity: async (path) =>
       ignoreDataErrors(queryClient.query(queries.entity(path))),
+    getDimensionScales: async (dataset) =>
+      ignoreDataErrors(queryClient.query(queries.dimensionScales(dataset))),
     getStrAttr: async (entity, name) => {
       const attr = findStrAttr(entity, name);
       if (!attr) {
@@ -236,6 +244,7 @@ export interface CoordinateAttrs {
   standardName?: string;
   units?: string;
   positive?: string;
+  scaleName?: string; // `NAME` of HDF5 dimension scale
 }
 
 const STANDARD_NAME_ROLES: Record<string, CoordinateRole> = {
@@ -262,6 +271,16 @@ const LONGITUDE_UNITS = /^degrees?_?e(?:ast)?$/iu; // degrees_east, degree_E, de
 const LATITUDE_UNITS = /^degrees?_?n(?:orth)?$/iu;
 const TIME_UNITS = /\ssince\s/iu; // e.g. "days since 1970-01-01"
 
+function getRoleFromUnits(units: string): CoordinateRole | undefined {
+  if (LONGITUDE_UNITS.test(units)) {
+    return 'X';
+  }
+  if (LATITUDE_UNITS.test(units)) {
+    return 'Y';
+  }
+  return TIME_UNITS.test(units) ? 'T' : undefined;
+}
+
 /**
  * Identify the role of a coordinate, by order of precedence: `axis` attribute, `standard_name`,
  * `units` (longitude, latitude, or time reference), then `positive` (vertical coordinate).
@@ -279,19 +298,32 @@ export function identifyRole(
     return STANDARD_NAME_ROLES[standardName];
   }
 
-  const units = attrs.units?.trim() ?? '';
-  if (LONGITUDE_UNITS.test(units)) {
-    return 'X';
-  }
-  if (LATITUDE_UNITS.test(units)) {
-    return 'Y';
-  }
-  if (TIME_UNITS.test(units)) {
-    return 'T';
+  const unitsRole = getRoleFromUnits(attrs.units?.trim() ?? '');
+  if (unitsRole) {
+    return unitsRole;
   }
 
   const positive = attrs.positive?.trim().toLowerCase();
   return positive === 'up' || positive === 'down' ? 'Z' : undefined;
+}
+
+/**
+ * Role of a dimension scale: as for coordinates (cf. `identifyRole`), then by the scale's
+ * `NAME` (given to `make_scale`) if literally `x`, `y` or `z`. Not used for `coordinates`,
+ * where an unidentified coordinate must keep the listed-order fallback.
+ */
+export function identifyScaleRole(
+  attrs: CoordinateAttrs,
+): CoordinateRole | undefined {
+  const role = identifyRole(attrs);
+  if (role) {
+    return role;
+  }
+
+  const scaleName = attrs.scaleName?.trim().toUpperCase();
+  return scaleName === 'X' || scaleName === 'Y' || scaleName === 'Z'
+    ? scaleName
+    : undefined;
 }
 
 /**
@@ -343,12 +375,51 @@ async function getCoordinateAttrs(
   dataset: NumDataset,
   ctx: GeometryContext,
 ): Promise<CoordinateAttrs & { longName?: string }> {
-  const [axis, standardName, units, positive, longName] = await Promise.all(
-    ['axis', 'standard_name', 'units', 'positive', 'long_name'].map(
-      async (name) => ctx.getStrAttr(dataset, name),
+  const [axis, standardName, units, positive, longName, scaleName] =
+    await Promise.all(
+      ['axis', 'standard_name', 'units', 'positive', 'long_name', 'NAME'].map(
+        async (name) => ctx.getStrAttr(dataset, name),
+      ),
+    );
+  return { axis, standardName, units, positive, longName, scaleName };
+}
+
+function toCoordinateDef({
+  dataset,
+  attrs,
+}: {
+  dataset: NumDataset;
+  attrs: CoordinateAttrs & { longName?: string };
+}): CoordinateDef {
+  const { longName, units } = attrs;
+  return {
+    dataset,
+    label: getAxisLabel(dataset.name, longName, units || undefined),
+    unit: units || undefined,
+  };
+}
+
+/* Label of a dimension scale used as curve axis, as for dimension scales in other visualizations
+ * (scale `NAME`, else dataset name, plus units), CF `long_name` first. The dimension's own
+ * `DIMENSION_LABELS` entry names the curve's parameter, shared by all three scales, so it
+ * cannot label them. */
+function toScaleCoordinateDef({
+  dataset,
+  attrs,
+}: {
+  dataset: NumDataset;
+  attrs: CoordinateAttrs & { longName?: string };
+}): CoordinateDef {
+  const { longName, scaleName, units } = attrs;
+  return {
+    dataset,
+    label: getAxisLabel(
+      dataset.name,
+      longName || scaleName || undefined,
+      units || undefined,
     ),
-  );
-  return { axis, standardName, units, positive, longName };
+    unit: units || undefined,
+  };
 }
 
 /**
@@ -427,17 +498,88 @@ async function findCoordinatesGeometry(
     return undefined;
   }
 
-  const coords = xyz.map(({ dataset, attrs: { longName, units } }) => ({
-    dataset,
-    label: getAxisLabel(dataset.name, longName, units || undefined),
-    unit: units || undefined,
-  }));
-
   return {
     source: 'coordinates',
     kind: rank === 1 ? GeometryKind.Curve : GeometryKind.Surface,
     field,
-    coords: [coords[0], coords[1], coords[2]],
+    coords: [toCoordinateDef(x), toCoordinateDef(y), toCoordinateDef(z)],
+  };
+}
+
+/**
+ * Curve given by the HDF5 dimension scales attached to the last dimension of the field:
+ * scales identified as X and Y (and optionally Z) by the same rules as for `coordinates`,
+ * plus the scale's `NAME` (cf. `identifyScaleRole`). Unidentified scales are alternatives for the axis (e.g. time in
+ * other units) and are ignored; without X and Y, there is no curve. As for 1D `coordinates`,
+ * points are connected only for trajectories (`featureType`). Dimension scales are 1D by
+ * definition, so they cannot describe surfaces.
+ */
+async function findDimScalesGeometry(
+  field: NumDataset,
+  ctx: GeometryContext,
+): Promise<CoordinatesGeometry | undefined> {
+  // Cheap check first (attributes only): most datasets with scales (e.g. any NetCDF4 variable)
+  // are not trajectories, and must not cost a dereferencing round-trip to the provider
+  if (!(await isTrajectory(field, ctx))) {
+    return undefined;
+  }
+
+  const { dims } = field.shape;
+  const dimSize = dims[dims.length - 1];
+  const allScalePaths = await ctx.getDimensionScales(field); // `null`: provider can't dereference
+  if (allScalePaths?.length !== dims.length) {
+    return undefined; // unsupported, or list inconsistent with the dataset's dimensions
+  }
+
+  const scalePaths = allScalePaths[dims.length - 1];
+  if (scalePaths.length < 2) {
+    return undefined; // e.g. single coordinate variable of NetCDF dimension
+  }
+
+  const entities = await Promise.all(
+    scalePaths.map(async (path) => ctx.getEntity(path)),
+  );
+  const candidates = entities.filter(
+    (entity): entity is NumDataset =>
+      isNumDataset(entity) &&
+      entity.shape.dims.length === 1 &&
+      entity.shape.dims[0] === dimSize,
+  );
+  if (candidates.length < 2) {
+    return undefined;
+  }
+
+  const attrs = await Promise.all(
+    candidates.map(async (c) => getCoordinateAttrs(c, ctx)),
+  );
+  const byRole = new Map<
+    CoordinateRole,
+    { dataset: NumDataset; attrs: CoordinateAttrs }
+  >();
+  for (const [i, dataset] of candidates.entries()) {
+    const role = identifyScaleRole(attrs[i]);
+    if (role && role !== 'T') {
+      if (byRole.has(role)) {
+        return undefined; // ambiguous
+      }
+      byRole.set(role, { dataset, attrs: attrs[i] });
+    }
+  }
+
+  const [x, y, z] = (['X', 'Y', 'Z'] as const).map((role) => byRole.get(role));
+  if (!x || !y) {
+    return undefined;
+  }
+
+  return {
+    source: 'dimension-scales',
+    kind: GeometryKind.Curve,
+    field,
+    coords: [
+      toScaleCoordinateDef(x),
+      toScaleCoordinateDef(y),
+      z && toScaleCoordinateDef(z),
+    ],
   };
 }
 
@@ -460,6 +602,14 @@ export async function findGeometry(
     return coordinatesAttr
       ? findCoordinatesGeometry(dataset, coordinatesAttr, ctx)
       : undefined;
+  }
+
+  // Then HDF5 dimension scales (curves only)
+  if (hasAttribute(dataset, DIMENSION_LIST_ATTR)) {
+    const geometry = await findDimScalesGeometry(dataset, ctx);
+    if (geometry) {
+      return geometry;
+    }
   }
 
   const { dims } = dataset.shape;
@@ -486,15 +636,24 @@ export async function findGeometry(
   };
 }
 
-/** Number of trailing dimensions of the dataset taken up by the geometry, i.e. that cannot be sliced. */
-export function getGeometryDimsCount(
+/** Best guess of `getGeometryDimsCount` from attributes alone, before the geometry is resolved. */
+export function guessGeometryDimsCount(
   dataset: Dataset,
   kind: GeometryKind,
 ): number {
-  // Surfaces: (u, v) grid; `coordinates` curves: points; `vertex` curves: points + vertex coordinates
-  return kind === GeometryKind.Curve && hasAttribute(dataset, COORDINATES_ATTR)
-    ? 1
-    : 2;
+  return kind === GeometryKind.Surface ||
+    (hasAttribute(dataset, INTERPRETATION_ATTR) &&
+      !hasAttribute(dataset, COORDINATES_ATTR))
+    ? 2
+    : 1;
+}
+
+/** Number of trailing dimensions of the dataset taken up by the geometry, i.e. that cannot be sliced. */
+export function getGeometryDimsCount(geometry: Geometry): number {
+  // Surfaces: (u, v) grid; `vertex` curves: points + vertex coordinates; other curves: points
+  return geometry.kind === GeometryKind.Surface || geometry.source === 'vertex'
+    ? 2
+    : 1;
 }
 
 /**

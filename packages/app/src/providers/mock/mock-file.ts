@@ -610,6 +610,56 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('featureType', 'trajectory'), // points are connected
           ],
         }),
+        // Same knot, with x, y, z attached as HDF5 dimension scales instead of `coordinates`
+        ...(['x', 'y', 'z'] as const).map((axis) =>
+          array(`knot_${axis}_scale`, {
+            valueId: `knot_${axis}`,
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr('NAME', axis),
+            ],
+          }),
+        ),
+        withDimScales(
+          array('knot_speed_dimscales', {
+            valueId: 'knot_speed',
+            attributes: [scalarAttr('featureType', 'trajectory')],
+          }),
+          {
+            scales: [
+              [
+                '/geometry/knot_x_scale',
+                '/geometry/knot_y_scale',
+                '/geometry/knot_z_scale',
+              ],
+            ],
+          },
+        ),
+        withDimScales(
+          array('knot_speed_phases_dimscales', {
+            valueId: 'knot_speed_phases',
+            attributes: [scalarAttr('featureType', 'trajectory')],
+          }),
+          {
+            labels: ['phase', 't'],
+            scales: [
+              [],
+              [
+                '/geometry/knot_x_scale',
+                '/geometry/knot_y_scale',
+                '/geometry/knot_z_scale',
+              ],
+            ],
+          },
+        ),
+        // Common NetCDF case: a single coordinate variable attached to the dimension (not a curve)
+        withDimScales(
+          array('netcdf_variable', {
+            valueId: 'oneD',
+            attributes: [scalarAttr('featureType', 'trajectory')],
+          }),
+          { scales: [['/dimension_scales/X']] },
+        ),
         array('torus_x', { attributes: [scalarAttr('units', 'm')] }),
         array('torus_y', { attributes: [scalarAttr('units', 'm')] }),
         array('torus_z', { attributes: [scalarAttr('units', 'm')] }),

@@ -72,6 +72,16 @@ function getQueryOptionsFactories(
         queryFn: async () => api.getAttrValues(entity),
       });
     },
+    /* Paths of the HDF5 dimension scales attached to each dimension of a dataset (cf.
+     * `DIMENSION_LIST`), or `null` if the provider cannot dereference `DIMENSION_LIST`.
+     * Errors are not cached as data: a failed query is fetched again. */
+    dimensionScales: (dataset: Dataset<ArrayShape>) => {
+      return queryOptions({
+        queryKey: [scope, 'dimensionScales', dataset.path] as const,
+        queryFn: async (): Promise<string[][] | null> =>
+          api.getDimensionScales ? api.getDimensionScales(dataset) : null,
+      });
+    },
   };
 }
 
