@@ -39,8 +39,13 @@ function LineVisContainer(props: VisContainerProps) {
 
   const dimHints = useDimHints(entity);
 
-  const slicingProps = useDatasetSlicingProps(entity, (m) =>
-    getMultiPlotMapping(m, multiDim),
+  const { slicingProps, playbackRange } = useDatasetSlicingProps(
+    entity,
+    dimMapping,
+    {
+      mapMapping: (m) => getMultiPlotMapping(m, multiDim),
+      withPlaybackRange: true,
+    },
   );
 
   return (
@@ -55,7 +60,11 @@ function LineVisContainer(props: VisContainerProps) {
         multiDim={multiDim}
         onMultiDimChange={setMultiDim}
       />
-      <VisBoundary resetKey={lineMapping} isSlice={selection !== undefined}>
+      <VisBoundary
+        resetKey={lineMapping}
+        isSlice={selection !== undefined}
+        playbackRange={playbackRange}
+      >
         <ValueFetcher
           dataset={entity}
           selection={selection}

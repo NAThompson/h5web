@@ -44,7 +44,11 @@ function NxComplexLineContainer(props: VisContainerProps) {
       : ScaleType.Linear,
   });
 
-  const slicingProps = useNxSlicingProps(nxData);
+  const { slicingProps, playbackRange } = useNxSlicingProps(
+    nxData,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -68,7 +72,7 @@ function NxComplexLineContainer(props: VisContainerProps) {
         {...slicingProps}
         onChange={setDimMapping}
       />
-      <VisBoundary resetKey={dimMapping}>
+      <VisBoundary resetKey={dimMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
           nxData={nxData}
           selection={getSliceSelection(dimMapping)}

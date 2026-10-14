@@ -57,8 +57,13 @@ function NxLineContainer(props: VisContainerProps) {
       : ScaleType.Linear,
   });
 
-  const slicingProps = useNxSlicingProps(nxData, (m) =>
-    getMultiPlotMapping(m, multiDim),
+  const { slicingProps, playbackRange } = useNxSlicingProps(
+    nxData,
+    dimMapping,
+    {
+      mapMapping: (m) => getMultiPlotMapping(m, multiDim),
+      withPlaybackRange: true,
+    },
   );
 
   return (
@@ -86,7 +91,7 @@ function NxLineContainer(props: VisContainerProps) {
         onMultiDimChange={canMultiPlot ? setMultiDim : undefined}
       />
 
-      <VisBoundary resetKey={lineMapping}>
+      <VisBoundary resetKey={lineMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
           nxData={nxData}
           selection={getSliceSelection(lineMapping)}
