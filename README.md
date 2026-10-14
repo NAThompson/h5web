@@ -99,3 +99,23 @@ feature requests, so don't hesitate to
 
 If you'd like to know more about contributing to the codebase, please check out
 the [CONTRIBUTING](CONTRIBUTING.md) guide.
+
+## Building the fork
+
+This branch (`fork-vscode`) builds `@h5web/h5wasm` against a forked build of
+[h5wasm](https://github.com/NAThompson/h5wasm) (HDF5 2.0, wasm32 + wasm64). Its
+tarball is not committed: it is referenced from `vendor/` and downloaded from
+GitHub release assets.
+
+```bash
+node scripts/fetch-vendor.mjs # download vendor/*.tgz and verify their SHA-256
+pnpm install
+pnpm packages # build @h5web/lib, @h5web/app and @h5web/h5wasm
+```
+
+- `vendor/SHA256SUMS` lists the expected tarballs and their SHA-256
+  (`cd vendor && shasum -a 256 -c SHA256SUMS`).
+- `vendor/SOURCES` gives the URL of each tarball.
+
+To use a published release instead, replace the `file:` spec of `h5wasm` in
+`packages/h5wasm/package.json` with the release asset URL.
