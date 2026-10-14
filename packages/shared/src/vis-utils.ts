@@ -297,6 +297,51 @@ function mutateBounds(bounds: Bounds, value: number): void {
 }
 /* eslint-enable no-param-reassign */
 
+/* Values are copied in blocks to a `Float64Array` before being scanned, so that the loop
+ * in `mutateBoundsWithBlock` always sees the same array type. Scanning arrays of various
+ * types (as happens over the lifetime of the app) directly would make element access
+ * megamorphic, which is several times slower on large arrays (e.g. 5s instead of 1s for
+ * 500M values). */
+const BOUNDS_BLOCK_SIZE = 65_536;
+let boundsBlock: Float64Array | undefined;
+
+/* eslint-disable no-param-reassign */
+function mutateBoundsWithBlock(
+  bounds: Bounds,
+  block: Float64Array,
+  length: number,
+  ignoreValue: IgnoreValue | undefined,
+): void {
+  let { min, max, positiveMin, strictPositiveMin } = bounds;
+
+  for (let i = 0; i < length; i += 1) {
+    const val = block[i];
+    if (!Number.isFinite(val) || ignoreValue?.(val)) {
+      continue;
+    }
+
+    // Plain comparisons are several times faster than `Math.min` and `Math.max`
+    if (val < min) {
+      min = val;
+    }
+    if (val > max) {
+      max = val;
+    }
+    if (val >= 0 && val < positiveMin) {
+      positiveMin = val;
+    }
+    if (val > 0 && val < strictPositiveMin) {
+      strictPositiveMin = val;
+    }
+  }
+
+  bounds.min = min;
+  bounds.max = max;
+  bounds.positiveMin = positiveMin;
+  bounds.strictPositiveMin = strictPositiveMin;
+}
+/* eslint-enable no-param-reassign */
+
 export function getBounds(
   valuesArray: AnyNumArray,
   ignoreValue?: IgnoreValue,
@@ -304,12 +349,16 @@ export function getBounds(
   const values = getValues(valuesArray);
   const valuesBounds = { ...INITIAL_BOUNDS };
 
-  // eslint-disable-next-line @typescript-eslint/prefer-for-of,unicorn/no-for-loop -- classic for loop is more efficient
-  for (let i = 0; i < values.length; i += 1) {
-    const val = values[i];
-    if (Number.isFinite(val) && !ignoreValue?.(val)) {
-      mutateBounds(valuesBounds, val);
-    }
+  boundsBlock = boundsBlock ?? new Float64Array(BOUNDS_BLOCK_SIZE);
+
+  for (let start = 0; start < values.length; start += BOUNDS_BLOCK_SIZE) {
+    const end = Math.min(start + BOUNDS_BLOCK_SIZE, values.length);
+    boundsBlock.set(
+      Array.isArray(values)
+        ? values.slice(start, end)
+        : values.subarray(start, end),
+    );
+    mutateBoundsWithBlock(valuesBounds, boundsBlock, end - start, ignoreValue);
   }
 
   // Return `undefined` bounds if min is still Infinity (i.e. no values or only NaN/Infinity)
