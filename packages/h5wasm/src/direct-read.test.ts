@@ -277,6 +277,28 @@ describe('direct reads', () => {
     expect(planDirectRead(getDataset('slabs'), all, opts)).toBeDefined(); // split into requests
   });
 
+  it('should not get storage information of datasets that are left to HDF5', () => {
+    const all = SHAPE.map<[number, number]>((dim) => [0, dim]);
+    const row: [number, number][] = [
+      [0, 20],
+      [4, 5],
+      [6, 7],
+    ];
+    const getStorage = vi.fn<() => h5wasm.Dataset['storage']>(
+      () => getDataset('slabs').storage,
+    );
+
+    planDirectRead(getDataset('compressed'), all, { minBytes: 0, getStorage });
+    planDirectRead(getDataset('slabs'), row, { minBytes: 0, getStorage });
+    planDirectRead(getDataset('chunked'), all, { getStorage }); // too small
+    expect(getStorage).not.toHaveBeenCalled();
+
+    expect(
+      planDirectRead(getDataset('slabs'), all, { minBytes: 0, getStorage }),
+    ).toBeDefined();
+    expect(getStorage).toHaveBeenCalledOnce();
+  });
+
   it('should leave small selections to HDF5', () => {
     const all = SHAPE.map<[number, number]>((dim) => [0, dim]);
     expect(planDirectRead(getDataset('chunked'), all)).toBeUndefined();

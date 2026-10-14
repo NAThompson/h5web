@@ -4,6 +4,8 @@ import { type Dataset as H5WasmDataset } from 'h5wasm';
 
 import { checkFileVersion, type FileVersion } from './lazy-file';
 
+type DatasetStorage = H5WasmDataset['storage'];
+
 /*
  * Large numeric selections of unfiltered datasets are read straight from the file, bypassing
  * HDF5: the location of the raw data (contiguous offset, or address of each chunk) is obtained
@@ -162,25 +164,26 @@ function product(values: number[]): number {
 export function planDirectRead(
   h5wDataset: H5WasmDataset,
   ranges: [number, number][],
-  opts: { minBytes?: number; maxRequestBytes?: number } = {},
+  opts: {
+    minBytes?: number;
+    maxRequestBytes?: number;
+    getStorage?: () => DatasetStorage; // e.g. to cache storage information per dataset
+  } = {},
 ): DirectReadPlan | undefined {
   const {
     minBytes = MIN_DIRECT_READ_BYTES,
     maxRequestBytes = MAX_REQUEST_BYTES,
+    getStorage = () => h5wDataset.storage,
   } = opts;
-
-  if (!('storage' in h5wDataset)) {
-    return undefined; // h5wasm too old to report where data is stored
-  }
 
   const { type, size, signed, littleEndian, shape } = h5wDataset.metadata;
   const Constructor = getConstructor(type, size, signed);
   if (
+    !('storage' in h5wDataset) || // h5wasm too old to report where data is stored
     !Constructor ||
     !littleEndian ||
-    !shape ||
-    shape.length === 0 ||
-    shape.length !== ranges.length
+    shape?.length !== ranges.length ||
+    shape.length === 0
   ) {
     return undefined;
   }
@@ -192,15 +195,48 @@ export function planDirectRead(
     return undefined;
   }
 
-  const { storage } = h5wDataset;
+  /* Rule out datasets that can't be read directly before getting their storage information,
+   * which requires walking the entire chunk index (e.g. hundreds of thousands of chunks,
+   * fetched remotely) */
+  if (
+    h5wDataset.filters.length > 0 ||
+    !isChunkedReadWorthwhile(
+      shape,
+      h5wDataset.metadata.chunks,
+      ranges,
+      size,
+      selectedBytes,
+      maxRequestBytes,
+    )
+  ) {
+    return undefined;
+  }
+
+  const ops = planFromStorage(
+    getStorage(),
+    shape,
+    ranges,
+    size,
+    selectedBytes,
+    maxRequestBytes,
+  );
+  return ops && { itemSize: size, outShape, outStart, Constructor, ...ops };
+}
+
+function planFromStorage(
+  storage: DatasetStorage,
+  shape: number[],
+  ranges: [number, number][],
+  itemSize: number,
+  selectedBytes: number,
+  maxRequestBytes: number,
+): Pick<DirectReadPlan, 'ops' | 'totalBytes'> | undefined {
   if (storage.nfilters > 0) {
     return undefined;
   }
 
-  const base = { itemSize: size, outShape, outStart, Constructor };
-
   if (storage.layout === 'contiguous' && storage.offset !== null) {
-    if (storage.storage_size < product(shape) * size) {
+    if (storage.storage_size < product(shape) * itemSize) {
       return undefined; // not (fully) allocated
     }
 
@@ -208,10 +244,10 @@ export function planDirectRead(
       storage.offset,
       shape,
       ranges,
-      size,
+      itemSize,
       maxRequestBytes,
     );
-    return ops && { ...base, ops, totalBytes: selectedBytes };
+    return ops && { ops, totalBytes: selectedBytes };
   }
 
   if (storage.layout === 'chunked' && storage.chunks) {
@@ -219,15 +255,70 @@ export function planDirectRead(
       storage.chunks,
       shape,
       ranges,
-      size,
+      itemSize,
       maxRequestBytes,
     );
     return plan && plan.totalBytes <= selectedBytes * MAX_READ_AMPLIFICATION
-      ? { ...base, ...plan }
+      ? plan
       : undefined;
   }
 
   return undefined;
+}
+
+/* Whether chunks of a dataset map to contiguous bytes of the output, so they can be read in
+ * place: all dimensions but the first must be selected in full and fit in a single chunk */
+function canReadChunksInPlace(
+  shape: number[],
+  chunkShape: number[],
+  ranges: [number, number][],
+): boolean {
+  return ranges.every(
+    ([start, stop], d) =>
+      d === 0 ||
+      (start === 0 && stop === shape[d] && chunkShape[d] === shape[d]),
+  );
+}
+
+/* Whether reading the chunks that intersect the selection fetches few enough bytes,
+ * in requests of acceptable size */
+function isChunkedReadWorthwhile(
+  shape: number[],
+  chunkShape: number[] | null, // `null` if not chunked
+
+  ranges: [number, number][],
+  itemSize: number,
+  selectedBytes: number,
+  maxRequestBytes: number,
+): boolean {
+  if (!chunkShape) {
+    return true;
+  }
+
+  if (chunkShape.length !== shape.length) {
+    return false;
+  }
+
+  if (canReadChunksInPlace(shape, chunkShape, ranges)) {
+    return true; // only selected rows are read
+  }
+
+  const chunkBytes = product(chunkShape) * itemSize;
+  if (chunkBytes > maxRequestBytes) {
+    return false; // don't fetch large chunks in one go (HDF5 reads only what's needed)
+  }
+
+  const fetchedBytes =
+    product(
+      ranges.map(
+        ([start, stop], d) =>
+          (Math.floor((stop - 1) / chunkShape[d]) -
+            Math.floor(start / chunkShape[d]) +
+            1) *
+          chunkShape[d],
+      ),
+    ) * itemSize;
+  return fetchedBytes <= selectedBytes * MAX_READ_AMPLIFICATION;
 }
 
 function planContiguous(
@@ -328,14 +419,8 @@ function planChunked(
     Math.floor((stop - 1) / chunkShape[d]),
   );
 
-  // Whether chunks map to contiguous bytes of the output, so they can be read in place:
-  // all dimensions but the first must be selected in full and fit in a single chunk
   const outShape = ranges.map(([start, stop]) => stop - start);
-  const inPlace = ranges.every(
-    ([start, stop], d) =>
-      d === 0 ||
-      (start === 0 && stop === shape[d] && chunkShape[d] === shape[d]),
-  );
+  const inPlace = canReadChunksInPlace(shape, chunkShape, ranges);
   const rowBytes = product(outShape.slice(1)) * itemSize;
 
   const ops: ReadOp[] = [];

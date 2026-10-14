@@ -40,6 +40,11 @@ let h5wasmReady: ReturnType<typeof initH5Wasm>;
 const fileRemovers = new Map<bigint, () => void>(); // to remove files from Emscripten FS once closed
 const fileReaders = new Map<bigint, RangeReader>(); // to read raw data directly, bypassing HDF5
 const valueRequests = new Map<number, AbortController>(); // to cancel direct reads
+// Storage information of datasets read directly (getting it requires walking the chunk index)
+const storageCache = new Map<
+  bigint,
+  Map<string, H5WasmModule.Dataset['storage']>
+>();
 
 function openH5WasmFile(
   path: string,
@@ -119,6 +124,7 @@ async function closeFile(fileId: bigint): Promise<number> {
   fileRemovers.get(fileId)?.();
   fileRemovers.delete(fileId);
   fileReaders.delete(fileId);
+  storageCache.delete(fileId);
 
   return status;
 }
@@ -177,7 +183,9 @@ async function readDirectly(
     }
 
     try {
-      return planDirectRead(dataset, getSelectionRanges(shape, selection));
+      return planDirectRead(dataset, getSelectionRanges(shape, selection), {
+        getStorage: () => getCachedStorage(fileId, path, dataset),
+      });
     } catch {
       throwIfReadError(); // don't hide network errors
       return undefined; // e.g. storage information unavailable: read with HDF5
@@ -230,6 +238,25 @@ async function readDirectly(
       valueRequests.delete(requestId);
     }
   }
+}
+
+function getCachedStorage(
+  fileId: bigint,
+  path: string,
+  dataset: H5WasmModule.Dataset,
+): H5WasmModule.Dataset['storage'] {
+  let fileCache = storageCache.get(fileId);
+  if (!fileCache) {
+    fileCache = new Map();
+    storageCache.set(fileId, fileCache);
+  }
+
+  let storage = fileCache.get(path);
+  if (!storage) {
+    ({ storage } = dataset);
+    fileCache.set(path, storage);
+  }
+  return storage;
 }
 
 async function cancelValue(requestId: number): Promise<void> {
