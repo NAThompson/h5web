@@ -29,9 +29,21 @@ function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
   // Don't ask again for fetches no larger than previously confirmed (e.g. other slices)
   const maxSize = Math.max(MAX_AUTO_FETCH_SIZE, confirmedSize);
 
-  // Re-check when cache changes; snapshot is `0` unless confirmation is needed, to avoid re-renders
+  /* Re-check when values are added to or removed from the cache; snapshot is `0` unless
+   * confirmation is needed, to avoid re-renders. Ignore other events: they may be fired
+   * while children render (e.g. when the fetched value's query gets observed), when
+   * updating this component would not be allowed and, since an update made right after
+   * confirmation hasn't been committed yet, would loop forever. */
   const subscribe = useCallback(
-    (onChange: () => void) => queryCache.subscribe(onChange),
+    (onChange: () => void) =>
+      queryCache.subscribe((event) => {
+        if (
+          event.type === 'removed' ||
+          (event.type === 'updated' && event.action.type === 'success')
+        ) {
+          onChange();
+        }
+      }),
     [queryCache],
   );
   const size = useSyncExternalStore(subscribe, () => {
