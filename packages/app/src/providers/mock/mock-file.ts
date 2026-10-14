@@ -612,6 +612,30 @@ export function makeMockFile(): GroupWithChildren {
           axesAttr: ['kz', 'ky', 'kx'],
           title: scalar('title', 'Tight-binding band'),
         }),
+        // Bin-edge axes, scale type suggested with `SILX_style`
+        nxData('fermi_nxdata_bins', {
+          signal: withNxAttr(array('energy', { valueId: 'threeD_fermi' }), {
+            units: 'eV',
+          }),
+          axes: {
+            kz: withNxAttr(array('kz', { valueId: 'K_edges' }), {
+              units: '1/a',
+            }),
+            ky: withNxAttr(array('ky', { valueId: 'K_edges' }), {
+              units: '1/a',
+            }),
+            kx: withNxAttr(array('kx', { valueId: 'K_edges' }), {
+              units: '1/a',
+            }),
+          },
+          axesAttr: ['kz', 'ky', 'kx'],
+          silxStyle: { signalScaleType: ScaleType.SymLog },
+        }),
+        // Index on one of the volume's dimensions, which must be ignored by NX Volume
+        nxData('volume_default_slice', {
+          signal: array('fourD'),
+          attributes: [arrayAttr('default_slice', ['.', '.', '.', '5'])],
+        }),
       ]),
       group('geometry', [
         array('knot_x'),

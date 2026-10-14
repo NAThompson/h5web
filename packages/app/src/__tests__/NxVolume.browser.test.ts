@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 
 import { getSelectedVisTab, getVisTabs, renderApp } from '../test-utils';
+import { Vis } from '../vis-packs/core/visualizations';
 import { NxDataVis } from '../vis-packs/nexus/visualizations';
 
 // Leave room for the whole volume toolbar, so no control moves to the overflow menu
@@ -74,4 +75,74 @@ test.each<`/${string}`>([
 ])('do not offer volume for %s', async (path) => {
   await renderApp(path);
   expect(getVisTabs()).not.toContain(NxDataVis.NxVolume);
+});
+
+test('ignore default slice indices on the volume dimensions', async () => {
+  // `default_slice` ['.', '.', '.', '5']
+  const { selectVisTab } = await renderApp(
+    '/dimension_scales/volume_default_slice',
+  );
+  await selectVisTab(NxDataVis.NxVolume);
+  await expect
+    .element(page.getByRole('figure', { name: 'fourD' }))
+    .toBeVisible();
+  expect(page.getByRole('slider', { name: 'D0' })).toHaveValue(0);
+  expect(page.getByRole('slider', { name: 'D3' })).not.toBeInTheDocument();
+});
+
+test('keep default slice indices on leading dimensions', async () => {
+  // `default_slice` ['1', '.', '2', '.']: index on a volume dimension is ignored
+  const { selectVisTab } = await renderApp('/nexus/default_slice');
+  await selectVisTab(NxDataVis.NxVolume);
+  await expect.element(page.getByRole('slider', { name: 'D0' })).toHaveValue(1);
+  expect(page.getByRole('slider', { name: 'D2' })).not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole('figure', { name: 'fourD' }))
+    .toBeVisible();
+});
+
+test('keep heatmap as default after selecting a volume once', async () => {
+  const { selectVisTab, selectNexusExplorerNode } =
+    await renderApp('/nexus/image');
+
+  await selectVisTab(NxDataVis.NxVolume);
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxVolume);
+
+  // Another stack of images: volume is not remembered as the preferred vis
+  await selectNexusExplorerNode('default_slice');
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
+});
+
+test('keep core heatmap as default after selecting a volume once', async () => {
+  const { selectVisTab, selectExplorerNode } =
+    await renderApp('/arrays/threeD');
+
+  await selectVisTab(Vis.Volume);
+  await selectExplorerNode('threeD_volume');
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+});
+
+test('use bin-edge axes and SILX_style scale type', async () => {
+  await renderApp('/dimension_scales/fermi_nxdata_bins');
+
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxVolume); // bin edges count as axes
+  await expect
+    .element(page.getByRole('combobox', { name: 'SymLog' }))
+    .toBeVisible();
+});
+
+test('show title over the canvas, above status messages', async () => {
+  const { user } = await renderApp('/dimension_scales/fermi_nxdata');
+
+  const title = page.getByText('Tight-binding band', { exact: true });
+  await expect.element(title).toBeVisible();
+  expect(getComputedStyle(title.element()).textOverflow).toBe('ellipsis');
+
+  // Hide the volume without isosurfaces: the hint appears below the title
+  await user.click(page.getByRole('button', { name: 'Show volume' }));
+  const hint = page.getByRole('note');
+  await expect.element(hint).toHaveTextContent(/Volume hidden/u);
+  expect(hint.element().getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    title.element().getBoundingClientRect().bottom,
+  );
 });

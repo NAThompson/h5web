@@ -4,7 +4,12 @@ import {
   floatType,
   intType,
 } from '@h5web/shared/hdf5-utils';
-import { arrayAttr, dataset, group } from '@h5web/shared/mock-utils';
+import {
+  arrayAttr,
+  dataset,
+  group,
+  scalarAttr,
+} from '@h5web/shared/mock-utils';
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
@@ -13,8 +18,11 @@ import {
   applyDefaultSlice,
   findAuxErrorDataset,
   findAuxiliaryDatasets,
+  getVolumeDefaultSlice,
+  isMalformedError,
   isPrimaryVolume,
   isVolumeSignal,
+  supportsVolume,
 } from './utils';
 
 describe('applyDefaultSlice', () => {
@@ -150,5 +158,54 @@ describe('isPrimaryVolume', () => {
     // Too large to load at once
     const big = dataset('signal', arrayShape([300, 300, 300]), floatType());
     expect(isPrimaryVolume(undefined, big, [axis, axis, axis])).toBe(false);
+  });
+});
+
+describe('getVolumeDefaultSlice', () => {
+  it('should ignore indices on the volume dimensions and slice leading ones', () => {
+    expect(getVolumeDefaultSlice(['.', '.', '.', 5])).toEqual([
+      0,
+      '.',
+      '.',
+      '.',
+    ]);
+    expect(getVolumeDefaultSlice([1, '.', 2, '.'])).toEqual([1, '.', '.', '.']);
+    expect(getVolumeDefaultSlice(['.', 3, '.'])).toEqual(['.', '.', '.']);
+  });
+});
+
+describe('isMalformedError', () => {
+  it('should tell malformed metadata from transient errors', () => {
+    expect(isMalformedError(new TypeError('Expected numeric type'))).toBe(true);
+    expect(isMalformedError(new Error('Expected "a/b" to be the name'))).toBe(
+      true,
+    );
+    expect(isMalformedError(new TypeError('Failed to fetch'))).toBe(false);
+    expect(isMalformedError(new Error('Network Error'))).toBe(false);
+  });
+});
+
+describe('supportsVolume', () => {
+  it('should leave HDF5 images to the RGB vis', async () => {
+    const classAttr = scalarAttr('CLASS', 'IMAGE');
+    const image = dataset('image', arrayShape([4, 4, 3]), floatType(), [], {
+      attributes: [classAttr],
+    });
+    const dataContext = {
+      queryClient: new QueryClient(),
+      queries: {
+        attrValues: () => ({
+          queryKey: ['attrValues', 'image'],
+          queryFn: () => ({ CLASS: 'IMAGE' }),
+        }),
+      },
+    } as unknown as DataContextValue;
+
+    await expect(supportsVolume(image, undefined, dataContext)).resolves.toBe(
+      false,
+    );
+    await expect(
+      supportsVolume(vol([4, 4, 4]), undefined, dataContext),
+    ).resolves.toBe(true);
   });
 });
