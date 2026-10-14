@@ -1,6 +1,5 @@
 import { DimensionMapper, getSliceSelection } from '@h5web/lib';
 import { assertGroup } from '@h5web/shared/guards';
-import { useMemo } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -12,17 +11,17 @@ import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
-import { getSignalOnly } from '../utils';
 
 /** Complex NeXus signal along one axis as a 3D curve (abscissa from NeXus axes, real, imaginary). */
 function NxComplexCurveContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
   assertGroup(entity);
 
-  const nxData = useNxData(entity);
-  assertComplexNxData(nxData);
+  // Errors and auxiliary signals are not drawn: don't resolve, validate nor fetch them
+  const signalOnly = useNxData(entity, { signalOnly: true });
+  assertComplexNxData(signalOnly);
 
-  const { signalDef, axisDefs, defaultSlice } = nxData;
+  const { signalDef, axisDefs, defaultSlice } = signalOnly;
   const { dims: signalDims } = signalDef.dataset.shape;
 
   const [dimMapping, setDimMapping] = useDimMappingState({
@@ -33,8 +32,6 @@ function NxComplexCurveContainer(props: VisContainerProps) {
 
   const axisLabels = axisDefs.map((def) => def?.label);
   const config = useComplexCurveConfig();
-  // Errors and auxiliary signals are not drawn: don't fetch them (neither to render, nor to slice or play back)
-  const signalOnly = useMemo(() => getSignalOnly(nxData), [nxData]);
   const { slicingProps, playbackRange } = useNxSlicingProps(
     signalOnly,
     dimMapping,
