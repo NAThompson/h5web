@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type SubmitEvent, useCallback, useEffect, useState } from 'react';
 import { FiLoader } from 'react-icons/fi';
 import { useSearchParams } from 'wouter';
 
@@ -51,9 +51,9 @@ function UrlForm(props: Props) {
     return () => controller.abort();
   }, [checkFile]);
 
-  function handleUrlSubmit(evt: FormEvent<HTMLFormElement>) {
+  function handleUrlSubmit(evt: SubmitEvent) {
     evt.preventDefault();
-    const formData = new FormData(evt.currentTarget);
+    const formData = new FormData(evt.target);
     const newUrl = formData.get('url') as string;
 
     if (newUrl === url) {

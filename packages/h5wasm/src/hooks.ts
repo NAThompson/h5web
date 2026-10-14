@@ -14,7 +14,7 @@ export function useH5WasmApi(
   getExportURL?: DataProviderApi['getExportURL'],
   getPlugin?: (name: Plugin) => Promise<ArrayBuffer | undefined>,
 ): H5WasmApi {
-  const prevApiRef = useRef<H5WasmApi>();
+  const prevApiRef = useRef<H5WasmApi>(undefined);
 
   return useMemo(() => {
     const remote = getH5WasmRemote();

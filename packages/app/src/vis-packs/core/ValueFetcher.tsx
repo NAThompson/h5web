@@ -17,7 +17,7 @@ interface Props<D extends Dataset> {
 
 function ValueFetcher<D extends Dataset<ArrayShape | ScalarShape>>(
   props: Props<D>,
-) {
+): ReactNode {
   const { dataset, selection } = props;
 
   return (
@@ -29,7 +29,7 @@ function ValueFetcher<D extends Dataset<ArrayShape | ScalarShape>>(
 
 function ValueRenderer<D extends Dataset<ArrayShape | ScalarShape>>(
   props: Props<D>,
-) {
+): ReactNode {
   const { dataset, selection, render } = props;
 
   const value = useValue(dataset, selection);

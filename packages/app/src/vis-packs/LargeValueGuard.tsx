@@ -1,5 +1,6 @@
 import {
   type PropsWithChildren,
+  type ReactNode,
   useCallback,
   useSyncExternalStore,
 } from 'react';
@@ -16,7 +17,7 @@ interface Props {
 }
 
 /* Ask user for confirmation before fetching very large values */
-function LargeValueGuard(props: PropsWithChildren<Props>) {
+function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
   const { requests, children } = props;
 
   const dataContext = useDataContext();

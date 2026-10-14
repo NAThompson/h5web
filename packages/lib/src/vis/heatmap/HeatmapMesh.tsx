@@ -1,5 +1,5 @@
 import { type Domain } from '@h5web/shared/vis-models';
-import { type GroupProps, useThree } from '@react-three/fiber';
+import { type ThreeElements, useThree } from '@react-three/fiber';
 import { type RGBColor } from 'd3-color';
 import { type NdArray } from 'ndarray';
 import { useEffect, useMemo } from 'react';
@@ -124,7 +124,7 @@ function HeatmapMesh(props: Props) {
   }
 
   return (
-    <group {...(meshProps as GroupProps)}>
+    <group {...(meshProps as ThreeElements['group'])}>
       {chunks.map(({ rows: r, cols: c }, i) => (
         <mesh key={`${r.start},${c.start}`} geometry={geometries[i]}>
           <HeatmapMaterial

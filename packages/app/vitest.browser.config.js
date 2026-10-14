@@ -1,4 +1,5 @@
 import { defineBrowserCommand, playwright } from '@vitest/browser-playwright';
+import reactFallbackThrottlePlugin from 'vite-plugin-react-fallback-throttle';
 import { defineConfig, mergeConfig } from 'vitest/config';
 
 import viteConfig from './vite.config';
@@ -29,6 +30,7 @@ const mouseDrag = defineBrowserCommand(async (ctx, path) => {
 export default mergeConfig(
   viteConfig,
   defineConfig({
+    plugins: [reactFallbackThrottlePlugin()], // remove React 19's 300ms Suspense fallback throttle
     test: {
       name: 'Browser tests',
       include: ['src/**/*.browser.test.ts'],

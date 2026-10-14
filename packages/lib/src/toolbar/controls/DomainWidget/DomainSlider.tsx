@@ -72,7 +72,7 @@ function DomainSlider(props: Props) {
   const scaledValue = safeValue.map(scale).map(Math.round) as Domain;
 
   const rootRef = useRef<HTMLSpanElement>(null);
-  const interactionRef = useRef<Interaction>();
+  const interactionRef = useRef<Interaction>(undefined);
 
   function getThumbs(): HTMLElement[] {
     const root = rootRef.current;
