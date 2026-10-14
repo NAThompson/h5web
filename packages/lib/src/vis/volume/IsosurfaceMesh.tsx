@@ -2,7 +2,14 @@ import { type Domain } from '@h5web/shared/vis-models';
 import { useThree } from '@react-three/fiber';
 import { rgb } from 'd3-color';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { BufferAttribute, BufferGeometry, DoubleSide, type Mesh } from 'three';
+import {
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  DoubleSide,
+  type Mesh,
+  SRGBColorSpace,
+} from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
@@ -25,14 +32,17 @@ interface Props {
 
 const LUT_SIZE = 256;
 
-function getColorLut(colorMap: ColorMap, invert: boolean): Float32Array {
+/* Colour map in linear RGB, as expected for vertex colours (colour maps are defined in sRGB) */
+export function getColorLut(colorMap: ColorMap, invert: boolean): Float32Array {
   const interpolator = getInterpolator(colorMap, invert);
   const lut = new Float32Array(LUT_SIZE * 3);
+  const color = new Color();
   for (let i = 0; i < LUT_SIZE; i += 1) {
     const { r, g, b } = rgb(interpolator(i / (LUT_SIZE - 1)));
-    lut[i * 3] = r / 255;
-    lut[i * 3 + 1] = g / 255;
-    lut[i * 3 + 2] = b / 255;
+    color.setRGB(r / 255, g / 255, b / 255, SRGBColorSpace);
+    lut[i * 3] = color.r;
+    lut[i * 3 + 1] = color.g;
+    lut[i * 3 + 2] = color.b;
   }
   return lut;
 }

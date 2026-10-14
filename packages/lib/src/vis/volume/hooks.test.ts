@@ -1,6 +1,9 @@
+import { rgb } from 'd3-color';
 import { describe, expect, it } from 'vitest';
 
+import { getInterpolator } from '../heatmap/utils';
 import { getGeometryBytes, getGradientDomain, pruneCache } from './hooks';
+import { getColorLut } from './IsosurfaceMesh';
 import { type IsosurfaceGeometry } from './marchingCubes';
 
 function fakeGeometry(vertices: number, gradient = 1): IsosurfaceGeometry {
@@ -61,5 +64,18 @@ describe('getGradientDomain', () => {
       getGradientDomain([fakeGeometry(2, 1), undefined, fakeGeometry(2, 3)]),
     ).toStrictEqual([1, 3]);
     expect(getGradientDomain([undefined])).toBeUndefined();
+  });
+});
+
+describe('getColorLut', () => {
+  it('should convert colour map samples to linear RGB', () => {
+    const lut = getColorLut('Greys', false);
+    expect(lut[0]).toBe(0);
+    expect(lut[255 * 3]).toBeCloseTo(1, 5);
+
+    // Mid-range sRGB values are much darker in linear RGB
+    const srgb = rgb(getInterpolator('Greys', false)(128 / 255)).r / 255;
+    const linear = ((srgb + 0.055) / 1.055) ** 2.4;
+    expect(lut[128 * 3]).toBeCloseTo(linear, 3);
   });
 });
