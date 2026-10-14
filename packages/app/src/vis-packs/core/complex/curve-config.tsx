@@ -53,12 +53,20 @@ function createComplexCurveConfigStore() {
         colorBy: ComplexVisType.Phase,
         setColorBy: (colorBy) => set({ colorBy }),
 
-        phaseColorMap: 'HSL',
+        phaseColorMap: 'Twilight',
         setPhaseColorMap: (phaseColorMap) => set({ phaseColorMap }),
       }),
       {
         name: 'h5web:complexCurve',
-        version: 1,
+        version: 2,
+        // v2: HSL (not perceptually uniform) was the default phase colour map; use Twilight
+        migrate: (persisted) => {
+          const state = persisted as Record<string, unknown>;
+          if (state.phaseColorMap === 'HSL') {
+            state.phaseColorMap = 'Twilight';
+          }
+          return state as never;
+        },
         partialize: ({ customDomain, ...state }) => state, // domain is specific to each dataset
       },
     ),

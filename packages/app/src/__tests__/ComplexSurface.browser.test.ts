@@ -46,7 +46,7 @@ test(
     // Colour bar shows phase over [-π, π], with a cyclic colour map
     expect(figure.getByLabelText(/^Min: [-−]3\.142e\+0$/u)).toBeVisible();
     expect(figure.getByLabelText('Max: 3.142e+0')).toBeVisible();
-    expect(page.getByRole('combobox', { name: /HSL/u })).toBeVisible();
+    expect(page.getByRole('combobox', { name: /Twilight/u })).toBeVisible();
 
     // Back to 2D: amplitude, as before (2D mode untouched)
     await user.click(surfaceBtn());
@@ -138,7 +138,7 @@ test(
     expect(page.getByRole('combobox', { name: /Viridis/u })).toBeVisible();
     await user.click(page.getByRole('combobox', { name: '𝓐 Amplitude' }));
     await user.click(page.getByRole('option', { name: 'φ Phase' }));
-    expect(page.getByRole('combobox', { name: /HSL/u })).toBeVisible();
+    expect(page.getByRole('combobox', { name: /Twilight/u })).toBeVisible();
 
     // Log scale for amplitude...
     await user.click(page.getByRole('combobox', { name: /Linear/u }));

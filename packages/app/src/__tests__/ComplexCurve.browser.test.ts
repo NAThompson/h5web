@@ -28,7 +28,7 @@ test(
     // Phase is mapped over [-π, π] with a cyclic colour map; no domain/scale controls
     expect(phaseFigure.getByLabelText(/^Min: [-−]3\.142e\+0$/u)).toBeVisible();
     expect(phaseFigure.getByLabelText('Max: 3.142e+0')).toBeVisible();
-    expect(page.getByRole('combobox', { name: /HSL/u })).toBeVisible();
+    expect(page.getByRole('combobox', { name: /Twilight/u })).toBeVisible();
     expect(
       page.getByRole('button', { name: 'Edit domain' }),
     ).not.toBeInTheDocument();
@@ -70,12 +70,13 @@ test(
       '/arrays/twoD_complex',
     );
 
-    // Picking the curve of a slice of a 2D dataset is not saved as preference...
-    await selectVisTab(Vis.ComplexCurve);
+    // A 2D complex dataset maps C → C, so it doesn't offer a curve...
+    expect(
+      page.getByRole('tab', { name: Vis.ComplexCurve }),
+    ).not.toBeInTheDocument();
     await selectExplorerNode('oneD_complex');
-    expect(getSelectedVisTab()).toBe(Vis.Line);
 
-    // ... whereas picking it for a 1D dataset is
+    // ... whereas a 1D dataset does, and picking it is saved as preference
     await selectVisTab(Vis.ComplexCurve);
     await selectExplorerNode('oneD');
     await selectExplorerNode('oneD_complex');

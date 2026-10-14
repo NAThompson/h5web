@@ -59,6 +59,11 @@ export interface HeatmapConfig {
   surfaceKeepRatio: boolean;
   setSurfaceKeepRatio: (surfaceKeepRatio: boolean) => void;
 
+  /* Height scale of complex 3D surfaces: log by default, so zeros and poles show as
+   * funnels and spikes instead of flattening the rest of the landscape */
+  surfaceScaleType: ColorScaleType;
+  setSurfaceScaleType: (surfaceScaleType: ColorScaleType) => void;
+
   /* What height and colour show on 3D surfaces of complex values, separate from 2D:
    * phase & amplitude = height |f|, colour arg f (default); amplitude = both |f|; phase = both arg f */
   surfaceComplexVisType: ComplexHeatmapVisType;
@@ -141,6 +146,9 @@ function createHeatmapConfigStore() {
         surfaceKeepRatio: false,
         setSurfaceKeepRatio: (surfaceKeepRatio) => set({ surfaceKeepRatio }),
 
+        surfaceScaleType: ScaleType.Log,
+        setSurfaceScaleType: (surfaceScaleType) => set({ surfaceScaleType }),
+
         surfaceComplexVisType: ComplexVisType.PhaseAmplitude,
         setSurfaceComplexVisType: (surfaceComplexVisType) =>
           set({ surfaceComplexVisType }),
@@ -149,7 +157,7 @@ function createHeatmapConfigStore() {
         setSurfaceCustomDomain: (surfaceCustomDomain) =>
           set({ surfaceCustomDomain }),
 
-        phaseColorMap: 'HSL',
+        phaseColorMap: 'Twilight',
         setPhaseColorMap: (phaseColorMap) => set({ phaseColorMap }),
 
         invertPhaseColorMap: false,
@@ -177,7 +185,15 @@ function createHeatmapConfigStore() {
       }),
       {
         name: 'h5web:heatmap',
-        version: 12,
+        version: 13,
+        // v13: HSL (not perceptually uniform) was the default phase colour map; use Twilight
+        migrate: (persisted) => {
+          const state = persisted as Record<string, unknown>;
+          if (state.phaseColorMap === 'HSL') {
+            state.phaseColorMap = 'Twilight';
+          }
+          return state as never;
+        },
         // 3D mode is opt-in for the session: don't open datasets in 3D after a reload
         // Custom contour levels are dataset-specific: don't restore them after a reload either
         // Custom domain of complex surfaces is dataset-specific

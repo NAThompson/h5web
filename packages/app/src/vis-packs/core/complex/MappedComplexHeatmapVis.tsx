@@ -96,8 +96,11 @@ function MappedComplexHeatmapVis(props: Props) {
   const colorsPhase = complexVisType !== ComplexVisType.Amplitude;
 
   // Phase as height is linear: in log scale, half of the plane would be missing
-  const scaleType =
-    showSurface && showsPhase ? ScaleType.Linear : userScaleType;
+  const scaleType = showSurface
+    ? showsPhase
+      ? ScaleType.Linear
+      : config.surfaceScaleType
+    : userScaleType;
 
   // During playback, use range of whole sequence (cf. `useStableDomain`)
   const phaseDomain =

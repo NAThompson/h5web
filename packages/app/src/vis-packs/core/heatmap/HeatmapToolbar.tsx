@@ -95,6 +95,10 @@ function getBoundSettings(
     setInvertColorMap: showsPhaseColors
       ? config.setInvertPhaseColorMap
       : config.setInvertColorMap,
+    scaleType: isComplexSurface ? config.surfaceScaleType : config.scaleType,
+    setScaleType: isComplexSurface
+      ? config.setSurfaceScaleType
+      : config.setScaleType,
     withScale: !(isComplexSurface && complexVisType === ComplexVisType.Phase),
   };
 }
@@ -113,14 +117,12 @@ function HeatmapToolbar(props: Props) {
     onCustomContourLevelsChange = () => {},
   } = props;
   const {
-    scaleType,
     showGrid,
     flipXAxis,
     flipYAxis,
     surface,
     heightScale,
     shading,
-    setScaleType,
     setShowGrid,
     setFlipXAxis,
     setFlipYAxis,
@@ -141,6 +143,8 @@ function HeatmapToolbar(props: Props) {
     setColorMap,
     invertColorMap,
     setInvertColorMap,
+    scaleType,
+    setScaleType,
     withScale,
   } = getBoundSettings(config, !!isComplex, showSurface);
 

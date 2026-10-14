@@ -26,7 +26,7 @@ export const COLORMAP_GROUPS = {
     'YlOrBr',
     'YlOrRd',
   ],
-  Cyclical: ['Rainbow', 'Sinebow', 'HSL'],
+  Cyclical: ['Twilight', 'Rainbow', 'Sinebow', 'HSL'],
   Diverging: [
     'BrBG',
     'PRGn',

@@ -1,4 +1,5 @@
 import { hsl } from 'd3-color';
+import { interpolateRgbBasisClosed } from 'd3-interpolate';
 import {
   interpolateBlues,
   interpolateBrBG,
@@ -84,6 +85,7 @@ export const INTERPOLATORS = {
   YlOrRd: interpolateYlOrRd,
 
   // Cyclical
+  Twilight: interpolateTwilight,
   Rainbow: interpolateRainbow,
   Sinebow: interpolateSinebow,
   HSL: interpolateHsl,
@@ -99,3 +101,27 @@ export const INTERPOLATORS = {
   RdYlGn: interpolateRdYlGn,
   Spectral: interpolateSpectral,
 }; // satisfies Record<string, D3Interpolator>;
+
+// Matplotlib's perceptually uniform cyclic `twilight`, sampled at 16 stops
+function interpolateTwilight(t: number): string {
+  return twilight(t - Math.floor(t));
+}
+
+const twilight = interpolateRgbBasisClosed([
+  '#e2d9e2',
+  '#c4ced4',
+  '#95b5c7',
+  '#7297c1',
+  '#6276ba',
+  '#5e51ad',
+  '#592a8f',
+  '#45135c',
+  '#2f1436',
+  '#4a1342',
+  '#741e4f',
+  '#983550',
+  '#b25652',
+  '#c27c63',
+  '#cca389',
+  '#d8c7be',
+]);

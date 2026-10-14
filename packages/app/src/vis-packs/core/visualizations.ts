@@ -110,8 +110,13 @@ export const CORE_VIS = {
     Icon: MdGesture,
     Container: ComplexCurveVisContainer,
     ConfigProvider: ComplexCurveConfigProvider,
+    // Only for R → C data: a slice of a C → C grid is not a meaningful curve
     supportsDataset: async (dataset) => {
-      return hasArrayShape(dataset) && hasComplexType(dataset);
+      return (
+        hasArrayShape(dataset) &&
+        hasComplexType(dataset) &&
+        dataset.shape.dims.length === 1
+      );
     },
     // Picking the curve of a slice of a 2D+ dataset must not open other complex datasets as curves
     canBePreferredFor: (entity) =>
