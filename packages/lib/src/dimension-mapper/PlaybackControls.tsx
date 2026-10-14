@@ -12,6 +12,7 @@ import { useId } from 'react';
 import {
   FiChevronLeft,
   FiChevronRight,
+  FiLoader,
   FiPause,
   FiPlay,
   FiSettings,
@@ -22,6 +23,7 @@ import {
   POPOVER_CLEARANCE,
   useFloatingDismiss,
 } from '../toolbar/controls/hooks';
+import { type PlaybackWaiting } from './hooks';
 import {
   clampFps,
   MAX_FPS,
@@ -43,9 +45,15 @@ const TIMING_LABELS: Record<PlaybackTiming, string> = {
   realtime: 'Skip slices to keep up',
 };
 
+const WAITING_TITLES: Record<PlaybackWaiting, string> = {
+  loading: 'Waiting for next slice to load',
+  blocked: 'Waiting for confirmation to load next slice',
+};
+
 interface Props {
   dimension: number;
   isPlaying: boolean;
+  waiting?: PlaybackWaiting;
   settings: PlaybackSettings;
   onTogglePlay: () => void;
   onSettingsChange: (settings: PlaybackSettings) => void;
@@ -56,6 +64,7 @@ function PlaybackControls(props: Props) {
   const {
     dimension,
     isPlaying,
+    waiting,
     settings,
     onTogglePlay,
     onSettingsChange,
@@ -85,14 +94,24 @@ function PlaybackControls(props: Props) {
 
   return (
     <div className={styles.controls}>
-      <Btn
-        label={`${isPlaying ? 'Pause' : 'Play'} D${dimension}`}
-        Icon={isPlaying ? FiPause : FiPlay}
-        iconOnly
-        small
-        aria-pressed={isPlaying}
-        onClick={onTogglePlay}
-      />
+      <span className={styles.playBtn} data-waiting={waiting}>
+        <Btn
+          label={`Play D${dimension}`}
+          Icon={waiting ? FiLoader : isPlaying ? FiPause : FiPlay}
+          iconOnly
+          small
+          aria-pressed={isPlaying}
+          aria-busy={!!waiting}
+          aria-describedby={waiting && `${fieldId}-waiting`}
+          title={waiting && `${WAITING_TITLES[waiting]} (click to pause)`}
+          onClick={onTogglePlay}
+        />
+        {waiting && (
+          <span id={`${fieldId}-waiting`} className={styles.srOnly}>
+            {WAITING_TITLES[waiting]}
+          </span>
+        )}
+      </span>
       <Btn
         ref={refs.setReference}
         label={`D${dimension} playback settings`}
@@ -116,10 +135,12 @@ function PlaybackControls(props: Props) {
           {...getFloatingProps()}
         >
           <div className={styles.field}>
-            <label htmlFor={`${fieldId}-fps`}>Speed</label>
+            <label id={`${fieldId}-fps-label`} htmlFor={`${fieldId}-fps`}>
+              Speed
+            </label>
             <input
               id={`${fieldId}-fps`}
-              aria-label="Slices per second"
+              aria-labelledby={`${fieldId}-fps-label ${fieldId}-fps-unit`}
               className={styles.fpsInput}
               type="number"
               min={MIN_FPS}
@@ -137,7 +158,9 @@ function PlaybackControls(props: Props) {
                 target.value = settings.fps.toString(); // overwrite invalid input
               }}
             />
-            <span className={styles.unit}>slices/s</span>
+            <span id={`${fieldId}-fps-unit`} className={styles.unit}>
+              slices/s
+            </span>
           </div>
 
           <fieldset className={styles.fieldset}>

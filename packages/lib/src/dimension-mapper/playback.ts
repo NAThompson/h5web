@@ -55,6 +55,7 @@ export interface PlaybackClock {
 export interface TickResult {
   clock: PlaybackClock;
   ended: boolean; // `once` mode reached the last frame
+  waiting: boolean; // a frame is due but can't be shown yet (data not ready)
   upcoming: number[]; // values to prefetch, in playback order
   delay: number; // ms until next tick
 }
@@ -174,6 +175,7 @@ export function tickPlayback(
     return {
       clock,
       ended: false,
+      waiting: false,
       upcoming:
         clock.window ??
         toValues(getUpcomingFrames(clock.cursor, sequence, prefetchCount)),
@@ -193,7 +195,7 @@ export function tickPlayback(
   );
 
   if (candidates.length === 0) {
-    return { clock, ended: true, upcoming: [], delay: 0 };
+    return { clock, ended: true, waiting: false, upcoming: [], delay: 0 };
   }
 
   // Show the furthest frame that is due and ready
@@ -220,7 +222,13 @@ export function tickPlayback(
 
   if (steps === 0) {
     if (timing === 'wait') {
-      return { clock, ended: false, upcoming, delay: READY_POLL_INTERVAL };
+      return {
+        clock,
+        ended: false,
+        waiting: true,
+        upcoming,
+        delay: READY_POLL_INTERVAL,
+      };
     }
 
     /* In real-time mode, the frames being prefetched may become late before they finish loading;
@@ -237,6 +245,7 @@ export function tickPlayback(
           ? clock
           : { ...clock, window },
       ended: false,
+      waiting: true,
       upcoming: window,
       delay: READY_POLL_INTERVAL,
     };
@@ -252,6 +261,7 @@ export function tickPlayback(
       window: timing === 'realtime' ? upcoming : undefined,
     },
     ended: false,
+    waiting: false,
     upcoming,
     delay: Math.max(frameTime + interval - now, 1),
   };

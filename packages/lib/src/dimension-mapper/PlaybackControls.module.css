@@ -60,3 +60,32 @@
   justify-content: space-between;
   gap: 0.25rem;
 }
+
+.playBtn {
+  display: contents;
+}
+
+.playBtn[data-waiting] svg {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playBtn[data-waiting] svg {
+    animation: none;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
