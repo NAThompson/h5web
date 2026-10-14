@@ -26,6 +26,7 @@ import styles from './VolumeVis.module.css';
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
+  title?: string;
   domain: Domain;
   scaleType?: ColorScaleType;
   colorMap?: ColorMap;
@@ -54,6 +55,7 @@ interface Props extends ClassStyleAttrs {
 function VolumeVis(props: PropsWithChildren<Props>) {
   const {
     dataArray,
+    title,
     domain,
     colorMap = 'Inferno',
     scaleType = ScaleType.Linear,
@@ -98,8 +100,10 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     <figure
       className={`${styles.root} ${className}`}
       style={style}
+      aria-label={title}
       data-keep-canvas-colors
     >
+      {title && <p className={styles.title}>{title}</p>}
       <R3FCanvas className={styles.canvas} ambientIntensity={0.35}>
         <color attach="background" args={[background]} />
         <VolumeControls interactingRef={interactingRef} />

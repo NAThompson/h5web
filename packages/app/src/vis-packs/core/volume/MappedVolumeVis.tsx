@@ -36,7 +36,11 @@ interface Props {
   value: ArrayValue<NumericType>;
   toolbarContainer: HTMLDivElement | undefined;
   config: VolumeConfig;
+  /* Dimensions of the volume, if `value` is a slice of a dataset with more than three dimensions */
+  dims?: number[];
+  /* Values along dimensions `[z, y, x]` of the volume */
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  title?: string;
   /* Whether axis values can be used to size the volume and for gradients (i.e. they share a unit) */
   withPhysicalAspect?: boolean;
   axisUnit?: string;
@@ -48,9 +52,11 @@ function MappedVolumeVis(props: Props) {
     value,
     toolbarContainer,
     config,
+    dims = dataset.shape.dims,
     axisValues = [],
     withPhysicalAspect = false,
     axisUnit,
+    title,
   } = props;
   const {
     customDomain,
@@ -68,7 +74,7 @@ function MappedVolumeVis(props: Props) {
 
   const packing = usePacking(dataset); // NetCDF `scale_factor`/`add_offset`
   const numArray = useToNumArray(useUnpackedNumArray(value, packing));
-  const dataArray = useBaseArray(numArray, dataset.shape.dims);
+  const dataArray = useBaseArray(numArray, dims);
 
   const ignoreValue = useIgnoreValue(dataset);
   const dataDomain =
@@ -152,6 +158,7 @@ function MappedVolumeVis(props: Props) {
 
       <VolumeVis
         className={visualizerStyles.vis}
+        title={title}
         dataArray={dataArray}
         domain={safeDomain}
         colorMap={colorMap}
