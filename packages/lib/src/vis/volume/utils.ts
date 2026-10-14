@@ -24,6 +24,50 @@ export function getBoxSize(shape: number[]): [x: number, y: number, z: number] {
   return [cols / max, rows / max, depth / max];
 }
 
+/* Normalize a physical box size so that the largest side has a length of 1 */
+export function normalizeBoxSize(
+  size: [number, number, number],
+): [x: number, y: number, z: number] {
+  const max = Math.max(...size);
+  return max > 0 && Number.isFinite(max)
+    ? [size[0] / max, size[1] / max, size[2] / max]
+    : [1, 1, 1];
+}
+
+/*
+ * Physical size of a volume along x, y and z given the coordinates of its grid points
+ * (voxel centres) or of its bin edges, for dimensions `[depth, rows, cols]`.
+ * Returns `undefined` unless all three axes have usable coordinates.
+ */
+export function getBoxSizeFromAxes(
+  shape: number[],
+  axisValues: [
+    x: ArrayLike<number> | undefined,
+    y: ArrayLike<number> | undefined,
+    z: ArrayLike<number> | undefined,
+  ],
+): [number, number, number] | undefined {
+  const [depth, rows, cols] = shape;
+  const sizes = [cols, rows, depth];
+
+  const extents = axisValues.map((axis, i) => {
+    const n = sizes[i];
+    let extent: number;
+    if (axis?.length === n + 1) {
+      extent = Math.abs(axis[n] - axis[0]); // bin edges
+    } else if (axis?.length === n && n >= 2) {
+      extent = (Math.abs(axis[n - 1] - axis[0]) * n) / (n - 1); // voxel centres
+    } else {
+      return undefined;
+    }
+    return Number.isFinite(extent) && extent > 0 ? extent : undefined;
+  });
+
+  return extents.every((extent) => extent !== undefined)
+    ? (extents as [number, number, number])
+    : undefined;
+}
+
 // Textures are uploaded straight from `data`, so views (transposed, sliced, etc.) must be copied first
 export function toContiguousArray<T extends TextureSafeTypedArray>(
   arr: NdArray<T>,

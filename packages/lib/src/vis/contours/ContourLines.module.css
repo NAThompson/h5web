@@ -1,0 +1,27 @@
+.label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  /* Halo for legibility over any colour map */
+  text-shadow:
+    0 0 2px rgb(0 0 0 / 90%),
+    0 0 4px rgb(0 0 0 / 60%);
+}
+
+.error {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: rgb(120 40 20 / 80%);
+  color: white;
+  font-size: 0.8125rem;
+  pointer-events: none;
+}

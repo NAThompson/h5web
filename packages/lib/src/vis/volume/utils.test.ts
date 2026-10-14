@@ -8,7 +8,12 @@ import {
 } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { getBoxSize, getVolumeTexture, toContiguousArray } from './utils';
+import {
+  getBoxSize,
+  getBoxSizeFromAxes,
+  getVolumeTexture,
+  toContiguousArray,
+} from './utils';
 
 describe('getBoxSize', () => {
   it('should map dimensions to axes and normalize largest side to 1', () => {
@@ -59,5 +64,24 @@ describe('toContiguousArray', () => {
     );
     const copy = toContiguousArray(arr.transpose(2, 1, 0));
     expect([...copy.data]).toStrictEqual([0, 4, 2, 6, 1, 5, 3, 7]);
+  });
+});
+
+describe('getBoxSizeFromAxes', () => {
+  it('should use physical extents of voxel centres or bin edges', () => {
+    // 3 voxels along each axis
+    expect(
+      getBoxSizeFromAxes(
+        [3, 3, 3],
+        [
+          [0, 1, 2],
+          [0, 2, 4, 6],
+          [10, 9, 8],
+        ],
+      ),
+    ).toStrictEqual([3, 6, 3]);
+    expect(
+      getBoxSizeFromAxes([3, 3, 3], [[0, 1, 2], undefined, [0, 1, 2]]),
+    ).toBeUndefined();
   });
 });
