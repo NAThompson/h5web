@@ -13,7 +13,7 @@ import {
   type DataContextValue,
   useDataContext,
 } from '../providers/DataProvider';
-import { getValueSize } from './utils';
+import { getValueSize, MAX_AUTO_FETCH_SIZE } from './utils';
 
 // Max size of slices fetched ahead of the current one (the next slice is always fetched)
 export const MAX_PREFETCH_SIZE = 64e6; // bytes
@@ -84,11 +84,13 @@ export function useSlicePrefetcher(
           continue; // don't retry on every call; the vis shows the error once playback reaches the slice
         }
 
+        const size = getValueSize(dataset, selection);
+        if (!isSizeAllowed(dataContext, dataset, size)) {
+          continue; // let `LargeValueGuard` ask for confirmation first
+        }
+
         state.fetched.delete(hash);
-        state.fetched.set(hash, {
-          queryKey: options.queryKey,
-          size: getValueSize(dataset, selection),
-        });
+        state.fetched.set(hash, { queryKey: options.queryKey, size });
         void ignoreErrors(queryClient.query(options));
       }
     }
@@ -105,6 +107,28 @@ async function ignoreErrors(promise: Promise<unknown>): Promise<void> {
   } catch {
     // e.g. cancellation; if the slice ends up being displayed, the vis refetches it and shows any error
   }
+}
+
+/* Slices too large to be fetched automatically can only be prefetched once a slice at least
+ * as large has been loaded, i.e. after the user has confirmed fetching it */
+function isSizeAllowed(
+  dataContext: DataContextValue,
+  dataset: Dataset<ScalarShape | ArrayShape>,
+  size: number,
+): boolean {
+  if (size <= MAX_AUTO_FETCH_SIZE) {
+    return true;
+  }
+
+  const { filepath, queryClient } = dataContext;
+  return queryClient
+    .getQueryCache()
+    .findAll({ queryKey: [filepath, 'value', dataset.path] })
+    .some(
+      ({ queryKey, state }) =>
+        state.data !== undefined &&
+        getValueSize(dataset, queryKey[3] as string | undefined) >= size,
+    );
 }
 
 function touch(fetched: Map<string, TrackedQuery>, hash: string): void {
