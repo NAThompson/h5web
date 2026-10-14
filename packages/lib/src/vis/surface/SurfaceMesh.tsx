@@ -26,6 +26,7 @@ interface Props {
   colorMap: ColorMap;
   invertColorMap: boolean;
   ignoreValue?: IgnoreValue;
+  floorUnsupported?: boolean;
   zHeight: number;
   shading: boolean;
   /* Colour vertices by another field than height (same shape as `values`), e.g. phase of complex values */
@@ -46,6 +47,7 @@ function SurfaceMesh(props: Props) {
     colorMap,
     invertColorMap,
     ignoreValue,
+    floorUnsupported,
     zHeight,
     shading,
     colorField,
@@ -67,6 +69,7 @@ function SurfaceMesh(props: Props) {
       domain,
       scaleType,
       ignoreValue,
+      floorUnsupported,
     });
 
     const geom = new BufferGeometry();
@@ -75,7 +78,15 @@ function SurfaceMesh(props: Props) {
     geom.computeVertexNormals();
     geom.computeBoundingSphere();
     return geom;
-  }, [values, xCoords, yCoords, domain, scaleType, ignoreValue]);
+  }, [
+    values,
+    xCoords,
+    yCoords,
+    domain,
+    scaleType,
+    ignoreValue,
+    floorUnsupported,
+  ]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
 

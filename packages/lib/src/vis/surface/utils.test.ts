@@ -2,8 +2,13 @@ import { ScaleType } from '@h5web/shared/vis-models';
 import ndarray from 'ndarray';
 import { describe, expect, it } from 'vitest';
 
-import { getLinearColorLut } from '../three-d/utils';
 import {
+  getColorParams,
+  getLinearColorLut,
+  getVertexColors,
+} from '../three-d/utils';
+import {
+  assertSurfaceArrays,
   buildSurfaceBuffers,
   flattenArray,
   getCellCenters,
@@ -240,5 +245,104 @@ describe('flattenArray', () => {
   it('should flatten views in row-major order', () => {
     const arr = ndarray([1, 2, 3, 4, 5, 6], [2, 3]).transpose(1, 0);
     expect([...flattenArray(arr)]).toEqual([1, 4, 2, 5, 3, 6]);
+  });
+});
+
+describe('buildSurfaceBuffers with floorUnsupported', () => {
+  it('should put values not supported by the scale on the floor instead of leaving holes', () => {
+    const values = ndarray([0, 10, 100, 1000], [2, 2]); // 0 not supported in log
+    const params: Parameters<typeof buildSurfaceBuffers>[0] = {
+      values,
+      xCoords: [0, 1],
+      yCoords: [0, 1],
+      domain: [1, 1000],
+      scaleType: ScaleType.Log,
+    };
+
+    expect(buildSurfaceBuffers(params).index).toHaveLength(0);
+
+    const { positions, index } = buildSurfaceBuffers({
+      ...params,
+      floorUnsupported: true,
+    });
+    expect([...index]).toEqual([0, 1, 2, 1, 3, 2]);
+    expect(positions[2]).toBe(0);
+  });
+
+  it('should still leave holes for NaN', () => {
+    const { index } = buildSurfaceBuffers({
+      values: ndarray([Number.NaN, 10, 100, 1000], [2, 2]),
+      xCoords: [0, 1],
+      yCoords: [0, 1],
+      domain: [1, 1000],
+      scaleType: ScaleType.Log,
+      floorUnsupported: true,
+    });
+    expect(index).toHaveLength(0);
+  });
+});
+
+describe('assertSurfaceArrays', () => {
+  it('should reject arrays with a single row or column', () => {
+    expect(() => assertSurfaceArrays(ndarray([1, 2, 3], [1, 3]))).toThrow(
+      'two rows and two columns',
+    );
+  });
+
+  it('should reject colour arrays of another shape', () => {
+    expect(() =>
+      assertSurfaceArrays(
+        ndarray([1, 2, 3, 4, 5, 6], [2, 3]),
+        ndarray([1, 2, 3, 4, 5, 6], [3, 2]),
+      ),
+    ).toThrow('same shape');
+  });
+
+  it('should accept transposed colour arrays of the same shape', () => {
+    const colors = ndarray([1, 2, 3, 4, 5, 6], [3, 2]).transpose(1, 0);
+    expect(() =>
+      assertSurfaceArrays(ndarray([1, 2, 3, 4, 5, 6], [2, 3]), colors),
+    ).not.toThrow();
+  });
+});
+
+describe('downsampled colour field', () => {
+  it('should keep colours aligned with vertices when sampling both arrays with the same indices', () => {
+    const rows = 5;
+    const cols = 7;
+    const heights = ndarray(
+      Float64Array.from({ length: rows * cols }, (_, i) => i),
+      [rows, cols],
+    );
+    // Colour field: transposed view, value = column index (as each row of the view is a column)
+    const colorField = ndarray(
+      Float64Array.from({ length: rows * cols }, (_, i) =>
+        Math.floor(i / rows),
+      ),
+      [cols, rows],
+    ).transpose(1, 0);
+
+    const stride = getDownsamplingStride(rows, cols, 12);
+    const rowIndices = getSampledIndices(rows, stride);
+    const colIndices = getSampledIndices(cols, stride);
+    const sampledHeights = sampleArray(heights, rowIndices, colIndices);
+    const sampledColors = sampleArray(colorField, rowIndices, colIndices);
+
+    expect(sampledColors.shape).toEqual(sampledHeights.shape);
+
+    const lut = getLinearColorLut('Viridis', false);
+    const colors = getVertexColors(
+      getColorParams(
+        flattenArray(sampledColors),
+        [0, cols - 1],
+        ScaleType.Linear,
+      ),
+      lut,
+    );
+
+    // Last vertex: last row and last column of the data -> colour of last column
+    const last = sampledHeights.size - 1;
+    expect(sampledHeights.data[last]).toBe(rows * cols - 1);
+    expect(colors.slice(last * 3, last * 3 + 3)).toEqual(lut.slice(-3));
   });
 });

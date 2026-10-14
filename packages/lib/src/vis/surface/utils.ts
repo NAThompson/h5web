@@ -177,6 +177,7 @@ interface BuildParams {
   domain: Domain;
   scaleType: VisScaleType;
   ignoreValue?: IgnoreValue;
+  floorUnsupported?: boolean; // values not supported by the scale go to the floor instead of leaving holes
 }
 
 /**
@@ -184,11 +185,12 @@ interface BuildParams {
  * Height is normalized to [0, 1] with the same scale and domain as the colour,
  * so height and colour always tell the same story.
  * Cells touching a NaN, an ignored value or a value that is not supported
- * by the scale (e.g. negative values in log) are left out: they appear as holes.
+ * by the scale (e.g. negative values in log) are left out: they appear as holes -
+ * unless `floorUnsupported` is set, in which case unsupported values lie on the floor.
  */
 export function buildSurfaceBuffers(params: BuildParams): SurfaceBuffers {
   const { values, xCoords, yCoords, domain, scaleType } = params;
-  const { ignoreValue } = params;
+  const { ignoreValue, floorUnsupported = false } = params;
   const [rows, cols] = values.shape;
   const count = rows * cols;
 
@@ -215,7 +217,14 @@ export function buildSurfaceBuffers(params: BuildParams): SurfaceBuffers {
       positions[i * 3] = x;
       positions[i * 3 + 1] = y;
 
-      if (!Number.isFinite(val) || val < validMin || ignoreValue?.(val)) {
+      if (!Number.isFinite(val) || ignoreValue?.(val)) {
+        continue;
+      }
+
+      if (val < validMin) {
+        if (floorUnsupported) {
+          valid[i] = 1; // height stays 0
+        }
         continue;
       }
 

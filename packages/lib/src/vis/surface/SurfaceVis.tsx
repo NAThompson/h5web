@@ -47,6 +47,9 @@ interface Props extends ClassStyleAttrs {
   shading?: boolean;
   ignoreValue?: IgnoreValue;
   maxVertices?: number;
+  /* Show values not supported by the scale (e.g. zeros in log scale) on the floor of the box,
+   * rather than as holes - e.g. zeros of the amplitude of an analytic function as funnels */
+  floorUnsupported?: boolean;
   /* Colour the surface by another field than height (same shape as `dataArray`),
    * e.g. phase of complex values while height shows their amplitude */
   colorArray?: NdArray<NumArray>;
@@ -74,6 +77,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     shading = true,
     ignoreValue,
     maxVertices = DEFAULT_MAX_VERTICES,
+    floorUnsupported = false,
     colorArray,
     colorDomain,
     colorScaleType,
@@ -101,11 +105,11 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const yDomain = useMemo(() => getCoordsDomain(yCenters), [yCenters]);
   const [w, h] = getFootprint(xDomain, yDomain, keepRatio);
 
-  // Downsample large datasets
-  const { values, colorValues, xCoords, yCoords } = useMemo(() => {
+  // Downsample large datasets: same rows and columns for height and colour fields
+  const { rowIndices, colIndices, xCoords, yCoords } = useMemo(() => {
     const stride = getDownsamplingStride(rows, cols, maxVertices);
-    const rowIndices = getSampledIndices(rows, stride);
-    const colIndices = getSampledIndices(cols, stride);
+    const sampledRows = getSampledIndices(rows, stride);
+    const sampledCols = getSampledIndices(cols, stride);
 
     const xScale = createScale(ScaleType.Linear, {
       domain: xDomain,
@@ -117,15 +121,12 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     });
 
     return {
-      values: sampleArray(dataArray, rowIndices, colIndices),
-      colorValues:
-        colorArray && sampleArray(colorArray, rowIndices, colIndices),
-      xCoords: colIndices.map((i) => xScale(xCenters[i])),
-      yCoords: rowIndices.map((i) => yScale(yCenters[i])),
+      rowIndices: sampledRows,
+      colIndices: sampledCols,
+      xCoords: sampledCols.map((i) => xScale(xCenters[i])),
+      yCoords: sampledRows.map((i) => yScale(yCenters[i])),
     };
   }, [
-    dataArray,
-    colorArray,
     rows,
     cols,
     maxVertices,
@@ -138,6 +139,17 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     flipXAxis,
     flipYAxis,
   ]);
+
+  const values = useMemo(
+    () => sampleArray(dataArray, rowIndices, colIndices),
+    [dataArray, rowIndices, colIndices],
+  );
+
+  // Sampled separately, so that changing the colour field doesn't rebuild the geometry
+  const colorValues = useMemo(
+    () => colorArray && sampleArray(colorArray, rowIndices, colIndices),
+    [colorArray, rowIndices, colIndices],
+  );
 
   const abscissaConfig = useMemo<Axis3DConfig>(
     () => ({
@@ -200,6 +212,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
         colorMap={colorMap}
         invertColorMap={invertColorMap}
         ignoreValue={ignoreValue}
+        floorUnsupported={floorUnsupported}
         zHeight={heightScale}
         shading={shading}
         colorField={colorField}
