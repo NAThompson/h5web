@@ -6,6 +6,7 @@ import {
   createArrayFromView,
   getBounds,
   getBoundsWithErrors,
+  mergeBounds,
 } from './vis-utils';
 
 function range(length: number): number[] {
@@ -49,6 +50,30 @@ function actualCopy(view: NdArray<ArrayValue>) {
     values: [...data],
   };
 }
+
+describe('getBounds with Float32Array', () => {
+  it('should give same bounds as with other arrays', () => {
+    const values = [3, -2, Number.NaN, Infinity, 0, 0.5, -Infinity];
+    expect(getBounds(Float32Array.from(values))).toStrictEqual(
+      getBounds(Float64Array.from(values)),
+    );
+    expect(getBounds(Float32Array.from([Number.NaN]))).toBeUndefined();
+  });
+});
+
+describe('mergeBounds', () => {
+  it('should merge bounds of several arrays', () => {
+    expect(
+      mergeBounds([
+        getBounds([-1, 2]),
+        undefined,
+        getBounds([0, 5]),
+        getBounds([0.5]),
+      ]),
+    ).toStrictEqual(getBounds([-1, 2, 0, 5, 0.5]));
+    expect(mergeBounds([undefined])).toBeUndefined();
+  });
+});
 
 describe('getBounds', () => {
   it('should compute bounds of numeric array', () => {
