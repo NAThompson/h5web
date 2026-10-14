@@ -18,6 +18,7 @@ import {
   strType,
 } from '@h5web/shared/hdf5-utils';
 import {
+  arrayAttr,
   assertMockAttribute,
   dataset,
   group,
@@ -27,22 +28,33 @@ import { describe, expect, it } from 'vitest';
 
 import { makeMockFile } from '../../../providers/mock/mock-file';
 import { findMockEntity } from '../../../providers/mock/utils';
-import { findScalarStrAttr } from '../../../utils';
 import {
   type CoordinatesGeometry,
   findGeometry,
+  findStrAttr,
   type GeometryContext,
   GeometryKind,
   getAxisLabel,
+  getCoordinatePaths,
   getGeometryDimsCount,
+  identifyRole,
   isMatchingCoordinate,
+  normalizePath,
   parseCoordinatesAttr,
-  resolveCoordinatePath,
+  pickXYZ,
 } from './utils';
 
-function createMockContext(root: GroupWithChildren): GeometryContext {
+interface MockContext extends GeometryContext {
+  calls: { getEntity: string[]; getStrAttr: string[] };
+}
+
+function createMockContext(root: GroupWithChildren): MockContext {
+  const calls: MockContext['calls'] = { getEntity: [], getStrAttr: [] };
+
   return {
+    calls,
     getEntity: async (path) => {
+      calls.getEntity.push(path);
       try {
         return findMockEntity(root, path);
       } catch {
@@ -50,13 +62,17 @@ function createMockContext(root: GroupWithChildren): GeometryContext {
       }
     },
     getStrAttr: async (entity, name) => {
-      const attr = findScalarStrAttr(entity, name);
+      const attr = findStrAttr(entity, name);
       if (!attr) {
         return undefined;
       }
 
+      calls.getStrAttr.push(`${entity.path}@${name}`);
       assertMockAttribute(attr);
-      return attr.value as string;
+      const value: unknown = Array.isArray(attr.value)
+        ? attr.value[0]
+        : attr.value;
+      return typeof value === 'string' ? value : undefined;
     },
   };
 }
@@ -79,9 +95,21 @@ function field(
   return coord(name, dims, attrs);
 }
 
-/* Build a mock file with given children at the root, and return the context and one of its datasets */
-function setup(children: ProvidedEntity[], path: string) {
-  const root = group('root.h5', children, { isRoot: true });
+/* Build a mock file with given children at the root, and return the context and one of its datasets.
+ * The file is a CF trajectory file by default, so 1D coordinates make curves. */
+const TRAJECTORY_FILE = { featureType: 'trajectory' };
+
+function setup(
+  children: ProvidedEntity[],
+  path: string,
+  rootAttrs: Record<string, string> = TRAJECTORY_FILE,
+) {
+  const root = group('root.h5', children, {
+    isRoot: true,
+    attributes: Object.entries(rootAttrs).map(([key, val]) =>
+      scalarAttr(key, val),
+    ),
+  });
   const entity = findMockEntity(root, path);
   assertDefined(entity);
   return { ctx: createMockContext(root), entity: entity as Dataset };
@@ -126,15 +154,100 @@ describe('parseCoordinatesAttr', () => {
   });
 });
 
-describe('resolveCoordinatePath', () => {
-  it('should resolve names relative to group of field', () => {
-    expect(resolveCoordinatePath('/grp/temp', 'x')).toBe('/grp/x');
-    expect(resolveCoordinatePath('/temp', 'x')).toBe('/x');
-    expect(resolveCoordinatePath('/grp/temp', 'sub/x')).toBe('/grp/sub/x');
+describe('normalizePath', () => {
+  it('should resolve `.` and `..` segments', () => {
+    expect(normalizePath('/a/b', '../x')).toBe('/a/x');
+    expect(normalizePath('/a/b', './sub/x')).toBe('/a/b/sub/x');
+    expect(normalizePath('/a', '../../x')).toBe('/x'); // never above root
+    expect(normalizePath('/', 'x')).toBe('/x');
+  });
+});
+
+describe('getCoordinatePaths', () => {
+  it('should search bare names by proximity, from group of field up to root', () => {
+    expect(getCoordinatePaths('/a/b/temp', 'x')).toEqual([
+      '/a/b/x',
+      '/a/x',
+      '/x',
+    ]);
+    expect(getCoordinatePaths('/temp', 'x')).toEqual(['/x']);
+  });
+
+  it('should resolve relative paths against group of field', () => {
+    expect(getCoordinatePaths('/a/b/temp', '../x')).toEqual(['/a/x']);
+    expect(getCoordinatePaths('/a/b/temp', './sub/x')).toEqual(['/a/b/sub/x']);
+    expect(getCoordinatePaths('/a/b/temp', 'sub/x')).toEqual(['/a/b/sub/x']);
   });
 
   it('should keep absolute paths', () => {
-    expect(resolveCoordinatePath('/grp/temp', '/other/x')).toBe('/other/x');
+    expect(getCoordinatePaths('/a/temp', '/other/./x')).toEqual(['/other/x']);
+  });
+});
+
+describe('identifyRole', () => {
+  it('should identify role by `axis` attribute first', () => {
+    expect(identifyRole({ axis: 'x', standardName: 'latitude' })).toBe('X');
+    expect(identifyRole({ axis: 'T' })).toBe('T');
+  });
+
+  it('should identify role by `standard_name`', () => {
+    expect(identifyRole({ standardName: 'longitude' })).toBe('X');
+    expect(identifyRole({ standardName: 'projection_y_coordinate' })).toBe('Y');
+    expect(identifyRole({ standardName: 'altitude' })).toBe('Z');
+    expect(identifyRole({ standardName: 'height' })).toBe('Z');
+    expect(identifyRole({ standardName: 'time' })).toBe('T');
+  });
+
+  it('should identify role by `units`', () => {
+    expect(identifyRole({ units: 'degrees_east' })).toBe('X');
+    expect(identifyRole({ units: 'degree_E' })).toBe('X');
+    expect(identifyRole({ units: 'degrees_north' })).toBe('Y');
+    expect(identifyRole({ units: 'degreesN' })).toBe('Y');
+    expect(identifyRole({ units: 's since 2000-01-01' })).toBe('T');
+    expect(identifyRole({ units: 'days since 1970-01-01 00:00' })).toBe('T');
+    expect(identifyRole({ units: 'm' })).toBeUndefined();
+  });
+
+  it('should identify vertical coordinate by `positive`', () => {
+    expect(identifyRole({ units: 'm', positive: 'up' })).toBe('Z');
+    expect(identifyRole({ units: 'm', positive: 'DOWN' })).toBe('Z');
+  });
+
+  it('should not identify unknown coordinates', () => {
+    expect(identifyRole({})).toBeUndefined();
+    expect(identifyRole({ axis: 'W', standardName: 'foo' })).toBeUndefined();
+  });
+});
+
+describe('pickXYZ', () => {
+  it('should pick by role, leaving out time', () => {
+    expect(pickXYZ(['t', 'z', 'y', 'x'], ['T', 'Z', 'Y', 'X'])).toEqual([
+      'x',
+      'y',
+      'z',
+    ]);
+  });
+
+  it('should fall back to listed order only when no role is identified', () => {
+    expect(pickXYZ(['a', 'b', 'c'], [])).toEqual(['a', 'b', 'c']);
+    expect(pickXYZ(['t', 'a', 'b', 'c'], ['T'])).toEqual(['a', 'b', 'c']);
+    expect(pickXYZ(['a', 'b'], [])).toBeUndefined();
+    expect(pickXYZ(['a', 'b', 'c', 'd'], [])).toBeUndefined();
+  });
+
+  it('should give single missing role to single unidentified coordinate', () => {
+    expect(pickXYZ(['alt', 'lat', 'lon'], [undefined, 'Y', 'X'])).toEqual([
+      'lon',
+      'lat',
+      'alt',
+    ]);
+  });
+
+  it('should not guess more than one role, nor accept duplicate roles', () => {
+    expect(
+      pickXYZ(['a', 'b', 'lon'], [undefined, undefined, 'X']),
+    ).toBeUndefined();
+    expect(pickXYZ(['a', 'b', 'c'], ['X', 'X', 'Y'])).toBeUndefined();
   });
 });
 
@@ -348,11 +461,11 @@ describe('findGeometry with `coordinates` attribute', () => {
     await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
   });
 
-  it('should not detect geometry with incomplete `axis` attributes', async () => {
+  it('should not detect geometry when more than one role is unidentified', async () => {
     const { ctx, entity } = setup(
       [
         coord('x', [10], { axis: 'X' }),
-        coord('y', [10], { axis: 'Y' }),
+        coord('y', [10]),
         coord('z', [10]),
         field('temp', [10], { coordinates: 'x y z' }),
       ],
@@ -360,6 +473,45 @@ describe('findGeometry with `coordinates` attribute', () => {
     );
 
     await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+  });
+
+  it('should identify longitude, latitude and altitude by `standard_name` and `units`', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('time', [10], { units: 'seconds since 2000-01-01' }),
+        coord('alt', [10], { standard_name: 'altitude', units: 'm' }),
+        coord('la', [10], { units: 'degrees_north' }),
+        coord('lo', [10], { units: 'degrees_east' }),
+        field('temp', [10], { coordinates: 'time alt la lo' }),
+      ],
+      '/temp',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.coords.map((c) => c.dataset.name)).toEqual([
+      'lo',
+      'la',
+      'alt',
+    ]);
+  });
+
+  it('should take altitude as Z when longitude and latitude are identified', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('lat', [10], { units: 'degrees_north' }),
+        coord('lon', [10], { units: 'degrees_east' }),
+        coord('elevation', [10], { units: 'm' }),
+        field('temp', [10], { coordinates: 'lat lon elevation' }),
+      ],
+      '/temp',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.coords.map((c) => c.dataset.name)).toEqual([
+      'lon',
+      'lat',
+      'elevation',
+    ]);
   });
 
   it('should not detect geometry for non-numeric field', async () => {
@@ -374,6 +526,173 @@ describe('findGeometry with `coordinates` attribute', () => {
     );
 
     await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+  });
+});
+
+describe('findGeometry: CF `featureType`', () => {
+  const children = [...xyz, field('temp', [10], { coordinates: 'x y z' })];
+
+  it('should draw 1D coordinates as curve only for trajectories', async () => {
+    const trajectory = setup(children, '/temp', { featureType: 'trajectory' });
+    await expect(findKind(trajectory.entity, trajectory.ctx)).resolves.toBe(
+      GeometryKind.Curve,
+    );
+
+    const others = ['timeSeries', 'point', 'profile'].map((featureType) =>
+      setup(children, '/temp', { featureType }),
+    );
+    await expect(
+      Promise.all(others.map(async (o) => findGeometry(o.entity, o.ctx))),
+    ).resolves.toEqual([undefined, undefined, undefined]);
+
+    const none = setup(children, '/temp', {});
+    await expect(findGeometry(none.entity, none.ctx)).resolves.toBeUndefined();
+  });
+
+  it('should accept `featureType` on field itself, overriding global attribute', async () => {
+    const optIn = setup(
+      [
+        ...xyz,
+        field('temp', [10], {
+          coordinates: 'x y z',
+          featureType: 'trajectory',
+        }),
+      ],
+      '/temp',
+      {},
+    );
+    await expect(findKind(optIn.entity, optIn.ctx)).resolves.toBe(
+      GeometryKind.Curve,
+    );
+
+    const optOut = setup(
+      [
+        ...xyz,
+        field('temp', [10], { coordinates: 'x y z', featureType: 'point' }),
+      ],
+      '/temp',
+      { featureType: 'trajectory' },
+    );
+    await expect(
+      findGeometry(optOut.entity, optOut.ctx),
+    ).resolves.toBeUndefined();
+  });
+
+  it('should not require `featureType` for surfaces (grid connectivity is implied)', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('x', [4, 5]),
+        coord('y', [4, 5]),
+        coord('z', [4, 5]),
+        field('K', [4, 5], { coordinates: 'x y z' }),
+      ],
+      '/K',
+      {},
+    );
+    await expect(findKind(entity, ctx)).resolves.toBe(GeometryKind.Surface);
+  });
+});
+
+describe('findGeometry: group references', () => {
+  it('should resolve `../` paths and search bare names in ancestor groups', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('z', [10]), // root: found by proximity search
+        group('a', [
+          coord('x', [10]),
+          group('b', [
+            coord('x', [10], { long_name: 'nearest x' }), // nearest wins
+            field('temp', [10], { coordinates: 'x ../y z' }),
+          ]),
+          coord('y', [10]),
+        ]),
+      ],
+      '/a/b/temp',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.coords.map((c) => c.dataset.path)).toEqual([
+      '/a/b/x',
+      '/a/y',
+      '/z',
+    ]);
+    expect(geometry.coords[0].label).toBe('nearest x');
+  });
+});
+
+describe('findGeometry: requests', () => {
+  it('should not fetch any coordinate when fewer than three names are listed', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('lon', [4, 5]),
+        coord('lat', [4, 5]),
+        field('temp', [4, 5], { coordinates: 'lon lat' }),
+      ],
+      '/temp',
+    );
+
+    await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+    expect(ctx.calls.getEntity).toEqual([]);
+    expect(ctx.calls.getStrAttr).toEqual(['/temp@coordinates']);
+  });
+
+  it('should not fetch attributes of coordinates when fewer than three match', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('x', [10], { units: 'm' }),
+        coord('y', [10], { units: 'm' }),
+        dataset('t', scalarShape(), floatType(), 0),
+        field('temp', [10], { coordinates: 'x y t' }),
+      ],
+      '/temp',
+    );
+
+    await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+    expect(ctx.calls.getStrAttr).toEqual(['/temp@coordinates']);
+  });
+});
+
+describe('findGeometry: non-scalar attributes', () => {
+  it('should accept `coordinates` stored as single-element string array', async () => {
+    const { ctx, entity } = setup(
+      [
+        ...xyz,
+        dataset('temp', arrayShape([10]), floatType(), null, {
+          attributes: [arrayAttr('coordinates', ['x y z'])],
+        }),
+      ],
+      '/temp',
+    );
+
+    await expect(findKind(entity, ctx)).resolves.toBe(GeometryKind.Curve);
+    expect(getGeometryDimsCount(entity, GeometryKind.Curve)).toBe(1);
+  });
+
+  it('should not detect geometry when `coordinates` is not a string', async () => {
+    const { ctx, entity } = setup(
+      [
+        ...xyz,
+        dataset('temp', arrayShape([10]), floatType(), null, {
+          attributes: [scalarAttr('coordinates', 42)],
+        }),
+      ],
+      '/temp',
+    );
+
+    await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+  });
+
+  it('should accept `interpretation` stored as single-element string array', async () => {
+    const { ctx, entity } = setup(
+      [
+        dataset('pts', arrayShape([10, 3]), floatType(), null, {
+          attributes: [arrayAttr('interpretation', ['vertex'])],
+        }),
+      ],
+      '/pts',
+    );
+
+    await expect(findKind(entity, ctx)).resolves.toBe(GeometryKind.Curve);
   });
 });
 

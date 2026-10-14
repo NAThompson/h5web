@@ -595,7 +595,10 @@ export function makeMockFile(): GroupWithChildren {
         array('knot_y'),
         array('knot_z'),
         array('knot_speed', {
-          attributes: [scalarAttr('coordinates', 'knot_x knot_y knot_z')],
+          attributes: [
+            scalarAttr('coordinates', 'knot_x knot_y knot_z'),
+            scalarAttr('featureType', 'trajectory'), // points are connected
+          ],
         }),
         array('torus_x', { attributes: [scalarAttr('units', 'm')] }),
         array('torus_y', { attributes: [scalarAttr('units', 'm')] }),
