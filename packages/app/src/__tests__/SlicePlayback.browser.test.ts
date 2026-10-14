@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 
 import { delay } from '../providers/mock/utils';
-import { mockDelay, renderApp } from '../test-utils';
+import { mockConsoleMethod, mockDelay, renderApp } from '../test-utils';
 import { Vis } from '../vis-packs/core/visualizations';
 
 afterEach(() => {
@@ -130,6 +130,68 @@ test('wait for each slice to load before showing it', async () => {
   await expect
     .poll(() => signals.filter((signal) => signal?.aborted).length)
     .toBeGreaterThan(0);
+});
+
+test('keep playing when slicing another dimension', async () => {
+  const resolveAll = mockDelay();
+  await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Line,
+    waitForLoaders: false,
+  });
+
+  resolveAll(); // first slice
+  await expect.element(page.getByRole('figure')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  await new Promise((resolve) => {
+    setTimeout(resolve, 200);
+  });
+  expect(getSliderValue()).toBe(0); // waiting for next slice
+
+  // Slice another dimension: upcoming D0 slices must be fetched for the new D1 index
+  const d1Slider = page.getByRole('slider', { name: 'D1' });
+  await d1Slider.click();
+  await userEvent.keyboard('{ArrowUp}');
+  await expect.element(d1Slider).toHaveValue(1);
+  await new Promise((resolve) => {
+    setTimeout(resolve, 500); // wait for debounced mapping change
+  });
+
+  await expect
+    .poll(() => {
+      resolveAll();
+      return getSliderValue();
+    })
+    .toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Pause D0' }).click();
+  resolveAll();
+});
+
+test('show slices that fail to load instead of stalling', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+
+  let callCount = 0;
+  vi.mocked(delay).mockImplementation(async () => {
+    callCount += 1;
+    if (callCount > 1) {
+      throw new Error('Slice failed to load'); // all slices but the first
+    }
+  });
+
+  await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Heatmap,
+  });
+
+  const settings = await openSettings();
+  await settings.getByLabelText('Slices per second').fill('4');
+  await page.getByRole('button', { name: 'Play D0' }).click();
+
+  await expect.element(page.getByText('Slice failed to load')).toBeVisible();
+  await expect.poll(getSliderValue).toBeGreaterThan(1); // playback goes on
+  await page.getByRole('button', { name: 'Pause D0' }).click();
 });
 
 test('pause when interacting with slider', async () => {
