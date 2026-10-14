@@ -1,4 +1,9 @@
-import { type DimensionMapping, initDimMapping } from '@h5web/lib';
+import {
+  DEFAULT_PLAYBACK_SETTINGS,
+  type DimensionMapping,
+  initDimMapping,
+  type PlaybackSettings,
+} from '@h5web/lib';
 import {
   createContext,
   type PropsWithChildren,
@@ -18,6 +23,7 @@ interface DimMappingState {
   lockedDimsCount: number;
   mapping: DimensionMapping;
   multiDim: number | undefined;
+  playbackSettings: PlaybackSettings; // kept across datasets
 }
 
 function createDimMappingStore() {
@@ -27,6 +33,7 @@ function createDimMappingStore() {
     lockedDimsCount: 0,
     mapping: [],
     multiDim: undefined,
+    playbackSettings: DEFAULT_PLAYBACK_SETTINGS,
   }));
 }
 
@@ -116,4 +123,19 @@ export function useDimMappingState(opts: {
   );
 
   return [currentMapping, setMapping, currentMultiDim, setMultiDim];
+}
+
+export function usePlaybackSettingsState(): [
+  PlaybackSettings,
+  (settings: PlaybackSettings) => void,
+] {
+  const store = useContext(StoreContext);
+  const settings = useStore(store, (state) => state.playbackSettings);
+  const setSettings = useCallback(
+    (playbackSettings: PlaybackSettings) =>
+      store.setState({ playbackSettings }),
+    [store],
+  );
+
+  return [settings, setSettings];
 }

@@ -15,12 +15,9 @@ import { useHeatmapConfig } from '../../core/heatmap/config';
 import MappedHeatmapVis from '../../core/heatmap/MappedHeatmapVis';
 import { guessKeepRatio } from '../../core/utils';
 import { type VisContainerProps } from '../../models';
+import { useNxSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
-import {
-  useNxData,
-  useNxHeatmapDataToFetch,
-  useNxValuesCached,
-} from '../hooks';
+import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
 
@@ -53,6 +50,8 @@ function NxHeatmapContainer(props: VisContainerProps) {
 
   const nxDataToFetch = useNxHeatmapDataToFetch(nxData, selectedDef);
 
+  const slicingProps = useNxSlicingProps(nxDataToFetch);
+
   return (
     <>
       {auxDefs.length > 0 && (
@@ -69,7 +68,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={axisLabels}
         dimMapping={dimMapping}
-        canSliceFast={useNxValuesCached(nxData)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
 

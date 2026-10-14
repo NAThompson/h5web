@@ -7,9 +7,10 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import MappedComplexLineVis from '../../core/complex/MappedComplexLineVis';
 import { useLineConfig } from '../../core/line/config';
 import { type VisContainerProps } from '../../models';
+import { useNxSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
-import { useNxData, useNxValuesCached } from '../hooks';
+import { useNxData } from '../hooks';
 import NxLineSignalPicker from '../NxLineSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
 
@@ -43,6 +44,8 @@ function NxComplexLineContainer(props: VisContainerProps) {
       : ScaleType.Linear,
   });
 
+  const slicingProps = useNxSlicingProps(nxData);
+
   return (
     <>
       {auxDefs.length > 0 && (
@@ -62,7 +65,7 @@ function NxComplexLineContainer(props: VisContainerProps) {
         dims={signalDims}
         dimHints={axisLabels}
         dimMapping={dimMapping}
-        canSliceFast={useNxValuesCached(nxData)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping}>

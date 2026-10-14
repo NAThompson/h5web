@@ -7,12 +7,13 @@ import {
 } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useAttrValue, useValuesInCache } from '../../../hooks';
+import { useAttrValue } from '../../../hooks';
 import { findScalarStrAttr } from '../../../utils';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useRgbConfig } from './config';
@@ -43,6 +44,8 @@ function RgbVisContainer(props: VisContainerProps) {
 
   const dimHints = useDimHints(entity);
 
+  const slicingProps = useDatasetSlicingProps(entity);
+
   return (
     <>
       <DimensionMapper
@@ -50,7 +53,7 @@ function RgbVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>

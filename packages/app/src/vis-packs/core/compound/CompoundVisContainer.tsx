@@ -7,9 +7,9 @@ import {
 } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../../models';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { useMatrixConfig } from '../matrix/config';
 import ValueFetcher from '../ValueFetcher';
@@ -31,13 +31,15 @@ function CompoundVisContainer(props: VisContainerProps) {
   const config = useMatrixConfig();
   const selection = getSliceSelection(dimMapping);
 
+  const slicingProps = useDatasetSlicingProps(entity);
+
   return (
     <>
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary isSlice={selection !== undefined}>

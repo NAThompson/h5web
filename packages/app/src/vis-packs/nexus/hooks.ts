@@ -1,4 +1,3 @@
-import { type DimensionMapping } from '@h5web/lib';
 import {
   type ComplexType,
   type GroupWithChildren,
@@ -6,7 +5,6 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
-import { useValuesInCache } from '../../hooks';
 import {
   type DataContextValue,
   useDataContext,
@@ -95,16 +93,4 @@ export function useNxHeatmapDataToFetch<
         : // when auxiliary signal is selected, don't fetch title dataset (i.e. use the auxiliary's label as title)
           undefined,
   };
-}
-
-export function useNxValuesCached(
-  nxData: NxData,
-): (dimMapping: DimensionMapping) => boolean {
-  const { signalDef, auxDefs } = nxData;
-
-  return useValuesInCache(
-    signalDef.dataset,
-    signalDef.errorDataset,
-    ...auxDefs.flatMap((def) => [def.dataset, def.errorDataset]),
-  );
 }
