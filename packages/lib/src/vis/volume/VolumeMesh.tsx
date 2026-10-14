@@ -15,6 +15,7 @@ import {
 } from 'react';
 import {
   BackSide,
+  type Data3DTexture,
   GLSL3,
   Matrix4,
   type Mesh,
@@ -32,11 +33,11 @@ import {
 import { type VisScaleType } from '../models';
 import { getUniforms } from '../utils';
 import { type VolumeQuality, type VolumeRenderMode } from './models';
+import { convertToHalfFloats, getPreparedVolume } from './prepare/client';
 import {
-  getPreparedHalfFloats,
-  type HalfFloatChunk,
-  releasePreparedHalfFloats,
-} from './prepare/client';
+  getHalfFloatNormalization,
+  type HalfFloatNormalization,
+} from './prepare/utils';
 import { getVolumeFragmentShader, VOLUME_VERTEX_SHADER } from './shaders';
 import SurfaceDepthPass from './SurfaceDepthPass';
 import {
@@ -113,10 +114,10 @@ function VolumeMesh(props: Props) {
     );
   }
 
-  const { values, halfFloatChunks, shape, valueOffset, valueScale } =
+  const { values, halfFloatNormalization, shape, valueOffset, valueScale } =
     useMemo((): {
       values?: NdArray<TextureSafeTypedArray>;
-      halfFloatChunks?: HalfFloatChunk[];
+      halfFloatNormalization?: HalfFloatNormalization; // to convert in workers (see below)
       shape: number[];
       valueOffset: number;
       valueScale: number;
@@ -129,18 +130,19 @@ function VolumeMesh(props: Props) {
         canUseHalfFloats() &&
         !canAllocateVolumeTexture(ctx, textureSafeValues.shape, ctx.R32F)
       ) {
-        // Use half floats prepared in workers along with the domain, if any (cf. `useVolumeDomain`)
+        // Convert in workers if bounds were computed there (cf. `useVolumeDomain`)
         const [, rows, cols] = textureSafeValues.shape;
-        const prepared = getPreparedHalfFloats(
+        const prepared = getPreparedVolume(
           textureSafeValues.data as Float32Array,
           rows * cols,
         );
         if (prepared) {
+          const normalization = getHalfFloatNormalization(prepared.bounds);
           return {
             shape: textureSafeValues.shape,
-            halfFloatChunks: prepared.chunks,
-            valueOffset: prepared.offset,
-            valueScale: prepared.scale,
+            halfFloatNormalization: normalization,
+            valueOffset: normalization.offset,
+            valueScale: normalization.scale,
           };
         }
 
@@ -172,7 +174,7 @@ function VolumeMesh(props: Props) {
             values.dtype !== 'float32' ||
               gl.extensions.has('OES_texture_float_linear'),
           )
-        : getHalfFloatTexture(shape), // filled with `halfFloatChunks` on upload
+        : getHalfFloatTexture(shape), // filled once converted (see below)
     [values, shape, gl],
   );
 
@@ -187,13 +189,6 @@ function VolumeMesh(props: Props) {
     getGLErrors(ctx); // clear previous errors
     gl.initTexture(volumeTexture);
 
-    if (halfFloatChunks) {
-      uploadHalfFloatChunks(gl, volumeTexture, halfFloatChunks);
-
-      // Drop prepared half floats once on the GPU (prepared again if needed, e.g. on remount)
-      releasePreparedHalfFloats(textureSafeValues.data as Float32Array);
-    }
-
     const errors = getGLErrors(ctx);
     if (errors.length > 0) {
       setGpuError(
@@ -204,7 +199,91 @@ function VolumeMesh(props: Props) {
         ),
       );
     }
-  }, [gl, volumeTexture, halfFloatChunks, textureSafeValues]);
+  }, [gl, volumeTexture]);
+
+  /* Convert to half floats in workers, then upload chunk by chunk. Chunks are only referenced
+   * until uploaded; they are converted again if the texture needs to be filled again (e.g.
+   * on remount or when the WebGL context is restored). */
+  const [filledTexture, setFilledTexture] = useState<Data3DTexture>();
+  const [contextRestoredCount, setContextRestoredCount] = useState(0);
+  useEffect(() => {
+    if (!halfFloatNormalization) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const [, rows, cols] = shape;
+
+    async function convertAndUpload(normalization: HalfFloatNormalization) {
+      let chunks;
+      try {
+        chunks = await convertToHalfFloats(
+          textureSafeValues.data as Float32Array,
+          rows * cols,
+          normalization,
+          controller.signal,
+        );
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setGpuError(
+            error instanceof Error ? error : new Error('Conversion failed'),
+          );
+        }
+        return;
+      }
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const ctx = gl.getContext();
+      getGLErrors(ctx); // clear previous errors
+      gl.initTexture(volumeTexture); // no-op unless texture needs to be (re-)initialized
+      uploadHalfFloatChunks(gl, volumeTexture, chunks);
+
+      const errors = getGLErrors(ctx);
+      if (errors.length > 0) {
+        setGpuError(
+          new Error(
+            errors.includes(ctx.OUT_OF_MEMORY)
+              ? 'Not enough GPU memory to render volume'
+              : 'Volume too large to be uploaded to the GPU',
+          ),
+        );
+        return;
+      }
+
+      setFilledTexture(volumeTexture);
+      invalidate();
+    }
+
+    void convertAndUpload(halfFloatNormalization);
+
+    return () => controller.abort();
+  }, [
+    gl,
+    volumeTexture,
+    halfFloatNormalization,
+    shape,
+    textureSafeValues,
+    invalidate,
+    contextRestoredCount,
+  ]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    function handleContextRestored() {
+      setContextRestoredCount((count) => count + 1);
+    }
+
+    canvas.addEventListener('webglcontextrestored', handleContextRestored);
+    return () =>
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+  }, [gl]);
+
+  // Don't render half-float textures before they are filled
+  const isVolumeReady =
+    !halfFloatNormalization || filledTexture === volumeTexture;
 
   // Some browsers lose the WebGL context instead of reporting OUT_OF_MEMORY
   useEffect(() => {
@@ -307,6 +386,7 @@ function VolumeMesh(props: Props) {
         ref={meshRef}
         scale={boxSize ?? getBoxSize(shape)}
         material={material}
+        visible={isVolumeReady}
       >
         <boxGeometry />
       </mesh>

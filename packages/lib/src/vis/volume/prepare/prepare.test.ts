@@ -1,11 +1,9 @@
-import { assertDefined } from '@h5web/shared/guards';
 import { getBounds } from '@h5web/shared/vis-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  getPreparedHalfFloats,
+  convertToHalfFloats,
   prepareVolume,
-  releasePreparedHalfFloats,
   setPrepareWorkerFactory,
 } from './client';
 import {
@@ -14,7 +12,21 @@ import {
   mergeBounds,
   toHalfFloatBits,
 } from './utils';
-import { type PrepareRequest, type PrepareResponse } from './worker';
+import {
+  type PrepareRequest,
+  type PrepareResponse,
+  processChunk,
+} from './worker';
+
+vi.mock(import('./worker'), async (importOriginal) => {
+  const original = await importOriginal();
+  return {
+    ...original,
+    processChunk: vi.fn<typeof original.processChunk>(original.processChunk),
+  };
+});
+
+const processChunkSpy = vi.mocked(processChunk);
 
 function randomValues(length: number): Float32Array {
   const values = Float32Array.from(
@@ -148,35 +160,25 @@ describe('prepareVolume', () => {
 
     expect(FakeWorker.instances).toBeGreaterThan(1);
     expect(prepared.bounds).toStrictEqual(getBounds(values));
-    expect(prepared.halfFloats).toBeUndefined(); // small enough for 32-bit float texture
 
     // Same promise for same array and slice length
     expect(prepareVolume(values, 1000)).toBe(prepareVolume(values, 1000));
     expect(prepareVolume(values, 500)).not.toBe(prepareVolume(values, 1000));
   });
 
-  it('should prepare half floats in chunks of whole slices for volumes larger than 1 GiB', async () => {
+  it('should convert to half floats in chunks of whole slices', async () => {
     const sliceLength = 3000 * 1000; // chunks of 2 slices
-    const values = new Float32Array(sliceLength * 90); // 1.08 GB
+    const values = new Float32Array(sliceLength * 9);
     values[0] = -1;
     values[values.length - 1] = 3;
-    values[2 ** 27] = Number.NaN;
+    values[2 ** 22] = Number.NaN;
 
-    const prepared = await prepareVolume(values, sliceLength);
-    expect(prepared.bounds).toMatchObject({ min: -1, max: 3 });
-
-    const halfFloats = getPreparedHalfFloats(values, sliceLength);
-    assertDefined(halfFloats);
-    expect(halfFloats).toMatchObject({ offset: -1, scale: 4 });
-
-    const { chunks } = halfFloats;
-    expect(chunks).toHaveLength(45);
-    expect(chunks.map((chunk) => chunk.start)).toStrictEqual(
-      Array.from({ length: 45 }, (_, i) => i * 2),
-    );
-    expect(
-      chunks.every((chunk) => chunk.values.length === 2 * sliceLength),
-    ).toBe(true);
+    const chunks = await convertToHalfFloats(values, sliceLength, {
+      offset: -1,
+      scale: 4,
+    });
+    expect(chunks.map((chunk) => chunk.start)).toStrictEqual([0, 2, 4, 6, 8]);
+    expect(chunks.at(-1)?.values).toHaveLength(sliceLength); // last chunk: 1 slice
 
     const floats = new Float16Array(values.length);
     for (const chunk of chunks) {
@@ -187,13 +189,33 @@ describe('prepareVolume', () => {
     }
     expect(floats[0]).toBe(0);
     expect(floats[1]).toBe(0.25);
-    expect(floats[2 ** 27]).toBeNaN();
+    expect(floats[2 ** 22]).toBeNaN();
     expect(floats.at(-1)).toBe(1);
+  });
 
-    releasePreparedHalfFloats(values);
-    expect(getPreparedHalfFloats(values, sliceLength)).toBeUndefined();
-    const preparedAgain = await prepareVolume(values, sliceLength);
-    expect(preparedAgain.halfFloats).toBeUndefined();
+  it('should stop converting once aborted', async () => {
+    const controller = new AbortController();
+    const promise = convertToHalfFloats(
+      new Float32Array(2 ** 26),
+      2 ** 20,
+      { offset: 0, scale: 1 },
+      controller.signal,
+    );
+    controller.abort();
+    await expect(promise).rejects.toThrow('abort');
+  });
+
+  it('should stop processing chunks on the main thread once a worker fails', async () => {
+    FakeWorker.failing = true;
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    processChunkSpy.mockClear();
+
+    vi.stubGlobal('navigator', { hardwareConcurrency: 3 }); // 1 worker
+
+    const values = new Float32Array(2 ** 26); // 8 chunks
+    await prepareVolume(values, 2 ** 20);
+    expect(processChunkSpy.mock.calls.length).toBeLessThanOrEqual(2); // not the 6 others
+    vi.unstubAllGlobals();
   });
 
   it('should fall back to main thread if workers fail', async () => {

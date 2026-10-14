@@ -3,8 +3,9 @@ import { type Bounds } from '@h5web/shared/vis-models';
 
 import {
   getFloat32Bounds,
-  getHalfFloatNormalization,
+  type HalfFloatNormalization,
   mergeBounds,
+  toHalfFloatBits,
 } from './utils';
 import {
   type PrepareRequest,
@@ -15,17 +16,16 @@ import PrepareWorker from './worker?worker&inline';
 
 /*
  * Large `Float32Array` volumes are prepared for rendering in a few workers: bounds (for the
- * domain) and, if the volume is too large to be uploaded as 32-bit floats, normalized half
- * floats. This takes a fraction of the time the main thread would take (e.g. under a second
- * instead of ~4s for 1.8 GB), even though workers must be sent a copy of the volume.
+ * domain, cf. `prepareVolume`) and, only if the volume is too large to be uploaded as 32-bit
+ * floats, normalized half floats (cf. `convertToHalfFloats`). This takes a fraction of the time
+ * the main thread would take, even though workers must be sent a copy of the volume.
  *
  * The volume is split into chunks of whole slices, which are handed out to workers as they
- * become available. Half floats are kept in chunks, which are uploaded to the GPU one after
- * the other, rather than assembled into another large array.
+ * become available. Half floats are returned in chunks, to be uploaded to the GPU one after
+ * the other rather than assembled into another large array.
  */
 
 export const MIN_WORKER_VALUES = 2 ** 24; // smaller volumes are prepared on the main thread
-export const MAX_FLOAT_TEXTURE_BYTES = 2 ** 30; // Chromium caps textures at 1 GiB
 const CHUNK_VALUES = 2 ** 23; // 32 MB of float32
 const MAX_WORKERS = 6;
 const MAX_PENDING_CHUNKS = 2; // per worker, so workers don't wait for the next chunk to be copied
@@ -35,15 +35,8 @@ export interface HalfFloatChunk {
   values: Uint16Array<ArrayBuffer>; // whole slices
 }
 
-export interface PreparedHalfFloats {
-  chunks: HalfFloatChunk[];
-  offset: number;
-  scale: number;
-}
-
 export interface PreparedVolume {
   bounds: Bounds | undefined; // of finite values, as `getBounds` without `ignoreValue`
-  halfFloats?: PreparedHalfFloats; // released once uploaded (cf. `releasePreparedHalfFloats`)
 }
 
 const EMPTY_BUFFER = new ArrayBuffer(0);
@@ -77,8 +70,9 @@ const results = new WeakMap<
   { sliceLength: number; result: PreparedVolume }
 >();
 
-/* Same promise for the same array, e.g. for React's `use` (so not an async function).
- * `sliceLength` is the number of values per slice along the first dimension. */
+/* Bounds of a volume, computed in workers. Same promise for the same array, e.g. for React's
+ * `use` (so not an async function). `sliceLength` is the number of values per slice along
+ * the first dimension. */
 // eslint-disable-next-line @typescript-eslint/promise-function-async
 export function prepareVolume(
   data: Float32Array,
@@ -94,50 +88,91 @@ export function prepareVolume(
   return promise;
 }
 
-/* Half floats prepared for `data`, if any (synchronous, once `prepareVolume` has resolved) */
-export function getPreparedHalfFloats(
+/* Result of `prepareVolume`, if it has resolved */
+export function getPreparedVolume(
   data: Float32Array,
   sliceLength: number,
-): PreparedHalfFloats | undefined {
+): PreparedVolume | undefined {
   const entry = results.get(data);
-  return entry?.sliceLength === sliceLength
-    ? entry.result.halfFloats
-    : undefined;
-}
-
-/* Drop prepared half floats (e.g. once uploaded to the GPU), so they don't stay in memory
- * as long as `data` (they are prepared again by `VolumeMesh` if needed) */
-export function releasePreparedHalfFloats(data: Float32Array): void {
-  const entry = results.get(data);
-  if (entry) {
-    entry.result.halfFloats = undefined; // same object as resolved by `prepareVolume`'s promise
-  }
-}
-
-export function shouldPrepareHalfFloats(data: Float32Array): boolean {
-  return (
-    data.byteLength > MAX_FLOAT_TEXTURE_BYTES &&
-    typeof Float16Array !== 'undefined'
-  );
+  return entry?.sliceLength === sliceLength ? entry.result : undefined;
 }
 
 async function runPreparation(
   data: Float32Array,
   sliceLength: number,
 ): Promise<PreparedVolume> {
-  const withHalfFloats = shouldPrepareHalfFloats(data);
-
-  let result: PreparedVolume;
+  let bounds: Bounds | undefined;
   try {
-    result = await prepareInWorkers(data, sliceLength, withHalfFloats);
+    bounds = mergeBounds(
+      await processInWorkers(
+        data,
+        sliceLength,
+        (id, buffer) => ({ type: 'bounds', id, buffer }),
+        (_, response) =>
+          response.type === 'bounds' ? response.bounds : undefined,
+      ),
+    );
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.warn('Could not prepare volume in workers:', error);
-    result = { bounds: getFloat32Bounds(data) }; // half floats are then computed by `VolumeMesh`
+    console.warn('Could not compute bounds of volume in workers:', error);
+    bounds = getFloat32Bounds(data);
   }
 
+  const result = { bounds };
   results.set(data, { sliceLength, result });
   return result;
+}
+
+/* Convert a volume to normalized half floats in workers (on the main thread if they fail),
+ * in chunks of whole slices. Nothing is cached: chunks are only referenced by the caller. */
+export async function convertToHalfFloats(
+  data: Float32Array,
+  sliceLength: number,
+  normalization: HalfFloatNormalization,
+  signal?: AbortSignal,
+): Promise<HalfFloatChunk[]> {
+  const chunkLength = getChunkLength(sliceLength);
+  function toChunk(id: number, buffer: ArrayBuffer): HalfFloatChunk {
+    return {
+      start: (id * chunkLength) / sliceLength,
+      values: new Uint16Array(buffer),
+    };
+  }
+
+  try {
+    return await processInWorkers(
+      data,
+      sliceLength,
+      (id, buffer) => ({ type: 'halfFloats', id, buffer, normalization }),
+      (id, response) => {
+        if (response.type !== 'halfFloats') {
+          throw new Error('Unexpected response');
+        }
+        return toChunk(id, response.buffer);
+      },
+      signal,
+    );
+  } catch (error) {
+    signal?.throwIfAborted();
+
+    // eslint-disable-next-line no-console
+    console.warn('Could not convert volume in workers:', error);
+    const chunks: HalfFloatChunk[] = [];
+    for (let start = 0; start < data.length; start += chunkLength) {
+      const chunk = data.subarray(start, start + chunkLength);
+      chunks.push(
+        toChunk(
+          start / chunkLength,
+          toHalfFloatBits(chunk, normalization).buffer,
+        ),
+      );
+    }
+    return chunks;
+  }
+}
+
+function getChunkLength(sliceLength: number): number {
+  return Math.max(1, Math.floor(CHUNK_VALUES / sliceLength)) * sliceLength;
 }
 
 /* Worker with requests matched to responses by ID */
@@ -189,65 +224,65 @@ class WorkerHandle {
   }
 }
 
-async function prepareInWorkers(
+/* Process chunks of whole slices in a pool of workers, handing out chunks as workers become
+ * available (so slower cores get fewer chunks) and keeping a couple of chunks in flight per
+ * worker so they don't wait for the next copy. Only chunks in flight are copied at any time,
+ * so memory use stays bounded. Copying a chunk takes about as long as processing it, so the
+ * main thread also processes chunks itself in between (yielding after each one to stay
+ * responsive). Everything stops as soon as one chunk fails or `signal` is aborted. */
+async function processInWorkers<T>(
   data: Float32Array,
   sliceLength: number,
-  withHalfFloats: boolean,
-): Promise<PreparedVolume> {
-  const chunkLength =
-    Math.max(1, Math.floor(CHUNK_VALUES / sliceLength)) * sliceLength;
+  makeRequest: (id: number, buffer: ArrayBuffer) => PrepareRequest,
+  onResponse: (id: number, response: PrepareResponse) => T,
+  signal?: AbortSignal,
+): Promise<T[]> {
+  const chunkLength = getChunkLength(sliceLength);
   const chunkCount = Math.ceil(data.length / chunkLength);
   const cores =
     typeof navigator === 'undefined' ? 4 : navigator.hardwareConcurrency || 4;
   const workerCount = Math.max(1, Math.min(MAX_WORKERS, cores - 2, chunkCount));
+
   const handles: WorkerHandle[] = [];
+  const outputs: T[] = [];
+  let next = 0;
+  let stopped = false;
 
-  /* Send chunks to workers as they become available (so slower cores get fewer chunks),
-   * keeping a couple of chunks in flight per worker so they don't wait for the next copy.
-   * Only chunks in flight are copied at any time, so memory use stays bounded. Copying a
-   * chunk takes about as long as processing it, so the main thread also processes chunks
-   * itself in between (yielding after each one to stay responsive). */
-  async function processChunks<T>(
-    makeRequest: (id: number, buffer: ArrayBuffer) => PrepareRequest,
-    onResponse: (id: number, response: PrepareResponse) => T,
-  ): Promise<T[]> {
-    const outputs: T[] = [];
-    let next = 0;
-
-    async function processOnMainThread(): Promise<void> {
-      while (next < chunkCount) {
-        const id = next;
-        next += 1;
-
-        const chunk = data.subarray(id * chunkLength, (id + 1) * chunkLength);
-        const request = makeRequest(id, EMPTY_BUFFER);
-        outputs[id] = onResponse(id, processChunk(request, chunk));
-        await yieldToMain(); // eslint-disable-line no-await-in-loop
-      }
+  function nextChunk(): number | undefined {
+    if (stopped || signal?.aborted || next >= chunkCount) {
+      return undefined;
     }
+    next += 1;
+    return next - 1;
+  }
 
-    await Promise.all([
-      processOnMainThread(),
-      ...handles.flatMap((handle) =>
-        Array.from({ length: MAX_PENDING_CHUNKS }, async () => {
-          while (next < chunkCount) {
-            const id = next;
-            next += 1;
+  async function guard(loop: () => Promise<void>): Promise<void> {
+    try {
+      await loop();
+    } catch (error) {
+      stopped = true; // stop other loops, including the main thread's
+      throw error;
+    }
+  }
 
-            const { buffer } = data.slice(
-              id * chunkLength,
-              (id + 1) * chunkLength,
-            );
-            // eslint-disable-next-line no-await-in-loop -- one chunk at a time per loop
-            const response = await handle.request(makeRequest(id, buffer), [
-              buffer,
-            ]);
-            outputs[id] = onResponse(id, response);
-          }
-        }),
-      ),
-    ]);
-    return outputs;
+  async function processOnMainThread(): Promise<void> {
+    for (let id = nextChunk(); id !== undefined; id = nextChunk()) {
+      const chunk = data.subarray(id * chunkLength, (id + 1) * chunkLength);
+      outputs[id] = onResponse(
+        id,
+        processChunk(makeRequest(id, EMPTY_BUFFER), chunk),
+      );
+      await yieldToMain(); // eslint-disable-line no-await-in-loop
+    }
+  }
+
+  async function processInWorker(handle: WorkerHandle): Promise<void> {
+    for (let id = nextChunk(); id !== undefined; id = nextChunk()) {
+      const { buffer } = data.slice(id * chunkLength, (id + 1) * chunkLength);
+      // eslint-disable-next-line no-await-in-loop -- one chunk at a time per loop
+      const response = await handle.request(makeRequest(id, buffer), [buffer]);
+      outputs[id] = onResponse(id, response);
+    }
   }
 
   try {
@@ -255,34 +290,19 @@ async function prepareInWorkers(
       handles.push(new WorkerHandle()); // inside `try`, to terminate workers if one fails to start
     }
 
-    const bounds = mergeBounds(
-      await processChunks(
-        (id, buffer) => ({ type: 'bounds', id, buffer }),
-        (_, response) =>
-          response.type === 'bounds' ? response.bounds : undefined,
+    await Promise.all([
+      guard(processOnMainThread),
+      ...handles.flatMap((handle) =>
+        Array.from({ length: MAX_PENDING_CHUNKS }, async () =>
+          guard(async () => processInWorker(handle)),
+        ),
       ),
-    );
+    ]);
 
-    if (!withHalfFloats) {
-      return { bounds };
-    }
-
-    const normalization = getHalfFloatNormalization(bounds);
-    const chunks = await processChunks(
-      (id, buffer) => ({ type: 'halfFloats', id, buffer, normalization }),
-      (id, response): HalfFloatChunk => {
-        if (response.type !== 'halfFloats') {
-          throw new Error('Unexpected response');
-        }
-        return {
-          start: (id * chunkLength) / sliceLength,
-          values: new Uint16Array(response.buffer),
-        };
-      },
-    );
-
-    return { bounds, halfFloats: { chunks, ...normalization } };
+    signal?.throwIfAborted();
+    return outputs;
   } finally {
+    stopped = true;
     for (const handle of handles) {
       handle.terminate();
     }
