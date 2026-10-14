@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   getNextFrame,
   getPrefetchCount,
   getUpcomingFrames,
   initPlaybackClock,
+  MAX_SKIPPED_FRAMES,
   type PlaybackClock,
   type PlaybackMode,
   type PlaybackTiming,
@@ -195,6 +196,14 @@ describe('tickPlayback', () => {
     expect(res.clock.cursor).toBe(clock.cursor);
     expect(res.clock.frameTime).toBe(0);
     expect(res.upcoming).toStrictEqual([5, 6, 7, 8, 9]);
+  });
+
+  it('should bound number of frames checked after a long stall in real-time mode', () => {
+    const isReady = vi.fn<(val: number) => boolean>(() => false);
+    const longSettings = { ...settings('realtime'), length: 1e6 };
+    tickPlayback(clock, 600_000, longSettings, isReady); // 10 min late
+
+    expect(isReady).toHaveBeenCalledTimes(MAX_SKIPPED_FRAMES);
   });
 
   it('should keep prefetching late frames in real-time mode until one is shown', () => {

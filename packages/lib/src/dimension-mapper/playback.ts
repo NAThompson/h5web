@@ -28,6 +28,9 @@ const MAX_PREFETCH_COUNT = 8;
 const MIN_PREFETCH_COUNT = 2;
 const PREFETCH_SECONDS = 0.5; // how far ahead of the current frame to prefetch
 
+// Max number of frames skipped at once in real-time mode
+export const MAX_SKIPPED_FRAMES = 64;
+
 // Re-check readiness this often while waiting for data
 export const READY_POLL_INTERVAL = 25; // ms
 
@@ -157,7 +160,14 @@ export function tickPlayback(
   const interval = 1000 / clampFps(fps);
   const prefetchCount = getPrefetchCount(fps);
 
-  const elapsed = now - clock.frameTime;
+  // In real-time mode, don't lag further behind than a number of frames (e.g. after a long stall),
+  // to keep the number of frames to check for readiness bounded
+  const startTime =
+    timing === 'realtime'
+      ? Math.max(clock.frameTime, now - MAX_SKIPPED_FRAMES * interval)
+      : clock.frameTime;
+
+  const elapsed = now - startTime;
   const dueSteps = Math.floor(elapsed / interval);
 
   if (dueSteps < 1) {
@@ -171,7 +181,7 @@ export function tickPlayback(
     };
   }
 
-  // In real-time mode, consider all frames that are due (capped to one full cycle)
+  // In real-time mode, consider all frames that are due (and at most one full cycle)
   const maxSteps =
     timing === 'realtime' ? Math.min(dueSteps, settings.length * 2) : 1;
   const candidates = getUpcomingFrames(
@@ -233,7 +243,7 @@ export function tickPlayback(
   }
 
   const isLate = timing === 'wait' && elapsed >= 2 * interval;
-  const frameTime = isLate ? now : clock.frameTime + steps * interval;
+  const frameTime = isLate ? now : startTime + steps * interval;
 
   return {
     clock: {
