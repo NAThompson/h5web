@@ -41,10 +41,7 @@ function IsosurfacesControl(props: Props) {
 
   return (
     <Popover
-      label="Isosurfaces"
-      btnLabel={
-        levels.length > 0 ? `Isosurfaces (${levels.length})` : 'Isosurfaces'
-      }
+      label="Isosurfaces" // constant width: a wider button would move to the overflow menu and close
       Icon={MdLayers}
     >
       <div className={styles.header}>
