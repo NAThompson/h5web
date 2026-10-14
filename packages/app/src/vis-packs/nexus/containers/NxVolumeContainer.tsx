@@ -12,6 +12,7 @@ import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
+import { getVolumeDefaultSlice } from '../utils';
 
 /*
  * The last three dimensions of the signal form the volume (`[z, y, x]`); leading dimensions,
@@ -38,11 +39,15 @@ function NxVolumeContainer(props: VisContainerProps) {
   assertMinDims(signalDef.dataset, 3);
 
   const { dims } = signalDef.dataset.shape;
+  const volumeDefaultSlice = useMemo(
+    () => defaultSlice && getVolumeDefaultSlice(defaultSlice),
+    [defaultSlice],
+  );
   const [dimMapping, setDimMapping] = useDimMappingState({
     dims,
     axesCount: 0,
     lockedDimsCount: 3,
-    defaultSlice,
+    defaultSlice: volumeDefaultSlice,
   });
 
   const config = useVolumeConfig({ scaleType: silxStyle.signalScaleType });
