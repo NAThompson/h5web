@@ -7,11 +7,11 @@ import {
 import { type ReactElement } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { type DefaultSlice } from '../../nexus/models';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import GeometryFetcher, { type GeometryData } from './GeometryFetcher';
 import {
@@ -45,7 +45,7 @@ function GeometryVisContainer(props: Props) {
 
   const selection = getSliceSelection(dimMapping);
   const dimHints = useDimHints(entity);
-  const canSliceFast = useValuesInCache(entity);
+  const slicingProps = useDatasetSlicingProps(entity);
 
   return (
     <>
@@ -55,7 +55,7 @@ function GeometryVisContainer(props: Props) {
           dims={dims}
           dimHints={dimHints}
           dimMapping={dimMapping}
-          canSliceFast={canSliceFast}
+          {...slicingProps}
           onChange={setDimMapping}
         />
       )}
