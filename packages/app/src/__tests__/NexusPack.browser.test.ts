@@ -23,7 +23,11 @@ test('visualize NXdata group with explicit signal interpretation', async () => {
 
   // Signal with "image" interpretation
   await selectNexusExplorerNode('image');
-  expect(getVisTabs()).toEqual([NxDataVis.NxLine, NxDataVis.NxHeatmap]);
+  expect(getVisTabs()).toEqual([
+    NxDataVis.NxLine,
+    NxDataVis.NxVolume,
+    NxDataVis.NxHeatmap,
+  ]);
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
   expect(
     page.getByRole('figure', { name: 'Interference fringes' }), // `long_name` attribute
@@ -170,7 +174,11 @@ test('handle unknown/incompatible interpretation gracefully', async () => {
 
   // Signal with unknown interpretation
   await selectNexusExplorerNode('interpretation_unknown');
-  expect(getVisTabs()).toEqual([NxDataVis.NxLine, NxDataVis.NxHeatmap]); // fallback based on number of dimensions
+  expect(getVisTabs()).toEqual([
+    NxDataVis.NxLine,
+    NxDataVis.NxVolume,
+    NxDataVis.NxHeatmap,
+  ]); // fallback based on number of dimensions
   expect(page.getByRole('figure', { name: 'fourD' })).toBeVisible(); // signal name
 
   // Signal with too few dimensions for "rgb-image" interpretation

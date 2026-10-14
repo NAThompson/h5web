@@ -373,6 +373,13 @@ export const mockValues = {
   threeD_fermi,
   twoD_contours,
   K: () => ndarray(kGrid()),
+  // Bin edges around the points of `K`
+  K_edges: () => {
+    const half = Math.PI / (K_SIZE - 1);
+    return ndarray(
+      range(K_SIZE + 1).map((i) => -Math.PI - half + 2 * half * i),
+    );
+  },
   fourD: () => {
     const { data: dataThreeD } = threeD();
     return ndarray(
