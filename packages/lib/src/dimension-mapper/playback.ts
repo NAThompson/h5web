@@ -208,11 +208,14 @@ export function tickPlayback(
      * may never finish loading either), until one of them can be shown. Only drop them if they
      * are no longer part of the sequence (e.g. after changing the mode). */
     const candidateValues = new Set(toValues(candidates));
-    const isWindowValid = clock.window?.some((val) => candidateValues.has(val));
-    const window = isWindowValid && clock.window ? clock.window : upcoming;
+    const validWindow = clock.window?.filter((val) => candidateValues.has(val));
+    const window = validWindow?.length ? validWindow : upcoming;
 
     return {
-      clock: window === clock.window ? clock : { ...clock, window },
+      clock:
+        window.join(',') === clock.window?.join(',')
+          ? clock
+          : { ...clock, window },
       ended: false,
       upcoming: window,
       delay: READY_POLL_INTERVAL,

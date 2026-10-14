@@ -207,6 +207,17 @@ describe('tickPlayback', () => {
     expect(third.upcoming).toStrictEqual([9, 10, 11, 12, 13]);
   });
 
+  it('should drop prefetched frames that are no longer in sequence', () => {
+    const strideClock = { ...clock, window: [1, 2, 3, 4, 5] };
+    const res = tickPlayback(
+      strideClock,
+      150,
+      { ...settings('realtime'), stride: 2 },
+      noneReady,
+    );
+    expect(res.upcoming).toStrictEqual([2, 4]);
+  });
+
   it('should drop prefetched frames no longer in sequence in real-time mode', () => {
     const staleClock = { ...clock, window: [42] };
     const res = tickPlayback(
