@@ -11,7 +11,8 @@ export interface CurveBuffers {
 
 /**
  * Build the segments joining consecutive points of a curve, and the list of its points.
- * Points with a non-finite coordinate (e.g. `NaN`) are left out, leaving gaps in the curve.
+ * Points with a non-finite coordinate (e.g. `NaN`), or for which `isValid` returns `false`
+ * (e.g. missing value of the scalar field), are left out, leaving gaps in the curve.
  * Curves without Z coordinates lie in the `z = 0` plane.
  */
 export function buildCurveBuffers(
@@ -19,6 +20,7 @@ export function buildCurveBuffers(
   y: NumArray,
   z: NumArray | undefined,
   toWorld: WorldTransform,
+  isValid?: (index: number) => boolean,
 ): CurveBuffers {
   const count = Math.min(x.length, y.length, z?.length ?? Infinity);
 
@@ -31,7 +33,8 @@ export function buildCurveBuffers(
     if (
       Number.isFinite(x[i]) &&
       Number.isFinite(y[i]) &&
-      Number.isFinite(zVal)
+      Number.isFinite(zVal) &&
+      (!isValid || isValid(i))
     ) {
       positions.set(toWorld(x[i], y[i], zVal), i * 3);
       valid[i] = 1;

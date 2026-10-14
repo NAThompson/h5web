@@ -23,7 +23,7 @@ A numeric dataset `F` is a scalar field on a curve or a surface if it has a stri
   - otherwise, coordinates with `axis="T"` are left out, and exactly three must remain: they are X, Y and Z in the order listed.
 - **Kind of geometry** - given by the rank of the coordinates (all three must have the same shape):
   - 1D coordinates of shape `(N,)`: **curve**, a polyline through the N points in index order;
-  - 2D coordinates of shape `(Nu, Nv)`: **parametric surface** x(u, v), y(u, v), z(u, v), triangulated along the grid.
+  - 2D coordinates of shape `(Nu, Nv)`: **parametric surface** x(u, v), y(u, v), z(u, v), triangulated along the grid (at least 2 × 2).
 - **Extra dimensions**: `F` may have leading dimensions in front of the geometry dimensions, e.g. `(Nt, Nu, Nv)` for a field that evolves over time on a fixed surface. They are sliced with the dimension mapper.
 - **Missing values**: `NaN` (or a CF `_FillValue`, `valid_min`/`valid_max`/`valid_range` value) in coordinates or in the field leaves a gap in a curve and a hole in a surface. Packed NetCDF data (`scale_factor`, `add_offset`) is unpacked.
 - **Labels**: axis labels are the coordinates' `long_name` (or dataset name), followed by their `units` in parentheses.

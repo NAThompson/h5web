@@ -45,6 +45,19 @@ describe('buildCurveBuffers', () => {
     expect([...buffers.pointIndices]).toEqual([0, 1, 3, 5]);
   });
 
+  it('should leave gaps at invalid points', () => {
+    const buffers = buildCurveBuffers(
+      [0, 1, 2, 3],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      identity,
+      (i) => i !== 2,
+    );
+
+    expect([...buffers.segmentIndices]).toEqual([0, 1]);
+    expect([...buffers.pointIndices]).toEqual([0, 1, 3]);
+  });
+
   it('should put curve in z = 0 plane without Z coordinates', () => {
     const buffers = buildCurveBuffers([0, 1], [2, 3], undefined, identity);
     expect([...buffers.pointPositions]).toEqual([0, 2, 0, 1, 3, 0]);

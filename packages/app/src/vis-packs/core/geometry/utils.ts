@@ -204,6 +204,11 @@ async function findCoordinatesGeometry(
     return undefined;
   }
 
+  // Surfaces need at least two rows and two columns to have any triangle
+  if (rank === 2 && x.shape.dims.some((dim) => dim < 2)) {
+    return undefined;
+  }
+
   const coords = await Promise.all(
     xyz.map(async (c) => getCoordinateDef(c, ctx)),
   );

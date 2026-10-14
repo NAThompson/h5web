@@ -334,6 +334,20 @@ describe('findGeometry with `coordinates` attribute', () => {
     await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
   });
 
+  it('should not detect surface with a single row or column', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('x', [1, 5]),
+        coord('y', [1, 5]),
+        coord('z', [1, 5]),
+        field('K', [1, 5], { coordinates: 'x y z' }),
+      ],
+      '/K',
+    );
+
+    await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+  });
+
   it('should not detect geometry with incomplete `axis` attributes', async () => {
     const { ctx, entity } = setup(
       [

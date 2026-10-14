@@ -99,9 +99,17 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
 
   const [w, h, d] = getBoxSize(domains, keepRatio);
 
+  // Missing values of the field (`NaN`, ignored values) leave gaps, as missing coordinates do
   const buffers = useMemo(
-    () => buildCurveBuffers(x, y, z, getWorldTransform(domains, [w, h, d])),
-    [x, y, z, domains, w, h, d],
+    () =>
+      buildCurveBuffers(
+        x,
+        y,
+        z,
+        getWorldTransform(domains, [w, h, d]),
+        (i) => Number.isFinite(field[i]) && !ignoreValue?.(field[i]),
+      ),
+    [x, y, z, field, ignoreValue, domains, w, h, d],
   );
 
   const colorLut = useMemo(
