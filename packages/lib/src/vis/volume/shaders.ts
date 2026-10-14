@@ -44,6 +44,7 @@ export function getVolumeFragmentShader(
     uniform float oneOverRange;
     uniform float gammaExponent;
     uniform float normRevertFactor;
+    uniform float valueOffset;
 
     uniform float samplesPerVoxel;
     uniform float opacity;
@@ -72,7 +73,7 @@ export function getVolumeFragmentShader(
 
     // Normalized value in [0, 1], or -1 for NaN and values unsupported by the scale
     float sampleVolume(vec3 p) {
-      float value = texture(volume, p).r * normRevertFactor;
+      float value = texture(volume, p).r * normRevertFactor + valueOffset;
       if (isnan(value) || !isSupported(value)) {
         return -1.;
       }
