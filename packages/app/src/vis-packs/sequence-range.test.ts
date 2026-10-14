@@ -14,7 +14,7 @@ function toRequest(mapping: (number | 'x' | 'y' | null)[]) {
 }
 
 describe('getSliceEntries', () => {
-  it('should split sequence along first kept dimension without copying', () => {
+  it('should split sequence along first kept dimension', () => {
     // Sequence of D0 slices of `[0, 'y', 'x']`: whole cube
     const entries = getSliceEntries(
       cube,
@@ -31,7 +31,7 @@ describe('getSliceEntries', () => {
     expect([...(entries[1].value as Float64Array)]).toStrictEqual(
       Array.from({ length: 12 }, (_, i) => 12 + i),
     );
-    expect((entries[1].value as Float64Array).buffer).toBe(cube.buffer);
+    expect((entries[1].value as Float64Array).buffer).not.toBe(cube.buffer); // copy
   });
 
   it('should gather slices along inner dimension', () => {

@@ -384,18 +384,17 @@ function extractSlice(
 ): unknown {
   if (before === 1) {
     const start = index * after;
-    return Array.isArray(value)
-      ? value.slice(start, start + after)
-      : value.subarray(start, start + after); // view: no copy
+    // Copy (rather than view), so cached slices don't retain the whole sequence's buffer
+    return value.slice(start, start + after);
   }
 
   // Gather strided elements directly into output (no intermediate chunks)
-  const result: { [i: number]: unknown } = Array.isArray(value)
+  const result: Record<number, unknown> = Array.isArray(value)
     ? Array.from({ length: before * after })
     : new (
         value.constructor as new (n: number) => Exclude<Sliceable, unknown[]>
       )(before * after);
-  const source = value as { [i: number]: unknown };
+  const source = value as Record<number, unknown>;
 
   for (let b = 0; b < before; b += 1) {
     const start = (b * length + index) * after;
