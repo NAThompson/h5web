@@ -79,13 +79,17 @@ test('loop, bounce or stop at the end', async () => {
   // Bounce: from the last slice back down
   await slider.click();
   await userEvent.keyboard('{End}');
-  await (await openSettings()).getByLabelText('Bounce').click();
+  const bounceDialog = await openSettings();
+  await bounceDialog.getByLabelText('Bounce').click();
+  await bounceDialog.getByLabelText('Slices per second').fill('2'); // slow enough not to miss slice 7
   await page.getByRole('button', { name: 'Play D0' }).click();
   await expect.poll(getSliderValue).toBe(7);
   await page.getByRole('button', { name: 'Pause D0' }).click();
 
   // Once: restart from the first slice and stop at the last one
-  await (await openSettings()).getByLabelText('Once').click();
+  const onceDialog = await openSettings();
+  await onceDialog.getByLabelText('Once').click();
+  await onceDialog.getByLabelText('Slices per second').fill('60');
   await slider.click();
   await userEvent.keyboard('{End}');
   await page.getByRole('button', { name: 'Play D0' }).click();
