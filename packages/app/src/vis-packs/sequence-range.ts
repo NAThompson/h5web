@@ -382,27 +382,27 @@ function extractSlice(
   before: number,
   after: number,
 ): unknown {
-  const chunks = Array.from({ length: before }, (_, b) => {
-    const start = (b * length + index) * after;
+  if (before === 1) {
+    const start = index * after;
     return Array.isArray(value)
       ? value.slice(start, start + after)
       : value.subarray(start, start + after); // view: no copy
-  });
-
-  if (chunks.length === 1) {
-    return chunks[0];
   }
 
-  if (Array.isArray(value)) {
-    return chunks.flat(1);
+  // Gather strided elements directly into output (no intermediate chunks)
+  const result: { [i: number]: unknown } = Array.isArray(value)
+    ? Array.from({ length: before * after })
+    : new (
+        value.constructor as new (n: number) => Exclude<Sliceable, unknown[]>
+      )(before * after);
+  const source = value as { [i: number]: unknown };
+
+  for (let b = 0; b < before; b += 1) {
+    const start = (b * length + index) * after;
+    for (let a = 0; a < after; a += 1) {
+      result[b * after + a] = source[start + a];
+    }
   }
 
-  const TypedArray = value.constructor as new (
-    n: number,
-  ) => Exclude<Sliceable, unknown[]>;
-  const result = new TypedArray(before * after);
-  chunks.forEach((chunk, b) => {
-    (result as Uint8Array).set(chunk as Uint8Array, b * after);
-  });
   return result;
 }
