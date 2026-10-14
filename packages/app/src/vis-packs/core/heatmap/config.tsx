@@ -60,8 +60,9 @@ export interface HeatmapConfig {
   contourCount: number;
   setContourCount: (contourCount: number) => void;
 
-  contourLevels: number[];
-  setContourLevels: (contourLevels: number[]) => void;
+  /* Custom levels only apply to the dataset they were entered for */
+  contourLevels: { path: string; levels: number[] } | undefined;
+  setContourLevels: (path: string, levels: number[]) => void;
 
   contourColorMode: ContourColorMode;
   setContourColorMode: (contourColorMode: ContourColorMode) => void;
@@ -119,8 +120,9 @@ function createHeatmapConfigStore() {
         contourCount: 8,
         setContourCount: (contourCount) => set({ contourCount }),
 
-        contourLevels: [],
-        setContourLevels: (contourLevels) => set({ contourLevels }),
+        contourLevels: undefined,
+        setContourLevels: (path, levels) =>
+          set({ contourLevels: { path, levels } }),
 
         contourColorMode: ContourColorMode.Single,
         setContourColorMode: (contourColorMode) => set({ contourColorMode }),
@@ -135,7 +137,8 @@ function createHeatmapConfigStore() {
         name: 'h5web:heatmap',
         version: 12,
         // 3D mode is opt-in for the session: don't open datasets in 3D after a reload
-        partialize: ({ surface, ...state }) => state,
+        // Custom contour levels are dataset-specific: don't restore them after a reload either
+        partialize: ({ surface, contourLevels, ...state }) => state,
       },
     ),
   );

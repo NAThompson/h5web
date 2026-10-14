@@ -24,6 +24,16 @@ interface Props {
   onShowLabelsChange: (showLabels: boolean) => void;
 }
 
+function parseCount(text: string): number | undefined {
+  const val = Number(text);
+  return text.trim() !== '' &&
+    Number.isInteger(val) &&
+    val >= 1 &&
+    val <= MAX_COUNT
+    ? val
+    : undefined;
+}
+
 function formatLevels(levels: number[]): string {
   return levels.map((level) => formatTooltipVal(level)).join(', ');
 }
@@ -46,6 +56,7 @@ function ContoursControl(props: Props) {
   } = props;
 
   const [draft, setDraft] = useState<string>();
+  const [countDraft, setCountDraft] = useState<string>();
   const levelsText = draft ?? formatLevels(customLevels);
 
   function commitDraft() {
@@ -102,11 +113,20 @@ function ContoursControl(props: Props) {
             aria-label="Number of levels"
             min={1}
             max={MAX_COUNT}
-            value={count}
+            value={countDraft ?? count}
             onChange={(evt) => {
-              const val = evt.currentTarget.valueAsNumber;
-              if (Number.isInteger(val) && val >= 1 && val <= MAX_COUNT) {
+              // Let the input be emptied or hold invalid text while typing; apply valid counts right away
+              const text = evt.currentTarget.value;
+              setCountDraft(text);
+              const val = parseCount(text);
+              if (val !== undefined) {
                 onCountChange(val);
+              }
+            }}
+            onBlur={() => setCountDraft(undefined)}
+            onKeyDown={(evt) => {
+              if (evt.key === 'Enter') {
+                setCountDraft(undefined);
               }
             }}
           />

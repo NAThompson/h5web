@@ -46,6 +46,8 @@ interface Props {
   exportEntries?: ExportEntry[];
   /* Automatic contour levels; contour controls are shown only when provided */
   autoContourLevels?: number[];
+  customContourLevels?: number[];
+  onCustomContourLevelsChange?: (levels: number[]) => void;
 }
 
 function HeatmapToolbar(props: Props) {
@@ -58,6 +60,8 @@ function HeatmapToolbar(props: Props) {
     config,
     exportEntries,
     autoContourLevels,
+    customContourLevels = [],
+    onCustomContourLevelsChange = () => {},
   } = props;
   const {
     customDomain,
@@ -161,14 +165,14 @@ function HeatmapToolbar(props: Props) {
           <ContoursControl
             mode={config.contourMode}
             count={config.contourCount}
-            customLevels={config.contourLevels}
+            customLevels={customContourLevels}
             autoLevels={autoContourLevels}
             colorMode={config.contourColorMode}
             color={config.contourColor}
             showLabels={config.contourLabels}
             onModeChange={config.setContourMode}
             onCountChange={config.setContourCount}
-            onCustomLevelsChange={config.setContourLevels}
+            onCustomLevelsChange={onCustomContourLevelsChange}
             onColorModeChange={config.setContourColorMode}
             onColorChange={config.setContourColor}
             onShowLabelsChange={config.setContourLabels}

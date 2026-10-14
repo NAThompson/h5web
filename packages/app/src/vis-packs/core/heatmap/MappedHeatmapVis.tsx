@@ -78,7 +78,8 @@ function MappedHeatmapVis(props: Props) {
     shading,
     contourMode,
     contourCount,
-    contourLevels: customContourLevels,
+    contourLevels: storedContourLevels,
+    setContourLevels,
     contourColorMode,
     contourColor,
     contourLabels,
@@ -122,6 +123,11 @@ function MappedHeatmapVis(props: Props) {
     () => getContourLevels(safeDomain, scaleType, contourCount),
     [safeDomain, scaleType, contourCount],
   );
+  // Custom levels entered for another dataset don't apply: start again from automatic levels
+  const customContourLevels =
+    storedContourLevels?.path === dataset.path
+      ? storedContourLevels.levels
+      : autoContourLevels;
   const contourLevels =
     contourMode === ContourMode.Auto
       ? autoContourLevels
@@ -150,6 +156,10 @@ function MappedHeatmapVis(props: Props) {
             config={config}
             exportEntries={exportEntries}
             autoContourLevels={autoContourLevels}
+            customContourLevels={customContourLevels}
+            onCustomContourLevelsChange={(levels) =>
+              setContourLevels(dataset.path, levels)
+            }
           />,
           toolbarContainer,
         )}
