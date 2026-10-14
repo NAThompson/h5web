@@ -176,6 +176,31 @@ test('keep range of whole sequence during playback', async () => {
   expect(ticks.has(getOrdinateTicks())).toBe(true);
 });
 
+test('keep range of sequence when switching range setting back and forth', async () => {
+  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
+  installFakeTimers();
+
+  await getPlayBtn().click();
+  await advance(300);
+  await getPlayBtn().click(); // pause on slice with smaller amplitude
+  await advance(100);
+  const sequenceTicks = getOrdinateTicks();
+
+  await setSettings({ option: 'Range: Each slice' });
+  await advance(100);
+  await setSettings({ option: 'Range: Whole sequence' });
+  await advance(100);
+  expect(getOrdinateTicks()).toBe(sequenceTicks);
+
+  await getPlayBtn().click();
+  const ticks = new Set<string | null | undefined>();
+  for (let i = 0; i < 9; i += 1) {
+    await advance(100); // eslint-disable-line no-await-in-loop -- sequential frames
+    ticks.add(getOrdinateTicks());
+  }
+  expect([...ticks]).toStrictEqual([sequenceTicks]);
+});
+
 test('autoscale each slice during playback when asked', async () => {
   await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
   await setSettings({ option: 'Range: Each slice' });
