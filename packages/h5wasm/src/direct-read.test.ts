@@ -211,6 +211,20 @@ describe('direct reads', () => {
     expect(reads).toHaveLength(Math.ceil(SHAPE[0] / 3));
   });
 
+  it('should throttle progress reports', async () => {
+    const plan = planDirectRead(
+      getDataset('contiguous'),
+      SHAPE.map((dim) => [0, dim]),
+      { minBytes: 0, maxRequestBytes: 1000 }, // 96 requests
+    );
+    assertDefined(plan);
+
+    const onProgress = vi.fn<(fraction: number) => void>();
+    await executeDirectRead(plan, reader, undefined, onProgress);
+    expect(onProgress.mock.calls.length).toBeLessThan(10);
+    expect(onProgress).toHaveBeenLastCalledWith(1);
+  });
+
   it('should split large reads into several requests', async () => {
     const result = await readDirectly(
       'contiguous',
@@ -277,6 +291,28 @@ describe('direct reads', () => {
     expect(planDirectRead(getDataset('slabs'), all, opts)).toBeDefined(); // split into requests
   });
 
+  it('should not get storage information of datasets that are left to HDF5', () => {
+    const all = SHAPE.map<[number, number]>((dim) => [0, dim]);
+    const row: [number, number][] = [
+      [0, 20],
+      [4, 5],
+      [6, 7],
+    ];
+    const getStorage = vi.fn<() => h5wasm.Dataset['storage']>(
+      () => getDataset('slabs').storage,
+    );
+
+    planDirectRead(getDataset('compressed'), all, { minBytes: 0, getStorage });
+    planDirectRead(getDataset('slabs'), row, { minBytes: 0, getStorage });
+    planDirectRead(getDataset('chunked'), all, { getStorage }); // too small
+    expect(getStorage).not.toHaveBeenCalled();
+
+    expect(
+      planDirectRead(getDataset('slabs'), all, { minBytes: 0, getStorage }),
+    ).toBeDefined();
+    expect(getStorage).toHaveBeenCalledOnce();
+  });
+
   it('should leave small selections to HDF5', () => {
     const all = SHAPE.map<[number, number]>((dim) => [0, dim]);
     expect(planDirectRead(getDataset('chunked'), all)).toBeUndefined();
@@ -302,10 +338,28 @@ describe('direct reads', () => {
 
     expect(checkDirectRead(getDataset('chunked'), ranges, value)).toBe(true);
 
-    const corrupted = Float32Array.from(value as Float32Array);
-    corrupted[corrupted.length - 1] += 1;
-    expect(checkDirectRead(getDataset('chunked'), ranges, corrupted)).toBe(
-      false,
+    // Corruption of the last value, or of a chunk in the middle (e.g. wrong chunk address)
+    const middle = Math.round(value.length / 3);
+    for (const [from, to] of [
+      [value.length - 1, value.length],
+      [middle - 500, middle + 500],
+    ]) {
+      const corrupted = Float32Array.from(value as Float32Array);
+      corrupted.fill(-1, from, to);
+      expect(checkDirectRead(getDataset('chunked'), ranges, corrupted)).toBe(
+        false,
+      );
+    }
+
+    // Also with partial selections
+    const partial: [number, number][] = [
+      [2, 19],
+      [3, 29],
+      [5, 38],
+    ];
+    const expected = getDataset('chunked').slice(partial) as Float32Array;
+    expect(checkDirectRead(getDataset('chunked'), partial, expected)).toBe(
+      true,
     );
   });
 

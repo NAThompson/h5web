@@ -4,6 +4,8 @@ import { type Dataset as H5WasmDataset } from 'h5wasm';
 
 import { checkFileVersion, type FileVersion } from './lazy-file';
 
+type DatasetStorage = H5WasmDataset['storage'];
+
 /*
  * Large numeric selections of unfiltered datasets are read straight from the file, bypassing
  * HDF5: the location of the raw data (contiguous offset, or address of each chunk) is obtained
@@ -16,6 +18,7 @@ import { checkFileVersion, type FileVersion } from './lazy-file';
 export const MIN_DIRECT_READ_BYTES = 16 * 1024 * 1024; // smaller selections are read with HDF5
 export const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
 export const READ_CONCURRENCY = 4;
+const PROGRESS_INTERVAL = 50; // ms, i.e. at most 20 progress reports per second
 const MAX_READ_AMPLIFICATION = 1.5; // max ratio of bytes fetched to bytes selected
 const MIN_AVG_RUN_BYTES = 64 * 1024; // contiguous layout: avoid many tiny requests
 
@@ -162,25 +165,26 @@ function product(values: number[]): number {
 export function planDirectRead(
   h5wDataset: H5WasmDataset,
   ranges: [number, number][],
-  opts: { minBytes?: number; maxRequestBytes?: number } = {},
+  opts: {
+    minBytes?: number;
+    maxRequestBytes?: number;
+    getStorage?: () => DatasetStorage; // e.g. to cache storage information per dataset
+  } = {},
 ): DirectReadPlan | undefined {
   const {
     minBytes = MIN_DIRECT_READ_BYTES,
     maxRequestBytes = MAX_REQUEST_BYTES,
+    getStorage = () => h5wDataset.storage,
   } = opts;
-
-  if (!('storage' in h5wDataset)) {
-    return undefined; // h5wasm too old to report where data is stored
-  }
 
   const { type, size, signed, littleEndian, shape } = h5wDataset.metadata;
   const Constructor = getConstructor(type, size, signed);
   if (
+    !('storage' in h5wDataset) || // h5wasm too old to report where data is stored
     !Constructor ||
     !littleEndian ||
-    !shape ||
-    shape.length === 0 ||
-    shape.length !== ranges.length
+    shape?.length !== ranges.length ||
+    shape.length === 0
   ) {
     return undefined;
   }
@@ -192,15 +196,48 @@ export function planDirectRead(
     return undefined;
   }
 
-  const { storage } = h5wDataset;
+  /* Rule out datasets that can't be read directly before getting their storage information,
+   * which requires walking the entire chunk index (e.g. hundreds of thousands of chunks,
+   * fetched remotely) */
+  if (
+    h5wDataset.filters.length > 0 ||
+    !isChunkedReadWorthwhile(
+      shape,
+      h5wDataset.metadata.chunks,
+      ranges,
+      size,
+      selectedBytes,
+      maxRequestBytes,
+    )
+  ) {
+    return undefined;
+  }
+
+  const ops = planFromStorage(
+    getStorage(),
+    shape,
+    ranges,
+    size,
+    selectedBytes,
+    maxRequestBytes,
+  );
+  return ops && { itemSize: size, outShape, outStart, Constructor, ...ops };
+}
+
+function planFromStorage(
+  storage: DatasetStorage,
+  shape: number[],
+  ranges: [number, number][],
+  itemSize: number,
+  selectedBytes: number,
+  maxRequestBytes: number,
+): Pick<DirectReadPlan, 'ops' | 'totalBytes'> | undefined {
   if (storage.nfilters > 0) {
     return undefined;
   }
 
-  const base = { itemSize: size, outShape, outStart, Constructor };
-
   if (storage.layout === 'contiguous' && storage.offset !== null) {
-    if (storage.storage_size < product(shape) * size) {
+    if (storage.storage_size < product(shape) * itemSize) {
       return undefined; // not (fully) allocated
     }
 
@@ -208,10 +245,10 @@ export function planDirectRead(
       storage.offset,
       shape,
       ranges,
-      size,
+      itemSize,
       maxRequestBytes,
     );
-    return ops && { ...base, ops, totalBytes: selectedBytes };
+    return ops && { ops, totalBytes: selectedBytes };
   }
 
   if (storage.layout === 'chunked' && storage.chunks) {
@@ -219,15 +256,70 @@ export function planDirectRead(
       storage.chunks,
       shape,
       ranges,
-      size,
+      itemSize,
       maxRequestBytes,
     );
     return plan && plan.totalBytes <= selectedBytes * MAX_READ_AMPLIFICATION
-      ? { ...base, ...plan }
+      ? plan
       : undefined;
   }
 
   return undefined;
+}
+
+/* Whether chunks of a dataset map to contiguous bytes of the output, so they can be read in
+ * place: all dimensions but the first must be selected in full and fit in a single chunk */
+function canReadChunksInPlace(
+  shape: number[],
+  chunkShape: number[],
+  ranges: [number, number][],
+): boolean {
+  return ranges.every(
+    ([start, stop], d) =>
+      d === 0 ||
+      (start === 0 && stop === shape[d] && chunkShape[d] === shape[d]),
+  );
+}
+
+/* Whether reading the chunks that intersect the selection fetches few enough bytes,
+ * in requests of acceptable size */
+function isChunkedReadWorthwhile(
+  shape: number[],
+  chunkShape: number[] | null, // `null` if not chunked
+
+  ranges: [number, number][],
+  itemSize: number,
+  selectedBytes: number,
+  maxRequestBytes: number,
+): boolean {
+  if (!chunkShape) {
+    return true;
+  }
+
+  if (chunkShape.length !== shape.length) {
+    return false;
+  }
+
+  if (canReadChunksInPlace(shape, chunkShape, ranges)) {
+    return true; // only selected rows are read
+  }
+
+  const chunkBytes = product(chunkShape) * itemSize;
+  if (chunkBytes > maxRequestBytes) {
+    return false; // don't fetch large chunks in one go (HDF5 reads only what's needed)
+  }
+
+  const fetchedBytes =
+    product(
+      ranges.map(
+        ([start, stop], d) =>
+          (Math.floor((stop - 1) / chunkShape[d]) -
+            Math.floor(start / chunkShape[d]) +
+            1) *
+          chunkShape[d],
+      ),
+    ) * itemSize;
+  return fetchedBytes <= selectedBytes * MAX_READ_AMPLIFICATION;
 }
 
 function planContiguous(
@@ -328,14 +420,8 @@ function planChunked(
     Math.floor((stop - 1) / chunkShape[d]),
   );
 
-  // Whether chunks map to contiguous bytes of the output, so they can be read in place:
-  // all dimensions but the first must be selected in full and fit in a single chunk
   const outShape = ranges.map(([start, stop]) => stop - start);
-  const inPlace = ranges.every(
-    ([start, stop], d) =>
-      d === 0 ||
-      (start === 0 && stop === shape[d] && chunkShape[d] === shape[d]),
-  );
+  const inPlace = canReadChunksInPlace(shape, chunkShape, ranges);
   const rowBytes = product(outShape.slice(1)) * itemSize;
 
   const ops: ReadOp[] = [];
@@ -460,6 +546,7 @@ export async function executeDirectRead(
 
   let next = 0;
   let doneBytes = 0;
+  let lastProgress = -Infinity;
   const controller = new AbortController();
   const anySignal = signal
     ? AbortSignal.any([signal, controller.signal])
@@ -491,7 +578,13 @@ export async function executeDirectRead(
       }
 
       doneBytes += op.length;
-      onProgress?.(doneBytes / totalBytes);
+
+      // Report progress at most every `PROGRESS_INTERVAL` ms (it is sent across threads)
+      const now = performance.now();
+      if (doneBytes === totalBytes || now - lastProgress >= PROGRESS_INTERVAL) {
+        lastProgress = now;
+        onProgress?.(doneBytes / totalBytes);
+      }
     }
   }
 
@@ -507,25 +600,25 @@ export async function executeDirectRead(
   return new Constructor(buffer);
 }
 
-/* Read the first few selected values with HDF5 and check that they match those read
- * directly, to guard against any misinterpretation of the storage information
- * (e.g. addresses relative to a user block). */
+const MAX_CHECK_SAMPLES = 16; // values checked across the selection, besides the first ones
+
+/* Read a few selected values with HDF5 and check that they match those read directly, to
+ * guard against any misinterpretation of the storage information (e.g. addresses relative
+ * to a user block): the first 16 values, the last one, and a few spread across the selection
+ * (and so across requests and chunks). Each check reads little more than one value. */
 export function checkDirectRead(
   h5wDataset: H5WasmDataset,
   ranges: [number, number][],
   value: ArrayLike<number | bigint>,
+  samples = MAX_CHECK_SAMPLES, // e.g. one per request, up to the maximum
 ): boolean {
+  const sampleCount = Math.max(1, Math.min(samples, MAX_CHECK_SAMPLES));
   const probeRanges = ranges.map<[number, number]>(([start, stop], d) =>
     d === ranges.length - 1
       ? [start, Math.min(stop, start + 16)]
       : [start, start + 1],
   );
   const probe = h5wDataset.slice(probeRanges) as ArrayLike<number | bigint>;
-
-  // Also check the last selected value, which comes from another request
-  const endProbe = h5wDataset.slice(
-    ranges.map(([, stop]) => [stop - 1, stop]),
-  ) as ArrayLike<number | bigint>;
 
   // eslint-disable-next-line unicorn/no-for-loop -- `probe` may be a plain array-like
   for (let i = 0; i < probe.length; i += 1) {
@@ -534,5 +627,24 @@ export function checkDirectRead(
     }
   }
 
-  return Object.is(endProbe[0], value[value.length - 1]);
+  const sizes = ranges.map(([start, stop]) => stop - start);
+  const positions = Array.from({ length: sampleCount }, (_, i) =>
+    Math.round(((i + 1) * (value.length - 1)) / sampleCount),
+  ); // last position is the last value
+
+  return positions.every((position) => {
+    // Coordinates of flat `position` in the selection (row-major)
+    let rest = position;
+    const coords = [...sizes].reverse().map((size) => {
+      const coord = rest % size;
+      rest = Math.floor(rest / size);
+      return coord;
+    });
+    coords.reverse();
+
+    const sample = h5wDataset.slice(
+      ranges.map(([start], d) => [start + coords[d], start + coords[d] + 1]),
+    ) as ArrayLike<number | bigint>;
+    return Object.is(sample[0], value[position]);
+  });
 }
