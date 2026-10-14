@@ -7,12 +7,11 @@ import {
 } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
-import { useSlicePrefetcher } from '../../prefetch';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { guessKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
@@ -44,6 +43,8 @@ function HeatmapVisContainer(props: VisContainerProps) {
   });
   const selection = getSliceSelection(dimMapping);
 
+  const slicingProps = useDatasetSlicingProps(entity);
+
   return (
     <>
       <DimensionMapper
@@ -51,9 +52,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
-        withPlaybackControls
-        prefetchSlices={useSlicePrefetcher(entity)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>

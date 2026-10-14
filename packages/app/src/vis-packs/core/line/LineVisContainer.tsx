@@ -7,12 +7,11 @@ import {
 import { useMemo } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
-import { useSlicePrefetcher } from '../../prefetch';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
@@ -37,10 +36,12 @@ function LineVisContainer(props: VisContainerProps) {
 
   const config = useLineConfig();
   const selection = getSliceSelection(lineMapping);
-  const isCached = useValuesInCache(entity);
-  const prefetch = useSlicePrefetcher(entity);
 
   const dimHints = useDimHints(entity);
+
+  const slicingProps = useDatasetSlicingProps(entity, (m) =>
+    getMultiPlotMapping(m, multiDim),
+  );
 
   return (
     <>
@@ -49,11 +50,7 @@ function LineVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimMapping={dimMapping}
-        canSliceFast={(m) => isCached(getMultiPlotMapping(m, multiDim))}
-        withPlaybackControls
-        prefetchSlices={(ms) => {
-          prefetch(ms.map((m) => getMultiPlotMapping(m, multiDim)));
-        }}
+        {...slicingProps}
         onChange={setDimMapping}
         multiDim={multiDim}
         onMultiDimChange={setMultiDim}

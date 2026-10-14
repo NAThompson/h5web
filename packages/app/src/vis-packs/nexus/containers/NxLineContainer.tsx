@@ -8,9 +8,10 @@ import { useLineConfig } from '../../core/line/config';
 import MappedLineVis from '../../core/line/MappedLineVis';
 import { getMultiPlotMapping } from '../../core/line/utils';
 import { type VisContainerProps } from '../../models';
+import { useNxSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericLikeNxData } from '../guards';
-import { useNxData, useNxSlicePrefetcher, useNxValuesCached } from '../hooks';
+import { useNxData } from '../hooks';
 import NxLineSignalPicker from '../NxLineSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
 import { areSameDims } from '../utils';
@@ -46,8 +47,6 @@ function NxLineContainer(props: VisContainerProps) {
   const axisLabels = axisDefs.map((def) => def?.label);
   const xDimIndex = dimMapping.indexOf('x');
 
-  const isCached = useNxValuesCached(nxData);
-  const prefetch = useNxSlicePrefetcher(nxData);
   const [isSignalVisible, setSignalVisible] = useState(true);
   const [auxVisible, setAuxVisible] = useState(auxDefs.map(() => true));
 
@@ -57,6 +56,10 @@ function NxLineContainer(props: VisContainerProps) {
       ? silxStyle.signalScaleType
       : ScaleType.Linear,
   });
+
+  const slicingProps = useNxSlicingProps(nxData, (m) =>
+    getMultiPlotMapping(m, multiDim),
+  );
 
   return (
     <>
@@ -77,11 +80,7 @@ function NxLineContainer(props: VisContainerProps) {
         dims={signalDims}
         dimHints={axisLabels}
         dimMapping={dimMapping}
-        canSliceFast={(m) => isCached(getMultiPlotMapping(m, multiDim))}
-        withPlaybackControls
-        prefetchSlices={(ms) => {
-          prefetch(ms.map((m) => getMultiPlotMapping(m, multiDim)));
-        }}
+        {...slicingProps}
         onChange={setDimMapping}
         multiDim={multiDim}
         onMultiDimChange={canMultiPlot ? setMultiDim : undefined}

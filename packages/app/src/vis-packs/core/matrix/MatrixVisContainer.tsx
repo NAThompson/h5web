@@ -6,10 +6,9 @@ import {
 } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../../models';
-import { useSlicePrefetcher } from '../../prefetch';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useMatrixConfig } from './config';
@@ -28,15 +27,15 @@ function MatrixVisContainer(props: VisContainerProps) {
   const config = useMatrixConfig();
   const selection = getSliceSelection(dimMapping);
 
+  const slicingProps = useDatasetSlicingProps(entity);
+
   return (
     <>
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
-        withPlaybackControls
-        prefetchSlices={useSlicePrefetcher(entity)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>

@@ -2,10 +2,9 @@ import { DimensionMapper, getSliceSelection } from '@h5web/lib';
 import { assertDataset, assertNonNullShape } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../../models';
-import { useSlicePrefetcher } from '../../prefetch';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { useScalarConfig } from './config';
 import MappedScalarVis from './MappedScalarVis';
@@ -24,8 +23,7 @@ function ScalarVisContainer(props: VisContainerProps) {
 
   const config = useScalarConfig();
   const selection = getSliceSelection(dimMapping);
-  const canSliceFast = useValuesInCache(entity);
-  const prefetchSlices = useSlicePrefetcher(entity);
+  const slicingProps = useDatasetSlicingProps(entity);
 
   return (
     <>
@@ -34,9 +32,7 @@ function ScalarVisContainer(props: VisContainerProps) {
           className={visualizerStyles.dimMapper}
           dims={dims}
           dimMapping={dimMapping}
-          canSliceFast={canSliceFast}
-          withPlaybackControls
-          prefetchSlices={prefetchSlices}
+          {...slicingProps}
           onChange={setDimMapping}
         />
       )}
