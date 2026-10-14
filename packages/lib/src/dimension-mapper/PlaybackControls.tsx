@@ -1,4 +1,13 @@
-import { useClick, useInteractions } from '@floating-ui/react';
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useClick,
+  useFloating,
+  useInteractions,
+} from '@floating-ui/react';
+import { useToggle } from '@react-hookz/web';
 import { useId } from 'react';
 import {
   FiChevronLeft,
@@ -9,7 +18,10 @@ import {
 } from 'react-icons/fi';
 
 import Btn from '../toolbar/controls/Btn';
-import { useFloatingDismiss, useFloatingMenu } from '../toolbar/controls/hooks';
+import {
+  POPOVER_CLEARANCE,
+  useFloatingDismiss,
+} from '../toolbar/controls/hooks';
 import {
   clampFps,
   MAX_FPS,
@@ -50,8 +62,20 @@ function PlaybackControls(props: Props) {
     onStep,
   } = props;
 
-  const { context, refs, floatingStyles } = useFloatingMenu();
-  const { floatingId, open: isOpen } = context;
+  // Open to the side of the slider, since the controls sit at the bottom of the mapper
+  const [isOpen, toggleOpen] = useToggle();
+  const { context, refs, floatingStyles } = useFloating<HTMLButtonElement>({
+    open: isOpen,
+    onOpenChange: toggleOpen,
+    placement: 'right-end',
+    middleware: [
+      offset(POPOVER_CLEARANCE),
+      flip(),
+      shift({ padding: POPOVER_CLEARANCE }),
+    ],
+    whileElementsMounted: autoUpdate,
+  });
+  const { floatingId } = context;
   const { getReferenceProps, getFloatingProps } = useInteractions([
     useClick(context),
     useFloatingDismiss(context),
