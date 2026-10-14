@@ -10,9 +10,18 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { BackSide, GLSL3, ShaderMaterial, Vector3 } from 'three';
+import {
+  BackSide,
+  GLSL3,
+  Matrix4,
+  type Mesh,
+  ShaderMaterial,
+  Vector2,
+  Vector3,
+} from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import {
@@ -24,6 +33,7 @@ import { type VisScaleType } from '../models';
 import { getUniforms } from '../utils';
 import { type VolumeQuality, type VolumeRenderMode } from './models';
 import { getVolumeFragmentShader, VOLUME_VERTEX_SHADER } from './shaders';
+import SurfaceDepthPass from './SurfaceDepthPass';
 import {
   getBoxSize,
   getGLErrors,
@@ -45,6 +55,8 @@ interface Props {
   quality: VolumeQuality;
   interactingRef: RefObject<boolean>;
   boxSize?: [number, number, number];
+  /* Stop rays at opaque isosurfaces (rendered in `SURFACE_DEPTH_LAYER`) */
+  withSurfaceDepth?: boolean;
 }
 
 function VolumeMesh(props: Props) {
@@ -60,7 +72,10 @@ function VolumeMesh(props: Props) {
     quality,
     interactingRef,
     boxSize,
+    withSurfaceDepth = false,
   } = props;
+
+  const meshRef = useRef<Mesh>(null);
 
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
@@ -151,11 +166,16 @@ function VolumeMesh(props: Props) {
           samplesPerVoxel: 1,
           opacity: 1,
           threshold: 0,
+          hasSurfaceDepth: false,
+          surfaceDepth: null,
+          depthTexelSize: new Vector2(),
+          depthToBox: new Matrix4(),
         }),
         side: BackSide,
         transparent: true,
         premultipliedAlpha: true,
         depthWrite: false,
+        depthTest: false, // rays are stopped at opaque surfaces in the shader instead
       }),
     [mode, scaleType],
   );
@@ -205,9 +225,18 @@ function VolumeMesh(props: Props) {
   });
 
   return (
-    <mesh scale={boxSize ?? getBoxSize(shape)} material={material}>
-      <boxGeometry />
-    </mesh>
+    <>
+      <mesh
+        ref={meshRef}
+        scale={boxSize ?? getBoxSize(shape)}
+        material={material}
+      >
+        <boxGeometry />
+      </mesh>
+      {withSurfaceDepth && (
+        <SurfaceDepthPass volumeRef={meshRef} material={material} />
+      )}
+    </>
   );
 }
 

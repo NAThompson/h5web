@@ -49,6 +49,12 @@ export function getVolumeFragmentShader(
     uniform float opacity;
     uniform float threshold;
 
+    // Depth of opaque surfaces rendered before the volume (cf. \`SurfaceDepthPass\`)
+    uniform bool hasSurfaceDepth;
+    uniform sampler2D surfaceDepth;
+    uniform vec2 depthTexelSize;
+    uniform mat4 depthToBox; // NDC to box space (inverse model * camera world * inverse projection)
+
     in vec3 vPosition;
     flat in vec3 vOrigin;
     out vec4 fragColor;
@@ -115,6 +121,18 @@ export function getVolumeFragmentShader(
 
       vec2 bounds = intersectBox(origin, dir);
       bounds.x = max(bounds.x, 0.);
+
+      // Stop rays at the nearest opaque surface: only the volume in front of it is accumulated
+      if (hasSurfaceDepth) {
+        vec2 uv = gl_FragCoord.xy * depthTexelSize;
+        float depth = texture(surfaceDepth, uv).r;
+        if (depth < 1.) {
+          vec4 hit = depthToBox * vec4(uv * 2. - 1., depth * 2. - 1., 1.);
+          vec3 hitPoint = hit.xyz / hit.w + 0.5; // texture space
+          bounds.y = min(bounds.y, dot(hitPoint - origin, dir));
+        }
+      }
+
       if (bounds.x >= bounds.y) {
         discard;
       }

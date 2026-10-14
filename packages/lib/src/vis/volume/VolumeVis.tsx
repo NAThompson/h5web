@@ -115,6 +115,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
         {showVolume && (
           <VolumeMesh
             boxSize={boxSize}
+            withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
             dataArray={dataArray}
             domain={domain}
             scaleType={scaleType}

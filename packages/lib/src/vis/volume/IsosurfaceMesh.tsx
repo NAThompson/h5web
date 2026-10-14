@@ -1,13 +1,14 @@
 import { type Domain } from '@h5web/shared/vis-models';
 import { useThree } from '@react-three/fiber';
 import { rgb } from 'd3-color';
-import { useEffect, useLayoutEffect, useMemo } from 'react';
-import { BufferAttribute, BufferGeometry, DoubleSide } from 'three';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { BufferAttribute, BufferGeometry, DoubleSide, type Mesh } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
 import { type IsosurfaceGeometry } from './marchingCubes';
 import { IsoColorMode } from './models';
+import { SURFACE_DEPTH_LAYER } from './SurfaceDepthPass';
 
 interface Props {
   geometry: IsosurfaceGeometry;
@@ -114,8 +115,21 @@ function IsosurfaceMesh(props: Props) {
 
   const isOpaque = opacity >= 1;
 
+  // Opaque surfaces stop the volume's rays (cf. `SurfaceDepthPass`)
+  const meshRef = useRef<Mesh>(null);
+  useLayoutEffect(() => {
+    const layers = meshRef.current?.layers;
+    if (isOpaque) {
+      layers?.enable(SURFACE_DEPTH_LAYER);
+    } else {
+      layers?.disable(SURFACE_DEPTH_LAYER);
+    }
+    invalidate();
+  }, [isOpaque, invalidate]);
+
   return (
     <mesh
+      ref={meshRef}
       geometry={bufferGeometry}
       scale={scale}
       position={position}
