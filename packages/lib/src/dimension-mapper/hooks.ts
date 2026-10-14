@@ -90,7 +90,6 @@ export function usePlayback(params: PlaybackParams): void {
     }
 
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    let lastUpcoming = '';
     let lastOnPrefetch: ((values: number[]) => void) | undefined;
 
     const initial = paramsRef.current;
@@ -115,9 +114,9 @@ export function usePlayback(params: PlaybackParams): void {
         onPrefetch ? isReady : () => isReady(current),
       );
 
-      const upcomingKey = result.upcoming.join(',');
-      if (onPrefetch && upcomingKey !== lastUpcoming) {
-        lastUpcoming = upcomingKey;
+      // Call on every tick, even if upcoming values haven't changed, since the slices they
+      // refer to may have (e.g. when another dimension gets sliced during playback)
+      if (onPrefetch) {
         lastOnPrefetch = onPrefetch;
         onPrefetch(result.upcoming);
       }

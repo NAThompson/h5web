@@ -17,7 +17,10 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   maxMultiDimLength?: number;
   onMultiDimChange?: (dim: number | undefined) => void; // shows multi-plotting checkboxes when provided
   withPlaybackControls?: boolean;
-  prefetchSlices?: (nextMappings: DimensionMapping[]) => void; // called during playback with upcoming slices (empty array on stop)
+  /* Called repeatedly during playback with the mappings of upcoming slices, in playback order,
+   * and with an empty array when playback stops. When provided, playback waits for the next
+   * slice to be ready (cf. `canSliceFast`) before showing it. */
+  prefetchSlices?: (nextMappings: DimensionMapping[]) => void;
 }
 
 function DimensionMapper(props: Props) {
