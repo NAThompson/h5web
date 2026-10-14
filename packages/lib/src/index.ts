@@ -48,6 +48,7 @@ export { default as ResetZoomButton } from './toolbar/floating/ResetZoomButton';
 
 // Dimension mapper
 export { default as DimensionMapper } from './dimension-mapper/DimensionMapper';
+export type { DimensionMapperProps } from './dimension-mapper/DimensionMapper';
 
 // Building blocks
 export { default as VisCanvas } from './vis/shared/VisCanvas';
@@ -168,6 +169,12 @@ export {
   getSlicedDimsAndMapping,
 } from './dimension-mapper/utils';
 export { useSlicedDimsAndMapping } from './dimension-mapper/hooks';
+export { DEFAULT_PLAYBACK_SETTINGS } from './dimension-mapper/playback';
+export type {
+  PlaybackMode,
+  PlaybackSettings,
+  PlaybackTiming,
+} from './dimension-mapper/playback';
 
 // Geometries
 export { default as LineGeometry } from './vis/line/lineGeometry';

@@ -4,6 +4,7 @@ import { type HTMLAttributes, useState } from 'react';
 import AxisMapper from './AxisMapper';
 import styles from './DimensionMapper.module.css';
 import InertBox from './InertBox';
+import { DEFAULT_PLAYBACK_SETTINGS, type PlaybackSettings } from './playback';
 import SlicingSlider from './SlicingSlider';
 
 interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
@@ -11,16 +12,30 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   dimHints?: (string | undefined)[];
   dimMapping: DimensionMapping;
   withSlicingControls?: boolean;
-  canSliceFast?: (nextMapping: DimensionMapping) => boolean;
+  canSliceFast?: (nextMapping: DimensionMapping) => boolean; // shortens debounce delay when slicing
   onChange: (d: DimensionMapping) => void;
   multiDim?: number;
   maxMultiDimLength?: number;
   onMultiDimChange?: (dim: number | undefined) => void; // shows multi-plotting checkboxes when provided
   withPlaybackControls?: boolean;
-  /* Called repeatedly during playback with the mappings of upcoming slices, in playback order,
-   * and with an empty array when playback stops. When provided, playback waits for the next
-   * slice to be ready (cf. `canSliceFast`) before showing it. */
-  prefetchSlices?: (nextMappings: DimensionMapping[]) => void;
+  /* Playback: whether a slice can be shown without waiting for data (defaults to `canSliceFast`).
+   * Playback never shows a slice before it is ready. */
+  isSliceReady?: (mapping: DimensionMapping) => boolean;
+  /* Playback: called repeatedly with the mappings of upcoming slices, in playback order, and
+   * with the current mapping (upcoming list is empty once playback stops). Return `false` if
+   * upcoming slices can't be fetched automatically (e.g. they need confirmation), `true` otherwise. When provided,
+   * playback waits for the *next* slice to be ready before showing it; otherwise, it waits for
+   * the current slice to be ready before moving on. */
+  prefetchSlices?: (
+    nextMappings: DimensionMapping[],
+    currentMapping: DimensionMapping,
+  ) => boolean;
+  // Playback: dimension being played (controlled when `onPlayingDimChange` is provided)
+  playingDim?: number;
+  onPlayingDimChange?: (dim: number | undefined) => void;
+  // Playback: speed, repeat mode and timing (controlled when `playbackSettings` is provided)
+  playbackSettings?: PlaybackSettings;
+  onPlaybackSettingsChange?: (settings: PlaybackSettings) => void;
 }
 
 function DimensionMapper(props: Props) {
@@ -36,12 +51,34 @@ function DimensionMapper(props: Props) {
     maxMultiDimLength = 20,
     onMultiDimChange,
     withPlaybackControls = false,
+    isSliceReady = canSliceFast,
     prefetchSlices,
+    playingDim: controlledPlayingDim,
+    onPlayingDimChange,
+    playbackSettings: controlledSettings,
+    onPlaybackSettingsChange,
     ...htmlProps
   } = props;
 
   // Only one dimension plays at a time, to avoid conflicting mapping updates
-  const [playingDim, setPlayingDim] = useState<number>();
+  const [localPlayingDim, setLocalPlayingDim] = useState<number>();
+  const playingDim = onPlayingDimChange
+    ? controlledPlayingDim
+    : localPlayingDim;
+  function setPlayingDim(dim: number | undefined) {
+    if (dim !== playingDim) {
+      setLocalPlayingDim(dim);
+      onPlayingDimChange?.(dim);
+    }
+  }
+
+  // Shared by all dimensions; kept here so they survive sliders being remounted
+  const [localSettings, setLocalSettings] = useState(DEFAULT_PLAYBACK_SETTINGS);
+  const playbackSettings = controlledSettings ?? localSettings;
+  function setPlaybackSettings(settings: PlaybackSettings) {
+    setLocalSettings(settings);
+    onPlaybackSettingsChange?.(settings);
+  }
 
   if (dims.length !== dimMapping.length) {
     throw new Error('Expected dimensions and mapping arrays of same length');
@@ -117,10 +154,16 @@ function DimensionMapper(props: Props) {
               onPlayingChange={(isPlaying) => {
                 setPlayingDim(isPlaying ? index : undefined);
               }}
+              isReady={
+                isSliceReady && ((newVal) => isSliceReady(withMapping(newVal)))
+              }
               onPrefetch={
                 prefetchSlices &&
-                ((values) => prefetchSlices(values.map(withMapping)))
+                ((values, current) =>
+                  prefetchSlices(values.map(withMapping), withMapping(current)))
               }
+              playbackSettings={playbackSettings}
+              onPlaybackSettingsChange={setPlaybackSettings}
             />
           );
 
@@ -174,4 +217,5 @@ function DimensionMapper(props: Props) {
   );
 }
 
+export type { Props as DimensionMapperProps };
 export default DimensionMapper;
