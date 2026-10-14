@@ -7,7 +7,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { useUnmountEffect } from '@react-hookz/web';
 import { hashKey, type QueryKey } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   type DataContextValue,
@@ -33,10 +33,28 @@ interface TrackedQuery {
 export interface PrefetchState {
   wanted: Map<string, QueryKey>; // slices currently requested ahead of playback
   fetched: Map<string, TrackedQuery>; // slices fetched for playback, least recently used first
+  requested: Map<string, Set<string | undefined>>; // selections requested by anyone, per dataset path (even if failed and since evicted)
 }
 
 export function createPrefetchState(): PrefetchState {
-  return { wanted: new Map(), fetched: new Map() };
+  return { wanted: new Map(), fetched: new Map(), requested: new Map() };
+}
+
+/* Remember which slices get requested (i.e. were allowed by `LargeValueGuard`) */
+export function trackRequestedSlices(
+  dataContext: DataContextValue,
+  state: PrefetchState,
+): () => void {
+  const { filepath, queryClient } = dataContext;
+
+  return queryClient.getQueryCache().subscribe((event) => {
+    const [scope, type, path, selection] = event.query.queryKey;
+    if (event.type === 'added' && scope === filepath && type === 'value') {
+      const selections = state.requested.get(path as string) ?? new Set();
+      selections.add(selection as string | undefined);
+      state.requested.set(path as string, selections);
+    }
+  });
 }
 
 /* Returns a function to pass to `DimensionMapper`'s `prefetchSlices` prop (cf. `prefetchSlices`) */
@@ -45,6 +63,11 @@ export function useSlicePrefetcher(
 ): (nextMappings: DimensionMapping[]) => void {
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
+
+  useEffect(
+    () => trackRequestedSlices(dataContext, state),
+    [dataContext, state],
+  );
 
   useUnmountEffect(() => {
     prefetchSlices(dataContext, state, [], []); // cancel pending prefetches
@@ -84,7 +107,7 @@ export function prefetchSlices(
     }
     totalSize += sliceSize;
 
-    if (!isSizeAllowed(dataContext, datasets, selection, sliceSize)) {
+    if (!isSizeAllowed(dataContext, state, datasets, selection, sliceSize)) {
       break; // let `LargeValueGuard` ask for confirmation first (all slices have the same size)
     }
 
@@ -137,9 +160,10 @@ async function ignoreErrors(promise: Promise<unknown>): Promise<void> {
 }
 
 /* Slices too large to be fetched automatically can only be prefetched once slices at least as
- * large have been loaded for every dataset, i.e. after the user has confirmed fetching them */
+ * large have been requested for every dataset, i.e. after the user has confirmed fetching them */
 function isSizeAllowed(
   dataContext: DataContextValue,
+  state: PrefetchState,
   datasets: Dataset<ScalarShape | ArrayShape>[],
   selection: string | undefined,
   totalSize: number,
@@ -153,13 +177,14 @@ function isSizeAllowed(
 
   return datasets.every((dataset) => {
     const size = getValueSize(dataset, selection);
-    return queryCache
+    const cachedSelections = queryCache
       .findAll({ queryKey: [filepath, 'value', dataset.path] })
-      .some(
-        ({ queryKey, state }) =>
-          state.data !== undefined &&
-          getValueSize(dataset, queryKey[3] as string | undefined) >= size,
-      );
+      .map(({ queryKey }) => queryKey[3] as string | undefined);
+    const requestedSelections = state.requested.get(dataset.path) ?? [];
+
+    return [...cachedSelections, ...requestedSelections].some(
+      (sel) => getValueSize(dataset, sel) >= size,
+    );
   });
 }
 

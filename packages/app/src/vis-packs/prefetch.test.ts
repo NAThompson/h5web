@@ -5,7 +5,11 @@ import { QueryClient, queryOptions } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 
 import { type DataContextValue } from '../providers/DataProvider';
-import { createPrefetchState, prefetchSlices } from './prefetch';
+import {
+  createPrefetchState,
+  prefetchSlices,
+  trackRequestedSlices,
+} from './prefetch';
 
 // 10 slices of 100 float64 values = 800 bytes each
 const stack = dataset('stack', arrayShape([10, 100]), floatType(64));
@@ -177,5 +181,34 @@ describe('prefetchSlices', () => {
 
     prefetchSlices(failingContext, state, [stack], mappings(1), limits);
     expect(queryFn).toHaveBeenCalledOnce();
+  });
+
+  it('should only prefetch large slices once a slice as large was requested', async () => {
+    const { dataContext, queryClient, pending } = setup();
+    const state = createPrefetchState();
+    const unsubscribe = trackRequestedSlices(dataContext, state);
+
+    // 800 MB per slice, more than `MAX_AUTO_FETCH_SIZE`
+    const bigStack = dataset('big', arrayShape([10, 1e8]), floatType(64));
+
+    prefetchSlices(dataContext, state, [bigStack], mappings(1), limits);
+    expect(pending.size).toBe(0);
+
+    // Vis requests the current slice (after confirmation), which fails and gets evicted
+    const { queryKey } = dataContext.queries.value(bigStack, '0,:');
+    await expect(
+      queryClient.query({
+        queryKey,
+        queryFn: async () => {
+          throw new Error('failed');
+        },
+      }),
+    ).rejects.toThrow('failed');
+    queryClient.removeQueries({ queryKey });
+
+    prefetchSlices(dataContext, state, [bigStack], mappings(1), limits);
+    expect(pending.has('1,:')).toBe(true);
+
+    unsubscribe();
   });
 });
