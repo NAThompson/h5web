@@ -10,6 +10,8 @@ export interface PlaybackRangeValue {
   sequenceValue: unknown; // values of all slices of the sequence, provided briefly once fetched
   sequenceDomains: Map<string, Domain>; // range of whole sequence, per kind of domain
   seenDomains: Map<string, Domain>; // range of slices shown so far, per kind of domain
+  computedKinds: Set<string>; // kinds of domain computed from sequence's values (even if none)
+  requestSequence?: () => void; // fetch sequence's values again (e.g. for new kind of domain)
   loading?: { queryHash: string; cancel: () => void }; // while fetching whole sequence
 }
 
@@ -48,12 +50,21 @@ export function useStableDomain(
     [sequenceValue, kind], // eslint-disable-line react-hooks/exhaustive-deps -- `kind` identifies `getSequenceDomain`
   );
 
-  // Sequence's values are dropped once its range is known, so remember it (outside of render)
+  // Sequence's values are dropped once its range is known, so remember it (outside of render);
+  // if another kind of range is needed afterwards (e.g. scale type changed), get values again
   useEffect(() => {
-    if (range && computedDomain) {
-      range.sequenceDomains.set(kind, computedDomain);
+    if (!range) {
+      return;
     }
-  }, [range, kind, computedDomain]);
+    if (sequenceValue !== undefined) {
+      range.computedKinds.add(kind);
+      if (computedDomain) {
+        range.sequenceDomains.set(kind, computedDomain);
+      }
+    } else if (!range.computedKinds.has(kind)) {
+      range.requestSequence?.();
+    }
+  }, [range, kind, sequenceValue, computedDomain]);
 
   const sequenceDomain = computedDomain ?? range?.sequenceDomains.get(kind);
 

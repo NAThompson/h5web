@@ -43,6 +43,19 @@ function getSequenceMapping(
   return mapMapping(dimMapping.map((val, i) => (i === dim ? null : val)));
 }
 
+/* Whole sequence's values fit in memory budget and don't need confirmation to be fetched */
+function isSequenceAffordable(
+  dataContext: DataContextValue,
+  request: ValueQueryParams | undefined,
+  maxAutoFetchSize: number,
+): request is ValueQueryParams {
+  return (
+    !!request &&
+    getInMemorySize(request) <= MAX_SEQUENCE_RANGE_SIZE &&
+    getSizeToConfirm(dataContext, [request], maxAutoFetchSize) === 0
+  );
+}
+
 function getInMemorySize({ dataset, selection }: ValueQueryParams): number {
   const size = getValueSize(dataset, selection);
   return isComplexType(dataset.type) ? size * COMPLEX_MEMORY_FACTOR : size;
@@ -129,10 +142,11 @@ export function useSequenceRange(opts: {
         getSequenceMapping(dimMapping, activeSequence.dim, mapMapping),
       ),
     )[0];
-  const isAffordable =
-    !!signalRequest &&
-    getInMemorySize(signalRequest) <= MAX_SEQUENCE_RANGE_SIZE &&
-    getSizeToConfirm(dataContext, [signalRequest], maxAutoFetchSize) === 0;
+  const isAffordable = isSequenceAffordable(
+    dataContext,
+    signalRequest,
+    maxAutoFetchSize,
+  );
 
   const sequenceQuery =
     signalRequest &&
@@ -147,55 +161,24 @@ export function useSequenceRange(opts: {
     }
 
     const { key: seqKey, dim } = activeSequence;
-    const effect = { isCurrent: true }; // object, so its change in cleanup is seen
-
-    function settle(update: Partial<Sequence>) {
-      setSequence((prev) =>
-        prev?.key === seqKey ? { ...prev, ...update } : prev,
-      );
-    }
-
-    void (async () => {
-      try {
-        const value = await queryClient.query({
-          ...sequenceQuery,
-          gcTime: 0,
-        });
-        if (!effect.isCurrent) {
-          return;
-        }
-
+    return fetchSequence({
+      dataContext,
+      query: sequenceQuery,
+      onValue: (value) => {
         seedSlices(
           dataContext,
           prefetchState,
-          getSliceEntries(
-            value,
-            signalRequest,
-            dimMapping,
-            dim,
-            (mapping) => getRequests(getSliceSelection(mapMapping(mapping)))[0],
+          getSliceEntries(value, signalRequest, dimMapping, dim, (mapping) =>
+            getRequests(getSliceSelection(mapMapping(mapping))).at(0),
           ),
         );
-        queryClient.removeQueries({
-          queryKey: sequenceQuery.queryKey,
-          exact: true,
-        });
-        settle({ status: 'ready', value });
-      } catch {
-        // Failed or cancelled (e.g. by selecting the dataset again): use range of slices shown
-        if (effect.isCurrent) {
-          settle({ status: 'partial' });
-        }
-      }
-    })();
-
-    return () => {
-      effect.isCurrent = false;
-      void queryClient.cancelQueries({
-        queryKey: sequenceQuery.queryKey,
-        exact: true,
-      });
-    };
+      },
+      onSettled: (update) => {
+        setSequence((prev) =>
+          prev?.key === seqKey ? { ...prev, ...update } : prev,
+        );
+      },
+    });
   }, [fetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drop whole sequence's values once visualizations have computed its range (their effects
@@ -207,9 +190,15 @@ export function useSequenceRange(opts: {
     }
   }, [hasValue]);
 
+  // Ranges are kept per sequence (even while range setting is switched to "Each slice")
   const rangeKey = activeSequence?.key;
-  const seenDomains = useMemo(() => new Map(), [rangeKey]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
-  const sequenceDomains = useMemo(() => new Map(), [rangeKey]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
+  const sequenceKey = sequence?.key;
+  const seenDomains = useMemo(() => new Map(), [sequenceKey]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
+  const sequenceDomains = useMemo(() => new Map(), [sequenceKey]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
+  const computedKinds = useMemo(() => new Set<string>(), [sequenceKey]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
+
+  // Values of sequence were dropped, but a visualization needs another kind of range from them
+  const canRefetch = isAffordable && activeSequence?.status === 'ready';
 
   const playbackRange = useMemo(
     (): PlaybackRangeValue | undefined =>
@@ -219,16 +208,19 @@ export function useSequenceRange(opts: {
             sequenceValue: sequence?.value,
             seenDomains,
             sequenceDomains,
+            computedKinds,
+            requestSequence: canRefetch
+              ? () => {
+                  setSequence((prev) =>
+                    prev?.key === rangeKey && prev.status === 'ready'
+                      ? { ...prev, status: 'loading', startedAt: Date.now() }
+                      : prev,
+                  );
+                }
+              : undefined,
             loading:
               isLoading && queryHash
-                ? {
-                    queryHash,
-                    cancel: () => {
-                      void queryClient.cancelQueries({
-                        predicate: (query) => query.queryHash === queryHash,
-                      });
-                    },
-                  }
+                ? getLoading(queryClient, queryHash)
                 : undefined,
           }
         : undefined,
@@ -237,6 +229,8 @@ export function useSequenceRange(opts: {
       sequence?.value,
       seenDomains,
       sequenceDomains,
+      computedKinds,
+      canRefetch,
       isLoading,
       queryHash,
       queryClient,
@@ -255,6 +249,55 @@ export function useSequenceRange(opts: {
       sequence?.status,
     ),
     startSequence,
+  };
+}
+
+/* Fetch values of whole sequence (without keeping them in cache); returns cleanup function */
+function fetchSequence(opts: {
+  dataContext: DataContextValue;
+  query: ReturnType<DataContextValue['queries']['value']>;
+  onValue: (value: unknown) => void;
+  onSettled: (update: Partial<Sequence>) => void;
+}): () => void {
+  const { dataContext, query, onValue, onSettled } = opts;
+  const { queryClient } = dataContext;
+  const effect = { isCurrent: true }; // object, so its change in cleanup is seen
+
+  void (async () => {
+    try {
+      const value = await queryClient.query({ ...query, gcTime: 0 });
+      if (!effect.isCurrent) {
+        return;
+      }
+
+      onValue(value);
+      queryClient.removeQueries({ queryKey: query.queryKey, exact: true });
+      onSettled({ status: 'ready', value });
+    } catch {
+      // Failed or cancelled (e.g. by selecting the dataset again): use range of slices shown
+      if (effect.isCurrent) {
+        onSettled({ status: 'partial' });
+      }
+    }
+  })();
+
+  return () => {
+    effect.isCurrent = false;
+    void queryClient.cancelQueries({ queryKey: query.queryKey, exact: true });
+  };
+}
+
+function getLoading(
+  queryClient: DataContextValue['queryClient'],
+  queryHash: string,
+): PlaybackRangeValue['loading'] {
+  return {
+    queryHash,
+    cancel: () => {
+      void queryClient.cancelQueries({
+        predicate: (query) => query.queryHash === queryHash,
+      });
+    },
   };
 }
 
