@@ -13,7 +13,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { NxInterpretation } from '@h5web/shared/nexus-models';
 import { FiActivity, FiFileText, FiImage, FiMap } from 'react-icons/fi';
-import { MdGrain } from 'react-icons/md';
+import { MdGesture, MdGrain, MdLandscape } from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
@@ -22,14 +22,20 @@ import {
   LineConfigProvider,
   RgbConfigProvider,
 } from '../core/configs';
+import { CurveConfigProvider } from '../core/geometry/config';
+import { getGeometryKind } from '../core/geometry/hooks';
+import { ParamSurfaceConfigProvider } from '../core/geometry/surface-config';
+import { GeometryKind } from '../core/geometry/utils';
 import { ScatterConfigProvider } from '../core/scatter/config';
 import { type VisDef } from '../models';
 import {
   NxComplexLineContainer,
+  NxCurveContainer,
   NxHeatmapContainer,
   NxLineContainer,
   NxRgbContainer,
   NxScatterContainer,
+  NxSurfaceContainer,
 } from './containers';
 import NxNoteContainer from './containers/NxNoteContainer';
 import { findAxesDatasets } from './utils';
@@ -46,6 +52,8 @@ export enum NxDataVis {
   NxHeatmap = 'NX Heatmap',
   NxRGB = 'NX RGB',
   NxScatter = 'NX Scatter',
+  NxCurve = 'NX Curve',
+  NxSurface = 'NX Surface',
 }
 
 export interface NxDataVisDef extends VisDef {
@@ -132,6 +140,26 @@ export const NX_DATA_VIS = {
         axisDatasets.every((d) => d && hasNumDims(d, 1))
       );
     },
+    isPrimary: () => true, // always primary if supported
+  },
+
+  [NxDataVis.NxCurve]: {
+    name: NxDataVis.NxCurve,
+    Icon: MdGesture,
+    Container: NxCurveContainer,
+    ConfigProvider: CurveConfigProvider,
+    supports: async (_, signal, __, dataContext) =>
+      (await getGeometryKind(signal, dataContext)) === GeometryKind.Curve,
+    isPrimary: () => true, // always primary if supported
+  },
+
+  [NxDataVis.NxSurface]: {
+    name: NxDataVis.NxSurface,
+    Icon: MdLandscape,
+    Container: NxSurfaceContainer,
+    ConfigProvider: ParamSurfaceConfigProvider,
+    supports: async (_, signal, __, dataContext) =>
+      (await getGeometryKind(signal, dataContext)) === GeometryKind.Surface,
     isPrimary: () => true, // always primary if supported
   },
 } satisfies Record<NxDataVis, NxDataVisDef>;
