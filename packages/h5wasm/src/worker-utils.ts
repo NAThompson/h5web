@@ -501,6 +501,25 @@ export function readInSlabs(
   return output;
 }
 
+/* Range `[start, stop)` along each dimension of a selection (e.g. `0,:,:`), or of the
+ * whole dataset if there is no selection */
+export function getSelectionRanges(
+  shape: number[],
+  selection: string | undefined,
+): [number, number][] {
+  if (!selection) {
+    return shape.map((dim) => [0, dim]);
+  }
+
+  return selection.split(',').map<[number, number]>((member, i) => {
+    if (member === ':') {
+      return [0, shape[i]];
+    }
+
+    return [Number(member), Number(member) + 1];
+  });
+}
+
 export function readSelectedValue(
   h5wDataset: H5WasmDataset,
   selection: string | undefined,
@@ -523,15 +542,7 @@ export function readSelectedValue(
   }
 
   assertNonNull(shape);
-
-  const selectionMembers = selection.split(',');
-  const ranges = selectionMembers.map<[number, number]>((member, i) => {
-    if (member === ':') {
-      return [0, shape[i]];
-    }
-
-    return [Number(member), Number(member) + 1];
-  });
+  const ranges = getSelectionRanges(shape, selection);
 
   const slicedValue =
     readInSlabs(h5wDataset, ranges) ?? h5wDataset.slice(ranges);

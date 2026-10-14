@@ -5,10 +5,19 @@ import { transfer } from 'comlink';
 // eslint-disable-next-line import-x/no-namespace
 import type * as H5WasmModule from 'h5wasm';
 
+import {
+  checkDirectRead,
+  createBlobReader,
+  createUrlReader,
+  executeDirectRead,
+  planDirectRead,
+  type RangeReader,
+} from './direct-read';
 import { fetchFirstBlock, LazyFile } from './lazy-file';
 import {
   createLazyFileNode,
   getAvailableFileName,
+  getSelectionRanges,
   initH5Wasm,
   mountWorkerFS,
   parseComplexValue,
@@ -29,6 +38,8 @@ export type H5WasmLib = Pick<
 let lib: H5WasmLib;
 let h5wasmReady: ReturnType<typeof initH5Wasm>;
 const fileRemovers = new Map<bigint, () => void>(); // to remove files from Emscripten FS once closed
+const fileReaders = new Map<bigint, RangeReader>(); // to read raw data directly, bypassing HDF5
+const valueRequests = new Map<number, AbortController>(); // to cancel direct reads
 
 function openH5WasmFile(
   path: string,
@@ -68,6 +79,7 @@ async function openLocalFile(file: File): Promise<bigint> {
   WORKERFS.createNode(rootNode, fileName, WORKERFS.FILE_MODE, 0, file);
 
   const { file_id } = new lib.File(`${WORKERFS_FOLDER}/${fileName}`, 'Sr'); // SWMR in case file is opened for writing in a concurrent process
+  fileReaders.set(file_id, createBlobReader(file));
   return file_id;
 }
 
@@ -92,10 +104,12 @@ async function openRemoteFile(url: string): Promise<bigint> {
   const lazyFile = new LazyFile(url, size, version, firstBlock);
   const removeNode = createLazyFileNode(FS, rootNode, fileName, lazyFile);
 
-  return openH5WasmFile(`${WORKERFS_FOLDER}/${fileName}`, 'r', () => {
+  const fileId = openH5WasmFile(`${WORKERFS_FOLDER}/${fileName}`, 'r', () => {
     removeNode();
     lazyFile.clearCache();
   });
+  fileReaders.set(fileId, createUrlReader(url, size, version));
+  return fileId;
 }
 
 async function closeFile(fileId: bigint): Promise<number> {
@@ -104,6 +118,7 @@ async function closeFile(fileId: bigint): Promise<number> {
 
   fileRemovers.get(fileId)?.();
   fileRemovers.delete(fileId);
+  fileReaders.delete(fileId);
 
   return status;
 }
@@ -120,11 +135,100 @@ async function getValue(
   fileId: bigint,
   path: string,
   selection?: string,
+  requestId?: number,
+  onProgress?: (fraction: number) => void,
 ): Promise<unknown> {
+  const directValue = await readDirectly(
+    fileId,
+    path,
+    selection,
+    requestId,
+    onProgress,
+  );
+  if (directValue) {
+    return transfer(directValue, [directValue.buffer]);
+  }
+
   const value = withReadErrors(() =>
     readSelectedValue(new lib.Dataset(fileId, path), selection),
   );
   return isTypedArray(value) ? transfer(value, [value.buffer]) : value;
+}
+
+/* Read large unfiltered selections straight from the file with concurrent requests,
+ * if possible (see `direct-read.ts`) */
+async function readDirectly(
+  fileId: bigint,
+  path: string,
+  selection: string | undefined,
+  requestId: number | undefined,
+  onProgress: ((fraction: number) => void) | undefined,
+) {
+  const reader = fileReaders.get(fileId);
+  if (!reader) {
+    return undefined;
+  }
+
+  const dataset = new lib.Dataset(fileId, path);
+  const plan = withReadErrors(() => {
+    const { shape } = dataset;
+    return (
+      shape && planDirectRead(dataset, getSelectionRanges(shape, selection))
+    );
+  });
+  if (!plan) {
+    return undefined;
+  }
+
+  const controller = new AbortController();
+  if (requestId !== undefined) {
+    valueRequests.set(requestId, controller);
+  }
+
+  try {
+    let value;
+    try {
+      value = await executeDirectRead(
+        plan,
+        reader,
+        controller.signal,
+        onProgress,
+      );
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw error;
+      }
+
+      // eslint-disable-next-line no-console
+      console.warn(`Direct read of ${path} failed; reading with HDF5`, error);
+      return undefined;
+    }
+
+    const ranges = plan.outStart.map<[number, number]>((start, i) => [
+      start,
+      start + plan.outShape[i],
+    ]);
+    if (
+      !fileReaders.has(fileId) || // file closed in the meantime
+      !withReadErrors(() => checkDirectRead(dataset, ranges, value))
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(`Direct read of ${path} failed check; reading with HDF5`);
+      return undefined;
+    }
+
+    return value;
+  } finally {
+    if (requestId !== undefined) {
+      valueRequests.delete(requestId);
+    }
+  }
+}
+
+async function cancelValue(requestId: number): Promise<void> {
+  valueRequests
+    .get(requestId)
+    ?.abort(new DOMException('Aborted', 'AbortError'));
 }
 
 async function getAttrValue(
@@ -207,6 +311,7 @@ export function createWorkerApi(h5wasmLib: H5WasmLib) {
     closeFile,
     getEntity,
     getValue,
+    cancelValue,
     getAttrValue,
     getDimensionScales,
     getDescendantPaths,

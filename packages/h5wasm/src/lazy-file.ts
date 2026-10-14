@@ -148,32 +148,9 @@ export class LazyFile {
       );
     }
 
-    const etag = xhr.getResponseHeader('ETag');
-    const lastModified = xhr.getResponseHeader('Last-Modified');
-    const contentRange = parseContentRange(
-      xhr.getResponseHeader('Content-Range'),
+    checkFileVersion(this.url, this.size, this.version, start, end, (name) =>
+      xhr.getResponseHeader(name),
     );
-
-    if (
-      (this.version.etag && etag && etag !== this.version.etag) ||
-      (this.version.lastModified &&
-        lastModified &&
-        lastModified !== this.version.lastModified) ||
-      (contentRange?.size !== undefined && contentRange.size !== this.size)
-    ) {
-      throw new Error(
-        `File changed on server since it was opened: ${this.url}`,
-      );
-    }
-
-    if (
-      contentRange &&
-      (contentRange.start !== start || contentRange.end !== end - 1)
-    ) {
-      throw new Error(
-        `Expected range ${range} of ${this.url}, got ${contentRange.start}-${contentRange.end}`,
-      );
-    }
 
     const bytes = new Uint8Array(xhr.response as ArrayBuffer);
     if (bytes.length !== end - start) {
@@ -183,6 +160,40 @@ export class LazyFile {
     }
 
     return bytes;
+  }
+}
+
+/* Throw if a range response shows that the file changed since it was opened, or doesn't
+ * cover the requested range `[start, end)` */
+export function checkFileVersion(
+  url: string,
+  size: number,
+  version: FileVersion,
+  start: number,
+  end: number,
+  getHeader: (name: string) => string | null,
+): void {
+  const etag = getHeader('ETag');
+  const lastModified = getHeader('Last-Modified');
+  const contentRange = parseContentRange(getHeader('Content-Range'));
+
+  if (
+    (version.etag && etag && etag !== version.etag) ||
+    (version.lastModified &&
+      lastModified &&
+      lastModified !== version.lastModified) ||
+    (contentRange?.size !== undefined && contentRange.size !== size)
+  ) {
+    throw new Error(`File changed on server since it was opened: ${url}`);
+  }
+
+  if (
+    contentRange &&
+    (contentRange.start !== start || contentRange.end !== end - 1)
+  ) {
+    throw new Error(
+      `Expected range ${start}-${end - 1} of ${url}, got ${contentRange.start}-${contentRange.end}`,
+    );
   }
 }
 

@@ -1,4 +1,4 @@
-import { DataProviderApi } from '@h5web/app';
+import { DataProviderApi, type OnProgress } from '@h5web/app';
 import { assertDataset, isDefined } from '@h5web/shared/guards';
 import {
   type ArrayShape,
@@ -13,11 +13,13 @@ import {
   type ExportFormat,
   type ExportURL,
 } from '@h5web/shared/vis-models';
-import { transfer } from 'comlink';
+import { proxy, transfer } from 'comlink';
 
 import { type Plugin } from './models';
 import { getEnhancedError, PLUGINS_BY_FILTER_ID } from './utils';
 import { type H5WasmWorkerAPI } from './worker-api';
+
+let nextRequestId = 1;
 
 export class H5WasmApi extends DataProviderApi {
   public constructor(
@@ -43,15 +45,33 @@ export class H5WasmApi extends DataProviderApi {
   public override async getValue(
     dataset: Dataset<ScalarShape | ArrayShape>,
     selection?: string,
+    abortSignal?: AbortSignal,
+    onProgress?: OnProgress,
   ): Promise<unknown> {
     const fileId = await this.fileId;
 
     await this.processFilters(dataset);
 
+    // Large reads may be cancelled and report progress (see `direct-read.ts`)
+    const requestId = nextRequestId;
+    nextRequestId += 1;
+    const cancel = () => {
+      void this.remote.cancelValue(requestId);
+    };
+    abortSignal?.addEventListener('abort', cancel);
+
     try {
-      return await this.remote.getValue(fileId, dataset.path, selection);
+      return await this.remote.getValue(
+        fileId,
+        dataset.path,
+        selection,
+        requestId,
+        onProgress && proxy(onProgress),
+      );
     } catch (error) {
       throw getEnhancedError(error);
+    } finally {
+      abortSignal?.removeEventListener('abort', cancel);
     }
   }
 
