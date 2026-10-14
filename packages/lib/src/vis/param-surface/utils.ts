@@ -1,4 +1,5 @@
 import { type IgnoreValue, type NumArray } from '@h5web/shared/vis-models';
+import { createArrayFromView } from '@h5web/shared/vis-utils';
 import { type NdArray } from 'ndarray';
 
 import { type WorldTransform } from '../three-d/utils';
@@ -34,6 +35,24 @@ export function isParamSurfaceSupported(
 
 function areFinite(...vals: number[]): boolean {
   return vals.every((val) => Number.isFinite(val));
+}
+
+/**
+ * Array whose `data` holds exactly its values in logical (C) order - i.e. the array itself if it
+ * already does, or a copy of a transposed, reversed or sliced view - so `data` can be iterated
+ * directly (colours, domains) consistently with `get`.
+ */
+export function toLogicalArray(arr: NdArray<NumArray>): NdArray<NumArray> {
+  const { data, shape, stride, offset, size } = arr;
+  let expectedStride = 1;
+  for (let i = shape.length - 1; i >= 0; i -= 1) {
+    if (shape[i] > 1 && stride[i] !== expectedStride) {
+      return createArrayFromView(arr);
+    }
+    expectedStride *= shape[i];
+  }
+
+  return offset === 0 && data.length === size ? arr : createArrayFromView(arr);
 }
 
 export interface ParamSurfaceBuffers {

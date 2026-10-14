@@ -28,7 +28,11 @@ import Vis3DLayout from '../three-d/Vis3DLayout';
 import { DEFAULT_DOMAIN, getDomain } from '../utils';
 import { SurfaceRepresentation } from './models';
 import ParamSurfaceMesh from './ParamSurfaceMesh';
-import { buildParamSurfaceBuffers, isParamSurfaceSupported } from './utils';
+import {
+  buildParamSurfaceBuffers,
+  isParamSurfaceSupported,
+  toLogicalArray,
+} from './utils';
 
 interface Props extends ClassStyleAttrs {
   x: NdArray<NumArray>; // x(u, v): 2D, same shape as `y`, `z` and `values`
@@ -92,17 +96,18 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
     const rowIndices = getSampledIndices(rows, stride);
     const colIndices = getSampledIndices(cols, stride);
     return {
-      x: sampleArray(x, rowIndices, colIndices),
-      y: sampleArray(y, rowIndices, colIndices),
-      z: sampleArray(z, rowIndices, colIndices),
-      values: sampleArray(values, rowIndices, colIndices),
+      // Colours and domains iterate `data` directly, so views must be materialised
+      x: toLogicalArray(sampleArray(x, rowIndices, colIndices)),
+      y: toLogicalArray(sampleArray(y, rowIndices, colIndices)),
+      z: toLogicalArray(sampleArray(z, rowIndices, colIndices)),
+      values: toLogicalArray(sampleArray(values, rowIndices, colIndices)),
     };
   }, [x, y, z, values, rows, cols, maxVertices]);
 
   const colorDomain = useMemo(
     () =>
       domain ??
-      getDomain(values.data, {
+      getDomain(toLogicalArray(values).data, {
         scaleType: Array.isArray(scaleType) ? scaleType[0] : scaleType,
         ignoreValue,
       }) ??

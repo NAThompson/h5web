@@ -6,6 +6,7 @@ import {
   buildParamSurfaceBuffers,
   getWireIndices,
   isParamSurfaceSupported,
+  toLogicalArray,
   weldSeamNormals,
 } from './utils';
 
@@ -289,5 +290,24 @@ describe('weldSeamNormals', () => {
     const before = [...normals];
     weldSeamNormals(positions, normals, ALL_VALID, 3, 3);
     expect([...normals]).toEqual(before);
+  });
+});
+
+describe('toLogicalArray', () => {
+  it('should return contiguous array as is', () => {
+    const arr = ndarray(Float64Array.from([0, 1, 2, 3, 4, 5]), [2, 3]);
+    expect(toLogicalArray(arr)).toBe(arr);
+  });
+
+  it('should materialise transposed, reversed and sliced views in logical order', () => {
+    const arr = ndarray(Float64Array.from([0, 1, 2, 3, 4, 5]), [2, 3]);
+    expect([...toLogicalArray(arr.transpose(1, 0)).data]).toEqual([
+      0, 3, 1, 4, 2, 5,
+    ]);
+    expect([...toLogicalArray(arr.step(-1, 1)).data]).toEqual([
+      3, 4, 5, 0, 1, 2,
+    ]);
+    expect([...toLogicalArray(arr.hi(2, 2)).data]).toEqual([0, 1, 3, 4]);
+    expect([...toLogicalArray(arr.lo(1, 0)).data]).toEqual([3, 4, 5]);
   });
 });
