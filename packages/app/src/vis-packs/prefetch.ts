@@ -31,7 +31,8 @@ interface PrefetchState {
   fetched: Map<string, TrackedQuery>; // slices fetched for playback, least recently used first
 }
 
-/* Returns a function to pass to `DimensionMapper`'s `prefetchSlices` prop. Fetches upcoming
+/* Returns a function to pass to `DimensionMapper`'s `prefetchSlices` prop (called repeatedly
+ * during playback, so it must be cheap and idempotent). Fetches upcoming
  * slices of the given datasets ahead of playback, cancels prefetches that are no longer
  * needed, and evicts slices fetched for playback once they take up too much memory. */
 export function useSlicePrefetcher(
@@ -73,9 +74,14 @@ export function useSlicePrefetcher(
         const hash = hashKey(options.queryKey);
         wanted.set(hash, options.queryKey);
 
-        if (queryClient.getQueryData(options.queryKey) !== undefined) {
+        const query = queryClient.getQueryCache().get(hash);
+        if (query?.state.data !== undefined) {
           touch(state.fetched, hash); // keep most recently played slices in cache
           continue;
+        }
+
+        if (query?.state.status === 'error') {
+          continue; // don't retry on every call; the vis shows the error once playback reaches the slice
         }
 
         state.fetched.delete(hash);

@@ -21,7 +21,7 @@ import { useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query';
 
 import { useDataContext } from './providers/DataProvider';
 import { type ValueQueryParams } from './providers/models';
-import { isValueInCache } from './utils';
+import { hasValueFailed, isValueInCache } from './utils';
 
 export function useEntity(path: string): ProvidedEntity {
   const { queries } = useDataContext();
@@ -125,8 +125,12 @@ export function useValuesInCache(
   return (nextMapping) => {
     const selection = getSliceSelection(nextMapping);
 
-    return definedDatasets.every((dataset) =>
-      isValueInCache(dataContext, dataset, selection),
+    // Failed fetches count as cached: their errors can be shown right away (and playback
+    // can then reach them, instead of waiting forever for slices that won't load)
+    return definedDatasets.every(
+      (dataset) =>
+        isValueInCache(dataContext, dataset, selection) ||
+        hasValueFailed(dataContext, dataset, selection),
     );
   };
 }
