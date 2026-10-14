@@ -53,6 +53,7 @@ export class H5WasmApi extends DataProviderApi {
     await this.processFilters(dataset);
 
     // Large reads may be cancelled and report progress (see `direct-read.ts`)
+    abortSignal?.throwIfAborted(); // e.g. while plugins were being loaded
     const requestId = nextRequestId;
     nextRequestId += 1;
     const cancel = () => {

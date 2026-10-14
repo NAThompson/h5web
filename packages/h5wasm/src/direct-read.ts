@@ -367,6 +367,10 @@ function planChunked(
       }
       totalBytes += length;
     } else {
+      if (chunkBytes > maxRequestBytes) {
+        return undefined; // don't fetch large chunks in one go (HDF5 reads only what's needed)
+      }
+
       ops.push({
         filePos: addr,
         length: chunkBytes,

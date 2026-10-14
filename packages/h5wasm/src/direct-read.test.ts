@@ -270,6 +270,13 @@ describe('direct reads', () => {
     expect(planDirectRead(bigEndian, all, { minBytes: 0 })).toBeUndefined();
   });
 
+  it('should leave chunks larger than a request to HDF5 unless read in place', () => {
+    const all = SHAPE.map<[number, number]>((dim) => [0, dim]);
+    const opts = { minBytes: 0, maxRequestBytes: 1000 };
+    expect(planDirectRead(getDataset('chunked'), all, opts)).toBeUndefined();
+    expect(planDirectRead(getDataset('slabs'), all, opts)).toBeDefined(); // split into requests
+  });
+
   it('should leave small selections to HDF5', () => {
     const all = SHAPE.map<[number, number]>((dim) => [0, dim]);
     expect(planDirectRead(getDataset('chunked'), all)).toBeUndefined();

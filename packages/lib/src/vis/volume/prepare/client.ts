@@ -67,8 +67,15 @@ export function setPrepareWorkerFactory(factory: WorkerFactory): void {
   createWorker = factory;
 }
 
-const preparations = new WeakMap<Float32Array, Promise<PreparedVolume>>();
-const results = new WeakMap<Float32Array, PreparedVolume>();
+// Chunks depend on the slice length, so the same array prepared for another shape is prepared again
+const preparations = new WeakMap<
+  Float32Array,
+  { sliceLength: number; promise: Promise<PreparedVolume> }
+>();
+const results = new WeakMap<
+  Float32Array,
+  { sliceLength: number; result: PreparedVolume }
+>();
 
 /* Same promise for the same array, e.g. for React's `use` (so not an async function).
  * `sliceLength` is the number of values per slice along the first dimension. */
@@ -77,27 +84,33 @@ export function prepareVolume(
   data: Float32Array,
   sliceLength: number,
 ): Promise<PreparedVolume> {
-  let promise = preparations.get(data);
-  if (!promise) {
-    promise = runPreparation(data, sliceLength);
-    preparations.set(data, promise);
+  const preparation = preparations.get(data);
+  if (preparation?.sliceLength === sliceLength) {
+    return preparation.promise;
   }
+
+  const promise = runPreparation(data, sliceLength);
+  preparations.set(data, { sliceLength, promise });
   return promise;
 }
 
 /* Half floats prepared for `data`, if any (synchronous, once `prepareVolume` has resolved) */
 export function getPreparedHalfFloats(
   data: Float32Array,
+  sliceLength: number,
 ): PreparedHalfFloats | undefined {
-  return results.get(data)?.halfFloats;
+  const entry = results.get(data);
+  return entry?.sliceLength === sliceLength
+    ? entry.result.halfFloats
+    : undefined;
 }
 
 /* Drop prepared half floats (e.g. once uploaded to the GPU), so they don't stay in memory
  * as long as `data` (they are prepared again by `VolumeMesh` if needed) */
 export function releasePreparedHalfFloats(data: Float32Array): void {
-  const result = results.get(data);
-  if (result) {
-    result.halfFloats = undefined; // same object as resolved by `prepareVolume`'s promise
+  const entry = results.get(data);
+  if (entry) {
+    entry.result.halfFloats = undefined; // same object as resolved by `prepareVolume`'s promise
   }
 }
 
@@ -123,7 +136,7 @@ async function runPreparation(
     result = { bounds: getFloat32Bounds(data) }; // half floats are then computed by `VolumeMesh`
   }
 
-  results.set(data, result);
+  results.set(data, { sliceLength, result });
   return result;
 }
 
@@ -187,7 +200,7 @@ async function prepareInWorkers(
   const cores =
     typeof navigator === 'undefined' ? 4 : navigator.hardwareConcurrency || 4;
   const workerCount = Math.max(1, Math.min(MAX_WORKERS, cores - 2, chunkCount));
-  const handles = Array.from({ length: workerCount }, () => new WorkerHandle());
+  const handles: WorkerHandle[] = [];
 
   /* Send chunks to workers as they become available (so slower cores get fewer chunks),
    * keeping a couple of chunks in flight per worker so they don't wait for the next copy.
@@ -238,6 +251,10 @@ async function prepareInWorkers(
   }
 
   try {
+    for (let i = 0; i < workerCount; i += 1) {
+      handles.push(new WorkerHandle()); // inside `try`, to terminate workers if one fails to start
+    }
+
     const bounds = mergeBounds(
       await processChunks(
         (id, buffer) => ({ type: 'bounds', id, buffer }),

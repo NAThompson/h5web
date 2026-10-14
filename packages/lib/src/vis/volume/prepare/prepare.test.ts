@@ -150,8 +150,9 @@ describe('prepareVolume', () => {
     expect(prepared.bounds).toStrictEqual(getBounds(values));
     expect(prepared.halfFloats).toBeUndefined(); // small enough for 32-bit float texture
 
-    // Same promise for same array
+    // Same promise for same array and slice length
     expect(prepareVolume(values, 1000)).toBe(prepareVolume(values, 1000));
+    expect(prepareVolume(values, 500)).not.toBe(prepareVolume(values, 1000));
   });
 
   it('should prepare half floats in chunks of whole slices for volumes larger than 1 GiB', async () => {
@@ -164,7 +165,7 @@ describe('prepareVolume', () => {
     const prepared = await prepareVolume(values, sliceLength);
     expect(prepared.bounds).toMatchObject({ min: -1, max: 3 });
 
-    const halfFloats = getPreparedHalfFloats(values);
+    const halfFloats = getPreparedHalfFloats(values, sliceLength);
     assertDefined(halfFloats);
     expect(halfFloats).toMatchObject({ offset: -1, scale: 4 });
 
@@ -190,7 +191,7 @@ describe('prepareVolume', () => {
     expect(floats.at(-1)).toBe(1);
 
     releasePreparedHalfFloats(values);
-    expect(getPreparedHalfFloats(values)).toBeUndefined();
+    expect(getPreparedHalfFloats(values, sliceLength)).toBeUndefined();
     const preparedAgain = await prepareVolume(values, sliceLength);
     expect(preparedAgain.halfFloats).toBeUndefined();
   });

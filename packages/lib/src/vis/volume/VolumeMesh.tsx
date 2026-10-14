@@ -130,8 +130,10 @@ function VolumeMesh(props: Props) {
         !canAllocateVolumeTexture(ctx, textureSafeValues.shape, ctx.R32F)
       ) {
         // Use half floats prepared in workers along with the domain, if any (cf. `useVolumeDomain`)
+        const [, rows, cols] = textureSafeValues.shape;
         const prepared = getPreparedHalfFloats(
           textureSafeValues.data as Float32Array,
+          rows * cols,
         );
         if (prepared) {
           return {
