@@ -5,7 +5,13 @@ import {
   ScaleType,
 } from '@h5web/shared/vis-models';
 import { rgb } from 'd3-color';
-import { Color, SRGBColorSpace, type Vector3Tuple } from 'three';
+import {
+  BufferAttribute,
+  type BufferGeometry,
+  Color,
+  SRGBColorSpace,
+  type Vector3Tuple,
+} from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
@@ -67,8 +73,8 @@ export function getFramingDistance(
 }
 
 /**
- * Domain of the finite values of one or more arrays. A flat domain (e.g. along the
- * normal of a planar curve) is widened by 0.5 on each side, so it can be scaled to a box.
+ * Domain of the finite values of one or more arrays. The domain is flat (`min === max`)
+ * along the normal of a planar curve or surface; `[-0.5, 0.5]` if there is no finite value.
  */
 export function getExtentDomain(...arrays: NumArray[]): Domain {
   let min = Infinity;
@@ -83,31 +89,47 @@ export function getExtentDomain(...arrays: NumArray[]): Domain {
     }
   }
 
-  if (min > max) {
-    return [-0.5, 0.5]; // no finite value
-  }
-
-  return min === max ? [min - 0.5, max + 0.5] : [min, max];
+  return min > max ? [-0.5, 0.5] : [min, max];
 }
 
 /**
  * Size of the box of a 3D object in world units - the longest side always measures 1.
- * When `keepRatio` is true, the ratios between the extents of the domains are respected.
+ * When `keepRatio` is true, the ratios between the extents of the domains are respected;
+ * otherwise, all sides measure 1. Either way, flat domains give a box of zero thickness
+ * along their axis (e.g. planar curve), unless all domains are flat (single point).
  */
 export function getBoxSize(
   domains: [Domain, Domain, Domain],
   keepRatio: boolean,
 ): Vector3Tuple {
-  if (!keepRatio) {
+  const extents = domains.map(([min, max]) => Math.abs(max - min));
+  const longest = Math.max(...extents);
+
+  if (longest === 0 || !Number.isFinite(longest)) {
     return [1, 1, 1];
   }
 
-  const extents = domains.map(([min, max]) => Math.abs(max - min));
-  const longest = Math.max(...extents);
-  return extents.map((extent) => extent / longest) as Vector3Tuple;
+  return extents.map((extent) =>
+    keepRatio ? extent / longest : extent > 0 ? 1 : 0,
+  ) as Vector3Tuple;
 }
 
 export type WorldTransform = (x: number, y: number, z: number) => Vector3Tuple;
+
+function getAxisTransform(
+  [min, max]: Domain,
+  size: number,
+  offset: number, // world coordinate of the start of the axis
+): (val: number) => number {
+  const extent = max - min;
+  if (extent === 0) {
+    const center = offset + size / 2;
+    return () => center; // flat domain: middle of the box
+  }
+
+  const k = size / extent;
+  return (val) => (val - min) * k + offset;
+}
 
 /**
  * Map data coordinates into a box centred on the origin in X and Y and resting on
@@ -117,17 +139,12 @@ export function getWorldTransform(
   domains: [Domain, Domain, Domain],
   boxSize: Vector3Tuple,
 ): WorldTransform {
-  const [[xMin, xMax], [yMin, yMax], [zMin, zMax]] = domains;
   const [w, h, d] = boxSize;
-  const kx = w / (xMax - xMin);
-  const ky = h / (yMax - yMin);
-  const kz = d / (zMax - zMin);
+  const toX = getAxisTransform(domains[0], w, -w / 2);
+  const toY = getAxisTransform(domains[1], h, -h / 2);
+  const toZ = getAxisTransform(domains[2], d, 0);
 
-  return (x, y, z) => [
-    (x - xMin) * kx - w / 2,
-    (y - yMin) * ky - h / 2,
-    (z - zMin) * kz,
-  ];
+  return (x, y, z) => [toX(x), toY(y), toZ(z)];
 }
 
 /**
@@ -177,4 +194,29 @@ export function getVertexColors(
   }
 
   return colors;
+}
+
+/**
+ * Set vertex colours on one or more geometries sharing the same vertices. The existing
+ * `color` attribute is updated in place when it has the right size, so colour map or domain
+ * changes do not allocate a new GPU buffer each time.
+ */
+export function updateColorAttribute(
+  geometries: BufferGeometry[],
+  colors: Float32Array,
+): BufferAttribute {
+  const [first] = geometries;
+  const current = first.getAttribute('color') as BufferAttribute | undefined;
+
+  if (current?.array.length === colors.length) {
+    (current.array as Float32Array).set(colors);
+    current.needsUpdate = true;
+    return current;
+  }
+
+  const attr = new BufferAttribute(colors, 3);
+  for (const geometry of geometries) {
+    geometry.setAttribute('color', attr);
+  }
+  return attr;
 }

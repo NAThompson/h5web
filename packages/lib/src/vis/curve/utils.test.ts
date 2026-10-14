@@ -1,7 +1,13 @@
-import { type Vector3Tuple } from 'three';
+import { type InterleavedBufferAttribute, type Vector3Tuple } from 'three';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { describe, expect, it } from 'vitest';
 
-import { buildCurveBuffers, gatherColors, getPointIndices } from './utils';
+import {
+  buildCurveBuffers,
+  gatherColors,
+  getPointIndices,
+  updateLineColors,
+} from './utils';
 
 function identity(x: number, y: number, z: number): Vector3Tuple {
   return [x, y, z];
@@ -96,5 +102,31 @@ describe('gatherColors', () => {
 describe('getPointIndices', () => {
   it('should return indices of points', () => {
     expect([...getPointIndices(3)]).toEqual([0, 1, 2]);
+  });
+});
+
+describe('updateLineColors', () => {
+  it('should update interleaved colour buffer in place', () => {
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions([0, 0, 0, 1, 1, 1]);
+
+    updateLineColors(geometry, Float32Array.from([0, 0, 0, 0, 0, 0]));
+    const attr = geometry.getAttribute(
+      'instanceColorStart',
+    ) as InterleavedBufferAttribute;
+    const { data } = attr;
+    const { version } = data;
+
+    updateLineColors(geometry, Float32Array.from([1, 1, 1, 0.5, 0.5, 0.5]));
+    const start = geometry.getAttribute(
+      'instanceColorStart',
+    ) as InterleavedBufferAttribute;
+    const end = geometry.getAttribute(
+      'instanceColorEnd',
+    ) as InterleavedBufferAttribute;
+    expect(start.data).toBe(data); // no new GPU buffer
+    expect(end.data).toBe(data);
+    expect([...data.array]).toEqual([1, 1, 1, 0.5, 0.5, 0.5]);
+    expect(data.version).toBe(version + 1);
   });
 });

@@ -1,4 +1,5 @@
-import { ScaleType } from '@h5web/shared/vis-models';
+import { type Domain, ScaleType } from '@h5web/shared/vis-models';
+import { BufferGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -10,6 +11,7 @@ import {
   getVertexColors,
   getWorldTransform,
   NAN_COLOR,
+  updateColorAttribute,
 } from './utils';
 
 describe('getAxisTicks', () => {
@@ -53,8 +55,8 @@ describe('getExtentDomain', () => {
     ]);
   });
 
-  it('should widen flat domain', () => {
-    expect(getExtentDomain([0, 0, 0])).toEqual([-0.5, 0.5]);
+  it('should keep flat domain flat', () => {
+    expect(getExtentDomain([2, 2, 2])).toEqual([2, 2]);
   });
 
   it('should return default domain if there is no finite value', () => {
@@ -88,9 +90,55 @@ describe('getBoxSize', () => {
       ),
     ).toEqual([1, 1, 1]);
   });
+
+  it('should give zero thickness to flat domains, whatever their position', () => {
+    // Small planar curve: must fill the box, not be squashed by an arbitrary thickness
+    const domains: [Domain, Domain, Domain] = [
+      [0, 0.01],
+      [0, 0.005],
+      [3, 3],
+    ];
+    expect(getBoxSize(domains, true)).toEqual([1, 0.5, 0]);
+    expect(getBoxSize(domains, false)).toEqual([1, 1, 0]);
+  });
+
+  it('should return unit cube for single point', () => {
+    expect(
+      getBoxSize(
+        [
+          [1, 1],
+          [2, 2],
+          [3, 3],
+        ],
+        true,
+      ),
+    ).toEqual([1, 1, 1]);
+  });
 });
 
 describe('getWorldTransform', () => {
+  it('should map flat domains to middle of box', () => {
+    const toWorld = getWorldTransform(
+      [
+        [0, 0.01],
+        [5, 5],
+        [3, 3],
+      ],
+      [1, 0, 0],
+    );
+    expect(toWorld(0.01, 5, 3)).toEqual([0.5, 0, 0]);
+
+    const toWorldUnitBox = getWorldTransform(
+      [
+        [1, 1],
+        [2, 2],
+        [3, 3],
+      ],
+      [1, 1, 1],
+    );
+    expect(toWorldUnitBox(1, 2, 3)).toEqual([0, 0, 0.5]);
+  });
+
   it('should map domains to box centred in X and Y, and resting on Z = 0', () => {
     const toWorld = getWorldTransform(
       [
@@ -147,5 +195,36 @@ describe('getVertexColors', () => {
       1,
       ...Float32Array.from(NAN_COLOR),
     ]);
+  });
+});
+
+describe('updateColorAttribute', () => {
+  it('should update existing attribute in place, shared by all geometries', () => {
+    const surface = new BufferGeometry();
+    const wire = new BufferGeometry();
+
+    const attr = updateColorAttribute(
+      [surface, wire],
+      Float32Array.from([0, 0, 0]),
+    );
+    expect(surface.getAttribute('color')).toBe(attr);
+    expect(wire.getAttribute('color')).toBe(attr);
+    const { version } = attr;
+
+    const updated = updateColorAttribute(
+      [surface, wire],
+      Float32Array.from([1, 1, 1]),
+    );
+    expect(updated).toBe(attr); // no new GPU buffer
+    expect([...attr.array]).toEqual([1, 1, 1]);
+    expect(attr.version).toBe(version + 1); // re-uploaded
+  });
+
+  it('should replace attribute when vertex count changes', () => {
+    const geometry = new BufferGeometry();
+    const attr = updateColorAttribute([geometry], new Float32Array(3));
+    const replaced = updateColorAttribute([geometry], new Float32Array(6));
+    expect(replaced).not.toBe(attr);
+    expect(geometry.getAttribute('color')).toBe(replaced);
   });
 });

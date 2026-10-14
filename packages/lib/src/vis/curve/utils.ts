@@ -1,4 +1,6 @@
 import { type NumArray } from '@h5web/shared/vis-models';
+import { type InterleavedBufferAttribute } from 'three';
+import { type LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import { type WorldTransform } from '../three-d/utils';
 
@@ -87,4 +89,24 @@ export function gatherColors(
 /** Default scalar field of a curve: index of each point, i.e. its parameter. */
 export function getPointIndices(count: number): Float64Array {
   return Float64Array.from({ length: count }, (_, i) => i);
+}
+
+/**
+ * Set colours of segment ends (6 floats per segment), updating the existing interleaved
+ * buffer in place when possible, rather than allocating a new one with `setColors`.
+ */
+export function updateLineColors(
+  geometry: LineSegmentsGeometry,
+  colors: Float32Array,
+): void {
+  const attr = geometry.getAttribute('instanceColorStart') as
+    InterleavedBufferAttribute | undefined;
+
+  if (attr?.data.array.length === colors.length) {
+    (attr.data.array as Float32Array).set(colors);
+    attr.data.needsUpdate = true;
+    return;
+  }
+
+  geometry.setColors(colors);
 }

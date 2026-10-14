@@ -10,7 +10,8 @@ import { LineMaterial as ThreeLineMaterial } from 'three/addons/lines/LineMateri
 import { LineSegments2 as ThreeLineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
-import { type CurveBuffers, gatherColors } from './utils';
+import { updateColorAttribute } from '../three-d/utils';
+import { type CurveBuffers, gatherColors, updateLineColors } from './utils';
 
 const LineSegments2 = extend(ThreeLineSegments2);
 const LineMaterial = extend(ThreeLineMaterial);
@@ -73,13 +74,10 @@ function CurveMesh(props: Props) {
   // Update colours alone when colour map, domain or scale change (before next frame is rendered)
   useLayoutEffect(() => {
     if (segmentIndices.length > 0) {
-      lineGeometry.setColors(gatherColors(colors, segmentIndices));
+      updateLineColors(lineGeometry, gatherColors(colors, segmentIndices));
     }
 
-    pointsGeometry.setAttribute(
-      'color',
-      new BufferAttribute(gatherColors(colors, pointIndices), 3),
-    );
+    updateColorAttribute([pointsGeometry], gatherColors(colors, pointIndices));
     invalidate();
   }, [
     lineGeometry,
