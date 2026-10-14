@@ -157,11 +157,8 @@ test('pause when interacting with slider', async () => {
   await expect
     .element(page.getByRole('button', { name: 'Pause D0' }))
     .toBeVisible();
-  await (
-    await openSettings()
-  )
-    .getByRole('button', { name: 'Step back' })
-    .click();
+  const dialog = await openSettings();
+  await dialog.getByRole('button', { name: 'Step back' }).click();
   await expect
     .element(page.getByRole('button', { name: 'Play D0' }))
     .toBeVisible();
