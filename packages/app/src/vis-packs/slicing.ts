@@ -33,6 +33,7 @@ import {
   createPrefetchState,
   prefetchSlices,
   releasePrefetches,
+  trackPlaybackQuery,
 } from './prefetch';
 import { getValueSize, MAX_SEQUENCE_RANGE_SIZE } from './utils';
 
@@ -151,6 +152,39 @@ function getSequenceMapping(
   return mapMapping(dimMapping.map((val, i) => (i === dim ? null : val)));
 }
 
+/* Fetch values of a whole sequence, if affordable (size budget, large value guard) */
+function useSequenceValues(
+  dataContext: DataContextValue,
+  signalRequest: ValueQueryParams | undefined,
+  maxAutoFetchSize: number,
+) {
+  const isAffordable =
+    !!signalRequest &&
+    getValueSize(signalRequest.dataset, signalRequest.selection) <=
+      MAX_SEQUENCE_RANGE_SIZE &&
+    getSizeToConfirm(dataContext, [signalRequest], maxAutoFetchSize) === 0;
+
+  const sequenceQuery =
+    signalRequest &&
+    dataContext.queries.value(signalRequest.dataset, signalRequest.selection);
+  const { data: sequenceValue, isError: hasSequenceFailed } = useQuery({
+    queryKey: sequenceQuery?.queryKey ?? [dataContext.filepath, 'no-sequence'],
+    queryFn:
+      (isAffordable && (sequenceQuery?.queryFn as QueryFunction | undefined)) ||
+      skipToken,
+  });
+
+  // Keep its error in cache if it fails, rather than refetching it (cf. `VisBoundary`)
+  const sequenceKey = isAffordable ? sequenceQuery?.queryKey : undefined;
+  useEffect(() => {
+    if (sequenceKey) {
+      trackPlaybackQuery(dataContext.queryClient, sequenceKey);
+    }
+  }, [dataContext, sequenceKey]);
+
+  return { isAffordable, sequenceValue, hasSequenceFailed };
+}
+
 /* Value range for playback: whole sequence's range when it's affordable to fetch, otherwise
  * running range of slices shown so far. Kept after pausing, until the sequence changes (other
  * dimension sliced, axes remapped) or a new sequence is played. */
@@ -181,21 +215,11 @@ function usePlaybackRange(
   const signalRequest: ValueQueryParams | undefined = isActive
     ? getRequests(getSliceSelection(sequenceMapping))[0]
     : undefined;
-  const isAffordable =
-    !!signalRequest &&
-    getValueSize(signalRequest.dataset, signalRequest.selection) <=
-      MAX_SEQUENCE_RANGE_SIZE &&
-    getSizeToConfirm(dataContext, [signalRequest], maxAutoFetchSize) === 0;
-
-  const sequenceQuery =
-    signalRequest &&
-    dataContext.queries.value(signalRequest.dataset, signalRequest.selection);
-  const { data: sequenceValue, isError: hasSequenceFailed } = useQuery({
-    queryKey: sequenceQuery?.queryKey ?? [dataContext.filepath, 'no-sequence'],
-    queryFn:
-      (isAffordable && (sequenceQuery?.queryFn as QueryFunction | undefined)) ||
-      skipToken,
-  });
+  const { isAffordable, sequenceValue, hasSequenceFailed } = useSequenceValues(
+    dataContext,
+    signalRequest,
+    maxAutoFetchSize,
+  );
 
   const seenDomains = useMemo(() => new Map(), [key]); // eslint-disable-line react-hooks/exhaustive-deps -- reset per sequence
 

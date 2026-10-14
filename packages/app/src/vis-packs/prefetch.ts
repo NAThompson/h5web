@@ -24,6 +24,14 @@ function getPlaybackQueries(queryClient: QueryClient): Set<string> {
   return hashes;
 }
 
+/* Flag a query as made for playback (e.g. values of a whole sequence, to get its range) */
+export function trackPlaybackQuery(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+): void {
+  getPlaybackQueries(queryClient).add(hashKey(queryKey));
+}
+
 export interface PrefetchLimits {
   maxPrefetchSize: number; // max size of slices fetched ahead of the current one (the next slice is always fetched)
   maxCacheSize: number; // max size of slices kept in cache after being fetched for playback
