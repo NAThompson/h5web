@@ -86,6 +86,31 @@ test('plot 2D dataset against the scale attached to its last dimension', async (
   expect(getDimMappingBtn('y', 0)).not.toHaveAttribute('title');
 });
 
+test('keep ratio by default only when both axes share a unit', async () => {
+  // `Y_nm` and `X` are both in nanometres, so the image keeps its ratio...
+  await renderApp('/dimension_scales/twoD_same_units');
+  const keepRatioBtn = page.getByRole('button', { name: 'Keep ratio' });
+  expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+
+  // ...but the user can still turn it off
+  await keepRatioBtn.click();
+  expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('fill the canvas by default when the axes have different units', async () => {
+  // Time against length: keeping the ratio would squash the image into a line
+  await renderApp('/dimension_scales/twoD_diff_units');
+  const keepRatioBtn = page.getByRole('button', { name: 'Keep ratio' });
+  expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
+
+  // The suggestion does not override the user's choice, even when remapping the axes
+  await keepRatioBtn.click();
+  expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await getDimMappingBtn('x', 0).click();
+  expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('plot complex dataset against its attached dimension scale', async () => {
   await renderApp('/dimension_scales/oneD_complex');
 

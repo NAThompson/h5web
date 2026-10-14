@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getBaseArray } from './utils';
+import { getBaseArray, guessKeepRatio } from './utils';
 
 describe('getBaseArray', () => {
   it('should create ndarray with given dimensions', () => {
@@ -26,5 +26,31 @@ describe('getBaseArray', () => {
     expect(() => getBaseArray([1, 2, 3], [2, 3])).toThrow(
       'Expected value with at least 6 elements instead of 3',
     );
+  });
+});
+
+const axisDefNoUnit = { unit: undefined };
+const axisDefUnitX = { unit: 'mm' };
+const axisDefUnitY = { unit: 'degrees' };
+
+describe('guessKeepRatio', () => {
+  it('should return `cover` if units of both axes are provided and equal', () => {
+    expect(guessKeepRatio(axisDefUnitX, axisDefUnitX)).toBe(true);
+  });
+
+  it('should return `fill` if units of both axes are provided but different', () => {
+    expect(guessKeepRatio(axisDefUnitX, axisDefUnitY)).toBe(false);
+  });
+
+  it('should return `fill` if unit is provided for only one axis', () => {
+    expect(guessKeepRatio(axisDefUnitX, undefined)).toBe(false);
+    expect(guessKeepRatio(undefined, axisDefUnitY)).toBe(false);
+  });
+
+  it('should return `undefined` if both axis defs/units are undefined', () => {
+    expect(guessKeepRatio(undefined, undefined)).toBeUndefined();
+    expect(guessKeepRatio(axisDefNoUnit, undefined)).toBeUndefined();
+    expect(guessKeepRatio(undefined, axisDefNoUnit)).toBeUndefined();
+    expect(guessKeepRatio(axisDefNoUnit, axisDefNoUnit)).toBeUndefined();
   });
 });

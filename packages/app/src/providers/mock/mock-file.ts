@@ -567,6 +567,17 @@ export function makeMockFile(): GroupWithChildren {
           labels: [undefined, 'column'],
           scales: [[], ['/dimension_scales/X']],
         }),
+        array('Y_nm', {
+          valueId: 'Y',
+          attributes: [scalarAttr('units', 'nm')],
+        }),
+        array('Y_s', { valueId: 'Y', attributes: [scalarAttr('units', 's')] }),
+        withDimScales(array('twoD_same_units', { valueId: 'twoD' }), {
+          scales: [['/dimension_scales/Y_nm'], ['/dimension_scales/X']],
+        }),
+        withDimScales(array('twoD_diff_units', { valueId: 'twoD' }), {
+          scales: [['/dimension_scales/Y_s'], ['/dimension_scales/X']],
+        }),
         dataset(
           'T',
           arrayShape([10]),
