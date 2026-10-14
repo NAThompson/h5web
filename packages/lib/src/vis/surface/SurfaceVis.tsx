@@ -5,22 +5,18 @@ import {
   ScaleType,
 } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, useMemo, useRef } from 'react';
-import { type Vector3Tuple } from 'three';
+import { type PropsWithChildren, useMemo } from 'react';
 
-import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
 import {
   type AxisParams,
   type ClassStyleAttrs,
   type VisScaleType,
 } from '../models';
-import R3FCanvas from '../shared/R3FCanvas';
+import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
+import Vis3DLayout from '../three-d/Vis3DLayout';
 import { createScale, DEFAULT_DOMAIN } from '../utils';
-import SurfaceAxes, { type SurfaceAxisConfig } from './SurfaceAxes';
-import SurfaceControls from './SurfaceControls';
 import SurfaceMesh from './SurfaceMesh';
-import styles from './SurfaceVis.module.css';
 import {
   DEFAULT_MAX_VERTICES,
   getCellCenters,
@@ -31,15 +27,6 @@ import {
   isSurfaceSupported,
   sampleArray,
 } from './utils';
-
-/* Lambert shading: lit colour = colour * (ambient + directional * cos(angle)) / PI.
- * `R3FCanvas` already provides an ambient light of intensity 1. Intensities are chosen so that
- * ambient and directional contributions sum to exactly PI: faces facing the light keep the exact
- * colour of the colour map (no clipping), while faces turned away get darker (down to 55%). */
-const AMBIENT_SHARE = 0.55;
-const EXTRA_AMBIENT_INTENSITY = AMBIENT_SHARE * Math.PI - 1;
-const DIRECTIONAL_INTENSITY = (1 - AMBIENT_SHARE) * Math.PI;
-const LIGHT_POSITION: Vector3Tuple = [-0.2, -0.3, 1]; // mostly from above, so flat areas stay faithful
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -147,7 +134,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     flipYAxis,
   ]);
 
-  const abscissaConfig = useMemo<SurfaceAxisConfig>(
+  const abscissaConfig = useMemo<Axis3DConfig>(
     () => ({
       domain: xDomain,
       isIndexAxis: !abscissaValue,
@@ -157,7 +144,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [xDomain, abscissaValue, abscissaLabel, flipXAxis],
   );
 
-  const ordinateConfig = useMemo<SurfaceAxisConfig>(
+  const ordinateConfig = useMemo<Axis3DConfig>(
     () => ({
       domain: yDomain,
       isIndexAxis: !ordinateValue,
@@ -167,72 +154,45 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [yDomain, ordinateValue, ordinateLabel, flipYAxis],
   );
 
-  const resetRef = useRef<() => void>(undefined);
+  const valueConfig = useMemo<Axis3DConfig>(
+    () => ({ domain, scaleType, label: valueLabel }),
+    [domain, scaleType, valueLabel],
+  );
 
   return (
-    <figure
-      className={`${styles.root} ${className}`}
+    <Vis3DLayout
+      className={className}
       style={style}
-      aria-label={title}
-      data-keep-canvas-colors
+      title={title}
+      boxSize={[w, h, heightScale]}
+      domain={domain}
+      scaleType={scaleType}
+      colorMap={colorMap}
+      invertColorMap={invertColorMap}
     >
-      <div className={styles.main}>
-        {title && <p className={styles.title}>{title}</p>}
-        <div className={styles.canvasArea}>
-          <R3FCanvas className={styles.canvas}>
-            <ambientLight intensity={EXTRA_AMBIENT_INTENSITY} />
-            <directionalLight
-              position={LIGHT_POSITION}
-              intensity={DIRECTIONAL_INTENSITY}
-            />
-            <SurfaceControls
-              boxSize={[w, h, heightScale]}
-              resetRef={resetRef}
-            />
-            <SurfaceMesh
-              values={values}
-              xCoords={xCoords}
-              yCoords={yCoords}
-              domain={domain}
-              scaleType={scaleType}
-              colorMap={colorMap}
-              invertColorMap={invertColorMap}
-              ignoreValue={ignoreValue}
-              zHeight={heightScale}
-              shading={shading}
-            />
-            {showAxes && (
-              <SurfaceAxes
-                footprint={[w, h]}
-                zHeight={heightScale}
-                abscissaConfig={abscissaConfig}
-                ordinateConfig={ordinateConfig}
-                valueDomain={domain}
-                valueLabel={valueLabel}
-                scaleType={scaleType}
-                showGrid={showGrid}
-              />
-            )}
-            {children}
-          </R3FCanvas>
-          <button
-            className={styles.resetBtn}
-            type="button"
-            data-snapshot-ignore
-            onClick={() => resetRef.current?.()}
-          >
-            <span className={styles.btnLike}>Reset view</span>
-          </button>
-        </div>
-      </div>
-      <ColorBar
+      <SurfaceMesh
+        values={values}
+        xCoords={xCoords}
+        yCoords={yCoords}
         domain={domain}
         scaleType={scaleType}
         colorMap={colorMap}
         invertColorMap={invertColorMap}
-        withBounds
+        ignoreValue={ignoreValue}
+        zHeight={heightScale}
+        shading={shading}
       />
-    </figure>
+      {showAxes && (
+        <Axes3D
+          boxSize={[w, h, heightScale]}
+          xConfig={abscissaConfig}
+          yConfig={ordinateConfig}
+          zConfig={valueConfig}
+          showGrid={showGrid}
+        />
+      )}
+      {children}
+    </Vis3DLayout>
   );
 }
 

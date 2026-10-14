@@ -10,11 +10,8 @@ import { BufferAttribute, BufferGeometry, DoubleSide } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import { type VisScaleType } from '../models';
-import {
-  buildSurfaceBuffers,
-  getLinearColorLut,
-  getSurfaceColors,
-} from './utils';
+import { getLinearColorLut } from '../three-d/utils';
+import { buildSurfaceBuffers, getSurfaceColors } from './utils';
 
 interface Props {
   values: NdArray<NumArray>;
