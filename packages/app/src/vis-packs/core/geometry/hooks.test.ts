@@ -1,5 +1,7 @@
 import {
+  type ArrayShape,
   type AttributeValues,
+  type Dataset,
   type Entity,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
@@ -9,6 +11,7 @@ import {
   dataset,
   group,
   scalarAttr,
+  withDimScales,
 } from '@h5web/shared/mock-utils';
 import { QueryClient, queryOptions } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
@@ -44,6 +47,7 @@ function mockAttrValues(entity: Entity): AttributeValues {
 interface Behaviour {
   getEntity?: (path: string) => ProvidedEntity | Error;
   getAttrValues?: (entity: Entity) => AttributeValues | Error;
+  getDimensionScales?: (path: string) => string[][] | null | Error;
 }
 
 function createDataContext(behaviour: Behaviour = {}): DataContextValue {
@@ -81,6 +85,17 @@ function createDataContext(behaviour: Behaviour = {}): DataContextValue {
           queryKey: ['test.h5', 'attrValues', entity.path],
           queryFn: async () => {
             const result = getAttrValues(entity);
+            if (result instanceof Error) {
+              throw result;
+            }
+            return result;
+          },
+        }),
+      dimensionScales: (dset: Entity) =>
+        queryOptions({
+          queryKey: ['test.h5', 'dimensionScales', dset.path],
+          queryFn: async () => {
+            const result = behaviour.getDimensionScales?.(dset.path) ?? null;
             if (result instanceof Error) {
               throw result;
             }
@@ -174,5 +189,74 @@ describe('getGeometryKind', () => {
         geometryQuery(plain, dataContext).queryKey,
       ),
     ).toBeNull();
+  });
+});
+
+describe('dimension scales in geometry detection', () => {
+  const scaleRoot = group(
+    'root.h5',
+    [
+      ...['x', 'y'].map((name) =>
+        dataset(name, arrayShape([10]), floatType(), null, {
+          attributes: [scalarAttr('NAME', name)],
+        }),
+      ),
+      withDimScales(
+        dataset('t', arrayShape([10]), floatType(), null, {
+          attributes: [scalarAttr('featureType', 'trajectory')],
+        }),
+        { scales: [['/x', '/y']] },
+      ),
+    ],
+    { isRoot: true },
+  );
+  const t = scaleRoot.children[2] as Dataset<ArrayShape>;
+
+  function scaleContext(getDimensionScales: Behaviour['getDimensionScales']) {
+    return createDataContext({
+      getEntity: (path) =>
+        (scaleRoot.children.find((c) => c.path === path) ??
+          scaleRoot) as ProvidedEntity,
+      getDimensionScales,
+    });
+  }
+
+  it('should detect curve from scales returned by shared query', async () => {
+    const dataContext = scaleContext(() => [['/x', '/y']]);
+    await expect(getGeometryKind(t, dataContext)).resolves.toBe(
+      GeometryKind.Curve,
+    );
+    expect(
+      dataContext.queryClient.getQueryData(
+        dataContext.queries.dimensionScales(t).queryKey,
+      ),
+    ).toEqual([['/x', '/y']]); // cached for dimension scales of other visualizations too
+  });
+
+  it('should treat data errors as no scales, but not cache transport errors', async () => {
+    const dataError = scaleContext(() => new Error('Unlinked scale'));
+    await expect(getGeometryKind(t, dataError)).resolves.toBeUndefined();
+    expect(
+      dataError.queryClient.getQueryData(geometryQuery(t, dataError).queryKey),
+    ).toBeNull(); // definitely not a curve
+
+    let online = false;
+    const transport = scaleContext(() =>
+      online ? [['/x', '/y']] : networkError(),
+    );
+    await expect(getGeometryKind(t, transport)).resolves.toBeUndefined();
+    expect(
+      transport.queryClient.getQueryState(geometryQuery(t, transport).queryKey),
+    ).toBeUndefined();
+    expect(
+      transport.queryClient.getQueryState(
+        transport.queries.dimensionScales(t).queryKey,
+      ),
+    ).toBeUndefined(); // failed scales query removed too
+
+    online = true;
+    await expect(getGeometryKind(t, transport)).resolves.toBe(
+      GeometryKind.Curve,
+    );
   });
 });

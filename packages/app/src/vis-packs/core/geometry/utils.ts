@@ -67,7 +67,10 @@ export type Geometry = CoordinatesGeometry | VertexGeometry;
 export interface GeometryContext {
   getEntity: (path: string) => Promise<ProvidedEntity | undefined>;
   getStrAttr: (entity: Entity, name: string) => Promise<string | undefined>;
-  getDimensionScales?: (dataset: Dataset<ArrayShape>) => Promise<string[][]>; // paths of scales attached to each dimension
+  // Paths of scales attached to each dimension; `null` if the provider cannot dereference `DIMENSION_LIST`
+  getDimensionScales: (
+    dataset: Dataset<ArrayShape>,
+  ) => Promise<string[][] | null | undefined>;
 }
 
 /** String attribute: scalar string, or array holding a single string (e.g. NetCDF, MATLAB). */
@@ -107,22 +110,13 @@ async function ignoreDataErrors<T>(
 export function createGeometryContext(
   dataContext: DataContextValue,
 ): GeometryContext {
-  const { queryClient, queries, filepath, getDimensionScales } = dataContext;
+  const { queryClient, queries } = dataContext;
 
   return {
     getEntity: async (path) =>
       ignoreDataErrors(queryClient.query(queries.entity(path))),
-    getDimensionScales:
-      getDimensionScales &&
-      (async (dataset) => {
-        const paths = await ignoreDataErrors(
-          queryClient.query({
-            queryKey: [filepath, 'dimensionScalePaths', dataset.path],
-            queryFn: async () => getDimensionScales(dataset),
-          }),
-        );
-        return paths ?? [];
-      }),
+    getDimensionScales: async (dataset) =>
+      ignoreDataErrors(queryClient.query(queries.dimensionScales(dataset))),
     getStrAttr: async (entity, name) => {
       const attr = findStrAttr(entity, name);
       if (!attr) {
@@ -289,8 +283,7 @@ function getRoleFromUnits(units: string): CoordinateRole | undefined {
 
 /**
  * Identify the role of a coordinate, by order of precedence: `axis` attribute, `standard_name`,
- * `units` (longitude, latitude, or time reference), `positive` (vertical coordinate), then
- * the `NAME` of a dimension scale, if literally `x`, `y` or `z`.
+ * `units` (longitude, latitude, or time reference), then `positive` (vertical coordinate).
  */
 export function identifyRole(
   attrs: CoordinateAttrs,
@@ -311,11 +304,22 @@ export function identifyRole(
   }
 
   const positive = attrs.positive?.trim().toLowerCase();
-  if (positive === 'up' || positive === 'down') {
-    return 'Z';
+  return positive === 'up' || positive === 'down' ? 'Z' : undefined;
+}
+
+/**
+ * Role of a dimension scale: as for coordinates (cf. `identifyRole`), then by the scale's
+ * `NAME` (given to `make_scale`) if literally `x`, `y` or `z`. Not used for `coordinates`,
+ * where an unidentified coordinate must keep the listed-order fallback.
+ */
+export function identifyScaleRole(
+  attrs: CoordinateAttrs,
+): CoordinateRole | undefined {
+  const role = identifyRole(attrs);
+  if (role) {
+    return role;
   }
 
-  // Dimension scales only: `NAME` given to `make_scale`, literally `x`, `y` or `z`
   const scaleName = attrs.scaleName?.trim().toUpperCase();
   return scaleName === 'X' || scaleName === 'Y' || scaleName === 'Z'
     ? scaleName
@@ -391,6 +395,29 @@ function toCoordinateDef({
   return {
     dataset,
     label: getAxisLabel(dataset.name, longName, units || undefined),
+    unit: units || undefined,
+  };
+}
+
+/* Label of a dimension scale used as curve axis, as for dimension scales in other visualizations
+ * (scale `NAME`, else dataset name, plus units), CF `long_name` first. The dimension's own
+ * `DIMENSION_LABELS` entry names the curve's parameter, shared by all three scales, so it
+ * cannot label them. */
+function toScaleCoordinateDef({
+  dataset,
+  attrs,
+}: {
+  dataset: NumDataset;
+  attrs: CoordinateAttrs & { longName?: string };
+}): CoordinateDef {
+  const { longName, scaleName, units } = attrs;
+  return {
+    dataset,
+    label: getAxisLabel(
+      dataset.name,
+      longName || scaleName || undefined,
+      units || undefined,
+    ),
     unit: units || undefined,
   };
 }
@@ -482,7 +509,7 @@ async function findCoordinatesGeometry(
 /**
  * Curve given by the HDF5 dimension scales attached to the last dimension of the field:
  * scales identified as X and Y (and optionally Z) by the same rules as for `coordinates`,
- * plus the scale's `NAME`. Unidentified scales are alternatives for the axis (e.g. time in
+ * plus the scale's `NAME` (cf. `identifyScaleRole`). Unidentified scales are alternatives for the axis (e.g. time in
  * other units) and are ignored; without X and Y, there is no curve. As for 1D `coordinates`,
  * points are connected only for trajectories (`featureType`). Dimension scales are 1D by
  * definition, so they cannot describe surfaces.
@@ -491,16 +518,22 @@ async function findDimScalesGeometry(
   field: NumDataset,
   ctx: GeometryContext,
 ): Promise<CoordinatesGeometry | undefined> {
-  if (!ctx.getDimensionScales) {
-    return undefined; // provider cannot dereference `DIMENSION_LIST`
+  // Cheap check first (attributes only): most datasets with scales (e.g. any NetCDF4 variable)
+  // are not trajectories, and must not cost a dereferencing round-trip to the provider
+  if (!(await isTrajectory(field, ctx))) {
+    return undefined;
   }
 
   const { dims } = field.shape;
   const dimSize = dims[dims.length - 1];
-  const allScalePaths = await ctx.getDimensionScales(field);
-  const scalePaths = allScalePaths.at(-1) ?? []; // providers may return fewer dimensions
-  if (allScalePaths.length !== dims.length || scalePaths.length < 2) {
-    return undefined; // e.g. NetCDF coordinate variable: cheap to rule out
+  const allScalePaths = await ctx.getDimensionScales(field); // `null`: provider can't dereference
+  if (allScalePaths?.length !== dims.length) {
+    return undefined; // unsupported, or list inconsistent with the dataset's dimensions
+  }
+
+  const scalePaths = allScalePaths[dims.length - 1];
+  if (scalePaths.length < 2) {
+    return undefined; // e.g. single coordinate variable of NetCDF dimension
   }
 
   const entities = await Promise.all(
@@ -524,7 +557,7 @@ async function findDimScalesGeometry(
     { dataset: NumDataset; attrs: CoordinateAttrs }
   >();
   for (const [i, dataset] of candidates.entries()) {
-    const role = identifyRole(attrs[i]);
+    const role = identifyScaleRole(attrs[i]);
     if (role && role !== 'T') {
       if (byRole.has(role)) {
         return undefined; // ambiguous
@@ -534,7 +567,7 @@ async function findDimScalesGeometry(
   }
 
   const [x, y, z] = (['X', 'Y', 'Z'] as const).map((role) => byRole.get(role));
-  if (!x || !y || !(await isTrajectory(field, ctx))) {
+  if (!x || !y) {
     return undefined;
   }
 
@@ -542,7 +575,11 @@ async function findDimScalesGeometry(
     source: 'dimension-scales',
     kind: GeometryKind.Curve,
     field,
-    coords: [toCoordinateDef(x), toCoordinateDef(y), z && toCoordinateDef(z)],
+    coords: [
+      toScaleCoordinateDef(x),
+      toScaleCoordinateDef(y),
+      z && toScaleCoordinateDef(z),
+    ],
   };
 }
 
@@ -597,6 +634,18 @@ export async function findGeometry(
     vertices: dataset,
     unit: unit || undefined,
   };
+}
+
+/** Best guess of `getGeometryDimsCount` from attributes alone, before the geometry is resolved. */
+export function guessGeometryDimsCount(
+  dataset: Dataset,
+  kind: GeometryKind,
+): number {
+  return kind === GeometryKind.Surface ||
+    (hasAttribute(dataset, INTERPRETATION_ATTR) &&
+      !hasAttribute(dataset, COORDINATES_ATTR))
+    ? 2
+    : 1;
 }
 
 /** Number of trailing dimensions of the dataset taken up by the geometry, i.e. that cannot be sliced. */
