@@ -208,6 +208,7 @@ export { useSlicedDimsAndMapping } from './dimension-mapper/hooks';
 export { DEFAULT_PLAYBACK_SETTINGS } from './dimension-mapper/playback';
 export type {
   PlaybackMode,
+  PlaybackRange,
   PlaybackSettings,
   PlaybackTiming,
 } from './dimension-mapper/playback';

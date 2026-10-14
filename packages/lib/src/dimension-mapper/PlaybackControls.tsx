@@ -23,12 +23,11 @@ import {
   POPOVER_CLEARANCE,
   useFloatingDismiss,
 } from '../toolbar/controls/hooks';
+import FpsInput from './FpsInput';
 import { type PlaybackWaiting } from './hooks';
 import {
-  clampFps,
-  MAX_FPS,
-  MIN_FPS,
   type PlaybackMode,
+  type PlaybackRange,
   type PlaybackSettings,
   type PlaybackTiming,
 } from './playback';
@@ -45,6 +44,11 @@ const TIMING_LABELS: Record<PlaybackTiming, string> = {
   realtime: 'Skip slices to keep up',
 };
 
+const RANGE_LABELS: Record<PlaybackRange, string> = {
+  sequence: 'Whole sequence',
+  frame: 'Each slice',
+};
+
 const WAITING_TITLES: Record<PlaybackWaiting, string> = {
   loading: 'Waiting for next slice to load',
   blocked: 'Waiting for confirmation to load next slice',
@@ -55,6 +59,7 @@ interface Props {
   isPlaying: boolean;
   waiting?: PlaybackWaiting;
   settings: PlaybackSettings;
+  rangeHint?: string;
   onTogglePlay: () => void;
   onSettingsChange: (settings: PlaybackSettings) => void;
   onStep: (direction: 1 | -1) => void;
@@ -66,6 +71,7 @@ function PlaybackControls(props: Props) {
     isPlaying,
     waiting,
     settings,
+    rangeHint,
     onTogglePlay,
     onSettingsChange,
     onStep,
@@ -138,25 +144,11 @@ function PlaybackControls(props: Props) {
             <label id={`${fieldId}-fps-label`} htmlFor={`${fieldId}-fps`}>
               Speed
             </label>
-            <input
+            <FpsInput
               id={`${fieldId}-fps`}
-              aria-labelledby={`${fieldId}-fps-label ${fieldId}-fps-unit`}
-              className={styles.fpsInput}
-              type="number"
-              min={MIN_FPS}
-              max={MAX_FPS}
-              step="any"
-              defaultValue={settings.fps}
-              onChange={(evt) => {
-                const fps = Number(evt.target.value);
-                if (evt.target.value !== '' && Number.isFinite(fps)) {
-                  onSettingsChange({ ...settings, fps: clampFps(fps) });
-                }
-              }}
-              onBlur={(evt) => {
-                const { target } = evt;
-                target.value = settings.fps.toString(); // overwrite invalid input
-              }}
+              labelledBy={`${fieldId}-fps-label ${fieldId}-fps-unit`}
+              fps={settings.fps}
+              onChange={(fps) => onSettingsChange({ ...settings, fps })}
             />
             <span id={`${fieldId}-fps-unit`} className={styles.unit}>
               slices/s
@@ -193,6 +185,27 @@ function PlaybackControls(props: Props) {
                 {TIMING_LABELS[timing]}
               </label>
             ))}
+          </fieldset>
+
+          <fieldset className={styles.fieldset}>
+            <legend>Range</legend>
+            {(Object.keys(RANGE_LABELS) as PlaybackRange[]).map((range) => (
+              <label key={range} className={styles.option}>
+                <input
+                  type="radio"
+                  name={`${fieldId}-range`}
+                  aria-label={`Range: ${RANGE_LABELS[range]}`}
+                  checked={settings.range === range}
+                  onChange={() => onSettingsChange({ ...settings, range })}
+                />
+                {RANGE_LABELS[range]}
+              </label>
+            ))}
+            {rangeHint && settings.range === 'sequence' && (
+              <p className={styles.hint} role="status">
+                {rangeHint}
+              </p>
+            )}
           </fieldset>
 
           <div className={styles.steps}>

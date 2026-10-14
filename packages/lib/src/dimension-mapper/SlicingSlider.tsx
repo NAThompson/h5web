@@ -42,6 +42,7 @@ interface Props {
   onPrefetch?: (values: number[], current: number) => boolean;
   playbackSettings: PlaybackSettings;
   onPlaybackSettingsChange: (settings: PlaybackSettings) => void;
+  playbackRangeHint?: string;
 }
 
 function SlicingSlider(props: Props) {
@@ -59,6 +60,7 @@ function SlicingSlider(props: Props) {
     onPrefetch,
     playbackSettings,
     onPlaybackSettingsChange,
+    playbackRangeHint,
   } = props;
 
   if (length <= 0) {
@@ -192,6 +194,7 @@ function SlicingSlider(props: Props) {
               isPlaying={isPlaying}
               waiting={waiting}
               settings={playbackSettings}
+              rangeHint={playbackRangeHint}
               onTogglePlay={() => onPlayingChange?.(!isPlaying)}
               onSettingsChange={onPlaybackSettingsChange}
               onStep={step}
