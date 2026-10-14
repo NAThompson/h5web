@@ -187,9 +187,12 @@ export function tickPlayback(
 
   const steps = shownIndex + 1; // 0 if nothing can be shown yet
 
-  // Prefetch the frames that will be due next (skipping, in real-time mode, those already late)
+  // Prefetch the frames that will be due next (skipping, in real-time mode, those already late,
+  // but keeping at least the last frame in `once` mode)
   const firstUpcoming =
-    timing === 'realtime' ? Math.max(maxSteps - 1, steps) : steps;
+    timing === 'realtime'
+      ? Math.max(Math.min(maxSteps, candidates.length) - 1, steps)
+      : steps;
   const upcoming = toValues(
     candidates.slice(firstUpcoming, firstUpcoming + prefetchCount),
   );

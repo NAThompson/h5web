@@ -197,6 +197,21 @@ describe('tickPlayback', () => {
     expect(res.upcoming).toStrictEqual([]);
   });
 
+  it('should keep prefetching last frame when late in real-time once mode', () => {
+    const lateClock = {
+      cursor: { value: 17, direction: 1 },
+      frameTime: 0,
+    } as const;
+    const res = tickPlayback(
+      lateClock,
+      1000, // 10 frames due, but only 2 left
+      settings('realtime', 'once'),
+      () => false,
+    );
+    expect(res.ended).toBe(false);
+    expect(res.upcoming).toStrictEqual([19]);
+  });
+
   it('should prefetch across loop and bounce boundaries', () => {
     const endClock = {
       cursor: { value: 18, direction: 1 },
