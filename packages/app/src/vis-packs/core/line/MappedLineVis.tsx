@@ -196,7 +196,7 @@ function MappedLineVis(props: Props) {
         valueVisible ? dataDomain : undefined,
         ...auxDomains.filter((_, i) => auxVisible[i]),
       ]),
-      `${yScaleType}:${valueVisible}`,
+      `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}`,
       (sequenceValue) =>
         valueVisible
           ? getDomain(

@@ -110,7 +110,7 @@ function MappedComplexLineVis(props: Props) {
         valueVisible ? dataDomain : undefined,
         ...auxDomains.filter((_, i) => auxVisible[i]),
       ]),
-      `${complexVisType}:${yScaleType}:${valueVisible}`,
+      `${complexVisType}:${yScaleType}:${valueVisible}:${auxVisible.join(',')}`,
       (seq) => {
         // Unwrapped phase depends on each slice as a whole: use range of slices shown so far
         if (!valueVisible || complexVisType === ComplexVisType.PhaseUnwrapped) {
