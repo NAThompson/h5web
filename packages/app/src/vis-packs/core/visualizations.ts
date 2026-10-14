@@ -18,7 +18,6 @@ import {
   FiGrid,
   FiImage,
   FiMap,
-  FiPackage,
 } from 'react-icons/fi';
 
 import { type DataContextValue } from '../../providers/DataProvider';
@@ -41,8 +40,6 @@ import {
   RgbVisContainer,
   ScalarVisContainer,
 } from './containers';
-import { SurfaceConfigProvider } from './surface/config';
-import SurfaceVisContainer from './surface/SurfaceVisContainer';
 import { VolumeConfigProvider } from './volume/config';
 import VolumeVisContainer from './volume/VolumeVisContainer';
 
@@ -55,7 +52,6 @@ export enum Vis {
   ComplexLine = 'ComplexLine',
   RGB = 'RGB',
   Compound = 'Compound',
-  Surface = 'Surface',
   Volume = 'Volume',
 }
 
@@ -204,24 +200,6 @@ export const CORE_VIS = {
         hasNonNullShape(dataset) &&
         hasCompoundType(dataset) &&
         hasPrintableCompoundType(dataset)
-      );
-    },
-  },
-
-  [Vis.Surface]: {
-    name: Vis.Surface,
-    Icon: FiPackage,
-    Container: SurfaceVisContainer,
-    ConfigProvider: SurfaceConfigProvider,
-    supportsDataset: async (dataset) => {
-      // @ts-expect-error - Untyped global flag
-      const enableSurfaceVis = globalThis.H5WEB_EXPERIMENTAL as boolean;
-
-      return (
-        enableSurfaceVis &&
-        hasArrayShape(dataset) &&
-        hasMinDims(dataset, 2) &&
-        hasNumericType(dataset)
       );
     },
   },

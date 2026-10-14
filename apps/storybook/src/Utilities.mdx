@@ -260,7 +260,6 @@ Create an [index buffer attribute](https://threejs.org/docs/index.html?q=bufferg
 to allow vertices to be re-used across multiple triangles. Argument `maxValue` helps decide
 whether to initialise the `BufferAttribute` with a `Uint16Array` or `Uint32Array`; it should
 typically receive the number of vertices (i.e. the length of the `position` attribute).
-For an example usage, see `SurfaceMeshGeometry#prepare`
 
 ```ts
 createIndex(length: number, maxValue: number): BufferAttribute
@@ -500,7 +499,6 @@ writing your own geometries:
 - `ErrorBarsGeometry`, used in [`ErrorBars`](https://h5web-docs.panosc.eu/?path=/docs/building-blocks-errorbars--docs)
 - `ErrorCapsGeometry`, used in [`ErrorBars`](https://h5web-docs.panosc.eu/?path=/docs/building-blocks-errorbars--docs)
 - `ScatterPointsGeometry`, used in [`ScatterPoints`](https://h5web-docs.panosc.eu/?path=/docs/visualizations-scattervis--docs) (undocumented)
-- `SurfaceMeshGeometry`, used in [`SurfaceMesh`](https://h5web-docs.panosc.eu/?path=/docs/experimental-surfacevis--docs) (experimental)
 
 ### Constants
 

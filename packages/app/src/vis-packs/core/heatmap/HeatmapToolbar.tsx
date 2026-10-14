@@ -21,10 +21,13 @@ import {
   MdGridOn,
   MdSwapHoriz,
   MdSwapVert,
+  MdViewInAr,
+  MdWbSunny,
 } from 'react-icons/md';
 
-import { getImageInteractions } from '../utils';
+import { getImageInteractions, SURFACE_INTERACTIONS } from '../utils';
 import { type HeatmapConfig } from './config';
+import HeightScaleSlider from './HeightScaleSlider';
 
 const COMPLEX_VIS_TYPES: ComplexHeatmapVisType[] = [
   ComplexVisType.Amplitude,
@@ -36,12 +39,14 @@ interface Props {
   dataDomain: Domain;
   isSlice?: boolean;
   isComplex?: boolean;
+  withSurface?: boolean;
   config: HeatmapConfig;
   exportEntries?: ExportEntry[];
 }
 
 function HeatmapToolbar(props: Props) {
-  const { dataDomain, isSlice, isComplex, config, exportEntries } = props;
+  const { dataDomain, isSlice, isComplex, withSurface, config, exportEntries } =
+    props;
   const {
     customDomain,
     colorMap,
@@ -52,6 +57,9 @@ function HeatmapToolbar(props: Props) {
     keepRatio,
     flipXAxis,
     flipYAxis,
+    surface,
+    heightScale,
+    shading,
     setCustomDomain,
     setColorMap,
     setInvertColorMap,
@@ -61,10 +69,48 @@ function HeatmapToolbar(props: Props) {
     setKeepRatio,
     setFlipXAxis,
     setFlipYAxis,
+    setSurface,
+    setHeightScale,
+    setShading,
   } = config;
 
+  const showSurface = withSurface && surface;
+
   return (
-    <Toolbar interactions={getImageInteractions(keepRatio)}>
+    <Toolbar
+      interactions={
+        showSurface ? SURFACE_INTERACTIONS : getImageInteractions(keepRatio)
+      }
+    >
+      {withSurface && (
+        <>
+          <ToggleBtn
+            label="3D"
+            aria-label="Show as 3D surface"
+            Icon={MdViewInAr}
+            value={surface}
+            onToggle={() => setSurface(!surface)}
+          />
+
+          {surface && (
+            <>
+              <HeightScaleSlider
+                value={heightScale}
+                onChange={setHeightScale}
+              />
+              <ToggleBtn
+                label="Shading"
+                Icon={MdWbSunny}
+                value={shading}
+                onToggle={() => setShading(!shading)}
+              />
+            </>
+          )}
+
+          <Separator />
+        </>
+      )}
+
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}

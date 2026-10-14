@@ -3,6 +3,7 @@ import {
   getSliceSelection,
   HeatmapVis,
   KeepZoom,
+  SurfaceVis,
   useDomain,
   useSafeDomain,
   useSlicedDimsAndMapping,
@@ -67,6 +68,9 @@ function MappedHeatmapVis(props: Props) {
     invertColorMap,
     flipXAxis,
     flipYAxis,
+    surface,
+    heightScale,
+    shading,
   } = config;
 
   const ignoreValue = useIgnoreValue(dataset);
@@ -88,6 +92,18 @@ function MappedHeatmapVis(props: Props) {
   const xDimIndex = dimMapping.indexOf('x');
   const yDimIndex = dimMapping.indexOf('y');
 
+  const abscissaParams = {
+    label: axisLabels[xDimIndex],
+    value: numAxisArrays[xDimIndex],
+  };
+  const ordinateParams = {
+    label: axisLabels[yDimIndex],
+    value: numAxisArrays[yDimIndex],
+  };
+
+  // A surface needs at least two rows and two columns (e.g. not a 1 x N slice)
+  const canShowSurface = dataArray.shape.every((size) => size >= 2);
+
   const exportEntries = useExportEntries(['tiff', 'npy'], dataset, selection);
 
   return (
@@ -97,37 +113,53 @@ function MappedHeatmapVis(props: Props) {
           <HeatmapToolbar
             dataDomain={dataDomain}
             isSlice={selection !== undefined}
+            withSurface={canShowSurface}
             config={config}
             exportEntries={exportEntries}
           />,
           toolbarContainer,
         )}
 
-      <HeatmapVis
-        className={visualizerStyles.vis}
-        dataArray={dataArray}
-        title={title}
-        dtype={formatDType(dataset.type, packing)}
-        domain={safeDomain}
-        colorMap={colorMap}
-        scaleType={scaleType}
-        aspect={keepRatio ? 'equal' : 'auto'}
-        showGrid={showGrid}
-        invertColorMap={invertColorMap}
-        abscissaParams={{
-          label: axisLabels[xDimIndex],
-          value: numAxisArrays[xDimIndex],
-        }}
-        ordinateParams={{
-          label: axisLabels[yDimIndex],
-          value: numAxisArrays[yDimIndex],
-        }}
-        flipXAxis={flipXAxis}
-        flipYAxis={flipYAxis}
-        ignoreValue={ignoreValue}
-      >
-        <KeepZoom visKey="heatmap" />
-      </HeatmapVis>
+      {surface && canShowSurface ? (
+        <SurfaceVis
+          className={visualizerStyles.vis}
+          dataArray={dataArray}
+          title={title}
+          domain={safeDomain}
+          colorMap={colorMap}
+          scaleType={scaleType}
+          invertColorMap={invertColorMap}
+          abscissaParams={abscissaParams}
+          ordinateParams={ordinateParams}
+          flipXAxis={flipXAxis}
+          flipYAxis={flipYAxis}
+          keepRatio={keepRatio}
+          showGrid={showGrid}
+          heightScale={heightScale}
+          shading={shading}
+          ignoreValue={ignoreValue}
+        />
+      ) : (
+        <HeatmapVis
+          className={visualizerStyles.vis}
+          dataArray={dataArray}
+          title={title}
+          dtype={formatDType(dataset.type, packing)}
+          domain={safeDomain}
+          colorMap={colorMap}
+          scaleType={scaleType}
+          aspect={keepRatio ? 'equal' : 'auto'}
+          showGrid={showGrid}
+          invertColorMap={invertColorMap}
+          abscissaParams={abscissaParams}
+          ordinateParams={ordinateParams}
+          flipXAxis={flipXAxis}
+          flipYAxis={flipYAxis}
+          ignoreValue={ignoreValue}
+        >
+          <KeepZoom visKey="heatmap" />
+        </HeatmapVis>
+      )}
     </>
   );
 }
