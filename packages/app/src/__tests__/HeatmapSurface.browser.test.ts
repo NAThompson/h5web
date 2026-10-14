@@ -148,15 +148,16 @@ test(
   SURFACE_TEST_TIMEOUT,
 );
 
-test('offer 3D surface for NeXus images but not for complex heatmaps', async () => {
+test('offer 3D surface for NeXus images, including complex ones', async () => {
   const { selectNexusExplorerNode } = await renderApp('/nexus/image');
 
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
   expect(surfaceBtn()).toBeVisible();
 
+  // Complex images are shown as analytic landscapes, cf. `ComplexSurface.browser.test.ts`
   await selectNexusExplorerNode('image_complex');
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
-  expect(surfaceBtn()).not.toBeInTheDocument();
+  expect(surfaceBtn()).toBeVisible();
 });
 
 test(
