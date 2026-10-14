@@ -11,6 +11,7 @@ import { BoxGeometry, EdgesGeometry } from 'three';
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
+import CanvasOverlay from './CanvasOverlay';
 import Isosurfaces from './Isosurfaces';
 import {
   IsoColorMode,
@@ -103,51 +104,56 @@ function VolumeVis(props: PropsWithChildren<Props>) {
       aria-label={title}
       data-keep-canvas-colors
     >
-      <R3FCanvas className={styles.canvas} ambientIntensity={0.35}>
-        <color attach="background" args={[background]} />
-        <VolumeControls interactingRef={interactingRef} />
-        <Isosurfaces
-          isosurfaces={isosurfaces}
-          shape={dataArray.shape}
-          boxSize={boxSize}
-          colorMode={isoColorMode}
-          gradientDomain={gradientDomain}
-          colorMap={colorMap}
-          invertColorMap={invertColorMap}
-        />
-        {showVolume && (
-          <VolumeMesh
+      <div className={styles.canvasArea}>
+        <R3FCanvas className={styles.canvas} ambientIntensity={0.35}>
+          <color attach="background" args={[background]} />
+          <VolumeControls interactingRef={interactingRef} />
+          <Isosurfaces
+            isosurfaces={isosurfaces}
+            shape={dataArray.shape}
             boxSize={boxSize}
-            withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
-            dataArray={dataArray}
-            domain={domain}
-            scaleType={scaleType}
+            colorMode={isoColorMode}
+            gradientDomain={gradientDomain}
             colorMap={colorMap}
             invertColorMap={invertColorMap}
-            mode={mode}
-            opacity={opacity}
-            threshold={threshold}
-            quality={quality}
-            interactingRef={interactingRef}
           />
-        )}
-        <lineSegments
-          geometry={edges}
-          scale={boxSize}
-          visible={showBox}
-          renderOrder={1}
-        >
-          <lineBasicMaterial
-            color="white"
-            transparent
-            opacity={0.2}
-            depthTest={false}
-          />
-        </lineSegments>
-        {children}
-      </R3FCanvas>
-      {/* After the canvas to paint over it, but without z-index to stay under toolbar popovers */}
-      {title && <p className={styles.title}>{title}</p>}
+          {showVolume && (
+            <VolumeMesh
+              boxSize={boxSize}
+              withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
+              dataArray={dataArray}
+              domain={domain}
+              scaleType={scaleType}
+              colorMap={colorMap}
+              invertColorMap={invertColorMap}
+              mode={mode}
+              opacity={opacity}
+              threshold={threshold}
+              quality={quality}
+              interactingRef={interactingRef}
+            />
+          )}
+          <lineSegments
+            geometry={edges}
+            scale={boxSize}
+            visible={showBox}
+            renderOrder={1}
+          >
+            <lineBasicMaterial
+              color="white"
+              transparent
+              opacity={0.2}
+              depthTest={false}
+            />
+          </lineSegments>
+          {children}
+        </R3FCanvas>
+        <CanvasOverlay
+          title={title}
+          isoProgress={isoProgress}
+          isoMessage={isoMessage}
+        />
+      </div>
       <VolumeLegend
         domain={domain}
         scaleType={scaleType}
@@ -160,8 +166,6 @@ function VolumeVis(props: PropsWithChildren<Props>) {
             : undefined
         }
         gradientLabel={gradientLabel}
-        isoProgress={isoProgress}
-        isoMessage={isoMessage}
       />
     </figure>
   );
