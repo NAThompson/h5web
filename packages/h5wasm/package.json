@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "comlink": "4.4.2",
-    "h5wasm": "file:../../vendor/h5wasm-0.10.3-fork-5f68a5f.tgz",
+    "h5wasm": "file:../../vendor/h5wasm-0.10.3-fork-51abeec.tgz",
     "nanoid": "5.1.16"
   },
   "devDependencies": {
