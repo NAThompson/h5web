@@ -22,17 +22,8 @@ function NxVolumeContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
   assertGroup(entity);
 
-  const nxData = useNxData(entity);
-
-  // Auxiliary signals and errors don't apply to volumes: don't fetch (nor validate) them
-  const nxDataToFetch = useMemo(
-    () => ({
-      ...nxData,
-      signalDef: { ...nxData.signalDef, errorDataset: undefined },
-      auxDefs: [],
-    }),
-    [nxData],
-  );
+  // Auxiliary signals and errors don't apply to volumes: don't resolve, validate nor fetch them
+  const nxDataToFetch = useNxData(entity, { signalOnly: true });
   assertNumericNxData(nxDataToFetch);
 
   const { signalDef, axisDefs, defaultSlice, silxStyle } = nxDataToFetch;

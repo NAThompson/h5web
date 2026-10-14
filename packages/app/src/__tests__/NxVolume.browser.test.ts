@@ -146,3 +146,11 @@ test('show title over the canvas, above status messages', async () => {
     title.element().getBoundingClientRect().bottom,
   );
 });
+
+test('ignore malformed auxiliary signals', async () => {
+  await renderApp('/dimension_scales/volume_bad_aux');
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxVolume);
+  await expect
+    .element(page.getByRole('figure', { name: 'energy' }))
+    .toBeVisible();
+});

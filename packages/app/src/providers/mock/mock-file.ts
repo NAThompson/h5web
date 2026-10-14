@@ -632,6 +632,17 @@ export function makeMockFile(): GroupWithChildren {
           silxStyle: { signalScaleType: ScaleType.SymLog },
         }),
         // Index on one of the volume's dimensions, which must be ignored by NX Volume
+        // Malformed auxiliary signals, which don't apply to volumes
+        nxData('volume_bad_aux', {
+          signal: array('energy', { valueId: 'threeD_fermi' }),
+          axes: {
+            kz: array('kz', { valueId: 'K' }),
+            ky: array('ky', { valueId: 'K' }),
+            kx: array('kx', { valueId: 'K' }),
+          },
+          axesAttr: ['kz', 'ky', 'kx'],
+          attributes: [arrayAttr('auxiliary_signals', ['missing'])],
+        }),
         nxData('volume_default_slice', {
           signal: array('fourD'),
           attributes: [arrayAttr('default_slice', ['.', '.', '.', '5'])],
