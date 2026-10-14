@@ -10,6 +10,9 @@ import {
 // Above this size, values are fetched only once the user has confirmed
 export const MAX_AUTO_FETCH_SIZE = 500e6; // bytes
 
+// Max size of the values of a whole sequence of slices fetched to get its range for playback
+export const MAX_SEQUENCE_RANGE_SIZE = 128e6; // bytes
+
 // Rough estimate for types of unknown size (e.g. variable-length strings)
 const DEFAULT_ELEMENT_SIZE = 8; // bytes
 
