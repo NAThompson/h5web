@@ -172,9 +172,16 @@ async function readDirectly(
   const dataset = new lib.Dataset(fileId, path);
   const plan = withReadErrors(() => {
     const { shape } = dataset;
-    return (
-      shape && planDirectRead(dataset, getSelectionRanges(shape, selection))
-    );
+    if (!shape) {
+      return undefined;
+    }
+
+    try {
+      return planDirectRead(dataset, getSelectionRanges(shape, selection));
+    } catch {
+      throwIfReadError(); // don't hide network errors
+      return undefined; // e.g. storage information unavailable: read with HDF5
+    }
   });
   if (!plan) {
     return undefined;
