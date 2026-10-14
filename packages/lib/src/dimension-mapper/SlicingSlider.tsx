@@ -21,6 +21,16 @@ const ID = 'h5w-slider';
 const MIN_HEIGHT_PER_MARK = 25;
 const SHORT_DELAY = 20;
 const LONG_DELAY = 250;
+const SLIDER_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+]);
 
 interface Props {
   dimension: number;
@@ -158,6 +168,8 @@ function SlicingSlider(props: Props) {
                 if (withPlayback && evt.key === ' ') {
                   evt.preventDefault(); // don't scroll
                   onPlayingChange?.(!isPlaying);
+                } else if (SLIDER_KEYS.has(evt.key)) {
+                  pause(); // even if value doesn't change (e.g. `Home` on first slice)
                 }
               }}
               style={
