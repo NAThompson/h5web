@@ -219,9 +219,10 @@ export function useHeatmapConfig(
     config.setKeepRatio,
   );
 
-  // Surfaces keep their ratio only when axes share a unit (no unit: don't keep ratio)
+  /* Surfaces keep their ratio when axes share a unit, not when units differ; without units,
+   * the stored setting applies (off by default, so surfaces of unrelated axes aren't slivers) */
   const [surfaceKeepRatio, setSurfaceKeepRatio] = useSuggestion(
-    suggestions.keepRatio ?? false,
+    suggestions.keepRatio,
     config.surfaceKeepRatio,
     config.setSurfaceKeepRatio,
   );
