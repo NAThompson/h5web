@@ -2,7 +2,12 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 
 import { delay } from '../providers/mock/utils';
-import { mockConsoleMethod, mockDelay, renderApp } from '../test-utils';
+import {
+  advanceFakeTimers as advance,
+  mockConsoleMethod,
+  mockDelay,
+  renderApp,
+} from '../test-utils';
 import { Vis } from '../vis-packs/core/visualizations';
 
 afterEach(() => {
@@ -44,30 +49,6 @@ async function setSettings(opts: { fps?: number; option?: string }) {
 /* Fake timers (and clock) used by playback, so tests don't depend on machine load */
 function installFakeTimers() {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
-}
-
-async function flushTasks() {
-  // Let React render (its scheduler relies on `MessageChannel`, which isn't faked)
-  for (let i = 0; i < 3; i += 1) {
-    // eslint-disable-next-line no-await-in-loop -- sequential tasks
-    await new Promise<void>((resolve) => {
-      const channel = new MessageChannel();
-      channel.port1.addEventListener('message', () => resolve(), {
-        once: true,
-      });
-      channel.port1.start();
-      channel.port2.postMessage(undefined); // eslint-disable-line unicorn/require-post-message-target-origin -- not a window
-    });
-  }
-}
-
-/* Advance fake timers in small steps, letting tasks that aren't faked run in between (e.g.
- * rendering, resolving fetched values) as they would in real time */
-async function advance(ms: number) {
-  for (let elapsed = 0; elapsed < ms; elapsed += 25) {
-    await vi.advanceTimersByTimeAsync(Math.min(25, ms - elapsed)); // eslint-disable-line no-await-in-loop -- sequential steps
-    await flushTasks(); // eslint-disable-line no-await-in-loop -- sequential steps
-  }
 }
 
 // `threeD` has dims [9, 20, 41], so D0 goes from 0 to 8
@@ -233,6 +214,7 @@ test('wait for each slice to load before showing it', async () => {
 
   resolveAll(); // first slice
   await expect.element(page.getByRole('figure')).toBeVisible();
+  await setSettings({ option: 'Range: Each slice' }); // don't fetch whole sequence
   installFakeTimers();
 
   await getPlayBtn().click();
@@ -313,6 +295,92 @@ test('skip slices to keep up when data is slow', async () => {
   expect(getSliderValue()).toBeGreaterThan(1);
 });
 
+test('keep playing when getting range of sequence is cancelled', async () => {
+  const resolveAll = mockDelay();
+  const { selectExplorerNode } = await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Line,
+    waitForLoaders: false,
+  });
+
+  resolveAll(); // first slice
+  await expect.element(page.getByRole('figure')).toBeVisible();
+  installFakeTimers();
+
+  await getPlayBtn().click(); // starts getting range of whole sequence
+  await advance(100);
+
+  // Selecting dataset again cancels pending fetches, including that of the sequence's range
+  await selectExplorerNode('slow_slicing');
+  await advance(100);
+
+  for (let i = 0; i < 4; i += 1) {
+    resolveAll();
+    await advance(200); // eslint-disable-line no-await-in-loop -- sequential ticks
+  }
+  expect(getSliderValue()).toBeGreaterThan(0);
+  expect(isPlaying()).toBe(true);
+});
+
+test('show and cancel getting range of sequence', async () => {
+  const resolveAll = mockDelay();
+  await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Line,
+    waitForLoaders: false,
+  });
+
+  resolveAll(); // first slice
+  await expect.element(page.getByRole('figure')).toBeVisible();
+  installFakeTimers();
+
+  await getPlayBtn().click();
+  await advance(500);
+  expect(getSliderValue()).toBe(0); // waiting (briefly) for range of sequence
+  const notice = page.getByRole('status').filter({
+    hasText: 'Getting range of sequence…',
+  });
+  expect(notice).toBeVisible();
+
+  // Cancel: play with range of slices shown so far
+  await notice.getByRole('button', { name: 'Cancel' }).click();
+  await advance(100);
+  expect(notice).not.toBeInTheDocument();
+
+  for (let i = 0; i < 3; i += 1) {
+    resolveAll();
+    await advance(200); // eslint-disable-line no-await-in-loop -- sequential ticks
+  }
+  expect(getSliderValue()).toBeGreaterThan(0);
+
+  const dialog = await openSettings();
+  expect(dialog.getByText(/Couldn't get range of sequence/u)).toBeVisible();
+});
+
+test('fetch each slice only once when getting range of sequence', async () => {
+  const resolveAll = mockDelay();
+  await renderApp({
+    initialPath: '/resilience/slow_slicing',
+    preferredVis: Vis.Heatmap,
+    waitForLoaders: false,
+  });
+
+  resolveAll(); // first slice
+  await expect.element(page.getByRole('figure')).toBeVisible();
+  installFakeTimers();
+
+  await getPlayBtn().click();
+  await advance(200);
+  resolveAll(); // whole sequence and slices prefetched so far
+  await advance(100);
+  const fetchCount = vi.mocked(delay).mock.calls.length;
+
+  // Other slices come from the whole sequence's values
+  await advance(500);
+  expect(getSliderValue()).toBeGreaterThan(3);
+  expect(delay).toHaveBeenCalledTimes(fetchCount);
+});
+
 test('keep playing when slicing another dimension', async () => {
   const resolveAll = mockDelay();
   await renderApp({
@@ -335,6 +403,10 @@ test('keep playing when slicing another dimension', async () => {
   await userEvent.keyboard('{ArrowUp}');
   await advance(500); // debounced slicing
   expect(d1Slider).toHaveValue(1);
+
+  // Range of new sequence is fetched
+  await advance(400);
+  expect(page.getByText('Getting range of sequence…')).toBeVisible();
 
   for (let i = 0; i < 3; i += 1) {
     resolveAll();

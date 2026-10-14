@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 
-import { renderApp } from '../test-utils';
+import { advanceFakeTimers, renderApp } from '../test-utils';
 import { Vis } from '../vis-packs/core/visualizations';
 
 // Pretend sequences are too large to fetch to get their range
@@ -24,12 +24,11 @@ test('fall back to range of slices shown so far', async () => {
     await page.getByRole('button', { name: 'Play D0' }).click();
 
     // Slice 4 is all zeros, yet range doesn't shrink
-    await vi.advanceTimersByTimeAsync(400);
-    await vi.waitFor(() => {
-      expect(
-        page.getByRole('slider', { name: 'D0' }).element(),
-      ).toHaveAttribute('aria-valuenow', '4');
-    });
+    await advanceFakeTimers(400);
+    expect(page.getByRole('slider', { name: 'D0' })).toHaveAttribute(
+      'aria-valuenow',
+      '4',
+    );
     expect(getOrdinateTicks()).toBe(firstTicks);
 
     await page.getByRole('button', { name: 'Play D0' }).click();
