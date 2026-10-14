@@ -97,15 +97,11 @@ function MappedComplexCurveVis(props: Props) {
   const [safeDomain] = useSafeDomain(visDomain, amplitudeDomain, scaleType);
 
   // During playback, keep Re and Im axes still: include ranges of whole sequence (or of slices shown so far)
-  const realDomain = useStableDomain(
-    useDomain(realArray),
-    'real',
-    (seq) => getRealImagDomain(seq as typeof value, 'real'),
+  const realDomain = useStableDomain(useDomain(realArray), 'real', (seq) =>
+    getRealImagDomain(seq as typeof value, 'real'),
   );
-  const imagDomain = useStableDomain(
-    useDomain(imagArray),
-    'imag',
-    (seq) => getRealImagDomain(seq as typeof value, 'imag'),
+  const imagDomain = useStableDomain(useDomain(imagArray), 'imag', (seq) =>
+    getRealImagDomain(seq as typeof value, 'imag'),
   );
 
   const xDimIndex = dimMapping.indexOf('x');

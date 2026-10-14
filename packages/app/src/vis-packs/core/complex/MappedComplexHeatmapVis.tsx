@@ -99,7 +99,6 @@ function MappedComplexHeatmapVis(props: Props) {
   const scaleType =
     showSurface && showsPhase ? ScaleType.Linear : userScaleType;
 
-
   // During playback, use range of whole sequence (cf. `useStableDomain`)
   const phaseDomain =
     useStableDomain(

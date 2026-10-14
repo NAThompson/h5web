@@ -40,11 +40,7 @@ import {
   getAttributeValue,
   hasAttribute,
 } from '../../utils';
-import {
-  type DefaultSlice,
-  type FieldInfo,
-  type SilxStyle,
-} from './models';
+import { type DefaultSlice, type FieldInfo, type SilxStyle } from './models';
 
 export async function getNxClass(
   group: Group,
