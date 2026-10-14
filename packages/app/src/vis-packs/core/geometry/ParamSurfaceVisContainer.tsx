@@ -1,10 +1,15 @@
 import { type VisContainerProps } from '../../models';
+import { type DefaultSlice } from '../../nexus/models';
 import GeometryVisContainer from './GeometryVisContainer';
 import MappedParamSurfaceVis from './MappedParamSurfaceVis';
 import { useParamSurfaceConfig } from './surface-config';
 import { GeometryKind } from './utils';
 
-function ParamSurfaceVisContainer(props: VisContainerProps) {
+interface Props extends VisContainerProps {
+  defaultSlice?: DefaultSlice; // NeXus
+}
+
+function ParamSurfaceVisContainer(props: Props) {
   const { toolbarContainer } = props;
   const config = useParamSurfaceConfig();
 

@@ -9,8 +9,14 @@ function NxCurveContainer(props: VisContainerProps) {
   const { entity } = props;
   assertGroup(entity);
 
-  const { signalDef } = useNxData(entity);
-  return <CurveVisContainer {...props} entity={signalDef.dataset} />;
+  const { signalDef, defaultSlice } = useNxData(entity);
+  return (
+    <CurveVisContainer
+      {...props}
+      entity={signalDef.dataset}
+      defaultSlice={defaultSlice}
+    />
+  );
 }
 
 export default NxCurveContainer;

@@ -11,28 +11,36 @@ import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { type DefaultSlice } from '../../nexus/models';
 import VisBoundary from '../../VisBoundary';
 import GeometryFetcher, { type GeometryData } from './GeometryFetcher';
-import { type GeometryKind, getGeometryDimsCount } from './utils';
+import {
+  type GeometryKind,
+  getGeometryDefaultSlice,
+  getGeometryDimsCount,
+} from './utils';
 
 interface Props extends VisContainerProps {
   kind: GeometryKind;
   render: (data: GeometryData, title: string) => ReactElement;
+  defaultSlice?: DefaultSlice; // NeXus `default_slice`
 }
 
 /* Trailing dimensions of the dataset make up the geometry and are locked;
  * leading dimensions, if any (e.g. time), can be sliced. */
 function GeometryVisContainer(props: Props) {
-  const { entity, kind, render } = props;
+  const { entity, kind, render, defaultSlice } = props;
   assertDataset(entity);
   assertArrayShape(entity);
   assertNumericType(entity);
 
   const { dims } = entity.shape;
+  const lockedDimsCount = getGeometryDimsCount(entity, kind);
   const [dimMapping, setDimMapping] = useDimMappingState({
     dims,
     axesCount: 0,
-    lockedDimsCount: getGeometryDimsCount(entity, kind),
+    lockedDimsCount,
+    defaultSlice: getGeometryDefaultSlice(defaultSlice, lockedDimsCount),
   });
 
   const selection = getSliceSelection(dimMapping);

@@ -1,10 +1,15 @@
 import { type VisContainerProps } from '../../models';
+import { type DefaultSlice } from '../../nexus/models';
 import { useCurveConfig } from './config';
 import GeometryVisContainer from './GeometryVisContainer';
 import MappedCurveVis from './MappedCurveVis';
 import { GeometryKind } from './utils';
 
-function CurveVisContainer(props: VisContainerProps) {
+interface Props extends VisContainerProps {
+  defaultSlice?: DefaultSlice; // NeXus
+}
+
+function CurveVisContainer(props: Props) {
   const { toolbarContainer } = props;
   const config = useCurveConfig();
 

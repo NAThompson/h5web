@@ -168,6 +168,20 @@ test(
   TEST_TIMEOUT,
 );
 
+test(
+  'apply NeXus default slice to leading dimensions of field on surface',
+  async () => {
+    await renderApp('/geometry/nx_torus_waves');
+
+    expect(getSelectedVisTab()).toBe(NxDataVis.NxSurface);
+    expect(page.getByRole('slider', { name: 'D0' })).toHaveValue(2);
+    await expect
+      .element(page.getByRole('figure', { name: 'waves' }))
+      .toBeVisible();
+  },
+  TEST_TIMEOUT,
+);
+
 test('do not offer 3D visualizations for datasets that do not follow convention', async () => {
   const { selectExplorerNode } = await renderApp('/geometry/helix_table');
 

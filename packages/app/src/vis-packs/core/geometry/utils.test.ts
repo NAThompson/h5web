@@ -36,6 +36,7 @@ import {
   GeometryKind,
   getAxisLabel,
   getCoordinatePaths,
+  getGeometryDefaultSlice,
   getGeometryDimsCount,
   identifyRole,
   isMatchingCoordinate,
@@ -777,7 +778,23 @@ describe('findGeometry on mock file', () => {
         '/geometry/torus_waves': GeometryKind.Surface,
         '/geometry/helix': GeometryKind.Curve,
         '/geometry/nx_torus/curvature': GeometryKind.Surface,
+        '/geometry/nx_torus_waves/waves': GeometryKind.Surface,
       },
     );
+  });
+});
+
+describe('getGeometryDefaultSlice', () => {
+  it('should keep default slice of leading dimensions', () => {
+    expect(getGeometryDefaultSlice([5, '.', '.'], 2)).toEqual([5, '.', '.']);
+    expect(getGeometryDefaultSlice([1, 2, '.'], 1)).toEqual([1, 2, '.']);
+    expect(getGeometryDefaultSlice(['.', '.'], 2)).toEqual(['.', '.']);
+  });
+
+  it('should ignore default slice incompatible with geometry dimensions', () => {
+    expect(getGeometryDefaultSlice(['.', 5, '.'], 2)).toBeUndefined();
+    expect(getGeometryDefaultSlice([5, 3, '.'], 2)).toBeUndefined();
+    expect(getGeometryDefaultSlice(['.'], 2)).toBeUndefined();
+    expect(getGeometryDefaultSlice(undefined, 2)).toBeUndefined();
   });
 });

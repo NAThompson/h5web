@@ -644,6 +644,20 @@ export function makeMockFile(): GroupWithChildren {
             array('z', { valueId: 'torus_z' }),
           ],
         }),
+        nxGroup('nx_torus_waves', 'NXdata', {
+          attributes: [
+            scalarAttr('signal', 'waves'),
+            arrayAttr('default_slice', ['2', '.', '.']),
+          ],
+          children: [
+            array('waves', {
+              valueId: 'torus_waves',
+              attributes: [
+                scalarAttr('coordinates', '../torus_x ../torus_y ../torus_z'),
+              ],
+            }),
+          ],
+        }),
       ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),

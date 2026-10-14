@@ -9,8 +9,14 @@ function NxSurfaceContainer(props: VisContainerProps) {
   const { entity } = props;
   assertGroup(entity);
 
-  const { signalDef } = useNxData(entity);
-  return <ParamSurfaceVisContainer {...props} entity={signalDef.dataset} />;
+  const { signalDef, defaultSlice } = useNxData(entity);
+  return (
+    <ParamSurfaceVisContainer
+      {...props}
+      entity={signalDef.dataset}
+      defaultSlice={defaultSlice}
+    />
+  );
 }
 
 export default NxSurfaceContainer;

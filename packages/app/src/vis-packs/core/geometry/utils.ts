@@ -496,3 +496,22 @@ export function getGeometryDimsCount(
     ? 1
     : 2;
 }
+
+/**
+ * NeXus `default_slice` applies to the leading (sliceable) dimensions only: it is ignored
+ * unless it keeps exactly the trailing geometry dimensions (`.`) and gives indices for the others.
+ */
+export function getGeometryDefaultSlice<T extends number | '.'>(
+  defaultSlice: T[] | undefined,
+  geometryDimsCount: number,
+): T[] | undefined {
+  if (!defaultSlice) {
+    return undefined;
+  }
+
+  const leadCount = defaultSlice.length - geometryDimsCount;
+  return leadCount >= 0 &&
+    defaultSlice.every((val, i) => (i < leadCount ? val !== '.' : val === '.'))
+    ? defaultSlice
+    : undefined;
+}
