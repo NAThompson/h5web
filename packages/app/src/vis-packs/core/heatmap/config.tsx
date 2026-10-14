@@ -54,6 +54,10 @@ export interface HeatmapConfig {
   shading: boolean;
   setShading: (shading: boolean) => void;
 
+  /* Cyclic colour map for the phase of complex values on 3D surfaces */
+  phaseColorMap: ColorMap;
+  setPhaseColorMap: (phaseColorMap: ColorMap) => void;
+
   contourMode: ContourMode;
   setContourMode: (contourMode: ContourMode) => void;
 
@@ -113,6 +117,9 @@ function createHeatmapConfigStore() {
 
         shading: true,
         setShading: (shading) => set({ shading }),
+
+        phaseColorMap: 'HSL',
+        setPhaseColorMap: (phaseColorMap) => set({ phaseColorMap }),
 
         contourMode: ContourMode.Off,
         setContourMode: (contourMode) => set({ contourMode }),

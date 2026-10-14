@@ -88,9 +88,24 @@ function HeatmapToolbar(props: Props) {
     setSurface,
     setHeightScale,
     setShading,
+    phaseColorMap,
+    setPhaseColorMap,
   } = config;
 
   const showSurface = withSurface && surface;
+
+  // On 3D surfaces of complex values, colour shows phase (unless in amplitude mode) with a cyclic colour map
+  const showsPhaseColors =
+    isComplex && showSurface && complexVisType !== ComplexVisType.Amplitude;
+
+  function toggleSurface() {
+    // For complex values, start from the "analytic landscape": height = amplitude, colour = phase
+    if (isComplex && !surface && complexVisType === ComplexVisType.Amplitude) {
+      setComplexVisType(ComplexVisType.PhaseAmplitude);
+    }
+
+    setSurface(!surface);
+  }
 
   return (
     <Toolbar
@@ -105,7 +120,7 @@ function HeatmapToolbar(props: Props) {
             aria-label="Show as 3D surface"
             Icon={MdViewInAr}
             value={surface}
-            onToggle={() => setSurface(!surface)}
+            onToggle={toggleSurface}
           />
 
           {surface && (
@@ -136,8 +151,8 @@ function HeatmapToolbar(props: Props) {
       <Separator />
 
       <ColorMapSelector
-        value={colorMap}
-        onValueChange={setColorMap}
+        value={showsPhaseColors ? phaseColorMap : colorMap}
+        onValueChange={showsPhaseColors ? setPhaseColorMap : setColorMap}
         invert={invertColorMap}
         onInversionChange={() => setInvertColorMap(!invertColorMap)}
       />
