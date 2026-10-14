@@ -32,10 +32,9 @@ function NxComplexCurveContainer(props: VisContainerProps) {
 
   const axisLabels = axisDefs.map((def) => def?.label);
   const config = useComplexCurveConfig();
-  const slicingProps = useNxSlicingProps(nxData);
-
-  // Auxiliary signals are not drawn, so don't fetch them
+  // Auxiliary signals are not drawn, so don't fetch them (neither to render, nor to slice or play back)
   const signalOnly = useMemo(() => ({ ...nxData, auxDefs: [] }), [nxData]);
+  const slicingProps = useNxSlicingProps(signalOnly);
 
   return (
     <>
