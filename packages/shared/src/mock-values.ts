@@ -108,6 +108,42 @@ const threeD_volume = () => {
   );
 };
 
+// Brillouin-zone wave vectors from -π to π, for `threeD_fermi`
+const K_SIZE = 64;
+const kGrid = () =>
+  range(K_SIZE).map((i) => -Math.PI + (2 * Math.PI * i) / (K_SIZE - 1));
+
+// Tight-binding band of a simple cubic lattice, E(k) = -2t (cos kx + cos ky + cos kz) with t = 1, indexed [kz][ky][kx]
+const threeD_fermi = () => {
+  const cosK = kGrid().map(Math.cos);
+  return ndarray(
+    Float32Array.from(
+      cosK.flatMap((cz) =>
+        cosK.flatMap((cy) => cosK.map((cx) => -2 * (cx + cy + cz))),
+      ),
+    ),
+    [K_SIZE, K_SIZE, K_SIZE],
+  );
+};
+
+// Smooth image with peaks, troughs and saddles, for contour lines
+const twoD_contours = () => {
+  const [rows, cols] = [96, 128];
+  return ndarray(
+    Float32Array.from(
+      range(rows).flatMap((r) =>
+        range(cols).map((c) => {
+          const x = (c / (cols - 1)) * 4 * Math.PI;
+          const y = (r / (rows - 1)) * 3 * Math.PI;
+          const bump = Math.exp(-((x - 7) ** 2 + (y - 5) ** 2) / 4);
+          return Math.sin(x) * Math.cos(y) + 1.5 * bump;
+        }),
+      ),
+    ),
+    [rows, cols],
+  );
+};
+
 const threeD_rgb = () =>
   ndarray(
     [
@@ -256,6 +292,9 @@ export const mockValues = {
   threeD_rgb,
   threeD_rgba,
   threeD_volume,
+  threeD_fermi,
+  twoD_contours,
+  K: () => ndarray(kGrid()),
   fourD: () => {
     const { data: dataThreeD } = threeD();
     return ndarray(

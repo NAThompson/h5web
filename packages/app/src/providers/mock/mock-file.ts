@@ -589,6 +589,16 @@ export function makeMockFile(): GroupWithChildren {
           labels: ['time'],
           scales: [['/dimension_scales/T']],
         }),
+        array('K', { attributes: [scalarAttr('units', '1/a')] }),
+        withDimScales(array('threeD_fermi'), {
+          labels: ['kz', 'ky', 'kx'],
+          scales: [
+            ['/dimension_scales/K'],
+            ['/dimension_scales/K'],
+            ['/dimension_scales/K'],
+          ],
+        }),
+        array('twoD_contours'),
       ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),
