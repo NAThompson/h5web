@@ -1,8 +1,9 @@
 import { isTypedArray } from '@h5web/shared/guards';
 import { H5T_CLASS } from '@h5web/shared/h5t';
 import { type ProvidedEntity } from '@h5web/shared/hdf5-models';
-import { expose, transfer } from 'comlink';
-import { Attribute, Dataset, File as H5WasmFile } from 'h5wasm';
+import { transfer } from 'comlink';
+// eslint-disable-next-line import-x/no-namespace
+import type * as H5WasmModule from 'h5wasm';
 
 import { fetchFirstBlock, LazyFile } from './lazy-file';
 import {
@@ -18,7 +19,14 @@ import {
   WORKERFS_FOLDER,
 } from './worker-utils';
 
-const h5wasmReady = initH5Wasm();
+// wasm32 (`h5wasm`) or wasm64 (`h5wasm/wasm64`) build; set by `createWorkerApi`
+export type H5WasmLib = Pick<
+  typeof H5WasmModule,
+  'ready' | 'File' | 'Dataset' | 'Attribute'
+>;
+
+let lib: H5WasmLib;
+let h5wasmReady: ReturnType<typeof initH5Wasm>;
 const fileRemovers = new Map<bigint, () => void>(); // to remove files from Emscripten FS once closed
 
 function openH5WasmFile(
@@ -27,7 +35,7 @@ function openH5WasmFile(
   removeFile: () => void,
 ): bigint {
   try {
-    const { file_id } = withReadErrors(() => new H5WasmFile(path, mode));
+    const { file_id } = withReadErrors(() => new lib.File(path, mode));
     fileRemovers.set(file_id, removeFile);
     return file_id;
   } catch (error) {
@@ -58,7 +66,7 @@ async function openLocalFile(file: File): Promise<bigint> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   WORKERFS.createNode(rootNode, fileName, WORKERFS.FILE_MODE, 0, file);
 
-  const { file_id } = new H5WasmFile(`${WORKERFS_FOLDER}/${fileName}`, 'Sr'); // SWMR in case file is opened for writing in a concurrent process
+  const { file_id } = new lib.File(`${WORKERFS_FOLDER}/${fileName}`, 'Sr'); // SWMR in case file is opened for writing in a concurrent process
   return file_id;
 }
 
@@ -113,7 +121,7 @@ async function getValue(
   selection?: string,
 ): Promise<unknown> {
   const value = withReadErrors(() =>
-    readSelectedValue(new Dataset(fileId, path), selection),
+    readSelectedValue(new lib.Dataset(fileId, path), selection),
   );
   return isTypedArray(value) ? transfer(value, [value.buffer]) : value;
 }
@@ -124,7 +132,7 @@ async function getAttrValue(
   attrName: string,
 ): Promise<unknown> {
   return withReadErrors(() => {
-    const attr = new Attribute(fileId, path, attrName);
+    const attr = new lib.Attribute(fileId, path, attrName);
     const value = attr.json_value;
 
     /* eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison --
@@ -145,7 +153,7 @@ async function getDimensionScales(
   path: string,
 ): Promise<string[][]> {
   return withReadErrors(() => {
-    const dataset = new Dataset(fileId, path);
+    const dataset = new lib.Dataset(fileId, path);
 
     return (dataset.shape || []).map((_, index) => {
       try {
@@ -184,23 +192,24 @@ async function loadPlugin(plugin: string, buffer: ArrayBuffer): Promise<void> {
   FS.writeFile(pluginPath, new Uint8Array(buffer));
 }
 
-const api = {
-  openFileBuffer,
-  openLocalFile,
-  openRemoteFile,
-  closeFile,
-  getEntity,
-  getValue,
-  getAttrValue,
-  getDimensionScales,
-  getDescendantPaths,
-  isPluginLoaded,
-  loadPlugin,
-};
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- API type is inferred
+export function createWorkerApi(h5wasmLib: H5WasmLib) {
+  lib = h5wasmLib;
+  h5wasmReady = initH5Wasm(h5wasmLib.ready);
 
-export default api; // to allow testing in Node (without Web Worker)
-export type H5WasmWorkerAPI = typeof api;
-
-if (import.meta.env.MODE !== 'test') {
-  expose(api);
+  return {
+    openFileBuffer,
+    openLocalFile,
+    openRemoteFile,
+    closeFile,
+    getEntity,
+    getValue,
+    getAttrValue,
+    getDimensionScales,
+    getDescendantPaths,
+    isPluginLoaded,
+    loadPlugin,
+  };
 }
+
+export type H5WasmWorkerAPI = ReturnType<typeof createWorkerApi>;

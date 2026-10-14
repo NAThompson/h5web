@@ -5,7 +5,7 @@ import { useMemo, useRef } from 'react';
 import { H5WasmApi } from './h5wasm-api';
 import { type Plugin } from './models';
 import { getH5WasmRemote } from './remote';
-import { type H5WasmWorkerAPI } from './worker';
+import { type H5WasmWorkerAPI } from './worker-api';
 
 export function useH5WasmApi(
   filename: string,
@@ -13,11 +13,12 @@ export function useH5WasmApi(
   deps: unknown[], // dependencies of `openFile`
   getExportURL?: DataProviderApi['getExportURL'],
   getPlugin?: (name: Plugin) => Promise<ArrayBuffer | undefined>,
+  wasm64 = false,
 ): H5WasmApi {
   const prevApiRef = useRef<H5WasmApi>(undefined);
 
   return useMemo(() => {
-    const remote = getH5WasmRemote();
+    const remote = getH5WasmRemote(wasm64);
     const fileId = openFile(remote);
 
     const newApi = new H5WasmApi(
@@ -32,5 +33,5 @@ export function useH5WasmApi(
     prevApiRef.current = newApi;
 
     return newApi;
-  }, [filename, ...deps, getExportURL, getPlugin]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filename, ...deps, getExportURL, getPlugin, wasm64]); // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -9,10 +9,18 @@ interface Props {
   resetKeys?: unknown[];
   getExportURL?: DataProviderApi['getExportURL'];
   getPlugin?: (name: Plugin) => Promise<ArrayBuffer | undefined>;
+  wasm64?: boolean; // use 64-bit build of h5wasm (Memory64), e.g. to read slices larger than 2 GB
 }
 
 function H5WasmLocalFileProvider(props: PropsWithChildren<Props>) {
-  const { file, resetKeys = [], getExportURL, getPlugin, children } = props;
+  const {
+    file,
+    resetKeys = [],
+    getExportURL,
+    getPlugin,
+    wasm64,
+    children,
+  } = props;
 
   const api = useH5WasmApi(
     file.name,
@@ -20,6 +28,7 @@ function H5WasmLocalFileProvider(props: PropsWithChildren<Props>) {
     [file, ...resetKeys],
     getExportURL,
     getPlugin,
+    wasm64,
   );
 
   return <DataProvider api={api}>{children}</DataProvider>;

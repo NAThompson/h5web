@@ -9,10 +9,11 @@ interface Props {
   buffer: ArrayBuffer;
   getExportURL?: DataProviderApi['getExportURL'];
   getPlugin?: (name: Plugin) => Promise<ArrayBuffer | undefined>;
+  wasm64?: boolean; // use 64-bit build of h5wasm (Memory64), e.g. to read slices larger than 2 GB
 }
 
 function H5WasmBufferProvider(props: PropsWithChildren<Props>) {
-  const { filename, buffer, getExportURL, getPlugin, children } = props;
+  const { filename, buffer, getExportURL, getPlugin, wasm64, children } = props;
 
   const api = useH5WasmApi(
     filename,
@@ -20,6 +21,7 @@ function H5WasmBufferProvider(props: PropsWithChildren<Props>) {
     [buffer],
     getExportURL,
     getPlugin,
+    wasm64,
   );
 
   return <DataProvider api={api}>{children}</DataProvider>;

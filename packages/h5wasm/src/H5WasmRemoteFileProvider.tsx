@@ -11,10 +11,18 @@ interface Props {
   resetKeys?: unknown[];
   getExportURL?: DataProviderApi['getExportURL'];
   getPlugin?: (name: Plugin) => Promise<ArrayBuffer | undefined>;
+  wasm64?: boolean; // use 64-bit build of h5wasm (Memory64), e.g. to read slices larger than 2 GB
 }
 
 function H5WasmRemoteFileProvider(props: PropsWithChildren<Props>) {
-  const { url, resetKeys = [], getExportURL, getPlugin, children } = props;
+  const {
+    url,
+    resetKeys = [],
+    getExportURL,
+    getPlugin,
+    wasm64,
+    children,
+  } = props;
 
   // Worker can't resolve relative URLs on its own
   const absoluteUrl = resolveUrl(url, document.baseURI);
@@ -26,6 +34,7 @@ function H5WasmRemoteFileProvider(props: PropsWithChildren<Props>) {
     [absoluteUrl, ...resetKeys],
     getExportURL,
     getPlugin,
+    wasm64,
   );
 
   return <DataProvider api={api}>{children}</DataProvider>;

@@ -38,7 +38,7 @@ import { SCALAR_SELECTION_REGEXP } from '@h5web/shared/vis-utils';
 import {
   type Dataset as H5WasmDataset,
   type Metadata,
-  ready as h5wasmReady,
+  type ready as h5wasmReady,
 } from 'h5wasm';
 import { nanoid } from 'nanoid';
 
@@ -47,8 +47,10 @@ import { type LazyFile } from './lazy-file';
 export const PLUGINS_FOLDER = 'plugins'; // path to plugins on EMScripten virtual file system
 export const WORKERFS_FOLDER = 'workerfs';
 
-export async function initH5Wasm(): typeof h5wasmReady {
-  const module = await h5wasmReady;
+export async function initH5Wasm(
+  ready: typeof h5wasmReady,
+): typeof h5wasmReady {
+  const module = await ready;
 
   // Throw HDF5 errors instead of just logging them
   module.activate_throwing_error_handler();
