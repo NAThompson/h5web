@@ -38,6 +38,7 @@ function areFinite(...vals: number[]): boolean {
 
 export interface ParamSurfaceBuffers {
   positions: Float32Array; // world positions, 3 floats per vertex (row-major grid)
+  valid: Uint8Array; // 1 for vertices with finite coordinates and value, 0 otherwise
   index: Uint32Array; // triangles
   edges: Uint32Array; // pairs of vertex indices forming the grid lines of the wireframe
 }
@@ -120,6 +121,7 @@ export function buildParamSurfaceBuffers(
 
   return {
     positions,
+    valid,
     index: index.slice(0, offset),
     edges: Uint32Array.from(edges),
   };
@@ -140,49 +142,68 @@ export function getWireIndices(length: number): number[] {
   return indices;
 }
 
-function isSamePoint(positions: Float32Array, a: number, b: number): boolean {
-  return (
-    Math.abs(positions[a * 3] - positions[b * 3]) < SEAM_TOLERANCE &&
-    Math.abs(positions[a * 3 + 1] - positions[b * 3 + 1]) < SEAM_TOLERANCE &&
-    Math.abs(positions[a * 3 + 2] - positions[b * 3 + 2]) < SEAM_TOLERANCE
-  );
-}
-
-function mergeNormals(normals: Float32Array, a: number, b: number): void {
-  const nx = normals[a * 3] + normals[b * 3];
-  const ny = normals[a * 3 + 1] + normals[b * 3 + 1];
-  const nz = normals[a * 3 + 2] + normals[b * 3 + 2];
-  const length = Math.hypot(nx, ny, nz);
-
-  if (length > 0) {
-    normals.set([nx / length, ny / length, nz / length], a * 3);
-    normals.set([nx / length, ny / length, nz / length], b * 3);
+function getBoundaryIndices(rows: number, cols: number): number[] {
+  const indices = new Set<number>();
+  for (let col = 0; col < cols; col += 1) {
+    indices.add(col);
+    indices.add((rows - 1) * cols + col);
   }
+  for (let row = 0; row < rows; row += 1) {
+    indices.add(row * cols);
+    indices.add(row * cols + cols - 1);
+  }
+  return [...indices];
 }
 
 /**
- * Closed surfaces (e.g. torus, cylinder) have duplicate vertices along their seams - first
- * and last columns and/or rows of the grid. Average the normals of such vertices, so
- * shading is smooth across the seam.
+ * Closed surfaces have duplicate vertices along the boundary of their grid: first and last
+ * columns and/or rows (seams of a cylinder or torus, including the four corners of a torus),
+ * or whole rows/columns collapsed onto a single point (poles of a sphere, apex of a cone).
+ * Give all coincident valid boundary vertices the same normal - the normalised sum of their
+ * normals, each vertex counting once - so shading is smooth across seams and at poles.
  */
 export function weldSeamNormals(
   positions: Float32Array,
   normals: Float32Array,
+  valid: Uint8Array,
   rows: number,
   cols: number,
 ): void {
-  for (let row = 0; row < rows; row += 1) {
-    const a = row * cols;
-    const b = a + cols - 1;
-    if (isSamePoint(positions, a, b)) {
-      mergeNormals(normals, a, b);
+  // Group coincident vertices by position, quantised to the seam tolerance
+  const groups = new Map<string, number[]>();
+  for (const index of getBoundaryIndices(rows, cols)) {
+    if (!valid[index]) {
+      continue;
+    }
+
+    const key = [0, 1, 2]
+      .map((c) => Math.round(positions[index * 3 + c] / SEAM_TOLERANCE))
+      .join(',');
+    const group = groups.get(key);
+    if (group) {
+      group.push(index);
+    } else {
+      groups.set(key, [index]);
     }
   }
 
-  for (let col = 0; col < cols; col += 1) {
-    const b = (rows - 1) * cols + col;
-    if (isSamePoint(positions, col, b)) {
-      mergeNormals(normals, col, b);
+  for (const group of groups.values()) {
+    if (group.length < 2) {
+      continue;
+    }
+
+    let [nx, ny, nz] = [0, 0, 0];
+    for (const index of group) {
+      nx += normals[index * 3];
+      ny += normals[index * 3 + 1];
+      nz += normals[index * 3 + 2];
+    }
+
+    const length = Math.hypot(nx, ny, nz);
+    if (length > 0) {
+      for (const index of group) {
+        normals.set([nx / length, ny / length, nz / length], index * 3);
+      }
     }
   }
 }

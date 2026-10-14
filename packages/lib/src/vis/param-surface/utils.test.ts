@@ -141,25 +141,153 @@ describe('getWireIndices', () => {
   });
 });
 
-describe('weldSeamNormals', () => {
-  it('should average normals of duplicate vertices on first/last columns', () => {
-    // 1 x 3 strip whose last vertex coincides with first one
-    const positions = Float32Array.from([0, 0, 0, 1, 0, 0, 0, 0, 0]);
-    const normals = Float32Array.from([1, 0, 0, 0, 0, 1, 0, 1, 0]);
-    weldSeamNormals(positions, normals, 1, 3);
+function grid3(points: [number, number, number][]): Float32Array {
+  return Float32Array.from(points.flat());
+}
 
-    const s = Math.SQRT1_2;
-    expect(normals[0]).toBeCloseTo(s);
-    expect(normals[1]).toBeCloseTo(s);
-    expect(normals[6]).toBeCloseTo(s);
-    expect(normals[7]).toBeCloseTo(s);
-    expect(normals.slice(3, 6)).toEqual(Float32Array.from([0, 0, 1])); // untouched
+function normalAt(normals: Float32Array, index: number): number[] {
+  return Array.from(
+    normals.subarray(index * 3, index * 3 + 3),
+    (val) => Math.round(val * 1000) / 1000,
+  );
+}
+
+const ALL_VALID = new Uint8Array(9).fill(1);
+const S = Math.round(Math.SQRT1_2 * 1000) / 1000;
+const T = Math.round((1 / Math.sqrt(3)) * 1000) / 1000;
+
+describe('weldSeamNormals', () => {
+  it('should average normals of duplicate vertices on first/last columns (column seam)', () => {
+    // 3 x 3 grid whose last column coincides with first column
+    // prettier-ignore
+    const positions = grid3([
+      [0, 0, 0], [1, 0, 0], [0, 0, 0],
+      [0, 1, 0], [1, 1, 0], [0, 1, 0],
+      [0, 2, 0], [1, 2, 0], [0, 2, 0],
+    ]);
+    // prettier-ignore
+    const normals = grid3([
+      [1, 0, 0], [0, 0, 1], [0, 1, 0],
+      [1, 0, 0], [0, 0, 1], [0, 1, 0],
+      [1, 0, 0], [0, 0, 1], [0, 1, 0],
+    ]);
+
+    weldSeamNormals(positions, normals, ALL_VALID, 3, 3);
+
+    for (const row of [0, 1, 2]) {
+      expect(normalAt(normals, row * 3)).toEqual([S, S, 0]);
+      expect(normalAt(normals, row * 3 + 2)).toEqual([S, S, 0]);
+      expect(normalAt(normals, row * 3 + 1)).toEqual([0, 0, 1]); // untouched
+    }
+  });
+
+  it('should average normals of duplicate vertices on first/last rows (row seam)', () => {
+    // prettier-ignore
+    const positions = grid3([
+      [0, 0, 0], [1, 0, 0], [2, 0, 0],
+      [0, 1, 0], [1, 1, 0], [2, 1, 0],
+      [0, 0, 0], [1, 0, 0], [2, 0, 0],
+    ]);
+    // prettier-ignore
+    const normals = grid3([
+      [1, 0, 0], [1, 0, 0], [1, 0, 0],
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+      [0, 1, 0], [0, 1, 0], [0, 1, 0],
+    ]);
+
+    weldSeamNormals(positions, normals, ALL_VALID, 3, 3);
+
+    expect(normalAt(normals, 1)).toEqual([S, S, 0]);
+    expect(normalAt(normals, 7)).toEqual([S, S, 0]);
+    expect(normalAt(normals, 4)).toEqual([0, 0, 1]);
+  });
+
+  it('should weld the four corners of a double seam (torus) with even weights', () => {
+    // All four corners coincide, as do first/last rows and columns
+    // prettier-ignore
+    const positions = grid3([
+      [0, 0, 0], [1, 0, 0], [0, 0, 0],
+      [0, 1, 0], [1, 1, 0], [0, 1, 0],
+      [0, 0, 0], [1, 0, 0], [0, 0, 0],
+    ]);
+    // prettier-ignore
+    const normals = grid3([
+      [1, 0, 0], [0, 0, 1], [0, 1, 0],
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+      [0, 0, 1], [0, 0, 1], [1, 0, 0],
+    ]);
+
+    weldSeamNormals(positions, normals, ALL_VALID, 3, 3);
+
+    // (1, 0, 0) + (0, 1, 0) + (0, 0, 1) + (1, 0, 0), each corner counted once
+    const expected = [2, 1, 1].map(
+      (val) => Math.round((val / Math.sqrt(6)) * 1000) / 1000,
+    );
+    for (const corner of [0, 2, 6, 8]) {
+      expect(normalAt(normals, corner)).toEqual(expected);
+    }
+  });
+
+  it('should give a shared averaged normal to all vertices of a pole row', () => {
+    // First row collapsed onto a single point (e.g. pole of a sphere)
+    // prettier-ignore
+    const positions = grid3([
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+      [1, 0, 0], [0, 1, 0], [-1, 0, 0],
+      [2, 0, 0], [0, 2, 0], [-2, 0, 0],
+    ]);
+    // prettier-ignore
+    const normals = grid3([
+      [1, 0, 0], [0, 1, 0], [0, 0, 1],
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+    ]);
+
+    weldSeamNormals(positions, normals, ALL_VALID, 3, 3);
+
+    for (const index of [0, 1, 2]) {
+      expect(normalAt(normals, index)).toEqual([T, T, T]);
+    }
+  });
+
+  it('should ignore invalid vertices', () => {
+    // Invalid vertices stay at the origin, where a valid boundary vertex also is
+    // prettier-ignore
+    const positions = grid3([
+      [0, 0, 0], [1, 0, 0], [0, 0, 0],
+      [0, 1, 0], [1, 1, 0], [2, 1, 0],
+      [0, 2, 0], [1, 2, 0], [2, 2, 0],
+    ]);
+    // prettier-ignore
+    const normals = grid3([
+      [1, 0, 0], [0, 0, 1], [0, 0, 0],
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+      [0, 0, 1], [0, 0, 1], [0, 0, 1],
+    ]);
+    const valid = Uint8Array.from([1, 1, 0, 1, 1, 1, 1, 1, 1]);
+
+    weldSeamNormals(positions, normals, valid, 3, 3);
+
+    expect(normalAt(normals, 0)).toEqual([1, 0, 0]);
+    expect(normalAt(normals, 2)).toEqual([0, 0, 0]);
   });
 
   it('should not touch normals of distinct vertices', () => {
-    const positions = Float32Array.from([0, 0, 0, 1, 0, 0, 2, 0, 0]);
-    const normals = Float32Array.from([1, 0, 0, 0, 0, 1, 0, 1, 0]);
-    weldSeamNormals(positions, normals, 1, 3);
-    expect([...normals]).toEqual([1, 0, 0, 0, 0, 1, 0, 1, 0]);
+    // prettier-ignore
+    const positions = grid3([
+      [0, 0, 0], [1, 0, 0], [2, 0, 0],
+      [0, 1, 0], [1, 1, 0], [2, 1, 0],
+      [0, 2, 0], [1, 2, 0], [2, 2, 0],
+    ]);
+    const normals = grid3(
+      Array.from({ length: 9 }, (_, i): [number, number, number] => [
+        i % 2,
+        0,
+        1,
+      ]),
+    );
+    const before = [...normals];
+    weldSeamNormals(positions, normals, ALL_VALID, 3, 3);
+    expect([...normals]).toEqual(before);
   });
 });

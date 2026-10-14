@@ -2,6 +2,7 @@ import { useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo } from 'react';
 import { BufferAttribute, BufferGeometry, DoubleSide } from 'three';
 
+import { updateColorAttribute } from '../three-d/utils';
 import { type ParamSurfaceBuffers, weldSeamNormals } from './utils';
 
 interface Props {
@@ -31,7 +32,7 @@ function ParamSurfaceMesh(props: Props) {
 
   // Surface and wireframe share the same vertices (and colours)
   const [surfaceGeometry, wireGeometry] = useMemo(() => {
-    const { positions, index, edges } = buffers;
+    const { positions, valid, index, edges } = buffers;
     const positionAttr = new BufferAttribute(positions, 3);
 
     const surface = new BufferGeometry();
@@ -41,6 +42,7 @@ function ParamSurfaceMesh(props: Props) {
     weldSeamNormals(
       positions,
       surface.getAttribute('normal').array as Float32Array,
+      valid,
       rows,
       cols,
     );
@@ -64,9 +66,7 @@ function ParamSurfaceMesh(props: Props) {
 
   // Update colours alone when colour map, domain or scale change (before next frame is rendered)
   useLayoutEffect(() => {
-    const colorAttr = new BufferAttribute(colors, 3);
-    surfaceGeometry.setAttribute('color', colorAttr);
-    wireGeometry.setAttribute('color', colorAttr);
+    updateColorAttribute([surfaceGeometry, wireGeometry], colors); // shared attribute
     invalidate();
   }, [surfaceGeometry, wireGeometry, colors, invalidate]);
 
