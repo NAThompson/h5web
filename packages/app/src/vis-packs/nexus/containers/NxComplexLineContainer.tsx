@@ -9,11 +9,7 @@ import { useLineConfig } from '../../core/line/config';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
-import {
-  useNxData,
-  useNxSlicePrefetcher,
-  useNxValuesCached,
-} from '../hooks';
+import { useNxData, useNxSlicePrefetcher, useNxValuesCached } from '../hooks';
 import NxLineSignalPicker from '../NxLineSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
 

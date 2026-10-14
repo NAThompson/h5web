@@ -10,11 +10,7 @@ import MappedRgbVis from '../../core/rgb/MappedRgbVis';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
-import {
-  useNxData,
-  useNxSlicePrefetcher,
-  useNxValuesCached,
-} from '../hooks';
+import { useNxData, useNxSlicePrefetcher, useNxValuesCached } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
 
 function NxRgbContainer(props: VisContainerProps) {
