@@ -1,5 +1,6 @@
 import {
   type DimensionMapping,
+  getDomain,
   HeatmapVis,
   KeepZoom,
   useDomain,
@@ -17,12 +18,13 @@ import { ComplexVisType } from '@h5web/shared/vis-models';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { useStableDomain } from '../../playback-range';
 import { type HeatmapConfig } from '../heatmap/config';
 import HeatmapToolbar from '../heatmap/HeatmapToolbar';
 import { useMappedArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { usePhaseAmplitude } from './hooks';
-import { COMPLEX_VIS_TYPE_LABELS } from './utils';
+import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitude } from './utils';
 
 interface Props {
   value: ArrayValue<ComplexType>;
@@ -69,10 +71,18 @@ function MappedComplexHeatmapVis(props: Props) {
   const phaseDomain = useDomain(phase, { scaleType }) || DEFAULT_DOMAIN;
   const amplitudeDomain = useDomain(amplitude, { scaleType }) || DEFAULT_DOMAIN;
 
-  const [dataArray, dataDomain] =
-    complexVisType !== ComplexVisType.Amplitude
-      ? [phaseArray, phaseDomain]
-      : [amplitudeArray, amplitudeDomain];
+  const isPhase = complexVisType !== ComplexVisType.Amplitude;
+  const [dataArray, frameDomain] = isPhase
+    ? [phaseArray, phaseDomain]
+    : [amplitudeArray, amplitudeDomain];
+
+  const dataDomain =
+    useStableDomain(frameDomain, `${complexVisType}:${scaleType}`, (seq) => {
+      const seqValues = getPhaseAmplitude(seq as typeof value);
+      return getDomain(isPhase ? seqValues.phase : seqValues.amplitude, {
+        scaleType,
+      });
+    }) || DEFAULT_DOMAIN;
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);

@@ -1,4 +1,5 @@
 import {
+  getDomain,
   ParamSurfaceVis,
   useDomain,
   useSafeDomain,
@@ -9,7 +10,8 @@ import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { DEFAULT_DOMAIN } from '../utils';
+import { useStableDomain } from '../../playback-range';
+import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type GeometryData } from './GeometryFetcher';
 import ParamSurfaceToolbar from './ParamSurfaceToolbar';
 import { type ParamSurfaceConfig } from './surface-config';
@@ -49,7 +51,15 @@ function MappedParamSurfaceVis(props: Props) {
   }, [x, y, z, values, shape]);
 
   const dataDomain =
-    useDomain(arrays.values.data, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useDomain(arrays.values.data, { scaleType, ignoreValue }),
+      scaleType,
+      (seq) =>
+        getDomain(toNumArray(seq as NonNullable<typeof values>), {
+          scaleType,
+          ignoreValue,
+        }),
+    ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 

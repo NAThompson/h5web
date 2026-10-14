@@ -1,6 +1,7 @@
 import {
   ComplexVisType,
   type DimensionMapping,
+  getDomain,
   KeepZoom,
   LineVis,
   useCombinedDomain,
@@ -19,12 +20,13 @@ import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { useStableDomain } from '../../playback-range';
 import { useMappedArrays, useToNumArrays } from '../hooks';
 import { type LineConfig } from '../line/config';
 import LineToolbar from '../line/LineToolbar';
 import { DEFAULT_DOMAIN } from '../utils';
 import { usePhaseAmplitudeArrays } from './hooks';
-import { COMPLEX_VIS_TYPE_LABELS } from './utils';
+import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitudeArrays } from './utils';
 
 interface Props {
   value: ArrayValue<ComplexType>;
@@ -103,10 +105,26 @@ function MappedComplexLineVis(props: Props) {
   const [dataDomain, ...auxDomains] = pickedDomains;
 
   const combinedDomain =
-    useCombinedDomain([
-      valueVisible ? dataDomain : undefined,
-      ...auxDomains.filter((_, i) => auxVisible[i]),
-    ]) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useCombinedDomain([
+        valueVisible ? dataDomain : undefined,
+        ...auxDomains.filter((_, i) => auxVisible[i]),
+      ]),
+      `${complexVisType}:${yScaleType}:${valueVisible}`,
+      (seq) => {
+        if (!valueVisible) {
+          return undefined;
+        }
+        const seqArrays = getPhaseAmplitudeArrays([seq as typeof value]);
+        const [seqArray] =
+          complexVisType === ComplexVisType.Amplitude
+            ? seqArrays.amplitudeArrays
+            : complexVisType === ComplexVisType.Phase
+              ? seqArrays.phaseArrays
+              : seqArrays.unwrappedPhaseArrays;
+        return getDomain(seqArray, { scaleType: yScaleType });
+      },
+    ) || DEFAULT_DOMAIN;
 
   const visDomain = useVisDomain(customDomain, combinedDomain);
   const [safeDomain] = useSafeDomain(visDomain, combinedDomain, yScaleType);

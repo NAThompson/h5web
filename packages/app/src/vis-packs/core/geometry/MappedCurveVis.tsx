@@ -1,9 +1,16 @@
-import { Curve3DVis, useDomain, useSafeDomain, useVisDomain } from '@h5web/lib';
+import {
+  Curve3DVis,
+  getDomain,
+  useDomain,
+  useSafeDomain,
+  useVisDomain,
+} from '@h5web/lib';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { DEFAULT_DOMAIN } from '../utils';
+import { useStableDomain } from '../../playback-range';
+import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type CurveConfig, LINE_WIDTH_PX } from './config';
 import CurveToolbar from './CurveToolbar';
 import { type GeometryData } from './GeometryFetcher';
@@ -36,7 +43,17 @@ function MappedCurveVis(props: Props) {
   );
 
   const dataDomain =
-    useDomain(field, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useDomain(field, { scaleType, ignoreValue }),
+      scaleType,
+      (seq) =>
+        values // without scalar field, colour by point index, which doesn't change
+          ? getDomain(toNumArray(seq as typeof values), {
+              scaleType,
+              ignoreValue,
+            })
+          : undefined,
+    ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
