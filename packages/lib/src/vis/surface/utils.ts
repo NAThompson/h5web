@@ -17,6 +17,29 @@ export interface SurfaceBuffers {
   index: Uint32Array;
 }
 
+/** Check that arrays can be shown as a surface, coloured by `colorArray` if provided. */
+export function assertSurfaceArrays(
+  dataArray: NdArray<NumArray>,
+  colorArray?: NdArray<NumArray>,
+): void {
+  if (dataArray.shape.length !== 2) {
+    throw new Error('Expected two-dimensional array');
+  }
+
+  if (!isSurfaceSupported(dataArray.shape)) {
+    throw new Error('Expected at least two rows and two columns');
+  }
+
+  if (
+    colorArray &&
+    (colorArray.shape.length !== 2 ||
+      colorArray.shape[0] !== dataArray.shape[0] ||
+      colorArray.shape[1] !== dataArray.shape[1])
+  ) {
+    throw new Error('Expected colour array of same shape as data array');
+  }
+}
+
 /** Surfaces need at least two rows and two columns to have any triangle. */
 export function isSurfaceSupported(shape: number[]): boolean {
   return shape.length === 2 && shape[0] >= 2 && shape[1] >= 2;
@@ -248,4 +271,27 @@ export function getSurfaceColors(
   }
 
   return colors;
+}
+
+/** Values of a 2D array in row-major order, whatever its strides (e.g. transposed view). */
+export function flattenArray(values: NdArray<NumArray>): NumArray {
+  const [rows, cols] = values.shape;
+  const isContiguous =
+    values.offset === 0 &&
+    values.stride[0] === cols &&
+    values.stride[1] === 1 &&
+    values.data.length === rows * cols;
+
+  if (isContiguous) {
+    return values.data;
+  }
+
+  const flat = new Float64Array(rows * cols);
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      flat[row * cols + col] = values.get(row, col);
+    }
+  }
+
+  return flat;
 }

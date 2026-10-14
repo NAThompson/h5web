@@ -18,13 +18,13 @@ import Vis3DLayout from '../three-d/Vis3DLayout';
 import { createScale, DEFAULT_DOMAIN } from '../utils';
 import SurfaceMesh from './SurfaceMesh';
 import {
+  assertSurfaceArrays,
   DEFAULT_MAX_VERTICES,
   getCellCenters,
   getCoordsDomain,
   getDownsamplingStride,
   getFootprint,
   getSampledIndices,
-  isSurfaceSupported,
   sampleArray,
 } from './utils';
 
@@ -47,6 +47,11 @@ interface Props extends ClassStyleAttrs {
   shading?: boolean;
   ignoreValue?: IgnoreValue;
   maxVertices?: number;
+  /* Colour the surface by another field than height (same shape as `dataArray`),
+   * e.g. phase of complex values while height shows their amplitude */
+  colorArray?: NdArray<NumArray>;
+  colorDomain?: Domain; // defaults to `domain`
+  colorScaleType?: VisScaleType;
 }
 
 function SurfaceVis(props: PropsWithChildren<Props>) {
@@ -69,18 +74,15 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     shading = true,
     ignoreValue,
     maxVertices = DEFAULT_MAX_VERTICES,
+    colorArray,
+    colorDomain,
+    colorScaleType,
     children,
     className = '',
     style,
   } = props;
 
-  if (dataArray.shape.length !== 2) {
-    throw new Error('Expected two-dimensional array');
-  }
-
-  if (!isSurfaceSupported(dataArray.shape)) {
-    throw new Error('Expected at least two rows and two columns');
-  }
+  assertSurfaceArrays(dataArray, colorArray);
 
   const { label: abscissaLabel, value: abscissaValue } = abscissaParams;
   const { label: ordinateLabel, value: ordinateValue } = ordinateParams;
@@ -100,7 +102,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const [w, h] = getFootprint(xDomain, yDomain, keepRatio);
 
   // Downsample large datasets
-  const { values, xCoords, yCoords } = useMemo(() => {
+  const { values, colorValues, xCoords, yCoords } = useMemo(() => {
     const stride = getDownsamplingStride(rows, cols, maxVertices);
     const rowIndices = getSampledIndices(rows, stride);
     const colIndices = getSampledIndices(cols, stride);
@@ -116,11 +118,14 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
 
     return {
       values: sampleArray(dataArray, rowIndices, colIndices),
+      colorValues:
+        colorArray && sampleArray(colorArray, rowIndices, colIndices),
       xCoords: colIndices.map((i) => xScale(xCenters[i])),
       yCoords: rowIndices.map((i) => yScale(yCenters[i])),
     };
   }, [
     dataArray,
+    colorArray,
     rows,
     cols,
     maxVertices,
@@ -154,6 +159,22 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [yDomain, ordinateValue, ordinateLabel, flipYAxis],
   );
 
+  const colorField = useMemo(
+    () =>
+      colorValues && {
+        values: colorValues,
+        domain: colorDomain ?? domain,
+        scaleType: colorScaleType ?? ScaleType.Linear,
+      },
+    [colorValues, colorDomain, colorScaleType, domain],
+  );
+
+  // Colour bar shows the field used for colours
+  const legend = useMemo(
+    () => colorField ?? { domain, scaleType },
+    [colorField, domain, scaleType],
+  );
+
   const valueConfig = useMemo<Axis3DConfig>(
     () => ({ domain, scaleType, label: valueLabel }),
     [domain, scaleType, valueLabel],
@@ -165,8 +186,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       style={style}
       title={title}
       boxSize={[w, h, heightScale]}
-      domain={domain}
-      scaleType={scaleType}
+      domain={legend.domain}
+      scaleType={legend.scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
     >
@@ -181,6 +202,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
         ignoreValue={ignoreValue}
         zHeight={heightScale}
         shading={shading}
+        colorField={colorField}
       />
       {showAxes && (
         <Axes3D

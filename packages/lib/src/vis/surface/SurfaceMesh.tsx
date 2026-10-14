@@ -10,8 +10,12 @@ import { BufferAttribute, BufferGeometry, DoubleSide } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import { type VisScaleType } from '../models';
-import { getLinearColorLut } from '../three-d/utils';
-import { buildSurfaceBuffers, getSurfaceColors } from './utils';
+import {
+  getColorParams,
+  getLinearColorLut,
+  getVertexColors,
+} from '../three-d/utils';
+import { buildSurfaceBuffers, flattenArray, getSurfaceColors } from './utils';
 
 interface Props {
   values: NdArray<NumArray>;
@@ -24,6 +28,12 @@ interface Props {
   ignoreValue?: IgnoreValue;
   zHeight: number;
   shading: boolean;
+  /* Colour vertices by another field than height (same shape as `values`), e.g. phase of complex values */
+  colorField?: {
+    values: NdArray<NumArray>;
+    domain: Domain;
+    scaleType: VisScaleType;
+  };
 }
 
 function SurfaceMesh(props: Props) {
@@ -38,6 +48,7 @@ function SurfaceMesh(props: Props) {
     ignoreValue,
     zHeight,
     shading,
+    colorField,
   } = props;
 
   const invalidate = useThree((state) => state.invalidate);
@@ -71,7 +82,16 @@ function SurfaceMesh(props: Props) {
   // Update colours alone when colour map changes (before next frame is rendered)
   useLayoutEffect(() => {
     const positions = geometry.getAttribute('position').array as Float32Array;
-    const colors = getSurfaceColors(positions, colorLut);
+    const colors = colorField
+      ? getVertexColors(
+          getColorParams(
+            flattenArray(colorField.values),
+            colorField.domain,
+            colorField.scaleType,
+          ),
+          colorLut,
+        )
+      : getSurfaceColors(positions, colorLut);
 
     if (geometry.hasAttribute('color')) {
       const attr = geometry.getAttribute('color') as BufferAttribute;
@@ -82,7 +102,7 @@ function SurfaceMesh(props: Props) {
     }
 
     invalidate();
-  }, [geometry, colorLut, invalidate]);
+  }, [geometry, colorLut, colorField, invalidate]);
 
   // Geometry height is normalized; stretching the mesh keeps normals correct (via normal matrix)
   return (

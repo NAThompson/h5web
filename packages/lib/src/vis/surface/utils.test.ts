@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { getLinearColorLut } from '../three-d/utils';
 import {
   buildSurfaceBuffers,
+  flattenArray,
   getCellCenters,
   getCoordsDomain,
   getDownsamplingStride,
@@ -227,5 +228,17 @@ describe('getSurfaceColors', () => {
     expect(colors.slice(0, 3)).toEqual(colorLut.slice(0, 3));
     expect(colors.slice(3, 6)).toEqual(colorLut.slice(-3));
     expect(colorLut[0]).not.toBe(colorLut.at(-1));
+  });
+});
+
+describe('flattenArray', () => {
+  it('should return data of contiguous arrays as is', () => {
+    const arr = ndarray(Float32Array.from([1, 2, 3, 4, 5, 6]), [2, 3]);
+    expect(flattenArray(arr)).toBe(arr.data);
+  });
+
+  it('should flatten views in row-major order', () => {
+    const arr = ndarray([1, 2, 3, 4, 5, 6], [2, 3]).transpose(1, 0);
+    expect([...flattenArray(arr)]).toEqual([1, 4, 2, 5, 3, 6]);
   });
 });
