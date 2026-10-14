@@ -205,7 +205,10 @@ export {
   getSlicedDimsAndMapping,
 } from './dimension-mapper/utils';
 export { useSlicedDimsAndMapping } from './dimension-mapper/hooks';
-export { DEFAULT_PLAYBACK_SETTINGS } from './dimension-mapper/playback';
+export {
+  clampFps as clampPlaybackFps,
+  DEFAULT_PLAYBACK_SETTINGS,
+} from './dimension-mapper/playback';
 export type {
   PlaybackMode,
   PlaybackRange,
