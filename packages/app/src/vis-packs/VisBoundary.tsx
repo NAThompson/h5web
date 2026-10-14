@@ -4,6 +4,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import ErrorFallback from '../ErrorFallback';
 import { useDataContext } from '../providers/DataProvider';
 import visualizerStyles from '../visualizer/Visualizer.module.css';
+import { isPlaybackQuery } from './prefetch';
 import ValueLoader from './ValueLoader';
 
 interface Props {
@@ -23,7 +24,10 @@ function VisBoundary(props: PropsWithChildren<Props>) {
       )}
       onError={() => {
         queryClient.removeQueries({
-          predicate: (query) => query.state.status === 'error',
+          // Keep errors of slices prefetched for playback until playback stops (to avoid refetching them)
+          predicate: (query) =>
+            query.state.status === 'error' &&
+            !isPlaybackQuery(queryClient, query),
         });
       }}
     >

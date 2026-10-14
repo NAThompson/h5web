@@ -8,9 +8,10 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useRgbConfig } from '../../core/rgb/config';
 import MappedRgbVis from '../../core/rgb/MappedRgbVis';
 import { type VisContainerProps } from '../../models';
+import { useNxSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
-import { useNxData, useNxValuesCached } from '../hooks';
+import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
 
 function NxRgbContainer(props: VisContainerProps) {
@@ -40,6 +41,8 @@ function NxRgbContainer(props: VisContainerProps) {
   const axisLabels = axisDefs.map((def) => def?.label);
   const config = useRgbConfig();
 
+  const slicingProps = useNxSlicingProps(nxData);
+
   return (
     <>
       <DimensionMapper
@@ -47,7 +50,7 @@ function NxRgbContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={axisLabels}
         dimMapping={dimMapping}
-        canSliceFast={useNxValuesCached(nxData)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping}>

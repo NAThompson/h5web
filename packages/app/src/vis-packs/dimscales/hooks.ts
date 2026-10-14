@@ -44,6 +44,18 @@ export function useDimScales(dataset: Dataset<ArrayShape>): DimScaleAxes {
  * `VisBoundary`: read whatever `useDimScales` has resolved so far, without
  * fetching (and thus without suspending or throwing). */
 export function useDimHints(dataset: Dataset<ArrayShape>): AxisMapping<string> {
+  return useCachedDimScales(dataset).map((scale) => scale?.label);
+}
+
+/* Units of the dimension scales, to suggest whether to keep the ratio from
+ * outside the `VisBoundary`. Empty until `useDimScales` has resolved. */
+export function useDimUnits(dataset: Dataset<ArrayShape>): AxisMapping<string> {
+  return useCachedDimScales(dataset).map((scale) => scale?.unit);
+}
+
+function useCachedDimScales(
+  dataset: Dataset<ArrayShape>,
+): AxisMapping<DimScale> {
   const { filepath, queryClient } = useDataContext();
   const queryCache = queryClient.getQueryCache();
   const queryKey = getQueryKey(filepath, dataset);
@@ -69,5 +81,5 @@ export function useDimHints(dataset: Dataset<ArrayShape>): AxisMapping<string> {
     () => queryClient.getQueryData<AxisMapping<DimScale>>(queryKey),
   );
 
-  return dimScales?.map((scale) => scale?.label) ?? [];
+  return dimScales ?? [];
 }

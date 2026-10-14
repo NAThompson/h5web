@@ -18,6 +18,7 @@ export default definePreview({
           'Utilities',
           'Contexts',
           'Customization',
+          'Curves and surfaces',
           'Visualizations',
           ['LineVis'],
           'Building Blocks',

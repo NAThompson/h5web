@@ -76,6 +76,28 @@ describe('getBounds', () => {
     });
   });
 
+  it('should compute bounds of typed arrays spanning several blocks', () => {
+    const values = new Float32Array(200_000).fill(5);
+    values[70_000] = -2; // second block
+    values[150_000] = 0.5; // third block
+    values[199_999] = 8; // last, partial block
+    values[100] = Number.NaN;
+
+    expect(getBounds(values)).toEqual({
+      min: -2,
+      max: 8,
+      positiveMin: 0.5,
+      strictPositiveMin: 0.5,
+    });
+
+    expect(getBounds(new Uint16Array([3, 0, 65_535]))).toEqual({
+      min: 0,
+      max: 65_535,
+      positiveMin: 0,
+      strictPositiveMin: 3,
+    });
+  });
+
   it('should return undefined if empty or none of the values are finite', () => {
     expect(getBounds([])).toBeUndefined();
     expect(getBounds([Number.NaN, Infinity, -Infinity])).toBeUndefined();

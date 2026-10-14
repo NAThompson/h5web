@@ -6,15 +6,18 @@ import {
   Selector,
   Separator,
   SnapshotBtn,
+  ToggleBtn,
   ToggleGroup,
   Toolbar,
   VolumeQuality,
   VolumeRenderMode,
 } from '@h5web/lib';
 import { COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
+import { MdBlurOn } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
 import { type VolumeConfig } from './config';
+import IsosurfacesControl from './IsosurfacesControl';
 import RangeControl from './RangeControl';
 
 const QUALITY_LABELS: Record<VolumeQuality, string> = {
@@ -26,11 +29,12 @@ const QUALITY_LABELS: Record<VolumeQuality, string> = {
 interface Props {
   dataDomain: Domain;
   config: VolumeConfig;
+  isoStep: number;
 }
 
 function VolumeToolbar(props: Props) {
   const visArea = useVisArea();
-  const { dataDomain, config } = props;
+  const { dataDomain, config, isoStep } = props;
   const {
     customDomain,
     colorMap,
@@ -40,6 +44,9 @@ function VolumeToolbar(props: Props) {
     opacity,
     threshold,
     quality,
+    showVolume,
+    isoLevels,
+    isoColorMode,
     setCustomDomain,
     setColorMap,
     setScaleType,
@@ -48,43 +55,76 @@ function VolumeToolbar(props: Props) {
     setOpacity,
     setThreshold,
     setQuality,
+    setShowVolume,
+    addIsoLevel,
+    updateIsoLevel,
+    removeIsoLevel,
+    setIsoColorMode,
   } = config;
 
   return (
     <Toolbar>
-      <ToggleGroup
-        role="radiogroup"
-        ariaLabel="Rendering mode"
-        value={mode}
-        onChange={(val) => setMode(val as VolumeRenderMode)}
-      >
-        <ToggleGroup.Btn
-          label="MIP"
-          value={VolumeRenderMode.MIP}
-          hint="Maximum intensity projection"
-        />
-        <ToggleGroup.Btn
-          label="DVR"
-          value={VolumeRenderMode.DVR}
-          hint="Direct volume rendering"
-        />
-        <ToggleGroup.Btn
-          label="Iso"
-          value={VolumeRenderMode.Iso}
-          hint="Isosurface"
-        />
-      </ToggleGroup>
+      <ToggleBtn
+        label="Volume"
+        aria-label="Show volume"
+        Icon={MdBlurOn}
+        value={showVolume}
+        onToggle={() => setShowVolume(!showVolume)}
+      />
+      <IsosurfacesControl
+        levels={isoLevels}
+        domain={dataDomain}
+        scaleType={scaleType}
+        colorMode={isoColorMode}
+        step={isoStep}
+        onAdd={addIsoLevel}
+        onUpdate={updateIsoLevel}
+        onRemove={removeIsoLevel}
+        onColorModeChange={setIsoColorMode}
+      />
       <Separator />
 
-      <RangeControl
-        label={mode === VolumeRenderMode.Iso ? 'Iso value' : 'Threshold'}
-        value={threshold}
-        onChange={setThreshold}
-      />
-      {mode === VolumeRenderMode.DVR && (
-        <RangeControl label="Opacity" value={opacity} onChange={setOpacity} />
+      {showVolume && (
+        <>
+          <ToggleGroup
+            role="radiogroup"
+            ariaLabel="Rendering mode"
+            value={mode}
+            onChange={(val) => setMode(val as VolumeRenderMode)}
+          >
+            <ToggleGroup.Btn
+              label="MIP"
+              value={VolumeRenderMode.MIP}
+              hint="Maximum intensity projection"
+            />
+            <ToggleGroup.Btn
+              label="DVR"
+              value={VolumeRenderMode.DVR}
+              hint="Direct volume rendering"
+            />
+            <ToggleGroup.Btn
+              label="Iso"
+              value={VolumeRenderMode.Iso}
+              hint="Isosurface"
+            />
+          </ToggleGroup>
+          <Separator />
+
+          <RangeControl
+            label={mode === VolumeRenderMode.Iso ? 'Iso value' : 'Threshold'}
+            value={threshold}
+            onChange={setThreshold}
+          />
+          {mode === VolumeRenderMode.DVR && (
+            <RangeControl
+              label="Opacity"
+              value={opacity}
+              onChange={setOpacity}
+            />
+          )}
+          <Separator />
+        </>
       )}
-      <Separator />
 
       <DomainWidget
         dataDomain={dataDomain}
@@ -109,14 +149,18 @@ function VolumeToolbar(props: Props) {
       />
       <Separator />
 
-      <Selector
-        label="Quality"
-        value={quality}
-        onChange={setQuality}
-        options={Object.values(VolumeQuality)}
-        renderOption={(option) => QUALITY_LABELS[option]}
-      />
-      <Separator />
+      {showVolume && (
+        <>
+          <Selector
+            label="Quality"
+            value={quality}
+            onChange={setQuality}
+            options={Object.values(VolumeQuality)}
+            renderOption={(option) => QUALITY_LABELS[option]}
+          />
+          <Separator />
+        </>
+      )}
 
       <SnapshotBtn target={visArea} />
     </Toolbar>

@@ -6,11 +6,11 @@ import {
 } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import { useLineConfig } from '../line/config';
 import ValueFetcher from '../ValueFetcher';
@@ -33,6 +33,8 @@ function ComplexLineVisContainer(props: VisContainerProps) {
 
   const dimHints = useDimHints(entity);
 
+  const slicingProps = useDatasetSlicingProps(entity);
+
   return (
     <>
       <DimensionMapper
@@ -40,7 +42,7 @@ function ComplexLineVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>

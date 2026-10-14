@@ -567,6 +567,17 @@ export function makeMockFile(): GroupWithChildren {
           labels: [undefined, 'column'],
           scales: [[], ['/dimension_scales/X']],
         }),
+        array('Y_nm', {
+          valueId: 'Y',
+          attributes: [scalarAttr('units', 'nm')],
+        }),
+        array('Y_s', { valueId: 'Y', attributes: [scalarAttr('units', 's')] }),
+        withDimScales(array('twoD_same_units', { valueId: 'twoD' }), {
+          scales: [['/dimension_scales/Y_nm'], ['/dimension_scales/X']],
+        }),
+        withDimScales(array('twoD_diff_units', { valueId: 'twoD' }), {
+          scales: [['/dimension_scales/Y_s'], ['/dimension_scales/X']],
+        }),
         dataset(
           'T',
           arrayShape([10]),
@@ -577,6 +588,85 @@ export function makeMockFile(): GroupWithChildren {
         withDimScales(array('oneD_complex'), {
           labels: ['time'],
           scales: [['/dimension_scales/T']],
+        }),
+        array('K', { attributes: [scalarAttr('units', '1/a')] }),
+        withDimScales(array('threeD_fermi'), {
+          labels: ['kz', 'ky', 'kx'],
+          scales: [
+            ['/dimension_scales/K'],
+            ['/dimension_scales/K'],
+            ['/dimension_scales/K'],
+          ],
+        }),
+        array('twoD_contours'),
+      ]),
+      group('geometry', [
+        array('knot_x'),
+        array('knot_y'),
+        array('knot_z'),
+        array('knot_speed', {
+          attributes: [
+            scalarAttr('coordinates', 'knot_x knot_y knot_z'),
+            scalarAttr('featureType', 'trajectory'), // points are connected
+          ],
+        }),
+        array('torus_x', { attributes: [scalarAttr('units', 'm')] }),
+        array('torus_y', { attributes: [scalarAttr('units', 'm')] }),
+        array('torus_z', { attributes: [scalarAttr('units', 'm')] }),
+        array('torus_curvature', {
+          attributes: [
+            scalarAttr('coordinates', 'torus_x torus_y torus_z'),
+            scalarAttr('long_name', 'Gaussian curvature'),
+            scalarAttr('units', 'm^-2'),
+          ],
+        }),
+        array('torus_waves', {
+          attributes: [
+            // Absolute paths are supported too; leading dimension can be sliced
+            scalarAttr(
+              'coordinates',
+              '/geometry/torus_x /geometry/torus_y /geometry/torus_z',
+            ),
+          ],
+        }),
+        array('helix', {
+          attributes: [scalarAttr('interpretation', 'vertex')],
+        }),
+        // Not curves or surfaces
+        array('helix_table', { valueId: 'helix' }), // no `interpretation`
+        array('knot_coordinates_missing', {
+          valueId: 'knot_speed',
+          attributes: [scalarAttr('coordinates', 'knot_x knot_y unknown')],
+        }),
+        array('torus_curvilinear', {
+          valueId: 'torus_curvature',
+          attributes: [scalarAttr('coordinates', 'torus_x torus_y')], // e.g. lon/lat grid
+        }),
+        nxGroup('nx_torus', 'NXdata', {
+          attributes: [scalarAttr('signal', 'curvature')],
+          children: [
+            array('curvature', {
+              valueId: 'torus_curvature',
+              attributes: [scalarAttr('coordinates', 'x y z')],
+            }),
+            array('x', { valueId: 'torus_x' }),
+            array('y', { valueId: 'torus_y' }),
+            array('z', { valueId: 'torus_z' }),
+          ],
+        }),
+        nxGroup('nx_torus_waves', 'NXdata', {
+          attributes: [
+            scalarAttr('signal', 'waves'),
+            arrayAttr('default_slice', ['2', '.', '.']),
+          ],
+          children: [
+            array('waves', {
+              valueId: 'torus_waves',
+              attributes: [
+                scalarAttr('coordinates', '../torus_x ../torus_y ../torus_z'),
+              ],
+            }),
+          ],
         }),
       ]),
       group('resilience', [

@@ -287,6 +287,8 @@ test('download snapshot from toolbar', async () => {
     .spyOn(HTMLAnchorElement.prototype, 'click')
     .mockImplementation(() => {});
 
+  // Make room in the heatmap toolbar so the snapshot button doesn't overflow
+  await user.click(page.getByRole('button', { name: 'Toggle sidebar' }));
   await user.click(page.getByRole('button', { name: 'Snapshot' }));
   await user.click(page.getByRole('button', { name: 'Save as PNG (2×)' }));
 

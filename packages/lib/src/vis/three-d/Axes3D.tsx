@@ -17,21 +17,19 @@ import { createScale, getTickFormatter } from '../utils';
 import TextSprite, { updateLabelSprite } from './TextSprite';
 import { getAxisTicks } from './utils';
 
-interface AxisConfig {
+export interface Axis3DConfig {
   domain: Domain;
-  isIndexAxis: boolean;
-  label?: string;
-  flip?: boolean;
+  isIndexAxis?: boolean; // integer ticks (X and Y axes only)
+  scaleType?: VisScaleType; // Z axis only
+  label?: string; // X and Y axes are labelled `x` and `y` by default; Z axis is not labelled by default
+  flip?: boolean; // X and Y axes only
 }
 
 interface Props {
-  footprint: [number, number];
-  zHeight: number;
-  abscissaConfig: AxisConfig;
-  ordinateConfig: AxisConfig;
-  valueDomain: Domain;
-  valueLabel?: string;
-  scaleType: VisScaleType;
+  boxSize: Vector3Tuple; // box spans [-w/2, w/2] x [-h/2, h/2] x [0, d]
+  xConfig: Axis3DConfig;
+  yConfig: Axis3DConfig;
+  zConfig: Axis3DConfig;
   showGrid: boolean;
 }
 
@@ -212,19 +210,15 @@ interface Label {
 
 const PRIORITY = { axisLabel: 3, tick: 2, valueTick: 1 };
 
-function SurfaceAxes(props: Props) {
-  const {
-    footprint,
-    zHeight,
-    abscissaConfig,
-    ordinateConfig,
-    valueDomain,
-    valueLabel,
-    scaleType,
-    showGrid,
-  } = props;
+/**
+ * Box with ticks, tick labels and axis labels on its outer edges, and grid lines on its
+ * floor and back walls - i.e. the walls furthest from the camera, whatever the view angle.
+ */
+function Axes3D(props: Props) {
+  const { boxSize, xConfig, yConfig, zConfig, showGrid } = props;
+  const { domain: valueDomain, scaleType = ScaleType.Linear } = zConfig;
 
-  const [w, h] = footprint;
+  const [w, h, zHeight] = boxSize;
   const domElement = useThree((state) => state.gl.domElement);
   const invalidate = useThree((state) => state.invalidate);
   const theme = useTheme(domElement);
@@ -238,12 +232,12 @@ function SurfaceAxes(props: Props) {
 
   const { axisPoints, gridPoints, labels } = useMemo(() => {
     const xScale = createScale(ScaleType.Linear, {
-      domain: abscissaConfig.domain,
-      range: abscissaConfig.flip ? [w / 2, -w / 2] : [-w / 2, w / 2],
+      domain: xConfig.domain,
+      range: xConfig.flip ? [w / 2, -w / 2] : [-w / 2, w / 2],
     });
     const yScale = createScale(ScaleType.Linear, {
-      domain: ordinateConfig.domain,
-      range: ordinateConfig.flip ? [h / 2, -h / 2] : [-h / 2, h / 2],
+      domain: yConfig.domain,
+      range: yConfig.flip ? [h / 2, -h / 2] : [-h / 2, h / 2],
     });
     const zScale = createScale(scaleType, {
       domain: valueDomain,
@@ -251,14 +245,14 @@ function SurfaceAxes(props: Props) {
     });
 
     const xTicks = getAxisTicks(
-      abscissaConfig.domain,
+      xConfig.domain,
       Math.max(Math.round(w * 6), 2),
-      abscissaConfig.isIndexAxis,
+      !!xConfig.isIndexAxis,
     );
     const yTicks = getAxisTicks(
-      ordinateConfig.domain,
+      yConfig.domain,
       Math.max(Math.round(h * 6), 2),
-      ordinateConfig.isIndexAxis,
+      !!yConfig.isIndexAxis,
     );
 
     const zFormatter = getTickFormatter(
@@ -266,9 +260,13 @@ function SurfaceAxes(props: Props) {
       300,
       Array.isArray(scaleType) ? scaleType[0] : scaleType,
     );
-    const zTicks = zScale
-      .ticks(Math.max(Math.round(zHeight * 8), 2))
-      .filter((val) => zFormatter(val) !== '');
+    // Flat box (e.g. planar curve): no Z axis to annotate
+    const zTicks =
+      zHeight > 0
+        ? zScale
+            .ticks(Math.max(Math.round(zHeight * 8), 2))
+            .filter((val) => zFormatter(val) !== '')
+        : [];
 
     const xNear = (sx * w) / 2;
     const xFar = -xNear;
@@ -345,7 +343,7 @@ function SurfaceAxes(props: Props) {
     texts.push(
       {
         key: 'x-label',
-        text: abscissaConfig.label ?? 'x',
+        text: xConfig.label ?? 'x',
         position: [0, yNear + sy * AXIS_LABEL_OFFSET, 0],
         outward: [0, sy, 0],
         priority: PRIORITY.axisLabel,
@@ -353,7 +351,7 @@ function SurfaceAxes(props: Props) {
       },
       {
         key: 'y-label',
-        text: ordinateConfig.label ?? 'y',
+        text: yConfig.label ?? 'y',
         position: [xNear + sx * AXIS_LABEL_OFFSET, 0, 0],
         outward: [sx, 0, 0],
         priority: PRIORITY.axisLabel,
@@ -361,10 +359,10 @@ function SurfaceAxes(props: Props) {
       },
     );
 
-    if (valueLabel) {
+    if (zConfig.label && zHeight > 0) {
       texts.push({
         key: 'z-label',
-        text: valueLabel,
+        text: zConfig.label,
         position: [xNear, yFar, zHeight + TICK_LABEL_OFFSET],
         outward: [0, 0, 1],
         priority: PRIORITY.axisLabel,
@@ -379,10 +377,10 @@ function SurfaceAxes(props: Props) {
     zHeight,
     sx,
     sy,
-    abscissaConfig,
-    ordinateConfig,
+    xConfig,
+    yConfig,
+    zConfig,
     valueDomain,
-    valueLabel,
     scaleType,
     showGrid,
   ]);
@@ -420,5 +418,4 @@ function SurfaceAxes(props: Props) {
   );
 }
 
-export type { AxisConfig as SurfaceAxisConfig };
-export default SurfaceAxes;
+export default Axes3D;

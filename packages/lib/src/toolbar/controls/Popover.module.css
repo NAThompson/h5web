@@ -1,0 +1,7 @@
+.popover {
+  composes: menu from '../utils.module.css';
+  z-index: 1; /* above vis */
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+}

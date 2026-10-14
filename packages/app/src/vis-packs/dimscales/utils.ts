@@ -25,6 +25,7 @@ import {
 export interface DimScale {
   label?: string;
   value?: ArrayValue<NumericType>; // undefined if the dimension is labelled but has no usable scale
+  unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
 }
 
 interface UsableScale {
@@ -57,27 +58,44 @@ export async function getDimScales(
         return label ? { label } : undefined;
       }
 
-      // `NAME` is the name given to `make_scale`, empty if none was
       const { dataset: scaleDataset, value } = scale;
-      const [name, unit] = await Promise.all([
-        getAttributeValue(
-          scaleDataset,
-          findScalarStrAttr(scaleDataset, 'NAME'),
-          dataContext,
-        ),
-        getAttributeValue(
-          scaleDataset,
-          findScalarStrAttr(scaleDataset, 'units'),
-          dataContext,
-        ),
-      ]);
+      const { name, unit } = await getScaleMeta(scaleDataset, dataContext);
 
       // The dimension label wins over the scale's own name, as for NeXus `long_name`
       const base = label || name || scaleDataset.name;
 
-      return { label: unit ? `${base} (${unit})` : base, value };
+      return {
+        label: unit ? `${base} (${unit})` : base,
+        value,
+        unit,
+      };
     }),
   );
+}
+
+/* `NAME` is the name given to `make_scale`, empty if none was. Both attributes
+ * are optional, so failing to read them must not hide an otherwise usable scale. */
+async function getScaleMeta(
+  scaleDataset: Dataset<ArrayShape, NumericType>,
+  dataContext: DataContextValue,
+): Promise<{ name?: string; unit?: string }> {
+  try {
+    const [name, unit] = await Promise.all([
+      getAttributeValue(
+        scaleDataset,
+        findScalarStrAttr(scaleDataset, 'NAME'),
+        dataContext,
+      ),
+      getAttributeValue(
+        scaleDataset,
+        findScalarStrAttr(scaleDataset, 'units'),
+        dataContext,
+      ),
+    ]);
+    return { name, unit: unit || undefined };
+  } catch {
+    return {};
+  }
 }
 
 export function isUsableScale(

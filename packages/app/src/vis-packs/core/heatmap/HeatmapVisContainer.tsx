@@ -7,12 +7,13 @@ import {
 } from '@h5web/shared/guards';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
-import { useValuesInCache } from '../../../hooks';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimHints } from '../../dimscales/hooks';
+import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
+import { guessKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
 import { useHeatmapConfig } from './config';
 import MappedHeatmapVis from './MappedHeatmapVis';
@@ -30,10 +31,19 @@ function HeatmapVisContainer(props: VisContainerProps) {
     axesCount: 2,
   });
 
-  const config = useHeatmapConfig();
+  const dimHints = useDimHints(entity);
+  const dimUnits = useDimUnits(entity);
+
+  // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
+  const config = useHeatmapConfig({
+    keepRatio: guessKeepRatio(
+      { unit: dimUnits[dimMapping.indexOf('x')] },
+      { unit: dimUnits[dimMapping.indexOf('y')] },
+    ),
+  });
   const selection = getSliceSelection(dimMapping);
 
-  const dimHints = useDimHints(entity);
+  const slicingProps = useDatasetSlicingProps(entity);
 
   return (
     <>
@@ -42,7 +52,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimMapping={dimMapping}
-        canSliceFast={useValuesInCache(entity)}
+        {...slicingProps}
         onChange={setDimMapping}
       />
       <VisBoundary resetKey={dimMapping} isSlice={selection !== undefined}>

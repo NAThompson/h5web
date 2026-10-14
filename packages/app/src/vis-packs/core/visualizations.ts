@@ -19,6 +19,7 @@ import {
   FiImage,
   FiMap,
 } from 'react-icons/fi';
+import { MdGesture, MdLandscape } from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
@@ -40,6 +41,12 @@ import {
   RgbVisContainer,
   ScalarVisContainer,
 } from './containers';
+import { CurveConfigProvider } from './geometry/config';
+import CurveVisContainer from './geometry/CurveVisContainer';
+import { getGeometryKind } from './geometry/hooks';
+import ParamSurfaceVisContainer from './geometry/ParamSurfaceVisContainer';
+import { ParamSurfaceConfigProvider } from './geometry/surface-config';
+import { GeometryKind } from './geometry/utils';
 import { VolumeConfigProvider } from './volume/config';
 import VolumeVisContainer from './volume/VolumeVisContainer';
 
@@ -53,6 +60,8 @@ export enum Vis {
   RGB = 'RGB',
   Compound = 'Compound',
   Volume = 'Volume',
+  Curve = 'Curve',
+  Surface = 'Surface',
 }
 
 export interface CoreVisDef extends VisDef {
@@ -200,6 +209,31 @@ export const CORE_VIS = {
         hasNonNullShape(dataset) &&
         hasCompoundType(dataset) &&
         hasPrintableCompoundType(dataset)
+      );
+    },
+  },
+
+  // Last, so they are selected by default when supported
+  [Vis.Curve]: {
+    name: Vis.Curve,
+    Icon: MdGesture,
+    Container: CurveVisContainer,
+    ConfigProvider: CurveConfigProvider,
+    supportsDataset: async (dataset, dataContext) => {
+      return (
+        (await getGeometryKind(dataset, dataContext)) === GeometryKind.Curve
+      );
+    },
+  },
+
+  [Vis.Surface]: {
+    name: Vis.Surface,
+    Icon: MdLandscape,
+    Container: ParamSurfaceVisContainer,
+    ConfigProvider: ParamSurfaceConfigProvider,
+    supportsDataset: async (dataset, dataContext) => {
+      return (
+        (await getGeometryKind(dataset, dataContext)) === GeometryKind.Surface
       );
     },
   },

@@ -28,6 +28,7 @@ import {
 import { useVisArea } from '../../../visualizer/vis-area';
 import { getImageInteractions, SURFACE_INTERACTIONS } from '../utils';
 import { type HeatmapConfig } from './config';
+import ContoursControl from './ContoursControl';
 import HeightScaleSlider from './HeightScaleSlider';
 
 const COMPLEX_VIS_TYPES: ComplexHeatmapVisType[] = [
@@ -43,12 +44,25 @@ interface Props {
   withSurface?: boolean;
   config: HeatmapConfig;
   exportEntries?: ExportEntry[];
+  /* Automatic contour levels; contour controls are shown only when provided */
+  autoContourLevels?: number[];
+  customContourLevels?: number[];
+  onCustomContourLevelsChange?: (levels: number[]) => void;
 }
 
 function HeatmapToolbar(props: Props) {
   const visArea = useVisArea();
-  const { dataDomain, isSlice, isComplex, withSurface, config, exportEntries } =
-    props;
+  const {
+    dataDomain,
+    isSlice,
+    isComplex,
+    withSurface,
+    config,
+    exportEntries,
+    autoContourLevels,
+    customContourLevels = [],
+    onCustomContourLevelsChange = () => {},
+  } = props;
   const {
     customDomain,
     colorMap,
@@ -145,6 +159,27 @@ function HeatmapToolbar(props: Props) {
       )}
 
       <Separator />
+
+      {autoContourLevels && !showSurface && (
+        <>
+          <ContoursControl
+            mode={config.contourMode}
+            count={config.contourCount}
+            customLevels={customContourLevels}
+            autoLevels={autoContourLevels}
+            colorMode={config.contourColorMode}
+            color={config.contourColor}
+            showLabels={config.contourLabels}
+            onModeChange={config.setContourMode}
+            onCountChange={config.setContourCount}
+            onCustomLevelsChange={onCustomContourLevelsChange}
+            onColorModeChange={config.setContourColorMode}
+            onColorChange={config.setContourColor}
+            onShowLabelsChange={config.setContourLabels}
+          />
+          <Separator />
+        </>
+      )}
 
       <ToggleBtn
         label="X"

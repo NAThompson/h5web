@@ -1,0 +1,37 @@
+.field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.label {
+  color: var(--h5w-toolbar-label--color, royalblue);
+}
+
+.numberInput {
+  width: 4rem;
+}
+
+.textInput {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.colorInput {
+  width: 2rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.summary {
+  max-width: 18rem;
+  margin: 0;
+  color: #666;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

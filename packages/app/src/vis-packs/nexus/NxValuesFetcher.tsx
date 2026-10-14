@@ -16,13 +16,14 @@ interface Props<T extends NumericLikeType | ComplexType> {
   render: (val: NxValues<T>) => ReactNode;
 }
 
-function NxValuesFetcher<T extends NumericLikeType | ComplexType>(
-  props: Props<T>,
-): ReactNode {
-  const { nxData, selection, render } = props;
+/* Values to fetch for an NXdata group, keyed so `undefined` gaps can be restored after
+ * `useValues` (also used to prefetch slices for playback) */
+export function getNxValueRequests(
+  nxData: NxData,
+  selection: string | undefined,
+): Record<string, ValueQueryParams> {
   const { signalDef, axisDefs, auxDefs, titleDataset } = nxData;
 
-  // 1. Prepare record of defined `{ dataset, selection }` objects for `useValues`
   const datasets: Record<string, ValueQueryParams> = {
     signal: { dataset: signalDef.dataset, selection },
     ...(titleDataset && { title: { dataset: titleDataset } }),
@@ -31,7 +32,6 @@ function NxValuesFetcher<T extends NumericLikeType | ComplexType>(
     }),
   };
 
-  // Compute keys from indices so `undefined` gaps can be restored after `useValues`
   auxDefs.forEach((def, i) => {
     datasets[`auxValues-${i}`] = { dataset: def.dataset, selection };
     if (def.errorDataset) {
@@ -44,6 +44,17 @@ function NxValuesFetcher<T extends NumericLikeType | ComplexType>(
       datasets[`axisValues-${i}`] = { dataset: def.dataset };
     }
   });
+
+  return datasets;
+}
+
+function NxValuesFetcher<T extends NumericLikeType | ComplexType>(
+  props: Props<T>,
+): ReactNode {
+  const { nxData, selection, render } = props;
+
+  // 1. Prepare record of defined `{ dataset, selection }` objects for `useValues`
+  const datasets = getNxValueRequests(nxData, selection);
 
   return (
     <LargeValueGuard requests={Object.values(datasets)}>

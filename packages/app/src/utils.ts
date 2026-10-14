@@ -122,6 +122,16 @@ export function isValueInCache(
   return queryClient.getQueryData(queryKey) !== undefined;
 }
 
+export function hasValueFailed(
+  dataContext: DataContextValue,
+  dataset: Dataset<ScalarShape | ArrayShape>,
+  selection?: string,
+): boolean {
+  const { queries, queryClient } = dataContext;
+  const { queryKey } = queries.value(dataset, selection);
+  return queryClient.getQueryState(queryKey)?.status === 'error';
+}
+
 export function enableBigIntSerialization(): void {
   // eslint-disable-next-line no-extend-native
   Object.defineProperty(BigInt.prototype, 'toJSON', {

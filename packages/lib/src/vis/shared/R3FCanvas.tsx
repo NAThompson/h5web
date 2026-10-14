@@ -6,10 +6,11 @@ import { ScaledOrthographicCamera } from './ScaledOrthographicCamera';
 interface Props {
   className?: string;
   orthographic?: boolean;
+  ambientIntensity?: number;
 }
 
 function R3FCanvas(props: PropsWithChildren<Props>) {
-  const { className, orthographic, children } = props;
+  const { className, orthographic, ambientIntensity = 1, children } = props;
 
   const camera = useMemo(() => new ScaledOrthographicCamera(), []);
 
@@ -24,7 +25,7 @@ function R3FCanvas(props: PropsWithChildren<Props>) {
       gl={{ preserveDrawingBuffer: true }} // for "Save Image As..." and snapshot feature to work
       camera={orthographic ? camera : undefined}
     >
-      <ambientLight />
+      <ambientLight intensity={ambientIntensity} />
       {children}
     </Canvas>
   );

@@ -1,6 +1,7 @@
 import {
   assertDefined,
   assertNonNull,
+  isBigIntTypedArray,
   isNumericType,
   isTypedArray,
 } from '@h5web/shared/guards';
@@ -33,7 +34,7 @@ import {
   unknownType,
   vlenType,
 } from '@h5web/shared/hdf5-utils';
-import { type NumArray } from '@h5web/shared/vis-models';
+import { type BigIntTypedArray, type NumArray } from '@h5web/shared/vis-models';
 import { SCALAR_SELECTION_REGEXP } from '@h5web/shared/vis-utils';
 import {
   type Dataset as H5WasmDataset,
@@ -446,6 +447,60 @@ export function parseComplexValue(value: unknown, isScalar: boolean): unknown {
   return isScalar ? pairs[0] : pairs;
 }
 
+type TypedArray = Exclude<NumArray, number[]> | BigIntTypedArray;
+
+export const SLAB_SIZE = 32 * 1024 * 1024; // in bytes
+
+/* Read large numeric selections slab by slab (along their first dimension) into a single
+ * typed array, so the WebAssembly heap doesn't need to grow to the size of the entire
+ * selection (it never shrinks back) and only a small buffer is copied out of it at a time. */
+export function readInSlabs(
+  h5wDataset: H5WasmDataset,
+  ranges: [number, number][],
+  slabSize = SLAB_SIZE,
+): TypedArray | undefined {
+  const { type, size } = h5wDataset.metadata;
+  /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison -- h5wasm types the class as a plain number */
+  if (type !== H5T_CLASS.INTEGER && type !== H5T_CLASS.FLOAT) {
+    return undefined;
+  }
+  /* eslint-enable @typescript-eslint/no-unsafe-enum-comparison */
+
+  const [[start, stop], ...otherRanges] = ranges;
+  const count = stop - start;
+  const slabItems = otherRanges.reduce((acc, [a, b]) => acc * (b - a), 1);
+  const slabBytes = slabItems * size;
+  const slabCount = Math.max(1, Math.floor(slabSize / slabBytes)); // indices along first dimension per slab
+
+  if (count <= slabCount || slabItems === 0) {
+    return undefined; // selection fits in a single slab
+  }
+
+  let output: TypedArray | undefined;
+  for (let i = start; i < stop; i += slabCount) {
+    const slab = h5wDataset.slice([
+      [i, Math.min(i + slabCount, stop)],
+      ...otherRanges,
+    ]);
+
+    if (!isTypedArray(slab) && !isBigIntTypedArray(slab)) {
+      return undefined; // let caller read selection in one go (only happens on first slab)
+    }
+
+    if (!output) {
+      const Constructor = slab.constructor as new (
+        length: number,
+      ) => TypedArray;
+      output = new Constructor(count * slabItems);
+    }
+
+    // `set` is typed per array type, but `output` is always of the same type as `slab`
+    (output as Float64Array).set(slab as Float64Array, (i - start) * slabItems);
+  }
+
+  return output;
+}
+
 export function readSelectedValue(
   h5wDataset: H5WasmDataset,
   selection: string | undefined,
@@ -453,15 +508,20 @@ export function readSelectedValue(
   /* eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison --
    * h5wasm types the class as a plain number */
   const isComplex = h5wDataset.metadata.type === H5T_CLASS.COMPLEX;
+  const { shape } = h5wDataset;
 
   if (!selection) {
-    const { value } = h5wDataset;
-    return isComplex
-      ? parseComplexValue(value, h5wDataset.shape?.length === 0)
-      : value;
+    const value =
+      (shape?.length &&
+        readInSlabs(
+          h5wDataset,
+          shape.map((dim) => [0, dim]),
+        )) ||
+      h5wDataset.value;
+
+    return isComplex ? parseComplexValue(value, shape?.length === 0) : value;
   }
 
-  const { shape } = h5wDataset;
   assertNonNull(shape);
 
   const selectionMembers = selection.split(',');
@@ -473,7 +533,8 @@ export function readSelectedValue(
     return [Number(member), Number(member) + 1];
   });
 
-  const slicedValue = h5wDataset.slice(ranges);
+  const slicedValue =
+    readInSlabs(h5wDataset, ranges) ?? h5wDataset.slice(ranges);
   const isScalarSelection = SCALAR_SELECTION_REGEXP.test(selection);
 
   if (isComplex) {

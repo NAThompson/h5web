@@ -10,9 +10,18 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { BackSide, GLSL3, ShaderMaterial, Vector3 } from 'three';
+import {
+  BackSide,
+  GLSL3,
+  Matrix4,
+  type Mesh,
+  ShaderMaterial,
+  Vector2,
+  Vector3,
+} from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import {
@@ -24,12 +33,16 @@ import { type VisScaleType } from '../models';
 import { getUniforms } from '../utils';
 import { type VolumeQuality, type VolumeRenderMode } from './models';
 import { getVolumeFragmentShader, VOLUME_VERTEX_SHADER } from './shaders';
+import SurfaceDepthPass from './SurfaceDepthPass';
 import {
+  canAllocateVolumeTexture,
+  canUseHalfFloats,
   getBoxSize,
   getGLErrors,
   getVolumeTexture,
   SAMPLES_PER_VOXEL,
   toContiguousArray,
+  toNormalizedHalfFloats,
   withMemoryCheck,
 } from './utils';
 
@@ -44,6 +57,9 @@ interface Props {
   threshold: number;
   quality: VolumeQuality;
   interactingRef: RefObject<boolean>;
+  boxSize?: [number, number, number];
+  /* Stop rays at opaque isosurfaces (rendered in `SURFACE_DEPTH_LAYER`) */
+  withSurfaceDepth?: boolean;
 }
 
 function VolumeMesh(props: Props) {
@@ -58,7 +74,11 @@ function VolumeMesh(props: Props) {
     threshold,
     quality,
     interactingRef,
+    boxSize,
+    withSurfaceDepth = false,
   } = props;
+
+  const meshRef = useRef<Mesh>(null);
 
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
@@ -69,23 +89,50 @@ function VolumeMesh(props: Props) {
     throw gpuError;
   }
 
-  const values = useMemo(
+  const textureSafeValues = useMemo(
     () =>
       withMemoryCheck(() => toContiguousArray(toTextureSafeNdArray(dataArray))),
     [dataArray],
   );
-  const { shape } = values;
 
   const max3DSize = useMemo(() => {
     const ctx = gl.getContext() as WebGL2RenderingContext;
     return ctx.getParameter(ctx.MAX_3D_TEXTURE_SIZE) as number;
   }, [gl]);
 
-  if (shape.some((size) => size > max3DSize)) {
+  if (textureSafeValues.shape.some((size) => size > max3DSize)) {
     throw new Error(
       `Volume too large for GPU (max ${max3DSize} voxels per dimension)`,
     );
   }
+
+  const { values, valueOffset, valueScale } = useMemo(() => {
+    const ctx = gl.getContext() as WebGL2RenderingContext;
+
+    // Fall back to half floats if texture is too large (e.g. Chromium caps textures at 1 GiB)
+    if (
+      textureSafeValues.dtype === 'float32' &&
+      canUseHalfFloats() &&
+      !canAllocateVolumeTexture(ctx, textureSafeValues.shape, ctx.R32F)
+    ) {
+      const normalized = withMemoryCheck(() =>
+        toNormalizedHalfFloats(textureSafeValues as NdArray<Float32Array>),
+      );
+      return {
+        values: normalized.values,
+        valueOffset: normalized.offset,
+        valueScale: normalized.scale,
+      };
+    }
+
+    return {
+      values: textureSafeValues,
+      valueOffset: 0,
+      // revert WebGL's automatic normalization of UNSIGNED_BYTE with RED format
+      valueScale: textureSafeValues.dtype.startsWith('uint8') ? 255 : 1,
+    };
+  }, [textureSafeValues, gl]);
+  const { shape } = values;
 
   const volumeTexture = useMemo(
     () =>
@@ -108,8 +155,15 @@ function VolumeMesh(props: Props) {
     getGLErrors(ctx); // clear previous errors
     gl.initTexture(volumeTexture);
 
-    if (getGLErrors(ctx).includes(ctx.OUT_OF_MEMORY)) {
-      setGpuError(new Error('Not enough GPU memory to render volume'));
+    const errors = getGLErrors(ctx);
+    if (errors.length > 0) {
+      setGpuError(
+        new Error(
+          errors.includes(ctx.OUT_OF_MEMORY)
+            ? 'Not enough GPU memory to render volume'
+            : 'Volume too large to be uploaded to the GPU', // e.g. larger than allowed even as half floats
+        ),
+      );
     }
   }, [gl, volumeTexture]);
 
@@ -146,14 +200,20 @@ function VolumeMesh(props: Props) {
           oneOverRange: 1,
           gammaExponent: 1,
           normRevertFactor: 1,
+          valueOffset: 0,
           samplesPerVoxel: 1,
           opacity: 1,
           threshold: 0,
+          hasSurfaceDepth: false,
+          surfaceDepth: null,
+          depthTexelSize: new Vector2(),
+          depthToBox: new Matrix4(),
         }),
         side: BackSide,
         transparent: true,
         premultipliedAlpha: true,
         depthWrite: false,
+        depthTest: false, // rays are stopped at opaque surfaces in the shader instead
       }),
     [mode, scaleType],
   );
@@ -174,9 +234,8 @@ function VolumeMesh(props: Props) {
       ? oneOverRange
       : 0;
     uniforms.gammaExponent.value = gammaExponent;
-    uniforms.normRevertFactor.value = values.dtype.startsWith('uint8')
-      ? 255
-      : 1; // revert WebGL's automatic normalization of UNSIGNED_BYTE with RED format
+    uniforms.normRevertFactor.value = valueScale;
+    uniforms.valueOffset.value = valueOffset;
     uniforms.opacity.value = opacity;
     uniforms.threshold.value = threshold;
     invalidate();
@@ -188,7 +247,8 @@ function VolumeMesh(props: Props) {
     min,
     max,
     gammaExponent,
-    values.dtype,
+    valueScale,
+    valueOffset,
     opacity,
     threshold,
     invalidate,
@@ -203,9 +263,18 @@ function VolumeMesh(props: Props) {
   });
 
   return (
-    <mesh scale={getBoxSize(shape)} material={material}>
-      <boxGeometry />
-    </mesh>
+    <>
+      <mesh
+        ref={meshRef}
+        scale={boxSize ?? getBoxSize(shape)}
+        material={material}
+      >
+        <boxGeometry />
+      </mesh>
+      {withSurfaceDepth && (
+        <SurfaceDepthPass volumeRef={meshRef} material={material} />
+      )}
+    </>
   );
 }
 

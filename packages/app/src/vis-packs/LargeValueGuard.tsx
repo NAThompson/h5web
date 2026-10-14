@@ -5,7 +5,10 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-import { useDataContext } from '../providers/DataProvider';
+import {
+  type DataContextValue,
+  useDataContext,
+} from '../providers/DataProvider';
 import { type ValueQueryParams } from '../providers/models';
 import { isValueInCache } from '../utils';
 import { useConfirmedSize } from './fetch-confirmation';
@@ -23,11 +26,10 @@ function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
   const dataContext = useDataContext();
   const queryCache = dataContext.queryClient.getQueryCache();
 
-  const datasetPaths = requests.map(({ dataset }) => dataset.path);
-  const [confirmedSize, confirmSize] = useConfirmedSize(datasetPaths.join('|'));
+  const [confirmedSize, confirmSize] = useConfirmedSize(getGuardKey(requests));
 
   // Don't ask again for fetches no larger than previously confirmed (e.g. other slices)
-  const maxSize = Math.max(MAX_AUTO_FETCH_SIZE, confirmedSize);
+  const maxSize = getMaxAutoFetchSize(confirmedSize);
 
   /* Re-check when values are added to or removed from the cache; snapshot is `0` unless
    * confirmation is needed, to avoid re-renders. Ignore other events: they may be fired
@@ -46,18 +48,9 @@ function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
       }),
     [queryCache],
   );
-  const size = useSyncExternalStore(subscribe, () => {
-    if (getTotalSize(requests) <= maxSize) {
-      return 0; // no need to check cache
-    }
-
-    const uncachedSize = getTotalSize(
-      requests.filter(({ dataset, selection }) => {
-        return !isValueInCache(dataContext, dataset, selection);
-      }),
-    );
-    return uncachedSize > maxSize ? uncachedSize : 0;
-  });
+  const size = useSyncExternalStore(subscribe, () =>
+    getSizeToConfirm(dataContext, requests, maxSize),
+  );
 
   if (size === 0) {
     return children;
@@ -84,6 +77,33 @@ function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
       </button>
     </div>
   );
+}
+
+/* Key under which confirmed fetch sizes are remembered (cf. `useConfirmedSize`) */
+export function getGuardKey(requests: ValueQueryParams[]): string {
+  return requests.map(({ dataset }) => dataset.path).join('|');
+}
+
+export function getMaxAutoFetchSize(confirmedSize: number): number {
+  return Math.max(MAX_AUTO_FETCH_SIZE, confirmedSize);
+}
+
+/* Size of the values left to fetch if it requires confirmation, `0` otherwise */
+export function getSizeToConfirm(
+  dataContext: DataContextValue,
+  requests: ValueQueryParams[],
+  maxSize: number,
+): number {
+  if (getTotalSize(requests) <= maxSize) {
+    return 0; // no need to check cache
+  }
+
+  const uncachedSize = getTotalSize(
+    requests.filter(({ dataset, selection }) => {
+      return !isValueInCache(dataContext, dataset, selection);
+    }),
+  );
+  return uncachedSize > maxSize ? uncachedSize : 0;
 }
 
 function getTotalSize(requests: ValueQueryParams[]): number {

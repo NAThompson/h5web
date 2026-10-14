@@ -2,27 +2,15 @@ import {
   type Domain,
   type IgnoreValue,
   type NumArray,
-  ScaleType,
 } from '@h5web/shared/vis-models';
-import { rgb } from 'd3-color';
 import ndarray, { type NdArray } from 'ndarray';
-import { Color, SRGBColorSpace } from 'three';
 
-import { type ColorMap } from '../heatmap/models';
-import { getInterpolator } from '../heatmap/utils';
 import { type VisScaleType } from '../models';
-import {
-  createScale,
-  getAxisDomain,
-  getIntegerTicks,
-  SCALES_VALID_MINS,
-} from '../utils';
+import { createScale, getAxisDomain, SCALES_VALID_MINS } from '../utils';
 
 /* Above this number of vertices, the surface is downsampled (by decimation)
  * to keep geometry generation and rendering responsive (~1024 x 1024). */
 export const DEFAULT_MAX_VERTICES = 1024 * 1024;
-
-const LUT_SIZE = 256;
 
 export interface SurfaceBuffers {
   positions: Float32Array; // normalized height: z in [0, 1]
@@ -159,37 +147,6 @@ export function getFootprint(
   return ratio >= 1 ? [1, 1 / ratio] : [ratio, 1];
 }
 
-/** Nice ticks within domain (ascending or descending); integer ticks only for axes of indices. */
-export function getAxisTicks(
-  domain: Domain,
-  count: number,
-  isIndexAxis: boolean,
-): number[] {
-  if (isIndexAxis) {
-    return getIntegerTicks(domain, count);
-  }
-
-  return createScale(ScaleType.Linear, { domain }).ticks(count);
-}
-
-/** Colour map lookup table in linear RGB, as expected by three.js vertex colours. */
-export function getLinearColorLut(
-  colorMap: ColorMap,
-  invertColorMap: boolean,
-): Float32Array {
-  const interpolator = getInterpolator(colorMap, invertColorMap);
-  const lut = new Float32Array(LUT_SIZE * 3);
-  const color = new Color();
-
-  for (let i = 0; i < LUT_SIZE; i += 1) {
-    const { r, g, b } = rgb(interpolator(i / (LUT_SIZE - 1)));
-    color.setRGB(r / 255, g / 255, b / 255, SRGBColorSpace); // converts to linear
-    lut.set([color.r, color.g, color.b], i * 3);
-  }
-
-  return lut;
-}
-
 interface BuildParams {
   values: NdArray<NumArray>; // 2D (rows x cols)
   xCoords: number[]; // world x of each column
@@ -291,22 +248,4 @@ export function getSurfaceColors(
   }
 
   return colors;
-}
-
-/**
- * Distance from which a perspective camera sees a whole sphere of given radius,
- * whatever the aspect ratio of the viewport.
- */
-export function getFramingDistance(
-  radius: number,
-  fov: number, // vertical, in degrees
-  aspect: number,
-): number | undefined {
-  if (!Number.isFinite(aspect) || aspect <= 0 || radius <= 0) {
-    return undefined; // e.g. canvas not laid out yet (zero width or height)
-  }
-
-  const vFov = (fov * Math.PI) / 180;
-  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
-  return radius / Math.sin(Math.min(vFov, hFov) / 2);
 }

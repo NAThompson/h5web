@@ -1,5 +1,8 @@
 import {
+  ContourLines,
   type DimensionMapping,
+  getContourLevels,
+  getLevelColors,
   getSliceSelection,
   HeatmapVis,
   KeepZoom,
@@ -17,6 +20,7 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
+import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -35,6 +39,7 @@ import {
 import { DEFAULT_DOMAIN } from '../utils';
 import { type HeatmapConfig } from './config';
 import HeatmapToolbar from './HeatmapToolbar';
+import { ContourColorMode, ContourMode } from './models';
 
 interface Props {
   dataset: Dataset<ArrayShape, NumericLikeType>;
@@ -71,6 +76,13 @@ function MappedHeatmapVis(props: Props) {
     surface,
     heightScale,
     shading,
+    contourMode,
+    contourCount,
+    contourLevels: storedContourLevels,
+    setContourLevels,
+    contourColorMode,
+    contourColor,
+    contourLabels,
   } = config;
 
   const ignoreValue = useIgnoreValue(dataset);
@@ -106,6 +118,33 @@ function MappedHeatmapVis(props: Props) {
 
   const exportEntries = useExportEntries(['tiff', 'npy'], dataset, selection);
 
+  // Contour levels follow the colour scale: evenly spread in its space, within its domain
+  const autoContourLevels = useMemo(
+    () => getContourLevels(safeDomain, scaleType, contourCount),
+    [safeDomain, scaleType, contourCount],
+  );
+  // Custom levels entered for another dataset don't apply: start again from automatic levels
+  const customContourLevels =
+    storedContourLevels?.path === dataset.path
+      ? storedContourLevels.levels
+      : autoContourLevels;
+  const contourLevels =
+    contourMode === ContourMode.Auto
+      ? autoContourLevels
+      : contourMode === ContourMode.Custom
+        ? customContourLevels
+        : [];
+  const contourColors =
+    contourColorMode === ContourColorMode.ColorMap
+      ? getLevelColors(
+          contourLevels,
+          safeDomain,
+          scaleType,
+          colorMap,
+          invertColorMap,
+        )
+      : contourColor;
+
   return (
     <>
       {toolbarContainer &&
@@ -116,6 +155,11 @@ function MappedHeatmapVis(props: Props) {
             withSurface={canShowSurface}
             config={config}
             exportEntries={exportEntries}
+            autoContourLevels={autoContourLevels}
+            customContourLevels={customContourLevels}
+            onCustomContourLevelsChange={(levels) =>
+              setContourLevels(dataset.path, levels)
+            }
           />,
           toolbarContainer,
         )}
@@ -158,6 +202,19 @@ function MappedHeatmapVis(props: Props) {
           ignoreValue={ignoreValue}
         >
           <KeepZoom visKey="heatmap" />
+          {contourLevels.length > 0 && (
+            <ContourLines
+              dataArray={dataArray}
+              levels={contourLevels}
+              scaleType={scaleType}
+              ignoreValue={ignoreValue}
+              color={contourColors}
+              withHalo={contourColorMode === ContourColorMode.ColorMap}
+              flipXAxis={flipXAxis}
+              flipYAxis={flipYAxis}
+              showLabels={contourLabels}
+            />
+          )}
         </HeatmapVis>
       )}
     </>
