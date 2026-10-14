@@ -46,11 +46,19 @@ import {
 } from './utils';
 
 interface MockContext extends GeometryContext {
-  calls: { getEntity: string[]; getStrAttr: string[] };
+  calls: {
+    getEntity: string[];
+    getStrAttr: string[];
+    getDimensionScales: string[];
+  };
 }
 
 function createMockContext(root: GroupWithChildren): MockContext {
-  const calls: MockContext['calls'] = { getEntity: [], getStrAttr: [] };
+  const calls: MockContext['calls'] = {
+    getEntity: [],
+    getStrAttr: [],
+    getDimensionScales: [],
+  };
 
   return {
     calls,
@@ -75,6 +83,22 @@ function createMockContext(root: GroupWithChildren): MockContext {
         : attr.value;
       return typeof value === 'string' ? value : undefined;
     },
+    getDimensionScales: async (dset) => {
+      calls.getDimensionScales.push(dset.path);
+      return (dset as { dimScales?: string[][] }).dimScales ?? [];
+    },
+  };
+}
+
+/* Attach dimension scales (by path) to the dimensions of a dataset, as `DIMENSION_LIST` does */
+function withScales<T extends ReturnType<typeof coord>>(
+  dset: T,
+  scales: string[][],
+): T {
+  return {
+    ...dset,
+    attributes: [...dset.attributes, arrayAttr('DIMENSION_LIST', ['<refs>'])],
+    dimScales: scales,
   };
 }
 
@@ -129,7 +153,7 @@ async function findCoordinatesGeometry(
   ctx: GeometryContext,
 ): Promise<CoordinatesGeometry> {
   const geometry = await findGeometry(entity, ctx);
-  if (geometry?.source !== 'coordinates') {
+  if (!geometry || geometry.source === 'vertex') {
     throw new Error('Expected coordinates geometry');
   }
   return geometry;
@@ -287,7 +311,7 @@ describe('findGeometry with `coordinates` attribute', () => {
 
     const geometry = await findCoordinatesGeometry(entity, ctx);
     expect(geometry.kind).toBe(GeometryKind.Curve);
-    expect(geometry.coords.map((c) => c.dataset.path)).toEqual([
+    expect(geometry.coords.map((c) => c?.dataset.path)).toEqual([
       '/x',
       '/y',
       '/z',
@@ -319,8 +343,9 @@ describe('findGeometry with `coordinates` attribute', () => {
       '/K',
     );
 
-    await expect(findKind(entity, ctx)).resolves.toBe(GeometryKind.Surface);
-    expect(getGeometryDimsCount(entity, GeometryKind.Surface)).toBe(2);
+    const geometry = await findGeometry(entity, ctx);
+    expect(geometry?.kind).toBe(GeometryKind.Surface);
+    expect(geometry && getGeometryDimsCount(geometry)).toBe(2);
   });
 
   it('should resolve coordinates relative to group of field, or absolute', async () => {
@@ -352,7 +377,7 @@ describe('findGeometry with `coordinates` attribute', () => {
     );
 
     const geometry = await findCoordinatesGeometry(entity, ctx);
-    expect(geometry.coords.map((c) => c.dataset.name)).toEqual([
+    expect(geometry.coords.map((c) => c?.dataset.name)).toEqual([
       'lon',
       'lat',
       'alt',
@@ -398,7 +423,7 @@ describe('findGeometry with `coordinates` attribute', () => {
     );
 
     const geometry = await findCoordinatesGeometry(entity, ctx);
-    expect(geometry.coords.map((c) => c.label)).toEqual([
+    expect(geometry.coords.map((c) => c?.label)).toEqual([
       'x (m)',
       'Height (km)',
       'z',
@@ -489,7 +514,7 @@ describe('findGeometry with `coordinates` attribute', () => {
     );
 
     const geometry = await findCoordinatesGeometry(entity, ctx);
-    expect(geometry.coords.map((c) => c.dataset.name)).toEqual([
+    expect(geometry.coords.map((c) => c?.dataset.name)).toEqual([
       'lo',
       'la',
       'alt',
@@ -508,7 +533,7 @@ describe('findGeometry with `coordinates` attribute', () => {
     );
 
     const geometry = await findCoordinatesGeometry(entity, ctx);
-    expect(geometry.coords.map((c) => c.dataset.name)).toEqual([
+    expect(geometry.coords.map((c) => c?.dataset.name)).toEqual([
       'lon',
       'lat',
       'elevation',
@@ -612,7 +637,7 @@ describe('findGeometry: group references', () => {
     );
 
     const geometry = await findCoordinatesGeometry(entity, ctx);
-    expect(geometry.coords.map((c) => c.dataset.path)).toEqual([
+    expect(geometry.coords.map((c) => c?.dataset.path)).toEqual([
       '/a/b/x',
       '/a/y',
       '/z',
@@ -665,8 +690,9 @@ describe('findGeometry: non-scalar attributes', () => {
       '/temp',
     );
 
-    await expect(findKind(entity, ctx)).resolves.toBe(GeometryKind.Curve);
-    expect(getGeometryDimsCount(entity, GeometryKind.Curve)).toBe(1);
+    const geometry = await findGeometry(entity, ctx);
+    expect(geometry?.kind).toBe(GeometryKind.Curve);
+    expect(geometry && getGeometryDimsCount(geometry)).toBe(1);
   });
 
   it('should not detect geometry when `coordinates` is not a string', async () => {
@@ -710,7 +736,7 @@ describe('findGeometry with `vertex` interpretation', () => {
       kind: GeometryKind.Curve,
       unit: 'mm',
     });
-    expect(getGeometryDimsCount(entity, GeometryKind.Curve)).toBe(2);
+    expect(geometry && getGeometryDimsCount(geometry)).toBe(2);
 
     const planar = setup(
       [field('pts', [10, 2], { interpretation: 'vertex' })],
@@ -774,6 +800,7 @@ describe('findGeometry on mock file', () => {
     expect(Object.fromEntries(detected.filter((d) => d !== undefined))).toEqual(
       {
         '/geometry/knot_speed': GeometryKind.Curve,
+        '/geometry/knot_speed_dimscales': GeometryKind.Curve,
         '/geometry/torus_curvature': GeometryKind.Surface,
         '/geometry/torus_waves': GeometryKind.Surface,
         '/geometry/helix': GeometryKind.Curve,
@@ -796,5 +823,195 @@ describe('getGeometryDefaultSlice', () => {
     expect(getGeometryDefaultSlice([5, 3, '.'], 2)).toBeUndefined();
     expect(getGeometryDefaultSlice(['.'], 2)).toBeUndefined();
     expect(getGeometryDefaultSlice(undefined, 2)).toBeUndefined();
+  });
+});
+
+describe('findGeometry with dimension scales', () => {
+  const scales = [
+    coord('x', [10], { NAME: 'x' }),
+    coord('y', [10], { NAME: 'y' }),
+    coord('z', [10], { NAME: 'z' }),
+  ];
+  const xyzScales = [['/x', '/y', '/z']];
+
+  it('should detect curve from scales named x, y and z attached to last dimension', async () => {
+    const { ctx, entity } = setup(
+      [...scales, withScales(field('t', [10]), xyzScales)],
+      '/t',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.source).toBe('dimension-scales');
+    expect(geometry.kind).toBe(GeometryKind.Curve);
+    expect(geometry.coords.map((c) => c?.dataset.path)).toEqual([
+      '/x',
+      '/y',
+      '/z',
+    ]);
+    expect(getGeometryDimsCount(geometry)).toBe(1);
+  });
+
+  it('should identify scales by CF attributes, whatever their order', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('alt', [10], { standard_name: 'altitude', units: 'km' }),
+        coord('lat', [10], { units: 'degrees_north' }),
+        coord('lon', [10], { units: 'degrees_east' }),
+        coord('time', [10], { units: 's since 2000-01-01' }),
+        withScales(field('temp', [10]), [['/time', '/alt', '/lat', '/lon']]),
+      ],
+      '/temp',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.coords.map((c) => c?.dataset.name)).toEqual([
+      'lon',
+      'lat',
+      'alt',
+    ]);
+  });
+
+  it('should detect planar curve from X and Y scales only', async () => {
+    const { ctx, entity } = setup(
+      [...scales, withScales(field('t', [10]), [['/x', '/y']])],
+      '/t',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.coords[2]).toBeUndefined();
+  });
+
+  it('should support leading dimensions, with scales on last dimension', async () => {
+    const { ctx, entity } = setup(
+      [...scales, withScales(field('t', [4, 10]), [[], ['/x', '/y', '/z']])],
+      '/t',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(getGeometryDimsCount(geometry)).toBe(1);
+  });
+
+  it('should give precedence to `coordinates` attribute', async () => {
+    const { ctx, entity } = setup(
+      [
+        ...scales,
+        ...xyz.map((c) => ({ ...c, name: `c${c.name}`, path: `/c${c.name}` })),
+        withScales(field('t', [10], { coordinates: 'cx cy cz' }), xyzScales),
+      ],
+      '/t',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.source).toBe('coordinates');
+  });
+
+  it('should not detect curve from alternative scales of the same dimension', async () => {
+    const { ctx, entity } = setup(
+      [
+        coord('time_s', [10], { units: 's since 2000-01-01' }),
+        coord('time_h', [10], { units: 'hours since 2000-01-01' }),
+        coord('index', [10], { NAME: 'sample' }),
+        withScales(field('temp', [10]), [['/time_s', '/time_h', '/index']]),
+      ],
+      '/temp',
+    );
+
+    await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+  });
+
+  it('should not detect curve for station time series (not a trajectory)', async () => {
+    const children = [
+      coord('lat', [10], { units: 'degrees_north' }),
+      coord('lon', [10], { units: 'degrees_east' }),
+      coord('alt', [10], { standard_name: 'altitude', units: 'm' }),
+      withScales(field('temp', [5, 10]), [[], ['/lat', '/lon', '/alt']]),
+    ];
+
+    const stations = setup(children, '/temp', { featureType: 'timeSeries' });
+    await expect(
+      findGeometry(stations.entity, stations.ctx),
+    ).resolves.toBeUndefined();
+
+    const noFeatureType = setup(children, '/temp', {});
+    await expect(
+      findGeometry(noFeatureType.entity, noFeatureType.ctx),
+    ).resolves.toBeUndefined();
+  });
+
+  it('should not detect curve with ambiguous or missing spatial scales', async () => {
+    const ambiguous = setup(
+      [
+        coord('x', [10], { NAME: 'x' }),
+        coord('x2', [10], { axis: 'X' }),
+        coord('y', [10], { NAME: 'y' }),
+        withScales(field('t', [10]), [['/x', '/x2', '/y']]),
+      ],
+      '/t',
+    );
+    await expect(
+      findGeometry(ambiguous.entity, ambiguous.ctx),
+    ).resolves.toBeUndefined();
+
+    const noY = setup(
+      [...scales, withScales(field('t', [10]), [['/x', '/z']])],
+      '/t',
+    );
+    await expect(findGeometry(noY.entity, noY.ctx)).resolves.toBeUndefined();
+  });
+
+  it('should ignore scales that do not match the dimension', async () => {
+    const { ctx, entity } = setup(
+      [
+        ...scales,
+        coord('bins', [11], { NAME: 'z' }), // bin edges
+        withScales(field('t', [10]), [['/x', '/y', '/bins']]),
+      ],
+      '/t',
+    );
+
+    const geometry = await findCoordinatesGeometry(entity, ctx);
+    expect(geometry.coords[2]).toBeUndefined();
+  });
+
+  it('should not fetch scales when fewer than two are attached to last dimension', async () => {
+    const { ctx, entity } = setup(
+      [...scales, withScales(field('t', [10]), [['/x']])],
+      '/t',
+    );
+
+    await expect(findGeometry(entity, ctx)).resolves.toBeUndefined();
+    expect(ctx.calls.getDimensionScales).toEqual(['/t']);
+    expect(ctx.calls.getEntity).toEqual([]);
+  });
+
+  it('should not look for scales without `DIMENSION_LIST` or without provider support', async () => {
+    const withoutList = setup(
+      [...scales, { ...field('t', [10]), dimScales: xyzScales }],
+      '/t',
+    );
+    await expect(
+      findGeometry(withoutList.entity, withoutList.ctx),
+    ).resolves.toBeUndefined();
+    expect(withoutList.ctx.calls.getDimensionScales).toEqual([]);
+
+    const unsupported = setup(
+      [...scales, withScales(field('t', [10]), xyzScales)],
+      '/t',
+    );
+    await expect(
+      findGeometry(unsupported.entity, {
+        ...unsupported.ctx,
+        getDimensionScales: undefined,
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('identifyRole with dimension scale names', () => {
+  it('should identify scales named x, y, z as last resort', () => {
+    expect(identifyRole({ scaleName: 'x' })).toBe('X');
+    expect(identifyRole({ scaleName: 'Z' })).toBe('Z');
+    expect(identifyRole({ scaleName: 'time' })).toBeUndefined();
+    expect(identifyRole({ scaleName: 'x', units: 'degrees_north' })).toBe('Y');
   });
 });

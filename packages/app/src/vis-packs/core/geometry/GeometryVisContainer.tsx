@@ -14,6 +14,7 @@ import { type DefaultSlice } from '../../nexus/models';
 import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
 import GeometryFetcher, { type GeometryData } from './GeometryFetcher';
+import { useGeometry } from './hooks';
 import {
   type GeometryKind,
   getGeometryDefaultSlice,
@@ -34,8 +35,14 @@ function GeometryVisContainer(props: Props) {
   assertArrayShape(entity);
   assertNumericType(entity);
 
+  // Already resolved (and cached) when the visualization was offered
+  const geometry = useGeometry(entity);
+  if (geometry.kind !== kind) {
+    throw new Error(`Expected ${kind}`);
+  }
+
   const { dims } = entity.shape;
-  const lockedDimsCount = getGeometryDimsCount(entity, kind);
+  const lockedDimsCount = getGeometryDimsCount(geometry);
   const [dimMapping, setDimMapping] = useDimMappingState({
     dims,
     axesCount: 0,

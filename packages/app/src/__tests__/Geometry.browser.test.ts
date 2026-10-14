@@ -40,6 +40,19 @@ test(
 );
 
 test(
+  'visualize field on 3D curve given by HDF5 dimension scales',
+  async () => {
+    await renderApp('/geometry/knot_speed_dimscales');
+
+    expect(getSelectedVisTab()).toBe(Vis.Curve);
+    await expect
+      .element(page.getByRole('figure', { name: 'knot_speed_dimscales' }))
+      .toBeVisible();
+  },
+  TEST_TIMEOUT,
+);
+
+test(
   'visualize curve given by vertices, coloured by index',
   async () => {
     await renderApp('/geometry/helix');

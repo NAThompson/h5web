@@ -18,6 +18,7 @@ import { toNumArray } from '../utils';
 import {
   COORDINATES_ATTR,
   createGeometryContext,
+  DIMENSION_LIST_ATTR,
   findGeometry,
   type Geometry,
   type GeometryKind,
@@ -81,6 +82,7 @@ export async function getGeometryKind(
     !hasArrayShape(dataset) ||
     !hasNumericType(dataset) ||
     (!hasAttribute(dataset, COORDINATES_ATTR) &&
+      !hasAttribute(dataset, DIMENSION_LIST_ATTR) &&
       !hasAttribute(dataset, INTERPRETATION_ATTR))
   ) {
     return undefined;
