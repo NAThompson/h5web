@@ -623,10 +623,7 @@ export function makeMockFile(): GroupWithChildren {
         withDimScales(
           array('knot_speed_dimscales', {
             valueId: 'knot_speed',
-            attributes: [
-              arrayAttr('DIMENSION_LIST', ['<object references>']), // stands for HDF5's own attribute
-              scalarAttr('featureType', 'trajectory'),
-            ],
+            attributes: [scalarAttr('featureType', 'trajectory')],
           }),
           {
             scales: [
@@ -637,6 +634,31 @@ export function makeMockFile(): GroupWithChildren {
               ],
             ],
           },
+        ),
+        withDimScales(
+          array('knot_speed_phases_dimscales', {
+            valueId: 'knot_speed_phases',
+            attributes: [scalarAttr('featureType', 'trajectory')],
+          }),
+          {
+            labels: ['phase', 't'],
+            scales: [
+              [],
+              [
+                '/geometry/knot_x_scale',
+                '/geometry/knot_y_scale',
+                '/geometry/knot_z_scale',
+              ],
+            ],
+          },
+        ),
+        // Common NetCDF case: a single coordinate variable attached to the dimension (not a curve)
+        withDimScales(
+          array('netcdf_variable', {
+            valueId: 'oneD',
+            attributes: [scalarAttr('featureType', 'trajectory')],
+          }),
+          { scales: [['/dimension_scales/X']] },
         ),
         array('torus_x', { attributes: [scalarAttr('units', 'm')] }),
         array('torus_y', { attributes: [scalarAttr('units', 'm')] }),

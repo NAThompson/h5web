@@ -199,6 +199,23 @@ const knot_speed = () =>
     ),
   );
 
+// Speed of knot at three phases (leading dimension, to slice)
+const knot_speed_phases = () => {
+  const phases = [0, 0.5, 1];
+  return ndarray(
+    phases.flatMap((phase) =>
+      knotParams().map((t) =>
+        Math.hypot(
+          3 * Math.sin(3 * t + 0.7 + phase),
+          5 * Math.sin(5 * t + 1),
+          7 * Math.sin(7 * t),
+        ),
+      ),
+    ),
+    [phases.length, KNOT_SAMPLES],
+  );
+};
+
 // Torus (R = 2, r = 0.75) on a (u, v) grid, and its Gaussian curvature
 const TORUS_SHAPE = [24, 48];
 const [TORUS_R, TORUS_RR] = [2, 0.75];
@@ -467,6 +484,7 @@ export const mockValues = {
   knot_y,
   knot_z,
   knot_speed,
+  knot_speed_phases,
   torus_x,
   torus_y,
   torus_z,
