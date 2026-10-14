@@ -74,6 +74,12 @@ test('enter custom contour levels', async () => {
   const input = page.getByRole('textbox', { name: 'Custom levels' });
   await expect.element(input).toHaveValue('−0.5, 0, 0.5, 1, 1.5, 2');
 
+  // Edit the formatted list (with its Unicode minus signs) without losing negative levels
+  await user.type(input, '{End}, 3{Enter}');
+  await expect
+    .element(contourValues())
+    .toHaveTextContent('−0.5, 0, 0.5, 1, 1.5, 2, 3');
+
   await user.clear(input);
   await user.type(input, '1.2; 0.25 foo, 0.25{Enter}');
   await expect.element(contourValues()).toHaveTextContent('0.25, 1.2');

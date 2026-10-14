@@ -36,6 +36,10 @@ describe('parseLevels', () => {
     expect(parseLevels('3, 1;2  1e1, foo, 2')).toStrictEqual([1, 2, 3, 10]);
     expect(parseLevels('')).toStrictEqual([]);
   });
+
+  it('should parse the Unicode minus sign of formatted numbers', () => {
+    expect(parseLevels('\u22120.5, 0, -1')).toStrictEqual([-1, -0.5, 0]);
+  });
 });
 
 describe('getLevelColors', () => {

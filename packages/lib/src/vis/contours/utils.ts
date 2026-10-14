@@ -36,9 +36,14 @@ export function getContourLevels(
   );
 }
 
+/* Formatted numbers use the Unicode minus sign (U+2212), which `Number` doesn't parse */
+export function normalizeMinus(text: string): string {
+  return text.replaceAll('\u2212', '-');
+}
+
 /* Parse a list of levels typed by the user, e.g. "0.1, 0.5; 1e3" */
 export function parseLevels(text: string): number[] {
-  const values = text
+  const values = normalizeMinus(text)
     .split(/[\s,;]+/u)
     .filter((token) => token !== '')
     .map(Number)

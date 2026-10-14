@@ -55,6 +55,13 @@ test('add, edit and remove iso levels', async () => {
   await user.type(value1, '-1{Enter}');
   await expect.element(value1).toHaveValue('−1');
 
+  // Formatted values keep their Unicode minus sign when edited
+  await user.type(value1, '{End}.5{Enter}');
+  await expect.element(value1).toHaveValue('−1.5');
+  await user.clear(value1);
+  await user.type(value1, '-1{Enter}');
+  await expect.element(value1).toHaveValue('−1');
+
   // Slider follows the value: -1 is at 5/12 of the [-6, 6] domain
   const slider1 = page.getByRole('slider', { name: 'Level 1 slider' });
   expect(Number(slider1.element().getAttribute('value'))).toBeCloseTo(

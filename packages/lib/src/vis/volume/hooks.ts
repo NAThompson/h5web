@@ -94,6 +94,7 @@ export function useIsosurfaces(
   const [progressByKey, setProgressByKey] = useState(new Map<string, number>());
   const [error, setError] = useState<Error>();
   const tasksRef = useRef(new Map<string, WorkerTask<IsosurfaceGeometry>>());
+  const wantedKeysRef = useRef(new Set<string>());
 
   const levelsKey = levels.join(',');
 
@@ -102,6 +103,7 @@ export function useIsosurfaces(
     const wantedKeys = new Set(
       volumeId === undefined ? [] : levels.map(getKey),
     );
+    wantedKeysRef.current = wantedKeys;
 
     // Cancel stale extractions (level changed, volume replaced, etc.)
     for (const [key, task] of tasks) {
@@ -148,9 +150,13 @@ export function useIsosurfaces(
           const geometry = await task.promise;
           setCache((prev) => {
             const next = new Map(prev).set(key, geometry);
-            // Keep recent surfaces only, so toggling a level back and forth stays instant
+            // Keep recent surfaces only, so toggling a level back and forth stays instant,
+            // but never evict surfaces that are still requested
+            const evictable = [...next.keys()].filter(
+              (k) => !wantedKeysRef.current.has(k),
+            );
             const overflow = next.size - MAX_CACHED_SURFACES;
-            for (const k of [...next.keys()].slice(0, Math.max(overflow, 0))) {
+            for (const k of evictable.slice(0, Math.max(overflow, 0))) {
               next.delete(k);
             }
             return next;

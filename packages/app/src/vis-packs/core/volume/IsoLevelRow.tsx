@@ -1,3 +1,4 @@
+import { normalizeMinus } from '@h5web/lib';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { useState } from 'react';
 import { MdClose } from 'react-icons/md';
@@ -32,8 +33,9 @@ function IsoLevelRow(props: RowProps) {
 
   function commitDraft() {
     if (draft !== undefined) {
-      const newValue = Number.parseFloat(draft);
-      if (Number.isFinite(newValue)) {
+      const text = normalizeMinus(draft.trim());
+      const newValue = Number(text);
+      if (text !== '' && Number.isFinite(newValue)) {
         onUpdate({ value: newValue });
       }
       setDraft(undefined);

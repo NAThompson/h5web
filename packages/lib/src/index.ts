@@ -96,6 +96,7 @@ export type { ContourLinesProps } from './vis/contours/ContourLines';
 export {
   getContourLevels,
   getLevelColors,
+  normalizeMinus,
   parseLevels,
 } from './vis/contours/utils';
 export { useContours } from './vis/contours/hooks';
