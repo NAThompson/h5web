@@ -172,6 +172,7 @@ function useSequenceValues(
     queryFn:
       (isAffordable && (sequenceQuery?.queryFn as QueryFunction | undefined)) ||
       skipToken,
+    gcTime: 0, // evict once no longer needed (e.g. other sequence played), given its size
   });
 
   // Keep its error in cache if it fails, rather than refetching it (cf. `VisBoundary`)
@@ -198,9 +199,16 @@ function usePlaybackRange(
 ) {
   const [sequence, setSequence] = useState<{ dim: number; key: string }>();
 
+  // Sequence is identified by played dimension, other dimensions' slicing and datasets fetched
+  const datasetsKey = getGuardKey(getRequests(undefined));
+  function getSequenceKey(dim: number): string {
+    const mapping = getSequenceMapping(dimMapping, dim, mapMapping);
+    return `${dim}:${mapping.join(',')}:${datasetsKey}`;
+  }
+
   const sequenceMapping =
     sequence && getSequenceMapping(dimMapping, sequence.dim, mapMapping);
-  const key = sequenceMapping && `${sequence.dim}:${sequenceMapping.join(',')}`;
+  const key = sequence && getSequenceKey(sequence.dim);
   const isActive = range === 'sequence' && !!sequence && key === sequence.key;
 
   // Forget sequence once it changes (rather than reviving its range if it comes back)
@@ -245,10 +253,7 @@ function usePlaybackRange(
         ? 'Sequence too large to get its range: using range of slices shown so far'
         : undefined,
     startSequence: (dim: number) => {
-      setSequence({
-        dim,
-        key: `${dim}:${getSequenceMapping(dimMapping, dim, mapMapping).join(',')}`,
-      });
+      setSequence({ dim, key: getSequenceKey(dim) });
     },
   };
 }
