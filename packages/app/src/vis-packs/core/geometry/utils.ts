@@ -11,7 +11,7 @@ import { buildEntityPath } from '@h5web/shared/hdf5-utils';
 import { type DataContextValue } from '../../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../../utils';
 
-/* See `CONVENTION.md` next to this file for the specification of the convention. */
+/* See `apps/storybook/src/CurvesAndSurfaces.mdx` for the specification of the convention. */
 export const COORDINATES_ATTR = 'coordinates'; // CF auxiliary coordinate variables
 export const INTERPRETATION_ATTR = 'interpretation'; // NeXus
 export const VERTEX_INTERPRETATION = 'vertex'; // NeXus: last dimension holds vertex coordinates
@@ -218,7 +218,7 @@ async function findCoordinatesGeometry(
 
 /**
  * Find out whether a dataset is a curve or surface with a scalar field defined on it,
- * according to the convention described in `CONVENTION.md`.
+ * according to the convention described in `CurvesAndSurfaces.mdx` (Storybook).
  */
 export async function findGeometry(
   dataset: Dataset,

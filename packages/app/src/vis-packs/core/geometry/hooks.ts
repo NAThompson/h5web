@@ -38,7 +38,7 @@ export function geometryQuery(dataset: Dataset, dataContext: DataContextValue) {
   });
 }
 
-/** Resolve the geometry a dataset describes (or is defined on), cf. `CONVENTION.md`. */
+/** Resolve the geometry a dataset describes (or is defined on), cf. `CurvesAndSurfaces.mdx` (Storybook). */
 export function useGeometry(dataset: Dataset): Geometry {
   const dataContext = useDataContext();
   const { data } = useSuspenseQuery(geometryQuery(dataset, dataContext));
@@ -70,7 +70,7 @@ export function splitVertices(vertices: NumArray, dims: number): NumArray[] {
   );
 }
 
-/* Curves and surfaces with a scalar field, cf. `CONVENTION.md`
+/* Curves and surfaces with a scalar field, cf. `CurvesAndSurfaces.mdx` (Storybook)
  * (cheap checks first, to avoid fetching attributes of any other dataset) */
 export async function getGeometryKind(
   dataset: Dataset,

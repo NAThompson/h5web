@@ -4,7 +4,7 @@ import ParamSurfaceVisContainer from '../../core/geometry/ParamSurfaceVisContain
 import { type VisContainerProps } from '../../models';
 import { useNxData } from '../hooks';
 
-/* NXdata group whose signal is defined on a parametric surface, cf. `CONVENTION.md` */
+/* NXdata group whose signal is defined on a parametric surface, cf. `CurvesAndSurfaces.mdx` (Storybook) */
 function NxSurfaceContainer(props: VisContainerProps) {
   const { entity } = props;
   assertGroup(entity);

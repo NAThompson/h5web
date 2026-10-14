@@ -1,0 +1,112 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Curves and surfaces" />
+
+# Curves and surfaces with a scalar field in HDF5
+
+_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 1._
+
+The idea, borrowed from ParaView: a curve or surface is a set of points in 3D, and a scalar field is defined on those points (time, curvature, temperature...). The convention reuses existing standards rather than inventing attributes:
+
+- the **CF conventions' `coordinates` attribute** ([CF §5, auxiliary coordinate variables](https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#coordinate-system)) to attach point coordinates to a field — exactly how NetCDF files describe curvilinear grids and trajectories;
+- the **NeXus `@interpretation="vertex"`** value ([NXdata](https://manual.nexusformat.org/classes/base_classes/NXdata.html)) for an array of points without a field;
+- CF `units`, `long_name` and `axis` attributes for labels and axis order.
+
+## 1. Field on a curve or surface: CF `coordinates`
+
+A numeric dataset `F` is a scalar field on a curve or a surface if it has a string attribute `coordinates` listing (blank-separated) the names of the datasets holding the X, Y and Z coordinates of its points.
+
+- **Name resolution**: a name is resolved relative to the group containing `F`; a name starting with `/` is an absolute path.
+- **Matching coordinates**: a listed dataset is a coordinate of the geometry if it is numeric, 1D or 2D, and its shape equals the **trailing dimensions** of `F`. Other listed variables (scalar coordinates such as a time stamp, string labels, variables that do not exist) are ignored, as CF allows `coordinates` to list them.
+- **Which is X, Y, Z**:
+  - if any matching coordinate has a CF `axis` attribute (`X`, `Y` or `Z`), the coordinates are picked by `axis` - exactly one of each is then required, and the order in `coordinates` does not matter;
+  - otherwise, coordinates with `axis="T"` are left out, and exactly three must remain: they are X, Y and Z in the order listed.
+- **Kind of geometry** - given by the rank of the coordinates (all three must have the same shape):
+  - 1D coordinates of shape `(N,)`: **curve**, a polyline through the N points in index order;
+  - 2D coordinates of shape `(Nu, Nv)`: **parametric surface** x(u, v), y(u, v), z(u, v), triangulated along the grid.
+- **Extra dimensions**: `F` may have leading dimensions in front of the geometry dimensions, e.g. `(Nt, Nu, Nv)` for a field that evolves over time on a fixed surface. They are sliced with the dimension mapper.
+- **Missing values**: `NaN` (or a CF `_FillValue`, `valid_min`/`valid_max`/`valid_range` value) in coordinates or in the field leaves a gap in a curve and a hole in a surface. Packed NetCDF data (`scale_factor`, `add_offset`) is unpacked.
+- **Labels**: axis labels are the coordinates' `long_name` (or dataset name), followed by their `units` in parentheses.
+
+Exactly two coordinates is _not_ a geometry: `temperature(y, x)` with `coordinates = "lon lat"` is the usual NetCDF curvilinear grid, and stays a heatmap.
+
+### Examples (h5py)
+
+```python
+import h5py
+import numpy as np
+
+with h5py.File("geometry.h5", "w") as f:
+    # Curve: Lissajous knot coloured by its parameter t
+    t = np.linspace(0, 2 * np.pi, 1000)
+    knot = f.create_group("knot")
+    knot["x"], knot["y"], knot["z"] = np.cos(3 * t + 0.7), np.cos(5 * t + 1), np.cos(7 * t)
+    knot["t"] = t
+    knot["t"].attrs["coordinates"] = "x y z"
+
+    # Parametric surface: torus coloured by its Gaussian curvature
+    u, v = np.meshgrid(np.linspace(0, 2 * np.pi, 64), np.linspace(0, 2 * np.pi, 128), indexing="ij")
+    R, r = 2.0, 0.7
+    torus = f.create_group("torus")
+    torus["x"] = (R + r * np.cos(u)) * np.cos(v)
+    torus["y"] = (R + r * np.cos(u)) * np.sin(v)
+    torus["z"] = r * np.sin(u)
+    for name in "xyz":
+        torus[name].attrs["units"] = "m"
+    K = torus.create_dataset("K", data=np.cos(u) / (r * (R + r * np.cos(u))))
+    K.attrs["coordinates"] = "x y z"
+    K.attrs["long_name"] = "Gaussian curvature"
+    K.attrs["units"] = "1/m^2"
+
+    # Time-dependent field on the same surface (leading dimension is sliced)
+    wave = torus.create_dataset("wave", data=np.stack([np.sin(3 * v - p) for p in np.linspace(0, 6, 10)]))
+    wave.attrs["coordinates"] = "/torus/x /torus/y /torus/z"  # absolute paths work too
+
+    # CF trajectory: `axis` decides which coordinate is X, Y, Z; `time` (axis T) is left out
+    traj = f.create_group("trajectory")
+    s = np.linspace(0, 20, 500)
+    for name, data, axis in [("time", s, "T"), ("alt", s / 4, "Z"), ("lat", np.sin(s), "Y"), ("lon", np.cos(s), "X")]:
+        traj[name] = data
+        traj[name].attrs["axis"] = axis
+    traj["temp"] = 15 - s
+    traj["temp"].attrs["coordinates"] = "time alt lat lon"
+```
+
+## 2. Curve without a field: NeXus `interpretation="vertex"`
+
+A numeric dataset of shape `(..., N, 2)` or `(..., N, 3)` with attribute `interpretation = "vertex"` is a **curve** through its N rows (x, y[, z]), coloured by point index (i.e. by its parameter). A 2-column array lies in the `z = 0` plane. Leading dimensions, if any, are sliced. The dataset's `units` attribute labels all three axes.
+
+An opt-in attribute is required on purpose: `(N, 3)` arrays are common (tables, RGB colours, Cartesian vectors) and must not be hijacked. `vertex` is the NeXus `NXdata/@interpretation` value meaning "the last dimension holds the coordinates of a vertex", so it is reused rather than inventing a new term.
+
+```python
+pts = f.create_dataset("helix", data=np.stack([np.cos(t), np.sin(t), t / 5], axis=-1))
+pts.attrs["interpretation"] = "vertex"
+```
+
+When a dataset has a `coordinates` attribute, only rule 1 applies.
+
+## 3. NeXus
+
+A NeXus `NXdata` group whose `@signal` dataset follows rule 1 or 2 is offered as "NX Curve" / "NX Surface" (selected by default). NeXus has no way to give a 2D signal three spatial axes (`@axes` has one entry per signal dimension), so the signal carries the CF `coordinates` attribute - NeXus allows extra attributes. For NeXus-aware tools, also declare which signal dimensions each coordinate depends on with `AXISNAME_indices`:
+
+```python
+nxdata = entry.create_group("torus")
+nxdata.attrs.update({"NX_class": "NXdata", "signal": "K", "axes": [".", "."]})
+for name in "xyz":
+    nxdata[name] = f[f"torus/{name}"]
+    nxdata.attrs[f"{name}_indices"] = [0, 1]
+nxdata["K"] = f["torus/K"]  # has `coordinates = "x y z"`
+```
+
+## Not covered (yet)
+
+- Coordinates that vary along the sliced dimensions (moving geometry): coordinates must match the trailing dimensions only.
+- Unstructured meshes (triangles with explicit connectivity), closed-curve flags, vector fields.
+- Planar curves via `coordinates` need an explicit Z coordinate (use a vertex array for 2-column data).
+
+## Library components
+
+The app renders these datasets with two components of `@h5web/lib`, which can be used directly:
+
+- [`Curve3DVis`](?path=/docs/visualizations-curve3dvis--docs) - props `x`, `y`, `z?` (`NumArray`) and `values?` (scalar field, defaults to point indices), plus the usual `domain`, `colorMap`, `scaleType`, `invertColorMap`, `curveType`, `lineWidth`, `pointSize`, `keepRatio`, `showGrid`...
+- [`ParamSurfaceVis`](?path=/docs/visualizations-paramsurfacevis--docs) - props `x`, `y`, `z` and `values` (2D `NdArray`s of the same shape), plus `representation` (`SurfaceRepresentation.Surface`, `Wireframe` or `SurfaceWithEdges`), `shading`, `maxVertices`...
