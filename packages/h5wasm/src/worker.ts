@@ -14,6 +14,7 @@ import {
   parseEntity,
   PLUGINS_FOLDER,
   readSelectedValue,
+  throwIfReadError,
   withReadErrors,
   WORKERFS_FOLDER,
 } from './worker-utils';
@@ -151,6 +152,8 @@ async function getDimensionScales(
       try {
         return dataset.get_attached_scales(index);
       } catch {
+        throwIfReadError(); // don't hide network errors behind the index fallback
+
         // Reference to an unlinked object, say; the app falls back to the index axis
         return [];
       }

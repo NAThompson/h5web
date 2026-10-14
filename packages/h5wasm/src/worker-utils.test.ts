@@ -1,12 +1,16 @@
 import { H5T_CLASS, H5T_ORDER } from '@h5web/shared/h5t';
 import { cplxType, floatType } from '@h5web/shared/hdf5-utils';
 import { type Metadata } from 'h5wasm';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { type LazyFile } from './lazy-file';
 import {
+  createLazyFileNode,
   pairComplexComponents,
   parseComplexValue,
   parseDType,
+  throwIfReadError,
+  withReadErrors,
 } from './worker-utils';
 
 /* h5wasm's `Metadata` is a wide interface; only the fields read by `parseDType`
@@ -96,5 +100,62 @@ describe('parseComplexValue', () => {
 
     expect(parseComplexValue(value, false)).toBe(value);
     expect(parseComplexValue(['a', 'b'], false)).toStrictEqual(['a', 'b']);
+  });
+});
+
+/* Minimal stand-in for Emscripten's FS: just enough for `createLazyFileNode`
+ * to build a node whose `read` operation calls the lazy file. */
+function createFailingRead(cause: Error): () => void {
+  let node: { stream_ops: { read: (...args: unknown[]) => number } };
+  const fakeFS = {
+    filesystems: {
+      WORKERFS: {
+        stream_ops: {},
+        createNode: () => {
+          node = { stream_ops: { read: () => 0 } };
+          return node;
+        },
+      },
+    },
+    ErrnoError: class extends Error {},
+    destroyNode: () => {},
+  };
+  const lazyFile = {
+    size: 1,
+    read: () => {
+      throw cause;
+    },
+  } as unknown as LazyFile;
+
+  createLazyFileNode(fakeFS as never, {}, 'file', lazyFile);
+  return () => node.stream_ops.read({}, new Int8Array(1), 0, 1, 0);
+}
+
+describe('throwIfReadError', () => {
+  it('should rethrow the cause of a failed read of a lazy file', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const cause = new Error('Network error');
+    const read = createFailingRead(cause);
+
+    expect(() =>
+      withReadErrors(() => {
+        try {
+          read(); // throws HDF5-level error (EIO) in place of the cause
+        } catch {
+          throwIfReadError();
+        }
+      }),
+    ).toThrow(
+      // Named so the app can tell it from an HDF5 error across the worker boundary
+      expect.objectContaining({ name: 'ReadError', message: cause.message }),
+    );
+  });
+
+  it('should not throw when no read failed', () => {
+    expect(() =>
+      withReadErrors(() => {
+        throwIfReadError();
+      }),
+    ).not.toThrow();
   });
 });

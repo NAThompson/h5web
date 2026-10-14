@@ -85,7 +85,17 @@ export async function mountWorkerFS(
   return workerFSRootNode;
 }
 
-let lastReadError: unknown; // cause of last failed read of a lazy file, if any
+let lastReadError: Error | undefined; // cause of last failed read of a lazy file, if any
+
+/* Name failed reads so the app can tell them from HDF5 errors once they have
+ * crossed the worker boundary (which preserves names but not classes), and
+ * not mistake them for missing data (cf. `isTransportError` in `@h5web/app`). */
+function toReadError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : 'Read failed';
+  const readError = new Error(message, { cause: error });
+  readError.name = 'ReadError';
+  return readError;
+}
 
 /* Report the actual cause of failed reads of lazy files (e.g. network error,
  * file changed on server, etc.) instead of the generic HDF5 error. */
@@ -95,7 +105,16 @@ export function withReadErrors<T>(fn: () => T): T {
   try {
     return fn();
   } catch (error) {
-    throw lastReadError ?? error;
+    throwIfReadError();
+    throw error;
+  }
+}
+
+/* Within `withReadErrors`, rethrow the cause of a failed read of a lazy file,
+ * if any, so callers that swallow HDF5-level errors don't swallow it too. */
+export function throwIfReadError(): void {
+  if (lastReadError !== undefined) {
+    throw lastReadError;
   }
 }
 
@@ -136,7 +155,7 @@ export function createLazyFileNode(
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(error);
-        lastReadError = error;
+        lastReadError = toReadError(error);
         throw new ErrnoError(29); // EIO - lets HDF5 fail gracefully
       }
     },
