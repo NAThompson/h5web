@@ -36,7 +36,7 @@ export function normalizeBoxSize(
 
 /*
  * Physical size of a volume along x, y and z given the coordinates of its grid points
- * (dimensions `[depth, rows, cols]`), assuming voxels centred on them.
+ * (voxel centres) or of its bin edges, for dimensions `[depth, rows, cols]`.
  * Returns `undefined` unless all three axes have usable coordinates.
  */
 export function getBoxSizeFromAxes(
@@ -52,10 +52,14 @@ export function getBoxSizeFromAxes(
 
   const extents = axisValues.map((axis, i) => {
     const n = sizes[i];
-    if (axis?.length !== n || n < 2) {
+    let extent: number;
+    if (axis?.length === n + 1) {
+      extent = Math.abs(axis[n] - axis[0]); // bin edges
+    } else if (axis?.length === n && n >= 2) {
+      extent = (Math.abs(axis[n - 1] - axis[0]) * n) / (n - 1); // voxel centres
+    } else {
       return undefined;
     }
-    const extent = (Math.abs(axis[n - 1] - axis[0]) * n) / (n - 1);
     return Number.isFinite(extent) && extent > 0 ? extent : undefined;
   });
 

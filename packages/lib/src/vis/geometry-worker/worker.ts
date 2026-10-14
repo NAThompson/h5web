@@ -1,28 +1,24 @@
 /* Web worker extracting contour lines and isosurfaces off the main thread.
- * Jobs run one at a time, in slices, so that cancellations sent while a job runs are honoured. */
+ * Arrays are registered once and referred to by ID; jobs run one at a time, in slices,
+ * so that cancellations sent while a job runs are honoured. */
 
 import { contoursSteps, isosurfaceSteps } from './jobs';
 import {
-  type AxisCoords,
+  type JobResponse,
+  type WorkerData,
   type WorkerRequest,
   type WorkerResponse,
 } from './models';
 
-interface Volume {
-  values: Float32Array;
-  shape: [number, number, number];
-  axisValues: AxisCoords;
-}
-
 interface Job {
   jobId: number;
-  run: () => Generator<number, WorkerResponse>;
+  run: () => Generator<number, JobResponse>;
 }
 
 const SLICE_DURATION = 30; // ms between checks for incoming messages
 const PROGRESS_INTERVAL = 100; // ms between progress reports
 
-const volumes = new Map<number, Volume>();
+const dataArrays = new Map<number, WorkerData>();
 const queue: Job[] = [];
 const cancelled = new Set<number>();
 let isRunning = false;
@@ -38,7 +34,7 @@ async function yieldToEventLoop(): Promise<void> {
   });
 }
 
-function getTransferables(msg: WorkerResponse): Transferable[] {
+function getTransferables(msg: JobResponse): Transferable[] {
   if (msg.type === 'isosurface') {
     const { positions, normals, gradients, indices } = msg.geometry;
     return [positions, normals, gradients, indices].map((arr) => arr.buffer);
@@ -50,6 +46,17 @@ function getTransferables(msg: WorkerResponse): Transferable[] {
     ]);
   }
   return [];
+}
+
+function getData(dataId: number, rank: number): WorkerData {
+  const data = dataArrays.get(dataId);
+  if (!data) {
+    throw new Error('Data no longer available');
+  }
+  if (data.shape.length !== rank) {
+    throw new Error(`Expected ${rank}D data`);
+  }
+  return data;
 }
 
 async function processQueue(): Promise<void> {
@@ -105,18 +112,16 @@ async function processQueue(): Promise<void> {
   isRunning = false;
 }
 
-globalThis.addEventListener('message', (evt: MessageEvent<WorkerRequest>) => {
-  const msg = evt.data;
-
+export function handleRequest(msg: WorkerRequest): void {
   switch (msg.type) {
-    case 'setVolume': {
-      const { volumeId, values, shape, axisValues } = msg;
-      volumes.set(volumeId, { values, shape, axisValues });
+    case 'setData': {
+      const { dataId, values, shape, axisValues } = msg;
+      dataArrays.set(dataId, { values, shape, axisValues });
       break;
     }
 
-    case 'releaseVolume':
-      volumes.delete(msg.volumeId);
+    case 'releaseData':
+      dataArrays.delete(msg.dataId);
       break;
 
     case 'cancel': {
@@ -130,19 +135,15 @@ globalThis.addEventListener('message', (evt: MessageEvent<WorkerRequest>) => {
     }
 
     case 'isosurface': {
-      const { jobId, volumeId, level, scaleType, step } = msg;
+      const { jobId, dataId, level, scaleType, step } = msg;
       queue.push({
         jobId,
         *run() {
-          const volume = volumes.get(volumeId);
-          if (!volume) {
-            throw new Error('Volume no longer available');
-          }
-          const { values, shape, axisValues } = volume;
+          const { values, shape, axisValues } = getData(dataId, 3);
           const geometry = yield* isosurfaceSteps(
             values,
-            shape,
-            axisValues,
+            shape as [number, number, number],
+            axisValues ?? [undefined, undefined, undefined],
             level,
             scaleType,
             step,
@@ -155,13 +156,14 @@ globalThis.addEventListener('message', (evt: MessageEvent<WorkerRequest>) => {
     }
 
     case 'contours': {
-      const { jobId, values, shape, levels, scaleType, labels } = msg;
+      const { jobId, dataId, levels, scaleType, labels } = msg;
       queue.push({
         jobId,
         *run() {
+          const { values, shape } = getData(dataId, 2);
           const contours = yield* contoursSteps(
             values,
-            shape,
+            shape as [number, number],
             levels,
             scaleType,
             labels,
@@ -175,4 +177,16 @@ globalThis.addEventListener('message', (evt: MessageEvent<WorkerRequest>) => {
 
     default:
   }
-});
+}
+
+/* Testing seam: lets the protocol run in-process with any `postMessage` */
+export function getWorkerState(): { queued: number; dataCount: number } {
+  return { queued: queue.length, dataCount: dataArrays.size };
+}
+
+if ('WorkerGlobalScope' in globalThis) {
+  globalThis.addEventListener('message', (evt: MessageEvent<WorkerRequest>) => {
+    handleRequest(evt.data);
+  });
+  post({ type: 'ready' });
+}

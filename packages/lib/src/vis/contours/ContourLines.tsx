@@ -65,7 +65,7 @@ function ContourLines(props: Props) {
   const [rows, cols] = dataArray.shape;
   const { visSize, worldToHtml } = useVisCanvasContext();
 
-  const { contours } = useContours(dataArray, levels, {
+  const { contours, error } = useContours(dataArray, levels, {
     scaleType,
     ignoreValue,
     withLabels: showLabels,
@@ -149,12 +149,21 @@ function ContourLines(props: Props) {
     areLabelsEqual,
   );
 
+  const errorNote = error && (
+    <Html>
+      <p className={styles.error} role="note">
+        Contours unavailable: {error.message}
+      </p>
+    </Html>
+  );
+
   if (!contours || !geometries) {
-    return null;
+    return errorNote ?? null;
   }
 
   return (
     <>
+      {errorNote}
       <group scale={[scaleX, scaleY, 1]} position={[0, 0, 1]}>
         {geometries.map((geometry, i) => {
           const { level } = contours[i];

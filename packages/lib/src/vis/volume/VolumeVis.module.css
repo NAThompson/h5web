@@ -19,17 +19,30 @@
   cursor: grabbing;
 }
 
-.progress {
+.overlay {
   position: absolute;
   top: 0.5rem;
   left: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  max-width: calc(100% - 8rem);
+  pointer-events: none;
+}
+
+.progress,
+.message {
   margin: 0;
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   background-color: rgb(0 0 0 / 60%);
   color: white;
   font-size: 0.8125rem;
-  pointer-events: none;
+}
+
+.message {
+  background-color: rgb(120 40 20 / 80%);
 }
 
 .gradientBar {

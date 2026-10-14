@@ -45,6 +45,8 @@ interface Props extends ClassStyleAttrs {
   gradientLabel?: string;
   /* Extraction progress in [0, 1], shown while isosurfaces are being computed */
   isoProgress?: number;
+  /* Message about isosurfaces (e.g. an error or a hint), shown over the canvas */
+  isoMessage?: string;
   /* Physical size of the volume along x, y and z (defaults to the shape) */
   boxSize?: [number, number, number];
 }
@@ -68,6 +70,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     gradientDomain,
     gradientLabel,
     isoProgress,
+    isoMessage,
     boxSize: customBoxSize,
     children,
     className = '',
@@ -152,6 +155,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
         }
         gradientLabel={gradientLabel}
         isoProgress={isoProgress}
+        isoMessage={isoMessage}
       />
     </figure>
   );
