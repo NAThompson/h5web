@@ -51,7 +51,6 @@ function CurveMesh(props: Props) {
     buffers;
 
   const invalidate = useThree((state) => state.invalidate);
-  const dpr = useThree((state) => state.viewport.dpr);
 
   const lineGeometry = useMemo(() => {
     const geom = new LineSegmentsGeometry();
@@ -98,7 +97,7 @@ function CurveMesh(props: Props) {
       <points geometry={pointsGeometry} visible={showPoints}>
         <pointsMaterial
           vertexColors
-          size={pointSize * dpr}
+          size={pointSize} // in CSS pixels: three.js applies the pixel ratio
           sizeAttenuation={false}
           map={discTexture}
           alphaTest={0.5}
