@@ -15,7 +15,7 @@ import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { useSuggestion } from '../hooks';
-import { type ColorMap } from './models';
+import { type ColorMap, ContourColorMode, ContourMode } from './models';
 
 export interface HeatmapConfig {
   customDomain: CustomDomain;
@@ -53,6 +53,24 @@ export interface HeatmapConfig {
 
   shading: boolean;
   setShading: (shading: boolean) => void;
+
+  contourMode: ContourMode;
+  setContourMode: (contourMode: ContourMode) => void;
+
+  contourCount: number;
+  setContourCount: (contourCount: number) => void;
+
+  contourLevels: number[];
+  setContourLevels: (contourLevels: number[]) => void;
+
+  contourColorMode: ContourColorMode;
+  setContourColorMode: (contourColorMode: ContourColorMode) => void;
+
+  contourColor: string;
+  setContourColor: (contourColor: string) => void;
+
+  contourLabels: boolean;
+  setContourLabels: (contourLabels: boolean) => void;
 }
 
 function createHeatmapConfigStore() {
@@ -94,6 +112,24 @@ function createHeatmapConfigStore() {
 
         shading: true,
         setShading: (shading) => set({ shading }),
+
+        contourMode: ContourMode.Off,
+        setContourMode: (contourMode) => set({ contourMode }),
+
+        contourCount: 8,
+        setContourCount: (contourCount) => set({ contourCount }),
+
+        contourLevels: [],
+        setContourLevels: (contourLevels) => set({ contourLevels }),
+
+        contourColorMode: ContourColorMode.Single,
+        setContourColorMode: (contourColorMode) => set({ contourColorMode }),
+
+        contourColor: '#ffffff',
+        setContourColor: (contourColor) => set({ contourColor }),
+
+        contourLabels: false,
+        setContourLabels: (contourLabels) => set({ contourLabels }),
       }),
       {
         name: 'h5web:heatmap',
