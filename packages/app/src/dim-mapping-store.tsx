@@ -13,6 +13,7 @@ import {
   useState,
 } from 'react';
 import { createStore, type StoreApi, useStore } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 import { type DefaultSlice } from './vis-packs/nexus/models';
 import { applyDefaultSlice, areSameDims } from './vis-packs/nexus/utils';
@@ -27,14 +28,32 @@ interface DimMappingState {
 }
 
 function createDimMappingStore() {
-  return createStore<DimMappingState>(() => ({
-    dims: [],
-    axesCount: 0,
-    lockedDimsCount: 0,
-    mapping: [],
-    multiDim: undefined,
-    playbackSettings: DEFAULT_PLAYBACK_SETTINGS,
-  }));
+  return createStore<DimMappingState>()(
+    persist(
+      (): DimMappingState => ({
+        dims: [],
+        axesCount: 0,
+        lockedDimsCount: 0,
+        mapping: [],
+        multiDim: undefined,
+        playbackSettings: DEFAULT_PLAYBACK_SETTINGS,
+      }),
+      {
+        // Only playback settings are remembered (across datasets, files and reloads)
+        name: 'h5web:playback',
+        version: 1,
+        partialize: (state) => ({ playbackSettings: state.playbackSettings }),
+        merge: (persisted, current) => ({
+          ...current,
+          playbackSettings: {
+            ...DEFAULT_PLAYBACK_SETTINGS,
+            ...(persisted as Partial<DimMappingState> | undefined)
+              ?.playbackSettings,
+          },
+        }),
+      },
+    ),
+  );
 }
 
 const StoreContext = createContext({} as StoreApi<DimMappingState>);
