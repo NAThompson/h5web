@@ -46,9 +46,7 @@ function installFakeTimers() {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
 }
 
-async function advance(ms: number) {
-  await vi.advanceTimersByTimeAsync(ms);
-
+async function flushTasks() {
   // Let React render (its scheduler relies on `MessageChannel`, which isn't faked)
   for (let i = 0; i < 3; i += 1) {
     // eslint-disable-next-line no-await-in-loop -- sequential tasks
@@ -60,6 +58,15 @@ async function advance(ms: number) {
       channel.port1.start();
       channel.port2.postMessage(undefined); // eslint-disable-line unicorn/require-post-message-target-origin -- not a window
     });
+  }
+}
+
+/* Advance fake timers in small steps, letting tasks that aren't faked run in between (e.g.
+ * rendering, resolving fetched values) as they would in real time */
+async function advance(ms: number) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 25) {
+    await vi.advanceTimersByTimeAsync(Math.min(25, ms - elapsed)); // eslint-disable-line no-await-in-loop -- sequential steps
+    await flushTasks(); // eslint-disable-line no-await-in-loop -- sequential steps
   }
 }
 
@@ -139,6 +146,67 @@ test('play once from the first slice to the last', async () => {
 
   await advance(500);
   expect(getSliderValue()).toBe(8);
+});
+
+test('keep speed typed during playback', async () => {
+  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Heatmap });
+  installFakeTimers();
+  await getPlayBtn().click();
+  await advance(250);
+
+  // Type new speed while playback re-renders the slider
+  const dialog = await openSettings();
+  const speedInput = dialog.getByLabelText('Speed');
+  await speedInput.click();
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}4{Enter}');
+  await advance(500);
+  expect(speedInput).toHaveValue(4);
+
+  // Speed is applied and remembered
+  const value = getSliderValue();
+  await advance(1000);
+  expect(getSliderValue() - value).toBe(4);
+  expect(speedInput).toHaveValue(4);
+  expect(localStorage.getItem('h5web:playback')).toContain('"fps":4');
+});
+
+function getOrdinateTicks(): string | null | undefined {
+  return document.querySelector('svg[data-type="ordinate"]')?.textContent;
+}
+
+// `threeD` slices are multiples of the same values, from -1 to 1 times: amplitude falls then rises
+test('keep range of whole sequence during playback', async () => {
+  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
+  installFakeTimers();
+
+  await getPlayBtn().click();
+  await advance(100);
+
+  const ticks = new Set<string | null | undefined>();
+  for (let i = 0; i < 9; i += 1) {
+    await advance(100); // eslint-disable-line no-await-in-loop -- sequential frames
+    ticks.add(getOrdinateTicks());
+  }
+  expect(ticks.size).toBe(1);
+
+  // Range is kept after pausing, until slicing another dimension
+  await getPlayBtn().click();
+  await advance(100);
+  expect(ticks.has(getOrdinateTicks())).toBe(true);
+});
+
+test('autoscale each slice during playback when asked', async () => {
+  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
+  await setSettings({ option: 'Range: Each slice' });
+  installFakeTimers();
+
+  await getPlayBtn().click();
+  const ticks = new Set<string | null | undefined>();
+  for (let i = 0; i < 9; i += 1) {
+    await advance(100); // eslint-disable-line no-await-in-loop -- sequential frames
+    ticks.add(getOrdinateTicks());
+  }
+  expect(ticks.size).toBeGreaterThan(1);
 });
 
 test('keep playback settings when slider is remounted', async () => {
