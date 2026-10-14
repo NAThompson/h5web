@@ -71,6 +71,7 @@ function MappedHeatmapVis(props: Props) {
     colorMap,
     scaleType,
     keepRatio,
+    surfaceKeepRatio,
     showGrid,
     invertColorMap,
     flipXAxis,
@@ -187,7 +188,7 @@ function MappedHeatmapVis(props: Props) {
           ordinateParams={ordinateParams}
           flipXAxis={flipXAxis}
           flipYAxis={flipYAxis}
-          keepRatio={keepRatio}
+          keepRatio={surfaceKeepRatio}
           showGrid={showGrid}
           heightScale={heightScale}
           shading={shading}

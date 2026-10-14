@@ -19,7 +19,7 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import { type DataContextValue } from '../../providers/DataProvider';
-import { CORE_VIS } from './visualizations';
+import { CORE_VIS, Vis } from './visualizations';
 
 const mockDataContext = {
   queries: { attrValues: (entity: Entity): Entity => entity },
@@ -186,6 +186,19 @@ describe('Complex Line', () => {
   });
 
   it('should not support dataset with non-array shape', async () => {
+    await expect(supportsDataset(scalarCplx)).resolves.toBe(false);
+  });
+});
+
+describe('Complex Curve', () => {
+  const { supportsDataset } = CORE_VIS[Vis.ComplexCurve];
+
+  it('should support array dataset with complex type and at least one dimension', async () => {
+    await expect(supportsDataset(oneDCplx)).resolves.toBe(true);
+  });
+
+  it('should not support dataset with non-complex type or non-array shape', async () => {
+    await expect(supportsDataset(oneDUint)).resolves.toBe(false);
     await expect(supportsDataset(scalarCplx)).resolves.toBe(false);
   });
 });

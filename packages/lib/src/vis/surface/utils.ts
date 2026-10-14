@@ -17,6 +17,29 @@ export interface SurfaceBuffers {
   index: Uint32Array;
 }
 
+/** Check that arrays can be shown as a surface, coloured by `colorArray` if provided. */
+export function assertSurfaceArrays(
+  dataArray: NdArray<NumArray>,
+  colorArray?: NdArray<NumArray>,
+): void {
+  if (dataArray.shape.length !== 2) {
+    throw new Error('Expected two-dimensional array');
+  }
+
+  if (!isSurfaceSupported(dataArray.shape)) {
+    throw new Error('Expected at least two rows and two columns');
+  }
+
+  if (
+    colorArray &&
+    (colorArray.shape.length !== 2 ||
+      colorArray.shape[0] !== dataArray.shape[0] ||
+      colorArray.shape[1] !== dataArray.shape[1])
+  ) {
+    throw new Error('Expected colour array of same shape as data array');
+  }
+}
+
 /** Surfaces need at least two rows and two columns to have any triangle. */
 export function isSurfaceSupported(shape: number[]): boolean {
   return shape.length === 2 && shape[0] >= 2 && shape[1] >= 2;
@@ -154,6 +177,7 @@ interface BuildParams {
   domain: Domain;
   scaleType: VisScaleType;
   ignoreValue?: IgnoreValue;
+  floorUnsupported?: boolean; // values not supported by the scale go to the floor instead of leaving holes
 }
 
 /**
@@ -161,11 +185,12 @@ interface BuildParams {
  * Height is normalized to [0, 1] with the same scale and domain as the colour,
  * so height and colour always tell the same story.
  * Cells touching a NaN, an ignored value or a value that is not supported
- * by the scale (e.g. negative values in log) are left out: they appear as holes.
+ * by the scale (e.g. negative values in log) are left out: they appear as holes -
+ * unless `floorUnsupported` is set, in which case unsupported values lie on the floor.
  */
 export function buildSurfaceBuffers(params: BuildParams): SurfaceBuffers {
   const { values, xCoords, yCoords, domain, scaleType } = params;
-  const { ignoreValue } = params;
+  const { ignoreValue, floorUnsupported = false } = params;
   const [rows, cols] = values.shape;
   const count = rows * cols;
 
@@ -192,7 +217,14 @@ export function buildSurfaceBuffers(params: BuildParams): SurfaceBuffers {
       positions[i * 3] = x;
       positions[i * 3 + 1] = y;
 
-      if (!Number.isFinite(val) || val < validMin || ignoreValue?.(val)) {
+      if (!Number.isFinite(val) || ignoreValue?.(val)) {
+        continue;
+      }
+
+      if (val < validMin) {
+        if (floorUnsupported) {
+          valid[i] = 1; // height stays 0
+        }
         continue;
       }
 
@@ -248,4 +280,27 @@ export function getSurfaceColors(
   }
 
   return colors;
+}
+
+/** Values of a 2D array in row-major order, whatever its strides (e.g. transposed view). */
+export function flattenArray(values: NdArray<NumArray>): NumArray {
+  const [rows, cols] = values.shape;
+  const isContiguous =
+    values.offset === 0 &&
+    values.stride[0] === cols &&
+    values.stride[1] === 1 &&
+    values.data.length === rows * cols;
+
+  if (isContiguous) {
+    return values.data;
+  }
+
+  const flat = new Float64Array(rows * cols);
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      flat[row * cols + col] = values.get(row, col);
+    }
+  }
+
+  return flat;
 }

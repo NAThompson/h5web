@@ -12,7 +12,8 @@ export interface VisDef {
   Icon: IconType;
   Container: ElementType<VisContainerProps>;
   ConfigProvider?: ElementType<PropsWithChildren>;
-  /* Never remembered as the preferred vis: selecting it once must not open other datasets with it
-   * (e.g. volumes, which load whole datasets and are only a reasonable default for some of them) */
-  isNeverPreferred?: boolean;
+  /* Whether selecting this vis for the entity may make it the preferred vis (restored for other
+   * entities), and whether a preferred vis of this name applies to the entity; defaults to true
+   * (e.g. never for volumes, which load whole datasets and are only a reasonable default for some) */
+  canBePreferredFor?: (entity: ProvidedEntity) => boolean;
 }

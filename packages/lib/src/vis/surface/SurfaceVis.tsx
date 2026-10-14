@@ -18,13 +18,13 @@ import Vis3DLayout from '../three-d/Vis3DLayout';
 import { createScale, DEFAULT_DOMAIN } from '../utils';
 import SurfaceMesh from './SurfaceMesh';
 import {
+  assertSurfaceArrays,
   DEFAULT_MAX_VERTICES,
   getCellCenters,
   getCoordsDomain,
   getDownsamplingStride,
   getFootprint,
   getSampledIndices,
-  isSurfaceSupported,
   sampleArray,
 } from './utils';
 
@@ -47,6 +47,14 @@ interface Props extends ClassStyleAttrs {
   shading?: boolean;
   ignoreValue?: IgnoreValue;
   maxVertices?: number;
+  /* Show values not supported by the scale (e.g. zeros in log scale) on the floor of the box,
+   * rather than as holes - e.g. zeros of the amplitude of an analytic function as funnels */
+  floorUnsupported?: boolean;
+  /* Colour the surface by another field than height (same shape as `dataArray`),
+   * e.g. phase of complex values while height shows their amplitude */
+  colorArray?: NdArray<NumArray>;
+  colorDomain?: Domain; // defaults to `domain`
+  colorScaleType?: VisScaleType;
 }
 
 function SurfaceVis(props: PropsWithChildren<Props>) {
@@ -69,18 +77,16 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     shading = true,
     ignoreValue,
     maxVertices = DEFAULT_MAX_VERTICES,
+    floorUnsupported = false,
+    colorArray,
+    colorDomain,
+    colorScaleType,
     children,
     className = '',
     style,
   } = props;
 
-  if (dataArray.shape.length !== 2) {
-    throw new Error('Expected two-dimensional array');
-  }
-
-  if (!isSurfaceSupported(dataArray.shape)) {
-    throw new Error('Expected at least two rows and two columns');
-  }
+  assertSurfaceArrays(dataArray, colorArray);
 
   const { label: abscissaLabel, value: abscissaValue } = abscissaParams;
   const { label: ordinateLabel, value: ordinateValue } = ordinateParams;
@@ -99,11 +105,11 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const yDomain = useMemo(() => getCoordsDomain(yCenters), [yCenters]);
   const [w, h] = getFootprint(xDomain, yDomain, keepRatio);
 
-  // Downsample large datasets
-  const { values, xCoords, yCoords } = useMemo(() => {
+  // Downsample large datasets: same rows and columns for height and colour fields
+  const { rowIndices, colIndices, xCoords, yCoords } = useMemo(() => {
     const stride = getDownsamplingStride(rows, cols, maxVertices);
-    const rowIndices = getSampledIndices(rows, stride);
-    const colIndices = getSampledIndices(cols, stride);
+    const sampledRows = getSampledIndices(rows, stride);
+    const sampledCols = getSampledIndices(cols, stride);
 
     const xScale = createScale(ScaleType.Linear, {
       domain: xDomain,
@@ -115,12 +121,12 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     });
 
     return {
-      values: sampleArray(dataArray, rowIndices, colIndices),
-      xCoords: colIndices.map((i) => xScale(xCenters[i])),
-      yCoords: rowIndices.map((i) => yScale(yCenters[i])),
+      rowIndices: sampledRows,
+      colIndices: sampledCols,
+      xCoords: sampledCols.map((i) => xScale(xCenters[i])),
+      yCoords: sampledRows.map((i) => yScale(yCenters[i])),
     };
   }, [
-    dataArray,
     rows,
     cols,
     maxVertices,
@@ -133,6 +139,17 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     flipXAxis,
     flipYAxis,
   ]);
+
+  const values = useMemo(
+    () => sampleArray(dataArray, rowIndices, colIndices),
+    [dataArray, rowIndices, colIndices],
+  );
+
+  // Sampled separately, so that changing the colour field doesn't rebuild the geometry
+  const colorValues = useMemo(
+    () => colorArray && sampleArray(colorArray, rowIndices, colIndices),
+    [colorArray, rowIndices, colIndices],
+  );
 
   const abscissaConfig = useMemo<Axis3DConfig>(
     () => ({
@@ -154,6 +171,22 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [yDomain, ordinateValue, ordinateLabel, flipYAxis],
   );
 
+  const colorField = useMemo(
+    () =>
+      colorValues && {
+        values: colorValues,
+        domain: colorDomain ?? domain,
+        scaleType: colorScaleType ?? ScaleType.Linear,
+      },
+    [colorValues, colorDomain, colorScaleType, domain],
+  );
+
+  // Colour bar shows the field used for colours
+  const legend = useMemo(
+    () => colorField ?? { domain, scaleType },
+    [colorField, domain, scaleType],
+  );
+
   const valueConfig = useMemo<Axis3DConfig>(
     () => ({ domain, scaleType, label: valueLabel }),
     [domain, scaleType, valueLabel],
@@ -165,8 +198,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       style={style}
       title={title}
       boxSize={[w, h, heightScale]}
-      domain={domain}
-      scaleType={scaleType}
+      domain={legend.domain}
+      scaleType={legend.scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
     >
@@ -179,8 +212,10 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
         colorMap={colorMap}
         invertColorMap={invertColorMap}
         ignoreValue={ignoreValue}
+        floorUnsupported={floorUnsupported}
         zHeight={heightScale}
         shading={shading}
+        colorField={colorField}
       />
       {showAxes && (
         <Axes3D

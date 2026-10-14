@@ -40,7 +40,12 @@ import {
   getAttributeValue,
   hasAttribute,
 } from '../../utils';
-import { type DefaultSlice, type FieldInfo, type SilxStyle } from './models';
+import {
+  type DefaultSlice,
+  type FieldInfo,
+  type NxData,
+  type SilxStyle,
+} from './models';
 
 export async function getNxClass(
   group: Group,
@@ -469,4 +474,13 @@ export function getVolumeDefaultSlice(
  * "Expected"), as opposed to transient errors (e.g. network) */
 export function isMalformedError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith('Expected');
+}
+
+/** NeXus data reduced to its signal: no errors, no auxiliary signals (e.g. to fetch only what is drawn). */
+export function getSignalOnly<T extends NxData>(nxData: T): T {
+  return {
+    ...nxData,
+    signalDef: { ...nxData.signalDef, errorDataset: undefined },
+    auxDefs: [],
+  };
 }

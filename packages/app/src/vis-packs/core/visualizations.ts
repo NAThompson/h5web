@@ -9,6 +9,7 @@ import {
   hasNumericType,
   hasPrintableCompoundType,
   hasPrintableType,
+  isDataset,
 } from '@h5web/shared/guards';
 import { type Dataset } from '@h5web/shared/hdf5-models';
 import {
@@ -24,6 +25,8 @@ import { MdGesture, MdLandscape } from 'react-icons/md';
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
 import { type VisDef } from '../models';
+import ComplexCurveVisContainer from './complex/ComplexCurveVisContainer';
+import { ComplexCurveConfigProvider } from './complex/curve-config';
 import {
   HeatmapConfigProvider,
   LineConfigProvider,
@@ -57,6 +60,7 @@ export enum Vis {
   Heatmap = 'Heatmap',
   ComplexHeatmap = 'ComplexHeatmap',
   ComplexLine = 'ComplexLine',
+  ComplexCurve = 'Complex Curve',
   RGB = 'RGB',
   Compound = 'Compound',
   Volume = 'Volume',
@@ -100,6 +104,22 @@ export const CORE_VIS = {
     },
   },
 
+  // Before complex line plot, which stays the default for complex datasets
+  [Vis.ComplexCurve]: {
+    name: Vis.ComplexCurve,
+    Icon: MdGesture,
+    Container: ComplexCurveVisContainer,
+    ConfigProvider: ComplexCurveConfigProvider,
+    supportsDataset: async (dataset) => {
+      return hasArrayShape(dataset) && hasComplexType(dataset);
+    },
+    // Picking the curve of a slice of a 2D+ dataset must not open other complex datasets as curves
+    canBePreferredFor: (entity) =>
+      isDataset(entity) &&
+      hasArrayShape(entity) &&
+      entity.shape.dims.length === 1,
+  },
+
   [Vis.ComplexLine]: {
     name: Vis.Line,
     Icon: FiActivity,
@@ -115,7 +135,7 @@ export const CORE_VIS = {
     Icon: FiBox,
     Container: VolumeVisContainer,
     ConfigProvider: VolumeConfigProvider,
-    isNeverPreferred: true,
+    canBePreferredFor: () => false,
     supportsDataset: async (dataset, dataContext) => {
       if (
         !hasArrayShape(dataset) ||

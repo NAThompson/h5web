@@ -1,4 +1,9 @@
 import {
+  type ArrayShape,
+  type Dataset,
+  type FloatType,
+} from '@h5web/shared/hdf5-models';
+import {
   arrayShape,
   cplxType,
   floatType,
@@ -18,6 +23,7 @@ import {
   applyDefaultSlice,
   findAuxErrorDataset,
   findAuxiliaryDatasets,
+  getSignalOnly,
   getVolumeDefaultSlice,
   isMalformedError,
   isPrimaryVolume,
@@ -207,5 +213,42 @@ describe('supportsVolume', () => {
     await expect(
       supportsVolume(vol([4, 4, 4]), undefined, dataContext),
     ).resolves.toBe(true);
+  });
+});
+
+describe('getSignalOnly', () => {
+  it('should drop errors and auxiliary signals', () => {
+    const signal = dataset('signal', arrayShape([2]), floatType()) as Dataset<
+      ArrayShape,
+      FloatType
+    >;
+    const errors = dataset('errors', arrayShape([2]), floatType()) as Dataset<
+      ArrayShape,
+      FloatType
+    >;
+    const aux = dataset('aux', arrayShape([2]), floatType()) as Dataset<
+      ArrayShape,
+      FloatType
+    >;
+
+    const nxData = {
+      signalDef: {
+        dataset: signal,
+        label: 'signal',
+        unit: undefined,
+        errorDataset: errors,
+      },
+      auxDefs: [
+        { dataset: aux, label: 'aux', unit: undefined, errorDataset: errors },
+      ],
+      axisDefs: [],
+      silxStyle: {},
+    };
+
+    const signalOnly = getSignalOnly(nxData);
+    expect(signalOnly.signalDef.dataset).toBe(signal);
+    expect(signalOnly.signalDef.errorDataset).toBeUndefined();
+    expect(signalOnly.auxDefs).toEqual([]);
+    expect(nxData.signalDef.errorDataset).toBe(errors); // not mutated
   });
 });

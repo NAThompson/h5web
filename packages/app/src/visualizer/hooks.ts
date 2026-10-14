@@ -1,9 +1,15 @@
+import { type ProvidedEntity } from '@h5web/shared/hdf5-models';
 import { useLocalStorageValue } from '@react-hookz/web';
 import { useState } from 'react';
 
 import { type VisDef } from '../vis-packs/models';
 
+function canBePreferred(vis: VisDef, entity: ProvidedEntity): boolean {
+  return vis.canBePreferredFor?.(entity) ?? true;
+}
+
 export function useActiveVis(
+  entity: ProvidedEntity,
   supportedVis: VisDef[],
   primaryVis: VisDef | undefined,
 ): [VisDef, (index: number) => void] {
@@ -15,7 +21,7 @@ export function useActiveVis(
 
   const preferredVis = preferredVisName
     ? supportedVis.find(
-        (v) => v.name === preferredVisName && !v.isNeverPreferred,
+        (v) => v.name === preferredVisName && canBePreferred(v, entity),
       )
     : undefined;
 
@@ -30,9 +36,13 @@ export function useActiveVis(
     (index: number) => {
       const vis = supportedVis[index];
 
-      if (vis.isNeverPreferred) {
-        // Keep the current preference, if any
-      } else if (index < lastSupportedIndex) {
+      // Vis that only makes sense as a default for some entities (e.g. 3D curve of a 2D slice): leave preference alone
+      if (!canBePreferred(vis, entity)) {
+        setActiveVis(vis);
+        return;
+      }
+
+      if (index < lastSupportedIndex) {
         // When user explicitly selects another vis than the last, save it as the preferred vis in local storage
         savePreferredVisName(vis.name);
       } else if (index === lastSupportedIndex && preferredVisName) {
