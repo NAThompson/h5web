@@ -62,3 +62,56 @@ test(
   },
   CURVE_TEST_TIMEOUT,
 );
+
+test(
+  'only make Complex Curve the preferred vis for 1D datasets',
+  async () => {
+    const { selectVisTab, selectExplorerNode } = await renderApp(
+      '/arrays/twoD_complex',
+    );
+
+    // Picking the curve of a slice of a 2D dataset is not saved as preference...
+    await selectVisTab(Vis.ComplexCurve);
+    await selectExplorerNode('oneD_complex');
+    expect(getSelectedVisTab()).toBe(Vis.Line);
+
+    // ... whereas picking it for a 1D dataset is
+    await selectVisTab(Vis.ComplexCurve);
+    await selectExplorerNode('oneD');
+    await selectExplorerNode('oneD_complex');
+    expect(getSelectedVisTab()).toBe(Vis.ComplexCurve);
+
+    // ... but does not apply to 2D datasets
+    await selectExplorerNode('twoD_complex');
+    expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+  },
+  CURVE_TEST_TIMEOUT,
+);
+
+test(
+  'slice and play back complex NeXus signal as 3D curve',
+  async () => {
+    const { selectVisTab } = await renderApp('/nexus/spectrum_complex');
+    await selectVisTab(NxDataVis.NxComplexCurve);
+    await expect
+      .element(page.getByRole('button', { name: 'Reset view' }))
+      .toBeVisible();
+
+    const slider = page.getByRole('slider', { name: 'D0' });
+    expect(slider).toHaveValue(0);
+
+    // Playback only waits for the signal (no errors or auxiliary signals to fetch)
+    await page.getByRole('button', { name: 'Play D0' }).click();
+    await expect
+      .poll(() => Number(slider.element().getAttribute('aria-valuenow')), {
+        timeout: 10_000,
+      })
+      .toBe(1); // `twoD_complex` signal has dims [2, 2]
+    await page.getByRole('button', { name: 'Play D0' }).click();
+
+    expect(
+      page.getByRole('figure', { name: /coloured by phase/u }),
+    ).toBeVisible();
+  },
+  CURVE_TEST_TIMEOUT,
+);

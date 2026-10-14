@@ -2,6 +2,7 @@ import { mockValues } from '@h5web/lib';
 import { describe, expect, it } from 'vitest';
 
 import {
+  decimateCurve,
   getCurveAbscissas,
   getPhaseAmplitude,
   getRealImag,
@@ -87,5 +88,32 @@ describe('getCurveAbscissas', () => {
 
   it('should return mid-points of bin edges', () => {
     expect([...getCurveAbscissas([0, 2, 6, 8], 3)]).toEqual([1, 4, 7]);
+  });
+});
+
+describe('decimateCurve', () => {
+  it('should leave short curves untouched', () => {
+    const arrays = [
+      [0, 1, 2],
+      [3, 4, 5],
+    ];
+    expect(decimateCurve(arrays, 3)).toBe(arrays);
+  });
+
+  it('should keep at most the given number of points, including both endpoints', () => {
+    const x = Array.from({ length: 10 }, (_, i) => i);
+    const y = x.map((val) => val * 10);
+    const [dx, dy] = decimateCurve([x, y], 4);
+
+    expect([...dx]).toEqual([0, 3, 6, 9]);
+    expect([...dy]).toEqual([0, 30, 60, 90]);
+  });
+
+  it('should keep last point even if not on stride', () => {
+    const x = Array.from({ length: 11 }, (_, i) => i);
+    const [dx] = decimateCurve([x], 4);
+    expect(dx.length).toBeLessThanOrEqual(4);
+    expect(dx[0]).toBe(0);
+    expect(dx.at(-1)).toBe(10);
   });
 });

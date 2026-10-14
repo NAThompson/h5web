@@ -26,7 +26,11 @@ function VisManager(props: Props) {
     );
   }
 
-  const [activeVis, setActiveVis] = useActiveVis(supportedVis, primaryVis);
+  const [activeVis, setActiveVis] = useActiveVis(
+    entity,
+    supportedVis,
+    primaryVis,
+  );
   const { Container } = activeVis;
 
   const [visBarElem, setVisBarElem] = useState<HTMLDivElement>();

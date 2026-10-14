@@ -24,7 +24,7 @@ import { DEFAULT_DOMAIN } from '../utils';
 import ComplexCurveToolbar from './ComplexCurveToolbar';
 import { type ComplexCurveConfig } from './curve-config';
 import { usePhaseAmplitude, useRealImag } from './hooks';
-import { getCurveAbscissas } from './utils';
+import { decimateCurve, getCurveAbscissas } from './utils';
 
 // Colour domain of phase: fixed, so that a cyclic colour map wraps around at ±π
 const PHASE_DOMAIN: Domain = [-Math.PI, Math.PI];
@@ -93,6 +93,18 @@ function MappedComplexCurveVis(props: Props) {
 
   const byPhase = colorBy === ComplexVisType.Phase;
 
+  // Decimate very long curves for display
+  const [x, y, z, field] = useMemo(
+    () =>
+      decimateCurve([
+        abscissas,
+        realArray.data,
+        imagArray.data,
+        byPhase ? phaseArray.data : amplitudeArray.data,
+      ]),
+    [abscissas, realArray, imagArray, phaseArray, amplitudeArray, byPhase],
+  );
+
   return (
     <>
       {toolbarContainer &&
@@ -106,10 +118,10 @@ function MappedComplexCurveVis(props: Props) {
 
       <Curve3DVis
         className={visualizerStyles.vis}
-        x={abscissas}
-        y={realArray.data}
-        z={imagArray.data}
-        values={byPhase ? phaseArray.data : amplitudeArray.data}
+        x={x}
+        y={y}
+        z={z}
+        values={field}
         domain={byPhase ? PHASE_DOMAIN : safeDomain}
         scaleType={byPhase ? ScaleType.Linear : scaleType}
         colorMap={byPhase ? phaseColorMap : colorMap}

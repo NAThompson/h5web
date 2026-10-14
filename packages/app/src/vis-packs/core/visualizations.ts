@@ -9,6 +9,7 @@ import {
   hasNumericType,
   hasPrintableCompoundType,
   hasPrintableType,
+  isDataset,
 } from '@h5web/shared/guards';
 import { type Dataset } from '@h5web/shared/hdf5-models';
 import {
@@ -112,6 +113,11 @@ export const CORE_VIS = {
     supportsDataset: async (dataset) => {
       return hasArrayShape(dataset) && hasComplexType(dataset);
     },
+    // Picking the curve of a slice of a 2D+ dataset must not open other complex datasets as curves
+    canBePreferredFor: (entity) =>
+      isDataset(entity) &&
+      hasArrayShape(entity) &&
+      entity.shape.dims.length === 1,
   },
 
   [Vis.ComplexLine]: {

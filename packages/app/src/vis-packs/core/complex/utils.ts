@@ -72,6 +72,37 @@ export function getCurveAbscissas(
   return axisValues;
 }
 
+/* Above this number of points, complex curves are decimated for display, to keep geometry
+ * generation and rendering responsive */
+export const MAX_CURVE_POINTS = 1_000_000;
+
+/**
+ * Every `stride`-th value of each array, so that at most `maxPoints` values are kept,
+ * always including the last one (so the curve keeps both its endpoints).
+ */
+export function decimateCurve<T extends NumArray[]>(
+  arrays: T,
+  maxPoints = MAX_CURVE_POINTS,
+): T {
+  const count = Math.min(...arrays.map((arr) => arr.length));
+  if (count <= maxPoints) {
+    return arrays;
+  }
+
+  const stride = Math.ceil((count - 1) / (maxPoints - 1));
+  const indices: number[] = [];
+  for (let i = 0; i < count; i += stride) {
+    indices.push(i);
+  }
+  if (indices.at(-1) !== count - 1) {
+    indices.push(count - 1);
+  }
+
+  return arrays.map((arr) =>
+    Float64Array.from(indices, (i) => arr[i]),
+  ) as unknown as T;
+}
+
 // Unwrap phase values by removing 2π discontinuities
 export function unwrapPhase(values: Float64Array): Float64Array {
   const unwrapped = new Float64Array(values.length);
