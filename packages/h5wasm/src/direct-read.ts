@@ -18,6 +18,7 @@ type DatasetStorage = H5WasmDataset['storage'];
 export const MIN_DIRECT_READ_BYTES = 16 * 1024 * 1024; // smaller selections are read with HDF5
 export const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
 export const READ_CONCURRENCY = 4;
+const PROGRESS_INTERVAL = 50; // ms, i.e. at most 20 progress reports per second
 const MAX_READ_AMPLIFICATION = 1.5; // max ratio of bytes fetched to bytes selected
 const MIN_AVG_RUN_BYTES = 64 * 1024; // contiguous layout: avoid many tiny requests
 
@@ -545,6 +546,7 @@ export async function executeDirectRead(
 
   let next = 0;
   let doneBytes = 0;
+  let lastProgress = -Infinity;
   const controller = new AbortController();
   const anySignal = signal
     ? AbortSignal.any([signal, controller.signal])
@@ -576,7 +578,13 @@ export async function executeDirectRead(
       }
 
       doneBytes += op.length;
-      onProgress?.(doneBytes / totalBytes);
+
+      // Report progress at most every `PROGRESS_INTERVAL` ms (it is sent across threads)
+      const now = performance.now();
+      if (doneBytes === totalBytes || now - lastProgress >= PROGRESS_INTERVAL) {
+        lastProgress = now;
+        onProgress?.(doneBytes / totalBytes);
+      }
     }
   }
 

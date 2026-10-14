@@ -211,6 +211,20 @@ describe('direct reads', () => {
     expect(reads).toHaveLength(Math.ceil(SHAPE[0] / 3));
   });
 
+  it('should throttle progress reports', async () => {
+    const plan = planDirectRead(
+      getDataset('contiguous'),
+      SHAPE.map((dim) => [0, dim]),
+      { minBytes: 0, maxRequestBytes: 1000 }, // 96 requests
+    );
+    assertDefined(plan);
+
+    const onProgress = vi.fn<(fraction: number) => void>();
+    await executeDirectRead(plan, reader, undefined, onProgress);
+    expect(onProgress.mock.calls.length).toBeLessThan(10);
+    expect(onProgress).toHaveBeenLastCalledWith(1);
+  });
+
   it('should split large reads into several requests', async () => {
     const result = await readDirectly(
       'contiguous',
