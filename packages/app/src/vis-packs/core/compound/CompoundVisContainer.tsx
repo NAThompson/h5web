@@ -31,7 +31,7 @@ function CompoundVisContainer(props: VisContainerProps) {
   const config = useMatrixConfig();
   const selection = getSliceSelection(dimMapping);
 
-  const slicingProps = useDatasetSlicingProps(entity);
+  const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
 
   return (
     <>

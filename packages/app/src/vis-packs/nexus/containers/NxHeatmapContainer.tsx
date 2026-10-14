@@ -50,7 +50,11 @@ function NxHeatmapContainer(props: VisContainerProps) {
 
   const nxDataToFetch = useNxHeatmapDataToFetch(nxData, selectedDef);
 
-  const slicingProps = useNxSlicingProps(nxDataToFetch);
+  const { slicingProps, playbackRange } = useNxSlicingProps(
+    nxDataToFetch,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
 
   return (
     <>
@@ -72,7 +76,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
         onChange={setDimMapping}
       />
 
-      <VisBoundary resetKey={dimMapping}>
+      <VisBoundary resetKey={dimMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
           nxData={nxDataToFetch}
           selection={getSliceSelection(dimMapping)}

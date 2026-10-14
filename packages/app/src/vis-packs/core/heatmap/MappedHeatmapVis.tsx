@@ -2,6 +2,7 @@ import {
   ContourLines,
   type DimensionMapping,
   getContourLevels,
+  getDomain,
   getLevelColors,
   getSliceSelection,
   HeatmapVis,
@@ -29,14 +30,15 @@ import {
   usePacking,
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
-import { formatDType } from '../../netcdf/utils';
+import { formatDType, unpackNumArray } from '../../netcdf/utils';
+import { useStableDomain } from '../../playback-range';
 import {
   useExportEntries,
   useMappedArray,
   useToNumArray,
   useToNumArrays,
 } from '../hooks';
-import { DEFAULT_DOMAIN } from '../utils';
+import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type HeatmapConfig } from './config';
 import HeatmapToolbar from './HeatmapToolbar';
 import { ContourColorMode, ContourMode } from './models';
@@ -69,6 +71,7 @@ function MappedHeatmapVis(props: Props) {
     colorMap,
     scaleType,
     keepRatio,
+    surfaceKeepRatio,
     showGrid,
     invertColorMap,
     flipXAxis,
@@ -96,7 +99,15 @@ function MappedHeatmapVis(props: Props) {
   const dataArray = useMappedArray(numArray, ...mappingArgs);
 
   const dataDomain =
-    useDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useDomain(dataArray, { scaleType, ignoreValue }),
+      scaleType,
+      (sequenceValue) =>
+        getDomain(
+          toNumArray(unpackNumArray(sequenceValue as typeof value, packing)),
+          { scaleType, ignoreValue },
+        ),
+    ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
@@ -177,7 +188,7 @@ function MappedHeatmapVis(props: Props) {
           ordinateParams={ordinateParams}
           flipXAxis={flipXAxis}
           flipYAxis={flipYAxis}
-          keepRatio={keepRatio}
+          keepRatio={surfaceKeepRatio}
           showGrid={showGrid}
           heightScale={heightScale}
           shading={shading}

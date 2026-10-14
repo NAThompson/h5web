@@ -1,5 +1,6 @@
 import {
   getBoxSizeFromAxes,
+  getDomain,
   getGradientDomain,
   useIsosurfaces,
   useSafeDomain,
@@ -26,8 +27,10 @@ import {
   usePacking,
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
+import { unpackNumArray } from '../../netcdf/utils';
+import { useStableDomain } from '../../playback-range';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
-import { DEFAULT_DOMAIN } from '../utils';
+import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type VolumeConfig } from './config';
 import VolumeToolbar from './VolumeToolbar';
 
@@ -36,7 +39,11 @@ interface Props {
   value: ArrayValue<NumericType>;
   toolbarContainer: HTMLDivElement | undefined;
   config: VolumeConfig;
+  /* Dimensions of the volume, if `value` is a slice of a dataset with more than three dimensions */
+  dims?: number[];
+  /* Values along dimensions `[z, y, x]` of the volume */
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  title?: string;
   /* Whether axis values can be used to size the volume and for gradients (i.e. they share a unit) */
   withPhysicalAspect?: boolean;
   axisUnit?: string;
@@ -48,9 +55,11 @@ function MappedVolumeVis(props: Props) {
     value,
     toolbarContainer,
     config,
+    dims = dataset.shape.dims,
     axisValues = [],
     withPhysicalAspect = false,
     axisUnit,
+    title,
   } = props;
   const {
     customDomain,
@@ -68,11 +77,20 @@ function MappedVolumeVis(props: Props) {
 
   const packing = usePacking(dataset); // NetCDF `scale_factor`/`add_offset`
   const numArray = useToNumArray(useUnpackedNumArray(value, packing));
-  const dataArray = useBaseArray(numArray, dataset.shape.dims);
+  const dataArray = useBaseArray(numArray, dims);
 
   const ignoreValue = useIgnoreValue(dataset);
+  // During playback of a volume sequence (NX Volume), use range of whole sequence when affordable
   const dataDomain =
-    useVolumeDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useVolumeDomain(dataArray, { scaleType, ignoreValue }),
+      scaleType,
+      (seq) =>
+        getDomain(
+          toNumArray(unpackNumArray(seq as ArrayValue<NumericType>, packing)),
+          { scaleType, ignoreValue },
+        ),
+    ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
@@ -152,6 +170,7 @@ function MappedVolumeVis(props: Props) {
 
       <VolumeVis
         className={visualizerStyles.vis}
+        title={title}
         dataArray={dataArray}
         domain={safeDomain}
         colorMap={colorMap}

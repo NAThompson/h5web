@@ -11,6 +11,7 @@ import { BoxGeometry, EdgesGeometry } from 'three';
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
+import CanvasOverlay from './CanvasOverlay';
 import Isosurfaces from './Isosurfaces';
 import {
   IsoColorMode,
@@ -26,6 +27,7 @@ import styles from './VolumeVis.module.css';
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
+  title?: string;
   domain: Domain;
   scaleType?: ColorScaleType;
   colorMap?: ColorMap;
@@ -54,6 +56,7 @@ interface Props extends ClassStyleAttrs {
 function VolumeVis(props: PropsWithChildren<Props>) {
   const {
     dataArray,
+    title,
     domain,
     colorMap = 'Inferno',
     scaleType = ScaleType.Linear,
@@ -98,51 +101,59 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     <figure
       className={`${styles.root} ${className}`}
       style={style}
+      aria-label={title}
       data-keep-canvas-colors
     >
-      <R3FCanvas className={styles.canvas} ambientIntensity={0.35}>
-        <color attach="background" args={[background]} />
-        <VolumeControls interactingRef={interactingRef} />
-        <Isosurfaces
-          isosurfaces={isosurfaces}
-          shape={dataArray.shape}
-          boxSize={boxSize}
-          colorMode={isoColorMode}
-          gradientDomain={gradientDomain}
-          colorMap={colorMap}
-          invertColorMap={invertColorMap}
-        />
-        {showVolume && (
-          <VolumeMesh
+      <div className={styles.canvasArea}>
+        <R3FCanvas className={styles.canvas} ambientIntensity={0.35}>
+          <color attach="background" args={[background]} />
+          <VolumeControls interactingRef={interactingRef} />
+          <Isosurfaces
+            isosurfaces={isosurfaces}
+            shape={dataArray.shape}
             boxSize={boxSize}
-            withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
-            dataArray={dataArray}
-            domain={domain}
-            scaleType={scaleType}
+            colorMode={isoColorMode}
+            gradientDomain={gradientDomain}
             colorMap={colorMap}
             invertColorMap={invertColorMap}
-            mode={mode}
-            opacity={opacity}
-            threshold={threshold}
-            quality={quality}
-            interactingRef={interactingRef}
           />
-        )}
-        <lineSegments
-          geometry={edges}
-          scale={boxSize}
-          visible={showBox}
-          renderOrder={1}
-        >
-          <lineBasicMaterial
-            color="white"
-            transparent
-            opacity={0.2}
-            depthTest={false}
-          />
-        </lineSegments>
-        {children}
-      </R3FCanvas>
+          {showVolume && (
+            <VolumeMesh
+              boxSize={boxSize}
+              withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
+              dataArray={dataArray}
+              domain={domain}
+              scaleType={scaleType}
+              colorMap={colorMap}
+              invertColorMap={invertColorMap}
+              mode={mode}
+              opacity={opacity}
+              threshold={threshold}
+              quality={quality}
+              interactingRef={interactingRef}
+            />
+          )}
+          <lineSegments
+            geometry={edges}
+            scale={boxSize}
+            visible={showBox}
+            renderOrder={1}
+          >
+            <lineBasicMaterial
+              color="white"
+              transparent
+              opacity={0.2}
+              depthTest={false}
+            />
+          </lineSegments>
+          {children}
+        </R3FCanvas>
+        <CanvasOverlay
+          title={title}
+          isoProgress={isoProgress}
+          isoMessage={isoMessage}
+        />
+      </div>
       <VolumeLegend
         domain={domain}
         scaleType={scaleType}
@@ -155,8 +166,6 @@ function VolumeVis(props: PropsWithChildren<Props>) {
             : undefined
         }
         gradientLabel={gradientLabel}
-        isoProgress={isoProgress}
-        isoMessage={isoMessage}
       />
     </figure>
   );

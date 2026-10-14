@@ -8,7 +8,11 @@ import {
   assertScalarShape,
   assertStringType,
   hasArrayShape,
+  hasComplexType,
+  hasMinDims,
   hasNonNullShape,
+  hasNumDims,
+  hasNumericType,
   hasStringType,
   isAxisScaleType,
   isColorScaleType,
@@ -26,6 +30,7 @@ import {
   type StringType,
 } from '@h5web/shared/hdf5-models';
 import { getChildEntity } from '@h5web/shared/hdf5-utils';
+import { NxInterpretation } from '@h5web/shared/nexus-models';
 import { castArray } from '@h5web/shared/vis-utils';
 
 import { type DataContextValue } from '../../providers/DataProvider';
@@ -392,4 +397,76 @@ export function parseJson(value: string): unknown {
   } catch (error: unknown) {
     throw new Error('Expected valid JSON', { cause: error });
   }
+}
+
+/* Largest volume opened by default: beyond, it is shown as a heatmap first, which only loads a slice */
+export const MAX_DEFAULT_VOLUME_SIZE = 2 ** 24; // e.g. 256³
+
+/* Numeric signal with at least three dimensions (the last three forming the volume), not an RGB image */
+export function isVolumeSignal(
+  signal: Dataset<ArrayShape, NumericLikeType | ComplexType>,
+  interpretation: string | undefined,
+): boolean {
+  return (
+    !hasComplexType(signal) &&
+    hasNumericType(signal) &&
+    hasMinDims(signal, 3) &&
+    signal.shape.dims.slice(-3).every((size) => size >= 2) &&
+    interpretation !== NxInterpretation.RGB &&
+    interpretation !== NxInterpretation.RGBA
+  );
+}
+
+/* Signal that NX Volume supports: volume-like and not an image (e.g. `CLASS=IMAGE` RGB data) */
+export async function supportsVolume(
+  signal: Dataset<ArrayShape, NumericLikeType | ComplexType>,
+  interpretation: string | undefined,
+  dataContext: DataContextValue,
+): Promise<boolean> {
+  if (!isVolumeSignal(signal, interpretation)) {
+    return false;
+  }
+  const classAttr = findScalarStrAttr(signal, 'CLASS');
+  return (await getAttributeValue(signal, classAttr, dataContext)) !== 'IMAGE';
+}
+
+/*
+ * NX Volume is the default visualization only for signals that look like a field sampled on a 3D grid:
+ * exactly three dimensions, each with a NeXus axis, no `interpretation` (a 3D `image` signal is a stack
+ * of frames), and small enough to load at once. Other 3D+ signals (e.g. stacks of detector frames,
+ * which usually lack axes along some dimensions and can be very large) keep NX Heatmap as default.
+ */
+export function isPrimaryVolume(
+  interpretation: string | undefined,
+  signal: Dataset<ArrayShape, NumericLikeType | ComplexType>,
+  axisDatasets: (Dataset | undefined)[],
+): boolean {
+  return (
+    interpretation === undefined &&
+    hasNumDims(signal, 3) &&
+    isVolumeSignal(signal, interpretation) &&
+    axisDatasets.length === 3 &&
+    axisDatasets.every(isDefined) &&
+    signal.shape.dims.reduce((acc, size) => acc * size, 1) <=
+      MAX_DEFAULT_VOLUME_SIZE
+  );
+}
+
+/*
+ * `default_slice` for a volume: the last three dimensions always form the volume, so indices on them
+ * are ignored, and leading dimensions are always sliced (at index 0 if not given).
+ */
+export function getVolumeDefaultSlice(
+  defaultSlice: DefaultSlice,
+): DefaultSlice {
+  const volumeStart = defaultSlice.length - 3;
+  return defaultSlice.map((val, i) =>
+    i >= volumeStart ? '.' : val === '.' ? 0 : val,
+  );
+}
+
+/* Errors thrown on malformed metadata (by guards and NeXus utilities, which all start with
+ * "Expected"), as opposed to transient errors (e.g. network) */
+export function isMalformedError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('Expected');
 }

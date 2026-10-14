@@ -1,3 +1,4 @@
+import { getBounds, getValidDomainForScale } from '@h5web/lib';
 import { isComplexArray } from '@h5web/shared/guards';
 import {
   type ArrayValue,
@@ -5,7 +6,13 @@ import {
   type H5WebComplex,
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
-import { ComplexVisType, type NumArray } from '@h5web/shared/vis-models';
+import {
+  type Bounds,
+  ComplexVisType,
+  type Domain,
+  type NumArray,
+  type ScaleType,
+} from '@h5web/shared/vis-models';
 
 import { toNumArray } from '../utils';
 
@@ -33,6 +40,74 @@ export function getPhaseAmplitude(values: H5WebComplex[]): {
   }
 
   return { phase, amplitude };
+}
+
+export function getRealImag(values: H5WebComplex[]): {
+  real: Float64Array;
+  imag: Float64Array;
+} {
+  const real = new Float64Array(values.length);
+  const imag = new Float64Array(values.length);
+
+  values.forEach(([re, im], i) => {
+    real[i] = re;
+    imag[i] = im;
+  });
+
+  return { real, imag };
+}
+
+/**
+ * Abscissa of each of the `count` points of a curve: axis values as is, mid-points if axis values
+ * are bin edges (i.e. `count + 1` values), or indices if there are no (or too few) axis values.
+ */
+export function getCurveAbscissas(
+  axisValues: NumArray | undefined,
+  count: number,
+): NumArray {
+  if (!axisValues || axisValues.length < count) {
+    return Float64Array.from({ length: count }, (_, i) => i);
+  }
+
+  if (axisValues.length > count) {
+    return Float64Array.from(
+      { length: count },
+      (_, i) => (axisValues[i] + axisValues[i + 1]) / 2,
+    );
+  }
+
+  return axisValues;
+}
+
+/* Above this number of points, complex curves are decimated for display, to keep geometry
+ * generation and rendering responsive */
+export const MAX_CURVE_POINTS = 1_000_000;
+
+/**
+ * Every `stride`-th value of each array, so that at most `maxPoints` values are kept,
+ * always including the last one (so the curve keeps both its endpoints).
+ */
+export function decimateCurve<T extends NumArray[]>(
+  arrays: T,
+  maxPoints = MAX_CURVE_POINTS,
+): T {
+  const count = Math.min(...arrays.map((arr) => arr.length));
+  if (count <= maxPoints) {
+    return arrays;
+  }
+
+  const stride = Math.ceil((count - 1) / (maxPoints - 1));
+  const indices: number[] = [];
+  for (let i = 0; i < count; i += stride) {
+    indices.push(i);
+  }
+  if (indices.at(-1) !== count - 1) {
+    indices.push(count - 1);
+  }
+
+  return arrays.map((arr) =>
+    Float64Array.from(indices, (i) => arr[i]),
+  ) as unknown as T;
 }
 
 // Unwrap phase values by removing 2π discontinuities
@@ -87,4 +162,84 @@ export function getPhaseAmplitudeArrays(
   });
 
   return { phaseArrays, unwrappedPhaseArrays, amplitudeArrays };
+}
+
+const CHUNK_SIZE = 65_536;
+
+function mergeBounds(
+  a: Bounds | undefined,
+  b: Bounds | undefined,
+): Bounds | undefined {
+  if (!a || !b) {
+    return a ?? b;
+  }
+  return {
+    min: Math.min(a.min, b.min),
+    max: Math.max(a.max, b.max),
+    positiveMin: Math.min(a.positiveMin, b.positiveMin),
+    strictPositiveMin: Math.min(a.strictPositiveMin, b.strictPositiveMin),
+  };
+}
+
+/* Domain of the phase or amplitude of (possibly complex) values, computed chunk by chunk so
+ * that phase and amplitude arrays are never materialised for all values (e.g. whole sequence
+ * of slices during playback) */
+export function getPhaseAmplitudeDomain(
+  values: ArrayValue<NumericLikeType | ComplexType>,
+  part: 'phase' | 'amplitude',
+  scaleType: ScaleType,
+): Domain | undefined {
+  const complexValues = isComplexArray(values) ? values : undefined;
+  const realValues = complexValues
+    ? undefined
+    : toNumArray(values as ArrayValue<NumericLikeType>);
+  const chunk = new Float64Array(Math.min(CHUNK_SIZE, values.length));
+
+  let bounds: Bounds | undefined;
+  for (let start = 0; start < values.length; start += CHUNK_SIZE) {
+    const end = Math.min(start + CHUNK_SIZE, values.length);
+
+    for (let i = start; i < end; i += 1) {
+      if (complexValues) {
+        const [real, imag] = complexValues[i];
+        chunk[i - start] =
+          part === 'phase' ? Math.atan2(imag, real) : Math.hypot(real, imag);
+      } else {
+        // Consider real numbers as complex numbers with no imaginary parts (cf. `getPhaseAmplitudeArrays`)
+        chunk[i - start] =
+          part === 'phase' ? 0 : Math.abs(realValues?.[i] ?? 0);
+      }
+    }
+
+    bounds = mergeBounds(bounds, getBounds(chunk.subarray(0, end - start)));
+  }
+
+  return bounds && getValidDomainForScale(bounds, scaleType);
+}
+
+/** Domain of the real or imaginary parts of complex values (real numbers have no imaginary part). */
+export function getRealImagDomain(
+  values: ArrayValue<NumericLikeType | ComplexType>,
+  part: 'real' | 'imag',
+): Domain | undefined {
+  const complexValues = isComplexArray(values) ? values : undefined;
+  const realValues = complexValues
+    ? undefined
+    : toNumArray(values as ArrayValue<NumericLikeType>);
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < values.length; i += 1) {
+    const val = complexValues
+      ? complexValues[i][part === 'real' ? 0 : 1]
+      : part === 'real'
+        ? (realValues?.[i] ?? Number.NaN)
+        : 0;
+    if (Number.isFinite(val)) {
+      min = Math.min(min, val);
+      max = Math.max(max, val);
+    }
+  }
+
+  return min > max ? undefined : [min, max];
 }

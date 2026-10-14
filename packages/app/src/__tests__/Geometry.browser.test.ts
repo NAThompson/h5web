@@ -40,6 +40,50 @@ test(
 );
 
 test(
+  'visualize field on 3D curve given by HDF5 dimension scales',
+  async () => {
+    await renderApp('/geometry/knot_speed_dimscales');
+
+    expect(getSelectedVisTab()).toBe(Vis.Curve);
+    await expect
+      .element(page.getByRole('figure', { name: 'knot_speed_dimscales' }))
+      .toBeVisible();
+  },
+  TEST_TIMEOUT,
+);
+
+test(
+  'slice leading dimension of field on dimension-scale curve',
+  async () => {
+    const { user } = await renderApp('/geometry/knot_speed_phases_dimscales');
+
+    expect(getSelectedVisTab()).toBe(Vis.Curve);
+    const d0Slider = page.getByRole('slider', { name: 'D0' });
+    expect(d0Slider).toHaveValue(0);
+    expect(page.getByRole('slider', { name: 'D1' })).not.toBeInTheDocument(); // curve dimension
+
+    await user.type(d0Slider, '{ArrowUp}');
+    expect(d0Slider).toHaveValue(1);
+    await expect
+      .element(
+        page.getByRole('figure', { name: 'knot_speed_phases_dimscales' }),
+      )
+      .toBeVisible();
+  },
+  TEST_TIMEOUT,
+);
+
+test('do not offer curve for NetCDF-like variable with single scale', async () => {
+  await renderApp('/geometry/netcdf_variable');
+
+  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.Line]);
+  expect(getSelectedVisTab()).toBe(Vis.Line);
+  await expect
+    .element(page.getByRole('figure', { name: 'netcdf_variable' }))
+    .toBeVisible();
+});
+
+test(
   'visualize curve given by vertices, coloured by index',
   async () => {
     await renderApp('/geometry/helix');

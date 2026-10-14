@@ -32,10 +32,11 @@ afterEach(async () => {
 });
 
 test('add, edit and remove iso levels', async () => {
-  const { user } = await renderApp({
-    initialPath: '/dimension_scales/threeD_fermi',
-    preferredVis: Vis.Volume,
-  });
+  // Volume is never the preferred vis, so select it explicitly
+  const { user, selectVisTab } = await renderApp(
+    '/dimension_scales/threeD_fermi',
+  );
+  await selectVisTab(Vis.Volume);
 
   await user.click(isosurfacesBtn());
   await expect
@@ -104,10 +105,11 @@ test('add, edit and remove iso levels', async () => {
 });
 
 test('colour isosurfaces by gradient magnitude and hide volume', async () => {
-  const { user } = await renderApp({
-    initialPath: '/dimension_scales/threeD_fermi',
-    preferredVis: Vis.Volume,
-  });
+  // Volume is never the preferred vis, so select it explicitly
+  const { user, selectVisTab } = await renderApp(
+    '/dimension_scales/threeD_fermi',
+  );
+  await selectVisTab(Vis.Volume);
 
   await user.click(isosurfacesBtn());
   await user.click(addLevelBtn());

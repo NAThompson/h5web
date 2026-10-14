@@ -31,6 +31,7 @@ import {
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
+import { useStableDomain } from '../../playback-range';
 import {
   useExportEntries,
   useMappedArray,
@@ -190,10 +191,22 @@ function MappedLineVis(props: Props) {
   );
 
   const combinedDomain =
-    useCombinedDomain([
-      valueVisible ? dataDomain : undefined,
-      ...auxDomains.filter((_, i) => auxVisible[i]),
-    ]) || DEFAULT_DOMAIN;
+    useStableDomain(
+      useCombinedDomain([
+        valueVisible ? dataDomain : undefined,
+        ...auxDomains.filter((_, i) => auxVisible[i]),
+      ]),
+      `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}`,
+      (sequenceValue) =>
+        valueVisible
+          ? getDomain(
+              toNumArray(
+                unpackNumArray(sequenceValue as typeof value, packing),
+              ),
+              { scaleType: yScaleType, ignoreValue },
+            )
+          : undefined,
+    ) || DEFAULT_DOMAIN;
 
   const visDomain = useVisDomain(customDomain, combinedDomain);
   const [safeDomain] = useSafeDomain(visDomain, combinedDomain, yScaleType);

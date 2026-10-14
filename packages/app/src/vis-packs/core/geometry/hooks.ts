@@ -6,7 +6,8 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type NumArray } from '@h5web/shared/vis-models';
-import { queryOptions, useSuspenseQuery } from '@tanstack/react-query';
+import { hashKey, queryOptions, useSuspenseQuery } from '@tanstack/react-query';
+import { useCallback, useSyncExternalStore } from 'react';
 
 import {
   type DataContextValue,
@@ -18,6 +19,7 @@ import { toNumArray } from '../utils';
 import {
   COORDINATES_ATTR,
   createGeometryContext,
+  DIMENSION_LIST_ATTR,
   findGeometry,
   type Geometry,
   type GeometryKind,
@@ -48,6 +50,38 @@ export function useGeometry(dataset: Dataset): Geometry {
   }
 
   return data;
+}
+
+/**
+ * Geometry already resolved for a dataset (when the visualization was offered), read from the
+ * cache without fetching - so without suspending or throwing, e.g. outside a `VisBoundary`.
+ * `undefined` until resolved; updated once resolved (e.g. by `useGeometry` inside the boundary).
+ */
+export function useCachedGeometry(
+  dataset: Dataset,
+): Geometry | null | undefined {
+  const dataContext = useDataContext();
+  const { queryClient } = dataContext;
+  const queryCache = queryClient.getQueryCache();
+  const { queryKey } = geometryQuery(dataset, dataContext);
+  const queryHash = hashKey(queryKey);
+
+  return useSyncExternalStore(
+    useCallback(
+      (onChange) =>
+        queryCache.subscribe((event) => {
+          if (
+            event.query.queryHash === queryHash &&
+            (event.type === 'removed' ||
+              (event.type === 'updated' && event.action.type === 'success'))
+          ) {
+            onChange();
+          }
+        }),
+      [queryCache, queryHash],
+    ),
+    () => queryClient.getQueryData<Geometry | null>(queryKey),
+  );
 }
 
 /** Unpack (NetCDF), convert to numbers and replace invalid values with `NaN` (e.g. fill values). */
@@ -81,6 +115,7 @@ export async function getGeometryKind(
     !hasArrayShape(dataset) ||
     !hasNumericType(dataset) ||
     (!hasAttribute(dataset, COORDINATES_ATTR) &&
+      !hasAttribute(dataset, DIMENSION_LIST_ATTR) &&
       !hasAttribute(dataset, INTERPRETATION_ATTR))
   ) {
     return undefined;
@@ -97,6 +132,9 @@ export async function getGeometryKind(
     dataContext.queryClient.removeQueries({
       queryKey: query.queryKey,
       exact: true,
+    });
+    dataContext.queryClient.removeQueries({
+      predicate: (q) => q.state.status === 'error', // e.g. failed entity or dimension scales query
     });
     return undefined;
   }

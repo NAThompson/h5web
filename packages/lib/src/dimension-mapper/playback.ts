@@ -9,16 +9,23 @@ export type PlaybackMode = 'loop' | 'bounce' | 'once';
  *   loaded in time (still never shows a frame before its data is loaded). */
 export type PlaybackTiming = 'wait' | 'realtime';
 
+/* Value range (axis or colour domain) to use while playing:
+ * - `sequence`: range of the whole sequence of slices being played, so it stays fixed;
+ * - `frame`: range of each slice (autoscale). */
+export type PlaybackRange = 'sequence' | 'frame';
+
 export interface PlaybackSettings {
   fps: number;
   mode: PlaybackMode;
   timing: PlaybackTiming;
+  range: PlaybackRange;
 }
 
 export const DEFAULT_PLAYBACK_SETTINGS: PlaybackSettings = {
   fps: 10,
   mode: 'loop',
   timing: 'wait',
+  range: 'sequence',
 };
 
 export const MIN_FPS = 0.5;
@@ -153,7 +160,7 @@ function getSequenceParams(
 export function tickPlayback(
   clock: PlaybackClock,
   now: number,
-  settings: PlaybackSettings & SequenceParams,
+  settings: Omit<PlaybackSettings, 'range'> & SequenceParams,
   isReady: (value: number) => boolean,
 ): TickResult {
   const { fps, timing } = settings;

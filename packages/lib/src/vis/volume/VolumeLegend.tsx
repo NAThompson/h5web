@@ -16,11 +16,9 @@ interface Props {
   showVolume: boolean;
   gradientDomain: Domain | undefined;
   gradientLabel: string | undefined;
-  isoProgress: number | undefined;
-  isoMessage: string | undefined;
 }
 
-/* Colour bars of the volume and/or of gradient magnitudes on isosurfaces, and extraction progress */
+/* Colour bars of the volume and/or of gradient magnitudes on isosurfaces */
 function VolumeLegend(props: Props) {
   const {
     domain,
@@ -30,26 +28,10 @@ function VolumeLegend(props: Props) {
     showVolume,
     gradientDomain,
     gradientLabel = '|∇f|',
-    isoProgress,
-    isoMessage,
   } = props;
 
   return (
     <>
-      {(isoProgress !== undefined || isoMessage) && (
-        <div className={styles.overlay}>
-          {isoProgress !== undefined && (
-            <p className={styles.progress} role="status">
-              Extracting isosurfaces… {Math.round(isoProgress * 100)}%
-            </p>
-          )}
-          {isoMessage && (
-            <p className={styles.message} role="note">
-              {isoMessage}
-            </p>
-          )}
-        </div>
-      )}
       {(showVolume || !gradientDomain) && (
         <ColorBar
           domain={domain}

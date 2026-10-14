@@ -36,6 +36,8 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   // Playback: speed, repeat mode and timing (controlled when `playbackSettings` is provided)
   playbackSettings?: PlaybackSettings;
   onPlaybackSettingsChange?: (settings: PlaybackSettings) => void;
+  // Playback: note about the value range in use (e.g. when the whole sequence's range is unknown)
+  playbackRangeHint?: string;
 }
 
 function DimensionMapper(props: Props) {
@@ -57,6 +59,7 @@ function DimensionMapper(props: Props) {
     onPlayingDimChange,
     playbackSettings: controlledSettings,
     onPlaybackSettingsChange,
+    playbackRangeHint,
     ...htmlProps
   } = props;
 
@@ -164,6 +167,7 @@ function DimensionMapper(props: Props) {
               }
               playbackSettings={playbackSettings}
               onPlaybackSettingsChange={setPlaybackSettings}
+              playbackRangeHint={playbackRangeHint}
             />
           );
 

@@ -12,11 +12,12 @@ import {
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
 import { NxInterpretation } from '@h5web/shared/nexus-models';
-import { FiActivity, FiFileText, FiImage, FiMap } from 'react-icons/fi';
+import { FiActivity, FiBox, FiFileText, FiImage, FiMap } from 'react-icons/fi';
 import { MdGesture, MdGrain, MdLandscape } from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
+import { ComplexCurveConfigProvider } from '../core/complex/curve-config';
 import {
   HeatmapConfigProvider,
   LineConfigProvider,
@@ -27,8 +28,10 @@ import { getGeometryKind } from '../core/geometry/hooks';
 import { ParamSurfaceConfigProvider } from '../core/geometry/surface-config';
 import { GeometryKind } from '../core/geometry/utils';
 import { ScatterConfigProvider } from '../core/scatter/config';
+import { VolumeConfigProvider } from '../core/volume/config';
 import { type VisDef } from '../models';
 import {
+  NxComplexCurveContainer,
   NxComplexLineContainer,
   NxCurveContainer,
   NxHeatmapContainer,
@@ -36,9 +39,10 @@ import {
   NxRgbContainer,
   NxScatterContainer,
   NxSurfaceContainer,
+  NxVolumeContainer,
 } from './containers';
 import NxNoteContainer from './containers/NxNoteContainer';
-import { findAxesDatasets } from './utils';
+import { findAxesDatasets, isPrimaryVolume, supportsVolume } from './utils';
 
 export const NX_NOTE_VIS = {
   name: 'NX Note',
@@ -49,6 +53,9 @@ export const NX_NOTE_VIS = {
 export enum NxDataVis {
   NxLine = 'NX Line',
   NxComplexLine = 'NX Complex Line',
+  NxComplexCurve = 'NX Complex Curve',
+  // Before heatmap, so heatmap remains the default (i.e. last) vis when no vis is primary, as in the core pack
+  NxVolume = 'NX Volume',
   NxHeatmap = 'NX Heatmap',
   NxRGB = 'NX RGB',
   NxScatter = 'NX Scatter',
@@ -63,7 +70,11 @@ export interface NxDataVisDef extends VisDef {
     interpretation: string | undefined,
     dataContext: DataContextValue,
   ) => Promise<boolean>;
-  isPrimary: (interpretation: string | undefined) => boolean;
+  isPrimary: (
+    interpretation: string | undefined,
+    signal: Dataset<ArrayShape, NumericLikeType | ComplexType>,
+    axisDatasets: (Dataset | undefined)[],
+  ) => boolean;
 }
 
 export const NX_DATA_VIS = {
@@ -76,6 +87,16 @@ export const NX_DATA_VIS = {
     isPrimary: (interpretation) => interpretation === NxInterpretation.Spectrum,
   },
 
+  // Before complex line plot, which stays the default for complex signals
+  [NxDataVis.NxComplexCurve]: {
+    name: NxDataVis.NxComplexCurve,
+    Icon: MdGesture,
+    Container: NxComplexCurveContainer,
+    ConfigProvider: ComplexCurveConfigProvider,
+    supports: async (_, signal) => hasComplexType(signal),
+    isPrimary: () => false,
+  },
+
   [NxDataVis.NxComplexLine]: {
     name: NxDataVis.NxLine,
     Icon: FiActivity,
@@ -83,6 +104,17 @@ export const NX_DATA_VIS = {
     ConfigProvider: LineConfigProvider,
     supports: async (_, signal) => hasComplexType(signal),
     isPrimary: (interpretation) => interpretation === NxInterpretation.Spectrum,
+  },
+
+  [NxDataVis.NxVolume]: {
+    name: NxDataVis.NxVolume,
+    Icon: FiBox,
+    Container: NxVolumeContainer,
+    ConfigProvider: VolumeConfigProvider,
+    supports: async (_, signal, interpretation, dataContext) =>
+      supportsVolume(signal, interpretation, dataContext),
+    canBePreferredFor: () => false,
+    isPrimary: isPrimaryVolume,
   },
 
   [NxDataVis.NxHeatmap]: {

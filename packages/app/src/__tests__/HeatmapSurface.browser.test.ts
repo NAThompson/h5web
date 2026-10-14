@@ -76,7 +76,7 @@ test(
     const { user } = await renderApp('/arrays/twoD');
 
     await user.click(page.getByRole('button', { name: 'Invert' }));
-    await user.click(page.getByRole('button', { name: 'Keep ratio' }));
+    await user.click(page.getByRole('button', { name: 'Flip X' }));
 
     await user.click(surfaceBtn());
     await expect.element(resetViewBtn()).toBeVisible();
@@ -85,10 +85,39 @@ test(
       'aria-pressed',
       'true',
     );
-    expect(page.getByRole('button', { name: 'Keep ratio' })).toHaveAttribute(
+    expect(page.getByRole('button', { name: 'Flip X' })).toHaveAttribute(
       'aria-pressed',
-      'false',
+      'true',
     );
+  },
+  SURFACE_TEST_TIMEOUT,
+);
+
+test(
+  'keep ratio of surfaces separately from heatmaps',
+  async () => {
+    const { user } = await renderApp('/arrays/twoD');
+    const keepRatioBtn = page.getByRole('button', { name: 'Keep ratio' });
+
+    // Heatmaps keep their ratio by default; surfaces don't when axes have no unit
+    expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+    await user.click(surfaceBtn());
+    await expect.element(resetViewBtn()).toBeVisible();
+    expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(keepRatioBtn);
+    expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+
+    // Back to 2D: heatmap setting untouched
+    await user.click(surfaceBtn());
+    expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+    await user.click(keepRatioBtn);
+    expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
+
+    // ... and surface setting kept
+    await user.click(surfaceBtn());
+    await expect.element(resetViewBtn()).toBeVisible();
+    expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
   },
   SURFACE_TEST_TIMEOUT,
 );
@@ -148,15 +177,16 @@ test(
   SURFACE_TEST_TIMEOUT,
 );
 
-test('offer 3D surface for NeXus images but not for complex heatmaps', async () => {
+test('offer 3D surface for NeXus images, including complex ones', async () => {
   const { selectNexusExplorerNode } = await renderApp('/nexus/image');
 
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
   expect(surfaceBtn()).toBeVisible();
 
+  // Complex images are shown as analytic landscapes, cf. `ComplexSurface.browser.test.ts`
   await selectNexusExplorerNode('image_complex');
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
-  expect(surfaceBtn()).not.toBeInTheDocument();
+  expect(surfaceBtn()).toBeVisible();
 });
 
 test(

@@ -19,11 +19,13 @@ import { useConfirmedSize } from './fetch-confirmation';
 import { getGuardKey, getMaxAutoFetchSize } from './LargeValueGuard';
 import { type NxData } from './nexus/models';
 import { getNxValueRequests } from './nexus/NxValuesFetcher';
+import { type PlaybackRangeValue } from './playback-range';
 import {
   createPrefetchState,
   prefetchSlices,
   releasePrefetches,
 } from './prefetch';
+import { useSequenceRange } from './sequence-range';
 
 export type SlicingProps = Required<
   Pick<
@@ -34,19 +36,38 @@ export type SlicingProps = Required<
     | 'prefetchSlices'
     | 'playbackSettings'
     | 'onPlaybackSettingsChange'
+    | 'onPlayingDimChange'
   >
->;
+> &
+  Pick<DimensionMapperProps, 'playingDim' | 'playbackRangeHint'>;
+
+export interface Slicing {
+  slicingProps: SlicingProps; // to pass to `DimensionMapper`
+  playbackRange: PlaybackRangeValue | undefined; // to provide with `PlaybackRangeContext`
+}
+
+type GetRequests = (selection: string | undefined) => ValueQueryParams[];
+type MapMapping = (mapping: DimensionMapping) => DimensionMapping;
 
 /* Props to pass to `DimensionMapper` for fast slicing and playback, given the values a vis
- * fetches for a selection (the same values passed to `LargeValueGuard`). `mapMapping` converts
- * the dimension mapper's mapping to the vis' (e.g. for multi-plotting). */
+ * fetches for a selection (the same values passed to `LargeValueGuard`), and the value range
+ * to use while playing. `mapMapping` converts the dimension mapper's mapping to the vis' (e.g.
+ * for multi-plotting). */
+export interface SlicingOpts {
+  mapMapping?: MapMapping;
+  withPlaybackRange?: boolean; // for visualizations with an axis or colour domain
+}
+
 export function useSlicingProps(
-  getRequests: (selection: string | undefined) => ValueQueryParams[],
-  mapMapping: (mapping: DimensionMapping) => DimensionMapping = (m) => m,
-): SlicingProps {
+  getRequests: GetRequests,
+  dimMapping: DimensionMapping,
+  opts: SlicingOpts = {},
+): Slicing {
+  const { mapMapping = (m) => m, withPlaybackRange = false } = opts;
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
   const [playbackSettings, setPlaybackSettings] = usePlaybackSettingsState();
+  const [playingDim, setPlayingDim] = useState<number>();
 
   // Prefetch only what `LargeValueGuard` would let through in this vis
   const [confirmedSize] = useConfirmedSize(getGuardKey(getRequests(undefined)));
@@ -56,11 +77,23 @@ export function useSlicingProps(
     releasePrefetches(dataContext, state);
   });
 
+  const { playbackRange, isRangePending, rangeHint, startSequence } =
+    useSequenceRange({
+      dataContext,
+      prefetchState: state,
+      getRequests,
+      dimMapping,
+      mapMapping,
+      range: withPlaybackRange ? playbackSettings.range : 'frame',
+      playingDim,
+      maxAutoFetchSize,
+    });
+
   function requestsFor(mapping: DimensionMapping): ValueQueryParams[] {
     return getRequests(getSliceSelection(mapMapping(mapping)));
   }
 
-  return {
+  const slicingProps: SlicingProps = {
     // Sliced values in cache: no need to wait for debounce
     canSliceFast: (mapping) =>
       requestsFor(mapping)
@@ -71,6 +104,7 @@ export function useSlicingProps(
 
     // Playback can show slices whose values are in cache or failed to load (to show the error)
     isSliceReady: (mapping) =>
+      !isRangePending() &&
       requestsFor(mapping).every(
         ({ dataset, selection }) =>
           isValueInCache(dataContext, dataset, selection) ||
@@ -88,22 +122,39 @@ export function useSlicingProps(
       ),
     playbackSettings,
     onPlaybackSettingsChange: setPlaybackSettings,
+    playingDim,
+    onPlayingDimChange: (dim) => {
+      setPlayingDim(dim);
+      if (dim !== undefined) {
+        startSequence(dim);
+      }
+    },
+    playbackRangeHint: rangeHint,
   };
+
+  return { slicingProps, playbackRange };
 }
 
 export function useDatasetSlicingProps(
   dataset: Dataset<ScalarShape | ArrayShape>,
-  mapMapping?: (mapping: DimensionMapping) => DimensionMapping,
-): SlicingProps {
-  return useSlicingProps((selection) => [{ dataset, selection }], mapMapping);
+  dimMapping: DimensionMapping,
+  opts?: SlicingOpts,
+): Slicing {
+  return useSlicingProps(
+    (selection) => [{ dataset, selection }],
+    dimMapping,
+    opts,
+  );
 }
 
 export function useNxSlicingProps(
   nxData: NxData,
-  mapMapping?: (mapping: DimensionMapping) => DimensionMapping,
-): SlicingProps {
+  dimMapping: DimensionMapping,
+  opts?: SlicingOpts,
+): Slicing {
   return useSlicingProps(
     (selection) => Object.values(getNxValueRequests(nxData, selection)),
-    mapMapping,
+    dimMapping,
+    opts,
   );
 }

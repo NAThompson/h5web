@@ -39,16 +39,17 @@ export async function getDimScales(
 ): Promise<AxisMapping<DimScale>> {
   const { dims } = dataset.shape;
 
+  const { queryClient, queries } = dataContext;
   const [labels, scales] = await Promise.all([
     getDimLabels(dataset, dataContext),
-    dataContext.getDimensionScales?.(dataset) ?? [], // providers that can't dereference `DIMENSION_LIST` plot against indices
+    queryClient.query(queries.dimensionScales(dataset)), // shared with curve detection
   ]);
 
   return Promise.all(
     dims.map(async (dimSize, index) => {
       const label = labels[index];
       const scale = await findUsableScale(
-        scales[index] || [],
+        scales?.[index] || [], // providers that can't dereference `DIMENSION_LIST` plot against indices
         dimSize,
         dataContext,
       );

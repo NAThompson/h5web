@@ -54,6 +54,30 @@ export interface HeatmapConfig {
   shading: boolean;
   setShading: (shading: boolean) => void;
 
+  /* Keep ratio of 3D surfaces, separate from 2D: surfaces of axes in unrelated units are
+   * unreadable slivers when their ratio is kept (e.g. Re(s) in [-2, 4] vs. Im(s) in [-5, 40]) */
+  surfaceKeepRatio: boolean;
+  setSurfaceKeepRatio: (surfaceKeepRatio: boolean) => void;
+
+  /* What height and colour show on 3D surfaces of complex values, separate from 2D:
+   * phase & amplitude = height |f|, colour arg f (default); amplitude = both |f|; phase = both arg f */
+  surfaceComplexVisType: ComplexHeatmapVisType;
+  setSurfaceComplexVisType: (
+    surfaceComplexVisType: ComplexHeatmapVisType,
+  ) => void;
+
+  /* Domain of the height of 3D surfaces of complex values, which may not show the same
+   * quantity as the 2D heatmap (e.g. amplitude in 3D, phase in 2D) */
+  surfaceCustomDomain: CustomDomain;
+  setSurfaceCustomDomain: (surfaceCustomDomain: CustomDomain) => void;
+
+  /* Cyclic colour map for the phase of complex values, in 2D and 3D */
+  phaseColorMap: ColorMap;
+  setPhaseColorMap: (phaseColorMap: ColorMap) => void;
+
+  invertPhaseColorMap: boolean;
+  setInvertPhaseColorMap: (invertPhaseColorMap: boolean) => void;
+
   contourMode: ContourMode;
   setContourMode: (contourMode: ContourMode) => void;
 
@@ -114,6 +138,24 @@ function createHeatmapConfigStore() {
         shading: true,
         setShading: (shading) => set({ shading }),
 
+        surfaceKeepRatio: false,
+        setSurfaceKeepRatio: (surfaceKeepRatio) => set({ surfaceKeepRatio }),
+
+        surfaceComplexVisType: ComplexVisType.PhaseAmplitude,
+        setSurfaceComplexVisType: (surfaceComplexVisType) =>
+          set({ surfaceComplexVisType }),
+
+        surfaceCustomDomain: [null, null],
+        setSurfaceCustomDomain: (surfaceCustomDomain) =>
+          set({ surfaceCustomDomain }),
+
+        phaseColorMap: 'HSL',
+        setPhaseColorMap: (phaseColorMap) => set({ phaseColorMap }),
+
+        invertPhaseColorMap: false,
+        setInvertPhaseColorMap: (invertPhaseColorMap) =>
+          set({ invertPhaseColorMap }),
+
         contourMode: ContourMode.Off,
         setContourMode: (contourMode) => set({ contourMode }),
 
@@ -138,7 +180,13 @@ function createHeatmapConfigStore() {
         version: 12,
         // 3D mode is opt-in for the session: don't open datasets in 3D after a reload
         // Custom contour levels are dataset-specific: don't restore them after a reload either
-        partialize: ({ surface, contourLevels, ...state }) => state,
+        // Custom domain of complex surfaces is dataset-specific
+        partialize: ({
+          surface,
+          contourLevels,
+          surfaceCustomDomain,
+          ...state
+        }) => state,
       },
     ),
   );
@@ -171,5 +219,21 @@ export function useHeatmapConfig(
     config.setKeepRatio,
   );
 
-  return { ...config, scaleType, keepRatio, setScaleType, setKeepRatio };
+  /* Surfaces keep their ratio when axes share a unit, not when units differ; without units,
+   * the stored setting applies (off by default, so surfaces of unrelated axes aren't slivers) */
+  const [surfaceKeepRatio, setSurfaceKeepRatio] = useSuggestion(
+    suggestions.keepRatio,
+    config.surfaceKeepRatio,
+    config.setSurfaceKeepRatio,
+  );
+
+  return {
+    ...config,
+    scaleType,
+    keepRatio,
+    surfaceKeepRatio,
+    setScaleType,
+    setKeepRatio,
+    setSurfaceKeepRatio,
+  };
 }

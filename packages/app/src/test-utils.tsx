@@ -226,3 +226,27 @@ export function mockDelay(): () => void {
 
   return runAll;
 }
+
+export async function flushTasks() {
+  // Let React render (its scheduler relies on `MessageChannel`, which isn't faked)
+  for (let i = 0; i < 3; i += 1) {
+    // eslint-disable-next-line no-await-in-loop -- sequential tasks
+    await new Promise<void>((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.addEventListener('message', () => resolve(), {
+        once: true,
+      });
+      channel.port1.start();
+      channel.port2.postMessage(undefined); // eslint-disable-line unicorn/require-post-message-target-origin -- not a window
+    });
+  }
+}
+
+/* Advance fake timers in small steps, letting tasks that aren't faked run in between (e.g.
+ * rendering, resolving fetched values) as they would in real time */
+export async function advanceFakeTimers(ms: number) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 25) {
+    await vi.advanceTimersByTimeAsync(Math.min(25, ms - elapsed)); // eslint-disable-line no-await-in-loop -- sequential steps
+    await flushTasks(); // eslint-disable-line no-await-in-loop -- sequential steps
+  }
+}

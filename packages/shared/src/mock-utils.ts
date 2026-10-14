@@ -22,9 +22,11 @@ import {
   cplxType,
   floatType,
   intType,
+  referenceType,
   scalarShape,
   strType,
   unknownType,
+  vlenType,
 } from './hdf5-utils';
 import {
   type MockAttribute,
@@ -332,7 +334,22 @@ export function withDimScales<T extends MockDataset<ArrayShape>>(
       ]
     : [];
 
-  return { ...withAttr(dat, labelsAttr), dimScales: scales };
+  /* As in HDF5, scales attached to a dataset show up as a `DIMENSION_LIST` attribute holding
+   * one variable-length array of object references per dimension; the references themselves
+   * can't point at mock entities, so the paths they resolve to are kept in `dimScales`. */
+  const listAttr = scales
+    ? [
+        arrayAttr(
+          'DIMENSION_LIST',
+          dat.shape.dims.map((_, index) =>
+            (scales[index] ?? []).map(() => null),
+          ),
+          { type: vlenType(referenceType()) },
+        ),
+      ]
+    : [];
+
+  return { ...withAttr(dat, [...labelsAttr, ...listAttr]), dimScales: scales };
 }
 
 /* ------------------------ */

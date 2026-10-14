@@ -23,18 +23,25 @@ import {
   getSilxStyle,
 } from './utils';
 
-export function useNxData(group: GroupWithChildren): NxData {
+export function useNxData(
+  group: GroupWithChildren,
+  opts: { signalOnly?: boolean } = {},
+): NxData {
+  const { signalOnly = false } = opts;
   const dataContext = useDataContext();
 
   return useSuspenseQuery({
-    queryKey: [dataContext.filepath, 'nxData', group.path],
-    queryFn: async () => getNxData(group, dataContext),
+    queryKey: [dataContext.filepath, 'nxData', group.path, signalOnly],
+    queryFn: async () => getNxData(group, dataContext, signalOnly),
   }).data;
 }
 
+/* With `signalOnly`, auxiliary signals and errors are neither resolved nor validated
+ * (e.g. for volumes, to which they don't apply) */
 export async function getNxData(
   group: GroupWithChildren,
   dataContext: DataContextValue,
+  signalOnly = false,
 ): Promise<NxData> {
   await assertNxDataGroup(group, dataContext);
   const signalDataset = await findSignalDataset(group, dataContext);
@@ -43,17 +50,17 @@ export async function getNxData(
     signalDataset,
     dataContext,
   );
-  const auxSignals = await findAuxiliaryDatasets(
-    group,
-    signalDataset,
-    dataContext,
-  );
+  const auxSignals = signalOnly
+    ? []
+    : await findAuxiliaryDatasets(group, signalDataset, dataContext);
 
   return {
     titleDataset: findTitleDataset(group),
     signalDef: {
       dataset: signalDataset,
-      errorDataset: findErrorDataset(group, signalDataset.name),
+      errorDataset: signalOnly
+        ? undefined
+        : findErrorDataset(group, signalDataset.name),
       ...(await getFieldInfo(signalDataset, dataContext)),
     },
     auxDefs: await Promise.all(

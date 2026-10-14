@@ -89,3 +89,11 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.hint {
+  max-width: 14em;
+  margin: 0.125rem 0 0;
+  font-size: 0.875em;
+  white-space: normal;
+  color: var(--h5w-slicingSlider-bounds--color, #333);
+}
