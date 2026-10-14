@@ -4,11 +4,12 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # Curves and surfaces with a scalar field in HDF5
 
-_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 2._
+_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 3._
 
 The idea, borrowed from ParaView: a curve or surface is a set of points in 3D, and a scalar field is defined on those points (time, curvature, temperature...). The convention reuses existing standards rather than inventing attributes:
 
 - the **CF conventions' `coordinates` attribute** ([CF §5, auxiliary coordinate variables](https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#coordinate-system)) to attach point coordinates to a field — exactly how NetCDF files describe curvilinear grids and trajectories;
+- **HDF5 dimension scales** ([HDF5 Dimension Scales](https://support.hdfgroup.org/documentation/hdf5/latest/_h5_d_s__u_g.html)) as an alternative way to attach the coordinates of a curve;
 - the **NeXus `@interpretation="vertex"`** value ([NXdata](https://manual.nexusformat.org/classes/base_classes/NXdata.html)) for an array of points without a field;
 - the **CF `featureType`** attribute ([CF §9, discrete sampling geometries](https://cfconventions.org/Data/cf-conventions/cf-conventions-1.11/cf-conventions.html#discrete-sampling-geometries)) to tell a trajectory (connected points) from other point sets;
 - CF `axis`, `standard_name`, `units`, `positive` and `long_name` attributes to identify X, Y, Z and label the axes.
@@ -41,25 +42,120 @@ A numeric dataset `F` is a scalar field on a curve or a surface if it has a stri
 
 Exactly two coordinates is _not_ a geometry: `temperature(y, x)` with `coordinates = "lon lat"` is the usual NetCDF curvilinear grid, and stays a heatmap.
 
-### Examples (h5py)
+See the [complete example](#examples-h5py) at the end.
+
+## 2. Field on a curve: HDF5 dimension scales
+
+Instead of a `coordinates` attribute, the X, Y (and optionally Z) coordinates of a curve can be attached to the **last dimension** of the field `F` as HDF5 dimension scales (h5py: `make_scale` then `dims[-1].attach_scale`). `F` may have leading dimensions, which are sliced.
+
+- **Roles**: identified as in rule 1 (`axis`, `standard_name`, `units`, `positive`), and finally by the scale's `NAME` (the name given to `make_scale`) if it is literally `x`, `y` or `z`. X and Y are required, Z is optional (a planar curve without Z lies in the `z = 0` plane). Each role must be held by a single scale.
+- **Alternatives**: HDF5 allows several scales on one dimension, usually as alternative axes (e.g. time in seconds and in hours, or bin centres and edges). Scales that do not identify as X, Y or Z, time scales, and scales whose length differs from the dimension's are ignored - in particular, a dimension carrying only alternative scales is never a curve.
+- **Connectivity**: as for 1D `coordinates`, the points form a curve only for trajectories (`featureType = "trajectory"` on `F`, or else on the root). A station time series with latitude, longitude and altitude scales stays a heatmap or line plot.
+- **Precedence**: when `F` has a `coordinates` attribute, only rule 1 applies.
+- **Surfaces**: dimension scales are 1D by definition (one value per index of a single dimension), so they cannot give the 2D coordinate grids of a parametric surface: surfaces need `coordinates`.
+
+Providers that cannot dereference `DIMENSION_LIST` (e.g. some remote servers) do not support this form.
 
 ```python
+knot_ds = f.create_group("knot_dimscales")
+knot_ds["t"] = t
+knot_ds["t"].attrs["featureType"] = "trajectory"
+for name, data in zip("xyz", (x, y, z)):
+    knot_ds[name] = data
+    knot_ds[name].make_scale(name)  # NAME "x", "y" or "z" identifies the role
+    knot_ds["t"].dims[0].attach_scale(knot_ds[name])
+```
+
+## 3. Curve without a field: NeXus `interpretation="vertex"`
+
+A numeric dataset of shape `(..., N, 2)` or `(..., N, 3)` with attribute `interpretation = "vertex"` is a **curve** through its N rows (x, y[, z]), coloured by point index (i.e. by its parameter). A 2-column array lies in the `z = 0` plane. Leading dimensions, if any, are sliced. The dataset's `units` attribute labels all three axes.
+
+An opt-in attribute is required on purpose: `(N, 3)` arrays are common (tables, RGB colours, Cartesian vectors) and must not be hijacked. `vertex` is the NeXus `NXdata/@interpretation` value meaning "the last dimension holds the coordinates of a vertex", so it is reused rather than inventing a new term.
+
+```python
+pts = f.create_dataset("helix", data=np.stack([np.cos(t), np.sin(t), t / 5], axis=-1))
+pts.attrs["interpretation"] = "vertex"
+```
+
+When a dataset has a `coordinates` attribute or a dimension-scale curve, those rules apply first.
+
+## 4. NeXus (recommended)
+
+**Recommended layout**: put each field and its coordinates in a NeXus `NXdata` group whose `signal` attribute names the field, and point the file's (or `NXentry`'s) `default` attribute to the group to open first. Selecting the group in H5Web, or the file itself, then opens the Curve or Surface visualization directly, without having to find the field among its coordinates.
+
+A NeXus `NXdata` group whose `@signal` dataset follows rule 1, 2 or 3 is offered as "NX Curve" / "NX Surface" (selected by default). NeXus has no way to give a 2D signal three spatial axes (`@axes` has one entry per signal dimension), so the signal carries the CF `coordinates` attribute - NeXus allows extra attributes. For NeXus-aware tools, also declare which signal dimensions each coordinate depends on with `AXISNAME_indices`:
+
+```python
+nxdata = entry.create_group("torus")
+nxdata.attrs.update({"NX_class": "NXdata", "signal": "K", "axes": [".", "."]})
+for name in "xyz":
+    nxdata[name] = f[f"torus/{name}"]
+    nxdata.attrs[f"{name}_indices"] = [0, 1]
+nxdata["K"] = f["torus/K"]  # has `coordinates = "x y z"`
+```
+
+## Not covered (yet)
+
+- Coordinates that vary along the sliced dimensions (moving geometry): coordinates must match the trailing dimensions only.
+- Unstructured meshes (triangles with explicit connectivity), closed-curve flags, vector fields.
+- Planar curves via `coordinates` need an explicit Z coordinate (dimension scales may omit it) (or use a vertex array for 2-column data). A flat coordinate (e.g. Z = 0 everywhere) gives a box of zero thickness along that axis.
+- `trajectoryProfile` and other CF discrete sampling geometries: only `featureType = "trajectory"` makes 1D coordinates a curve. Ragged arrays (contiguous or indexed) are not supported.
+
+## Library components
+
+The app renders these datasets with two components of `@h5web/lib`, which can be used directly:
+
+- [`Curve3DVis`](?path=/docs/visualizations-curve3dvis--docs) - props `x`, `y`, `z?` (`NumArray`) and `values?` (scalar field, defaults to point indices), plus the usual `domain`, `colorMap`, `scaleType`, `invertColorMap`, `curveType`, `lineWidth`, `pointSize`, `keepRatio`, `showGrid`...
+- [`ParamSurfaceVis`](?path=/docs/visualizations-paramsurfacevis--docs) - props `x`, `y`, `z` and `values` (2D `NdArray`s of the same shape), plus `representation` (`SurfaceRepresentation.Surface`, `Wireframe` or `SurfaceWithEdges`), `shading`, `maxVertices`...
+
+## Examples (h5py)
+
+Every group of this file is an `NXdata` group, so selecting it opens its visualization; the file opens the knot.
+
+```python
+"""Examples of the H5Web curves and surfaces convention (see CONVENTION.md).
+
+Each group is a NeXus NXdata group whose `signal` is the field, so selecting the group in
+H5Web opens the Curve or Surface visualization directly; the root `default` opens the knot.
+"""
+
 import h5py
 import numpy as np
 
-with h5py.File("geometry.h5", "w") as f:
-    # Curve: Lissajous knot coloured by its parameter t
+
+def nxdata(f, name, signal):
+    group = f.create_group(name)
+    group.attrs["NX_class"] = "NXdata"
+    group.attrs["signal"] = signal
+    return group
+
+
+with h5py.File("conv_example.h5", "w") as f:
+    f.attrs["NX_class"] = "NXroot"
+    f.attrs["default"] = "knot"  # opened when the file is selected
+
+    # Curve: Lissajous knot coloured by its parameter t (CF `coordinates`)
     t = np.linspace(0, 2 * np.pi, 1000)
-    knot = f.create_group("knot")
-    knot["x"], knot["y"], knot["z"] = np.cos(3 * t + 0.7), np.cos(5 * t + 1), np.cos(7 * t)
+    x, y, z = np.cos(3 * t + 0.7), np.cos(5 * t + 1), np.cos(7 * t)
+    knot = nxdata(f, "knot", signal="t")
+    knot["x"], knot["y"], knot["z"] = x, y, z
     knot["t"] = t
     knot["t"].attrs["coordinates"] = "x y z"
     knot["t"].attrs["featureType"] = "trajectory"  # points are connected
 
+    # Same curve, with x, y and z attached to t as HDF5 dimension scales instead
+    knot_ds = nxdata(f, "knot_dimscales", signal="t")
+    knot_ds["t"] = t
+    knot_ds["t"].attrs["featureType"] = "trajectory"
+    for name, data in zip("xyz", (x, y, z)):
+        knot_ds[name] = data
+        knot_ds[name].make_scale(name)  # NAME "x", "y" or "z" identifies the role
+        knot_ds["t"].dims[0].attach_scale(knot_ds[name])
+
     # Parametric surface: torus coloured by its Gaussian curvature
     u, v = np.meshgrid(np.linspace(0, 2 * np.pi, 64), np.linspace(0, 2 * np.pi, 128), indexing="ij")
     R, r = 2.0, 0.7
-    torus = f.create_group("torus")
+    torus = nxdata(f, "torus", signal="K")
     torus["x"] = (R + r * np.cos(u)) * np.cos(v)
     torus["y"] = (R + r * np.cos(u)) * np.sin(v)
     torus["z"] = r * np.sin(u)
@@ -75,7 +171,7 @@ with h5py.File("geometry.h5", "w") as f:
     wave.attrs["coordinates"] = "/torus/x /torus/y /torus/z"  # absolute paths work too
 
     # CF trajectory: roles identified by `axis`, `standard_name` and `units`; `time` is left out
-    traj = f.create_group("trajectory")
+    traj = nxdata(f, "trajectory", signal="temp")
     s = np.linspace(0, 20, 500)
     for name, data, attrs in [
         ("time", s, {"units": "s since 2026-01-01"}),
@@ -89,52 +185,27 @@ with h5py.File("geometry.h5", "w") as f:
     traj["temp"].attrs["coordinates"] = "time alt lat lon"
     traj["temp"].attrs["featureType"] = "trajectory"  # or as a global attribute: f.attrs["featureType"]
 
-    # Station time series: same kind of coordinates, but not a curve (stations are not connected)
-    stations = f.create_group("stations")
-    for name, units in [("lat", "degrees_north"), ("lon", "degrees_east"), ("alt", "m")]:
-        stations[name] = np.random.default_rng(0).uniform(size=20)
+    # Station time series: same kind of coordinates, but not a curve (stations are not connected):
+    # shown as an ordinary heatmap (time x station) or lines
+    stations = nxdata(f, "stations", signal="temp")
+    rng = np.random.default_rng(0)
+    alt = rng.uniform(0, 2000, size=20)  # m
+    for name, data, units in [
+        ("lat", rng.uniform(44, 48, size=20), "degrees_north"),
+        ("lon", rng.uniform(4, 10, size=20), "degrees_east"),
+        ("alt", alt, "m"),
+    ]:
+        stations[name] = data
         stations[name].attrs["units"] = units
-    stations["temp"] = np.zeros((100, 20))  # (time, station)
+    hours = np.arange(96)  # 4 days, hourly
+    diurnal = 6 * np.sin(2 * np.pi * (hours - 9) / 24)  # warmest mid-afternoon
+    lapse = -6.5e-3 * alt  # colder higher up
+    temp = 12 + diurnal[:, None] + lapse[None, :] + rng.normal(0, 0.8, size=(96, 20))
+    stations["temp"] = temp  # (time, station)
     stations["temp"].attrs["coordinates"] = "lat lon alt"
     stations["temp"].attrs["featureType"] = "timeSeries"
+    stations["temp"].attrs["units"] = "degC"
+    stations["time"] = hours
+    stations["time"].attrs["units"] = "h"
+    stations.attrs["axes"] = ["time", "."]  # NeXus axes: time along the first dimension
 ```
-
-## 2. Curve without a field: NeXus `interpretation="vertex"`
-
-A numeric dataset of shape `(..., N, 2)` or `(..., N, 3)` with attribute `interpretation = "vertex"` is a **curve** through its N rows (x, y[, z]), coloured by point index (i.e. by its parameter). A 2-column array lies in the `z = 0` plane. Leading dimensions, if any, are sliced. The dataset's `units` attribute labels all three axes.
-
-An opt-in attribute is required on purpose: `(N, 3)` arrays are common (tables, RGB colours, Cartesian vectors) and must not be hijacked. `vertex` is the NeXus `NXdata/@interpretation` value meaning "the last dimension holds the coordinates of a vertex", so it is reused rather than inventing a new term.
-
-```python
-pts = f.create_dataset("helix", data=np.stack([np.cos(t), np.sin(t), t / 5], axis=-1))
-pts.attrs["interpretation"] = "vertex"
-```
-
-When a dataset has a `coordinates` attribute, only rule 1 applies.
-
-## 3. NeXus
-
-A NeXus `NXdata` group whose `@signal` dataset follows rule 1 or 2 is offered as "NX Curve" / "NX Surface" (selected by default). NeXus has no way to give a 2D signal three spatial axes (`@axes` has one entry per signal dimension), so the signal carries the CF `coordinates` attribute - NeXus allows extra attributes. For NeXus-aware tools, also declare which signal dimensions each coordinate depends on with `AXISNAME_indices`:
-
-```python
-nxdata = entry.create_group("torus")
-nxdata.attrs.update({"NX_class": "NXdata", "signal": "K", "axes": [".", "."]})
-for name in "xyz":
-    nxdata[name] = f[f"torus/{name}"]
-    nxdata.attrs[f"{name}_indices"] = [0, 1]
-nxdata["K"] = f["torus/K"]  # has `coordinates = "x y z"`
-```
-
-## Not covered (yet)
-
-- Coordinates that vary along the sliced dimensions (moving geometry): coordinates must match the trailing dimensions only.
-- Unstructured meshes (triangles with explicit connectivity), closed-curve flags, vector fields.
-- Planar curves via `coordinates` need an explicit Z coordinate (use a vertex array for 2-column data). A flat coordinate (e.g. Z = 0 everywhere) gives a box of zero thickness along that axis.
-- `trajectoryProfile` and other CF discrete sampling geometries: only `featureType = "trajectory"` makes 1D coordinates a curve. Ragged arrays (contiguous or indexed) are not supported.
-
-## Library components
-
-The app renders these datasets with two components of `@h5web/lib`, which can be used directly:
-
-- [`Curve3DVis`](?path=/docs/visualizations-curve3dvis--docs) - props `x`, `y`, `z?` (`NumArray`) and `values?` (scalar field, defaults to point indices), plus the usual `domain`, `colorMap`, `scaleType`, `invertColorMap`, `curveType`, `lineWidth`, `pointSize`, `keepRatio`, `showGrid`...
-- [`ParamSurfaceVis`](?path=/docs/visualizations-paramsurfacevis--docs) - props `x`, `y`, `z` and `values` (2D `NdArray`s of the same shape), plus `representation` (`SurfaceRepresentation.Surface`, `Wireframe` or `SurfaceWithEdges`), `shading`, `maxVertices`...
