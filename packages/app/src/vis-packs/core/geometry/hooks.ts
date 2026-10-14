@@ -71,7 +71,8 @@ export function splitVertices(vertices: NumArray, dims: number): NumArray[] {
 }
 
 /* Curves and surfaces with a scalar field, cf. `CurvesAndSurfaces.mdx` (Storybook)
- * (cheap checks first, to avoid fetching attributes of any other dataset) */
+ * (cheap checks first, to avoid fetching attributes of any other dataset).
+ * Never rejects, so the visualization selector cannot break. */
 export async function getGeometryKind(
   dataset: Dataset,
   dataContext: DataContextValue,
@@ -85,8 +86,18 @@ export async function getGeometryKind(
     return undefined;
   }
 
-  const geometry = await dataContext.queryClient.query(
-    geometryQuery(dataset, dataContext),
-  );
-  return geometry?.kind;
+  const query = geometryQuery(dataset, dataContext);
+  try {
+    const geometry = await dataContext.queryClient.query(query);
+    return geometry?.kind;
+  } catch {
+    /* Transient error (e.g. network): the visualization selector must not break, so don't
+     * offer the visualization this time - but don't cache the failure either, so detection
+     * is attempted again next time the dataset is selected. */
+    dataContext.queryClient.removeQueries({
+      queryKey: query.queryKey,
+      exact: true,
+    });
+    return undefined;
+  }
 }
