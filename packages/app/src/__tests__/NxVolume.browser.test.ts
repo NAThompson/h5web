@@ -43,7 +43,7 @@ test('open NXdata with a 3D signal and an axis on every dimension as a volume', 
   await expect
     .element(page.getByLabelText('Gradient magnitude'), { timeout: 10_000 })
     .toHaveTextContent('|∇f| (eV per 1/a)');
-});
+}, 20_000); // WebGL contexts and extraction are slow when many test files run in parallel
 
 test('offer volume for stacks of images without making it the default', async () => {
   const { selectVisTab } = await renderApp('/nexus/image');
