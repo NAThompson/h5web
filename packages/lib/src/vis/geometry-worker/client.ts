@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { type IsosurfaceGeometry } from '../volume/marchingCubes';
 import {
   type ContourResult,
