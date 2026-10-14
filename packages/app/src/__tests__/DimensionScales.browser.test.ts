@@ -1,6 +1,12 @@
 import { expect, test } from 'vitest';
+import { page } from 'vitest/browser';
 
-import { getAxis, getDimMappingBtn, renderApp } from '../test-utils';
+import {
+  getAxis,
+  getDimMappingBtn,
+  mockConsoleMethod,
+  renderApp,
+} from '../test-utils';
 
 test('plot 1D dataset against its attached dimension scale', async () => {
   await renderApp('/dimension_scales/oneD');
@@ -52,6 +58,21 @@ test('skip a scale whose values cannot be read', async () => {
   const abscissa = await getAxis('abscissa');
   expect(abscissa.getByText('−20', { exact: true })).toBeVisible(); // an `X` value
   expect(abscissa.getByText('40', { exact: true })).not.toBeInTheDocument(); // last index
+});
+
+test('show error rather than index axis when a scale fails to fetch', async () => {
+  const errorSpy = mockConsoleMethod('error');
+  await renderApp('/dimension_scales/oneD_network_error_scale');
+
+  // A network error says nothing about the scale, so neither the next scale nor the indices are plotted
+  await expect
+    .element(page.getByText('Failed to fetch', { exact: true }))
+    .toBeVisible();
+  expect(page.getByRole('figure')).not.toBeInTheDocument();
+  errorSpy.mockRestore();
+
+  // The error is shown in the vis area, not in place of the whole visualizer
+  expect(getDimMappingBtn('x', 0)).toBeVisible();
 });
 
 test('plot 2D dataset against the scale attached to its last dimension', async () => {

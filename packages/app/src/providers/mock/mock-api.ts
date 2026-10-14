@@ -63,6 +63,10 @@ export class MockApi extends DataProviderApi {
       throw new Error('error');
     }
 
+    if (dataset.name === 'network_error_value') {
+      throw new TypeError('Failed to fetch'); // as `fetch` does on network failure
+    }
+
     if (dataset.name.startsWith('slow') && abortSignal) {
       await delay(abortSignal);
     }
