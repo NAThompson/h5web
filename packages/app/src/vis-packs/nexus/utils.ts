@@ -35,7 +35,12 @@ import {
   getAttributeValue,
   hasAttribute,
 } from '../../utils';
-import { type DefaultSlice, type FieldInfo, type SilxStyle } from './models';
+import {
+  type DefaultSlice,
+  type FieldInfo,
+  type NxData,
+  type SilxStyle,
+} from './models';
 
 export async function getNxClass(
   group: Group,
@@ -392,4 +397,13 @@ export function parseJson(value: string): unknown {
   } catch (error: unknown) {
     throw new Error('Expected valid JSON', { cause: error });
   }
+}
+
+/** NeXus data reduced to its signal: no errors, no auxiliary signals (e.g. to fetch only what is drawn). */
+export function getSignalOnly<T extends NxData>(nxData: T): T {
+  return {
+    ...nxData,
+    signalDef: { ...nxData.signalDef, errorDataset: undefined },
+    auxDefs: [],
+  };
 }

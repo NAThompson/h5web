@@ -12,6 +12,7 @@ import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
+import { getSignalOnly } from '../utils';
 
 /** Complex NeXus signal along one axis as a 3D curve (abscissa from NeXus axes, real, imaginary). */
 function NxComplexCurveContainer(props: VisContainerProps) {
@@ -32,8 +33,8 @@ function NxComplexCurveContainer(props: VisContainerProps) {
 
   const axisLabels = axisDefs.map((def) => def?.label);
   const config = useComplexCurveConfig();
-  // Auxiliary signals are not drawn, so don't fetch them (neither to render, nor to slice or play back)
-  const signalOnly = useMemo(() => ({ ...nxData, auxDefs: [] }), [nxData]);
+  // Errors and auxiliary signals are not drawn: don't fetch them (neither to render, nor to slice or play back)
+  const signalOnly = useMemo(() => getSignalOnly(nxData), [nxData]);
   const slicingProps = useNxSlicingProps(signalOnly);
 
   return (

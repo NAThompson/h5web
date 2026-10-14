@@ -1,3 +1,8 @@
+import {
+  type ArrayShape,
+  type Dataset,
+  type FloatType,
+} from '@h5web/shared/hdf5-models';
 import { arrayShape, floatType } from '@h5web/shared/hdf5-utils';
 import { arrayAttr, dataset, group } from '@h5web/shared/mock-utils';
 import { QueryClient } from '@tanstack/react-query';
@@ -8,6 +13,7 @@ import {
   applyDefaultSlice,
   findAuxErrorDataset,
   findAuxiliaryDatasets,
+  getSignalOnly,
 } from './utils';
 
 describe('applyDefaultSlice', () => {
@@ -89,5 +95,42 @@ describe('findAuxErrorDataset', () => {
     expect(
       findAuxErrorDataset(group('nx', [aux, badAuxErrors]), aux),
     ).toBeUndefined();
+  });
+});
+
+describe('getSignalOnly', () => {
+  it('should drop errors and auxiliary signals', () => {
+    const signal = dataset('signal', arrayShape([2]), floatType()) as Dataset<
+      ArrayShape,
+      FloatType
+    >;
+    const errors = dataset('errors', arrayShape([2]), floatType()) as Dataset<
+      ArrayShape,
+      FloatType
+    >;
+    const aux = dataset('aux', arrayShape([2]), floatType()) as Dataset<
+      ArrayShape,
+      FloatType
+    >;
+
+    const nxData = {
+      signalDef: {
+        dataset: signal,
+        label: 'signal',
+        unit: undefined,
+        errorDataset: errors,
+      },
+      auxDefs: [
+        { dataset: aux, label: 'aux', unit: undefined, errorDataset: errors },
+      ],
+      axisDefs: [],
+      silxStyle: {},
+    };
+
+    const signalOnly = getSignalOnly(nxData);
+    expect(signalOnly.signalDef.dataset).toBe(signal);
+    expect(signalOnly.signalDef.errorDataset).toBeUndefined();
+    expect(signalOnly.auxDefs).toEqual([]);
+    expect(nxData.signalDef.errorDataset).toBe(errors); // not mutated
   });
 });
