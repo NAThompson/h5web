@@ -1,6 +1,5 @@
 import {
   type DimensionMapping,
-  getDomain,
   HeatmapVis,
   KeepZoom,
   useDomain,
@@ -24,7 +23,7 @@ import HeatmapToolbar from '../heatmap/HeatmapToolbar';
 import { useMappedArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { usePhaseAmplitude } from './hooks';
-import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitude } from './utils';
+import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitudeDomain } from './utils';
 
 interface Props {
   value: ArrayValue<ComplexType>;
@@ -73,17 +72,14 @@ function MappedComplexHeatmapVis(props: Props) {
     useStableDomain(
       useDomain(phase, { scaleType }),
       `phase:${scaleType}`,
-      (seq) =>
-        getDomain(getPhaseAmplitude(seq as typeof value).phase, { scaleType }),
+      (seq) => getPhaseAmplitudeDomain(seq as typeof value, 'phase', scaleType),
     ) || DEFAULT_DOMAIN;
   const amplitudeDomain =
     useStableDomain(
       useDomain(amplitude, { scaleType }),
       `amplitude:${scaleType}`,
       (seq) =>
-        getDomain(getPhaseAmplitude(seq as typeof value).amplitude, {
-          scaleType,
-        }),
+        getPhaseAmplitudeDomain(seq as typeof value, 'amplitude', scaleType),
     ) || DEFAULT_DOMAIN;
 
   const [dataArray, dataDomain] =

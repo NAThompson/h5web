@@ -1,7 +1,6 @@
 import {
   ComplexVisType,
   type DimensionMapping,
-  getDomain,
   KeepZoom,
   LineVis,
   useCombinedDomain,
@@ -26,7 +25,7 @@ import { type LineConfig } from '../line/config';
 import LineToolbar from '../line/LineToolbar';
 import { DEFAULT_DOMAIN } from '../utils';
 import { usePhaseAmplitudeArrays } from './hooks';
-import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitudeArrays } from './utils';
+import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitudeDomain } from './utils';
 
 interface Props {
   value: ArrayValue<ComplexType>;
@@ -116,12 +115,11 @@ function MappedComplexLineVis(props: Props) {
         if (!valueVisible || complexVisType === ComplexVisType.PhaseUnwrapped) {
           return undefined;
         }
-        const seqArrays = getPhaseAmplitudeArrays([seq as typeof value]);
-        const [seqArray] =
-          complexVisType === ComplexVisType.Amplitude
-            ? seqArrays.amplitudeArrays
-            : seqArrays.phaseArrays;
-        return getDomain(seqArray, { scaleType: yScaleType });
+        return getPhaseAmplitudeDomain(
+          seq as ArrayValue<NumericLikeType | ComplexType>,
+          complexVisType === ComplexVisType.Amplitude ? 'amplitude' : 'phase',
+          yScaleType,
+        );
       },
     ) || DEFAULT_DOMAIN;
 
