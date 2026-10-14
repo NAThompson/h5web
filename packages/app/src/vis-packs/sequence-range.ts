@@ -18,6 +18,9 @@ import { getValueSize, MAX_SEQUENCE_RANGE_SIZE } from './utils';
 // Wait this long for the whole sequence's range before playing with the range of slices shown
 const MAX_RANGE_WAIT = 1000; // ms
 
+// Max number of slices put in cache from the values of a whole sequence
+export const MAX_SEEDED_SLICES = 500;
+
 // Complex values take much more memory than on disk once converted to `[real, imag]` tuples
 const COMPLEX_MEMORY_FACTOR = 8;
 
@@ -348,7 +351,12 @@ export function getSliceEntries(
     return []; // unexpected layout
   }
 
-  return Array.from({ length }, (_, index) => {
+  // Only seed slices coming next from the current one, to bound the number of cache entries
+  const current = dimMapping[dim];
+  const first = typeof current === 'number' ? current : 0;
+
+  return Array.from({ length: Math.min(length, MAX_SEEDED_SLICES) }, (_, n) => {
+    const index = (first + n) % length;
     const request = getSliceRequest(
       dimMapping.map((v, i) => (i === dim ? index : v)),
     );

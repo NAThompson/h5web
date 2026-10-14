@@ -32,6 +32,9 @@ export function trackPlaybackQuery(
   getPlaybackQueries(queryClient).add(hashKey(queryKey));
 }
 
+// Rough memory taken by a cache entry besides its value (query, observers, keys...)
+const CACHE_ENTRY_OVERHEAD = 1024; // bytes
+
 export interface PrefetchLimits {
   maxPrefetchSize: number; // max size of slices fetched ahead of the current one (the next slice is always fetched)
   maxCacheSize: number; // max size of slices kept in cache after being fetched for playback
@@ -127,7 +130,7 @@ export function prefetchSlices(
       state.fetched.delete(hash);
       state.fetched.set(hash, {
         queryKey: options.queryKey,
-        size: getValueSize(dataset, selection),
+        size: getValueSize(dataset, selection) + CACHE_ENTRY_OVERHEAD,
       });
 
       if (query?.state.fetchStatus !== 'fetching') {
@@ -183,7 +186,8 @@ export function seedSlices(
     state.fetched.delete(hash);
     state.fetched.set(hash, {
       queryKey,
-      size: getValueSize(request.dataset, request.selection),
+      size:
+        getValueSize(request.dataset, request.selection) + CACHE_ENTRY_OVERHEAD,
     });
   }
 

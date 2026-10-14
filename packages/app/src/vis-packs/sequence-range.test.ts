@@ -3,7 +3,7 @@ import { arrayShape, floatType } from '@h5web/shared/hdf5-utils';
 import { dataset } from '@h5web/shared/mock-utils';
 import { describe, expect, it } from 'vitest';
 
-import { getSliceEntries } from './sequence-range';
+import { getSliceEntries, MAX_SEEDED_SLICES } from './sequence-range';
 
 // Dims [2, 3, 4], values 0 to 23
 const ds = dataset('cube', arrayShape([2, 3, 4]), floatType(64));
@@ -81,5 +81,26 @@ describe('getSliceEntries', () => {
         toRequest,
       ),
     ).toStrictEqual([]);
+  });
+
+  it('should only split slices coming next, up to a limit', () => {
+    const longDs = dataset('long', arrayShape([600, 2]), floatType(64));
+    const long = Float64Array.from({ length: 1200 }, (_, i) => i);
+    function toLongRequest(mapping: (number | 'x' | 'y' | null)[]) {
+      return { dataset: longDs, selection: getSliceSelection(mapping) };
+    }
+
+    const entries = getSliceEntries(
+      long,
+      toLongRequest([null, 'x']),
+      [550, 'x'],
+      0,
+      toLongRequest,
+    );
+
+    expect(entries).toHaveLength(MAX_SEEDED_SLICES);
+    expect(entries[0].request.selection).toBe('550,:');
+    expect(entries[50].request.selection).toBe('0,:'); // wraps around
+    expect([...(entries[0].value as Float64Array)]).toStrictEqual([1100, 1101]);
   });
 });
