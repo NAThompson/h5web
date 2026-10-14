@@ -1,4 +1,5 @@
 import { mockValues } from '@h5web/lib';
+import { type H5WebComplex } from '@h5web/shared/hdf5-models';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,6 +7,7 @@ import {
   getCurveAbscissas,
   getPhaseAmplitude,
   getRealImag,
+  getRealImagDomain,
   unwrapPhase,
 } from './utils';
 
@@ -115,5 +117,23 @@ describe('decimateCurve', () => {
     expect(dx.length).toBeLessThanOrEqual(4);
     expect(dx[0]).toBe(0);
     expect(dx.at(-1)).toBe(10);
+  });
+});
+
+describe('getRealImagDomain', () => {
+  it('should get domain of real or imaginary parts', () => {
+    const values: H5WebComplex[] = [
+      [1, -2],
+      [-3, 4],
+      [Number.NaN, 0.5],
+    ];
+    expect(getRealImagDomain(values, 'real')).toEqual([-3, 1]);
+    expect(getRealImagDomain(values, 'imag')).toEqual([-2, 4]);
+  });
+
+  it('should consider real numbers as having no imaginary parts', () => {
+    expect(getRealImagDomain([2, -1, 5], 'real')).toEqual([-1, 5]);
+    expect(getRealImagDomain([2, -1, 5], 'imag')).toEqual([0, 0]);
+    expect(getRealImagDomain([], 'real')).toBeUndefined();
   });
 });

@@ -18,9 +18,9 @@ import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { useStableDomain } from '../../playback-range';
 import { LINE_WIDTH_PX } from '../geometry/config';
 import { useMappedArray, useToNumArrays } from '../hooks';
-import { useStableDomain } from '../../playback-range';
 import { DEFAULT_DOMAIN } from '../utils';
 import ComplexCurveToolbar from './ComplexCurveToolbar';
 import { type ComplexCurveConfig } from './curve-config';
@@ -29,6 +29,7 @@ import {
   decimateCurve,
   getCurveAbscissas,
   getPhaseAmplitudeDomain,
+  getRealImagDomain,
 } from './utils';
 
 // Colour domain of phase: fixed, so that a cyclic colour map wraps around at ±π
@@ -95,6 +96,18 @@ function MappedComplexCurveVis(props: Props) {
   const visDomain = useVisDomain(customDomain, amplitudeDomain);
   const [safeDomain] = useSafeDomain(visDomain, amplitudeDomain, scaleType);
 
+  // During playback, keep Re and Im axes still: include ranges of whole sequence (or of slices shown so far)
+  const realDomain = useStableDomain(
+    useDomain(realArray),
+    'real',
+    (seq) => getRealImagDomain(seq as typeof value, 'real'),
+  );
+  const imagDomain = useStableDomain(
+    useDomain(imagArray),
+    'imag',
+    (seq) => getRealImagDomain(seq as typeof value, 'imag'),
+  );
+
   const xDimIndex = dimMapping.indexOf('x');
   const count = realArray.size;
   const abscissas = useMemo(
@@ -145,6 +158,7 @@ function MappedComplexCurveVis(props: Props) {
         showGrid={showGrid}
         curveType={curveType}
         lineWidth={LINE_WIDTH_PX[lineWidth]}
+        axisDomains={[undefined, realDomain, imagDomain]}
       />
     </>
   );

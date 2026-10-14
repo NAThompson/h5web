@@ -216,3 +216,30 @@ export function getPhaseAmplitudeDomain(
 
   return bounds && getValidDomainForScale(bounds, scaleType);
 }
+
+/** Domain of the real or imaginary parts of complex values (real numbers have no imaginary part). */
+export function getRealImagDomain(
+  values: ArrayValue<NumericLikeType | ComplexType>,
+  part: 'real' | 'imag',
+): Domain | undefined {
+  const complexValues = isComplexArray(values) ? values : undefined;
+  const realValues = complexValues
+    ? undefined
+    : toNumArray(values as ArrayValue<NumericLikeType>);
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < values.length; i += 1) {
+    const val = complexValues
+      ? complexValues[i][part === 'real' ? 0 : 1]
+      : part === 'real'
+        ? (realValues?.[i] ?? Number.NaN)
+        : 0;
+    if (Number.isFinite(val)) {
+      min = Math.min(min, val);
+      max = Math.max(max, val);
+    }
+  }
+
+  return min > max ? undefined : [min, max];
+}

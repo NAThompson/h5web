@@ -43,6 +43,9 @@ interface Props extends ClassStyleAttrs {
   lineWidth?: number;
   pointSize?: number;
   ignoreValue?: IgnoreValue;
+  /* Domains to include in the axes along x, y and z, on top of the extent of the curve
+   * (e.g. to keep axes still while playing through slices) */
+  axisDomains?: [Domain?, Domain?, Domain?];
 }
 
 function Curve3DVis(props: PropsWithChildren<Props>) {
@@ -66,6 +69,7 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
     lineWidth = 2,
     pointSize = 6,
     ignoreValue,
+    axisDomains = [],
     children,
     className,
     style,
@@ -88,13 +92,14 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
     [domain, field, scaleType, ignoreValue],
   );
 
+  const [xAxisDomain, yAxisDomain, zAxisDomain] = axisDomains;
   const domains = useMemo<[Domain, Domain, Domain]>(
     () => [
-      getExtentDomain(x),
-      getExtentDomain(y),
-      z ? getExtentDomain(z) : getExtentDomain([0]),
+      getExtentDomain(x, xAxisDomain ?? []),
+      getExtentDomain(y, yAxisDomain ?? []),
+      getExtentDomain(z ?? [0], zAxisDomain ?? []),
     ],
-    [x, y, z],
+    [x, y, z, xAxisDomain, yAxisDomain, zAxisDomain],
   );
 
   const [w, h, d] = getBoxSize(domains, keepRatio);
