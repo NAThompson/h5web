@@ -26,6 +26,10 @@ function sequence(
   ).map(({ value }) => value);
 }
 
+function allReady(): boolean {
+  return true;
+}
+
 describe('getNextFrame', () => {
   it('should loop back to start', () => {
     expect(sequence('loop', 4, 1, 1, 6)).toStrictEqual([2, 3, 0, 1, 2, 3]);
@@ -106,8 +110,6 @@ describe('tickPlayback', () => {
     frameTime: 0,
   };
 
-  const allReady = () => true;
-
   it('should wait until next frame is due', () => {
     const res = tickPlayback(clock, 40, settings(), allReady);
     expect(res.clock).toBe(clock);
@@ -131,8 +133,7 @@ describe('tickPlayback', () => {
   });
 
   it('should wait for next frame to be ready', () => {
-    const isReady = (val: number) => val !== 1;
-    const res = tickPlayback(clock, 100, settings(), isReady);
+    const res = tickPlayback(clock, 100, settings(), (val) => val !== 1);
 
     expect(res.clock).toBe(clock); // no advance
     expect(res.delay).toBe(READY_POLL_INTERVAL);
@@ -153,8 +154,12 @@ describe('tickPlayback', () => {
   });
 
   it('should show furthest ready frame in real-time mode', () => {
-    const isReady = (val: number) => val <= 3;
-    const res = tickPlayback(clock, 550, settings('realtime'), isReady);
+    const res = tickPlayback(
+      clock,
+      550,
+      settings('realtime'),
+      (val) => val <= 3,
+    );
     expect(res.clock.cursor.value).toBe(3);
     expect(res.clock.frameTime).toBe(300);
 
@@ -163,8 +168,12 @@ describe('tickPlayback', () => {
   });
 
   it('should not advance in real-time mode when no due frame is ready', () => {
-    const isReady = (val: number) => val > 5;
-    const res = tickPlayback(clock, 550, settings('realtime'), isReady);
+    const res = tickPlayback(
+      clock,
+      550,
+      settings('realtime'),
+      (val) => val > 5,
+    );
     expect(res.clock).toBe(clock);
     expect(res.upcoming).toStrictEqual([5, 6, 7, 8, 9]);
   });
