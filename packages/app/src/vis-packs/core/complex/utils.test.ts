@@ -1,7 +1,12 @@
 import { mockValues } from '@h5web/lib';
 import { describe, expect, it } from 'vitest';
 
-import { getPhaseAmplitude, unwrapPhase } from './utils';
+import {
+  getCurveAbscissas,
+  getPhaseAmplitude,
+  getRealImag,
+  unwrapPhase,
+} from './utils';
 
 const VALUES = mockValues.oneD_complex().data;
 
@@ -56,5 +61,31 @@ describe('unwrapPhase', () => {
 
     const unwrapped2 = unwrapPhase(new Float64Array([2 * Math.PI]));
     expect(unwrapped2).toStrictEqual(new Float64Array([2 * Math.PI]));
+  });
+});
+
+describe('getRealImag', () => {
+  it('should split complex values into real and imaginary parts', () => {
+    const { real, imag } = getRealImag([
+      [1, 2],
+      [-3, 0.5],
+    ]);
+    expect([...real]).toEqual([1, -3]);
+    expect([...imag]).toEqual([2, 0.5]);
+  });
+});
+
+describe('getCurveAbscissas', () => {
+  it('should return indices without axis values', () => {
+    expect([...getCurveAbscissas(undefined, 3)]).toEqual([0, 1, 2]);
+  });
+
+  it('should return axis values as is when one per point', () => {
+    const values = [0, 0.5, 2];
+    expect(getCurveAbscissas(values, 3)).toBe(values);
+  });
+
+  it('should return mid-points of bin edges', () => {
+    expect([...getCurveAbscissas([0, 2, 6, 8], 3)]).toEqual([1, 4, 7]);
   });
 });

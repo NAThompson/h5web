@@ -35,6 +35,43 @@ export function getPhaseAmplitude(values: H5WebComplex[]): {
   return { phase, amplitude };
 }
 
+export function getRealImag(values: H5WebComplex[]): {
+  real: Float64Array;
+  imag: Float64Array;
+} {
+  const real = new Float64Array(values.length);
+  const imag = new Float64Array(values.length);
+
+  values.forEach(([re, im], i) => {
+    real[i] = re;
+    imag[i] = im;
+  });
+
+  return { real, imag };
+}
+
+/**
+ * Abscissa of each of the `count` points of a curve: axis values as is, mid-points if axis values
+ * are bin edges (i.e. `count + 1` values), or indices if there are no (or too few) axis values.
+ */
+export function getCurveAbscissas(
+  axisValues: NumArray | undefined,
+  count: number,
+): NumArray {
+  if (!axisValues || axisValues.length < count) {
+    return Float64Array.from({ length: count }, (_, i) => i);
+  }
+
+  if (axisValues.length > count) {
+    return Float64Array.from(
+      { length: count },
+      (_, i) => (axisValues[i] + axisValues[i + 1]) / 2,
+    );
+  }
+
+  return axisValues;
+}
+
 // Unwrap phase values by removing 2π discontinuities
 export function unwrapPhase(values: Float64Array): Float64Array {
   const unwrapped = new Float64Array(values.length);

@@ -1,0 +1,64 @@
+import { expect, test } from 'vitest';
+import { page } from 'vitest/browser';
+
+import { getSelectedVisTab, getVisTabs, renderApp } from '../test-utils';
+import { Vis } from '../vis-packs/core/visualizations';
+import { NxDataVis } from '../vis-packs/nexus/visualizations';
+
+// Rendering in 3D creates a WebGL context (slow with SwiftShader), cf. `HeatmapSurface.browser.test.ts`
+const CURVE_TEST_TIMEOUT = 20_000;
+
+test(
+  'show complex 1D dataset as 3D curve coloured by phase or amplitude',
+  async () => {
+    const { user, selectVisTab } = await renderApp('/arrays/oneD_complex');
+
+    // Amplitude/phase line plot stays the default
+    expect(getVisTabs()).toEqual([Vis.Matrix, Vis.ComplexCurve, Vis.Line]);
+    expect(getSelectedVisTab()).toBe(Vis.Line);
+
+    await selectVisTab(Vis.ComplexCurve);
+
+    const phaseFigure = page.getByRole('figure', {
+      name: 'oneD_complex (coloured by phase)',
+    });
+    await expect.element(phaseFigure).toBeVisible();
+    expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible();
+
+    // Phase is mapped over [-π, π] with a cyclic colour map; no domain/scale controls
+    expect(phaseFigure.getByLabelText(/^Min: [-−]3\.142e\+0$/u)).toBeVisible();
+    expect(phaseFigure.getByLabelText('Max: 3.142e+0')).toBeVisible();
+    expect(page.getByRole('combobox', { name: /HSL/u })).toBeVisible();
+    expect(
+      page.getByRole('button', { name: 'Edit domain' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(page.getByRole('combobox', { name: 'φ Phase' }));
+    await user.click(page.getByRole('option', { name: '𝓐 Amplitude' }));
+
+    const amplitudeFigure = page.getByRole('figure', {
+      name: 'oneD_complex (coloured by amplitude)',
+    });
+    await expect.element(amplitudeFigure).toBeVisible();
+    expect(page.getByRole('combobox', { name: /Viridis/u })).toBeVisible();
+    expect(page.getByRole('button', { name: 'Edit domain' })).toBeVisible();
+  },
+  CURVE_TEST_TIMEOUT,
+);
+
+test(
+  'show complex NeXus signal as 3D curve',
+  async () => {
+    const { selectVisTab } = await renderApp('/nexus/spectrum_complex');
+    expect(getSelectedVisTab()).toBe(NxDataVis.NxLine);
+
+    await selectVisTab(NxDataVis.NxComplexCurve);
+    await expect
+      .element(page.getByRole('button', { name: 'Reset view' }))
+      .toBeVisible();
+    expect(
+      page.getByRole('figure', { name: /coloured by phase/u }),
+    ).toBeVisible();
+  },
+  CURVE_TEST_TIMEOUT,
+);

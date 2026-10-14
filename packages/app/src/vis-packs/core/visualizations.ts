@@ -24,6 +24,8 @@ import { MdGesture, MdLandscape } from 'react-icons/md';
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
 import { type VisDef } from '../models';
+import ComplexCurveVisContainer from './complex/ComplexCurveVisContainer';
+import { ComplexCurveConfigProvider } from './complex/curve-config';
 import {
   HeatmapConfigProvider,
   LineConfigProvider,
@@ -57,6 +59,7 @@ export enum Vis {
   Heatmap = 'Heatmap',
   ComplexHeatmap = 'ComplexHeatmap',
   ComplexLine = 'ComplexLine',
+  ComplexCurve = 'Complex Curve',
   RGB = 'RGB',
   Compound = 'Compound',
   Volume = 'Volume',
@@ -97,6 +100,17 @@ export const CORE_VIS = {
     ConfigProvider: LineConfigProvider,
     supportsDataset: async (dataset) => {
       return hasArrayShape(dataset) && hasNumericLikeType(dataset);
+    },
+  },
+
+  // Before complex line plot, which stays the default for complex datasets
+  [Vis.ComplexCurve]: {
+    name: Vis.ComplexCurve,
+    Icon: MdGesture,
+    Container: ComplexCurveVisContainer,
+    ConfigProvider: ComplexCurveConfigProvider,
+    supportsDataset: async (dataset) => {
+      return hasArrayShape(dataset) && hasComplexType(dataset);
     },
   },
 

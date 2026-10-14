@@ -17,6 +17,7 @@ import { MdGesture, MdGrain, MdLandscape } from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
+import { ComplexCurveConfigProvider } from '../core/complex/curve-config';
 import {
   HeatmapConfigProvider,
   LineConfigProvider,
@@ -29,6 +30,7 @@ import { GeometryKind } from '../core/geometry/utils';
 import { ScatterConfigProvider } from '../core/scatter/config';
 import { type VisDef } from '../models';
 import {
+  NxComplexCurveContainer,
   NxComplexLineContainer,
   NxCurveContainer,
   NxHeatmapContainer,
@@ -49,6 +51,7 @@ export const NX_NOTE_VIS = {
 export enum NxDataVis {
   NxLine = 'NX Line',
   NxComplexLine = 'NX Complex Line',
+  NxComplexCurve = 'NX Complex Curve',
   NxHeatmap = 'NX Heatmap',
   NxRGB = 'NX RGB',
   NxScatter = 'NX Scatter',
@@ -74,6 +77,16 @@ export const NX_DATA_VIS = {
     ConfigProvider: LineConfigProvider,
     supports: async (_, signal) => !hasComplexType(signal),
     isPrimary: (interpretation) => interpretation === NxInterpretation.Spectrum,
+  },
+
+  // Before complex line plot, which stays the default for complex signals
+  [NxDataVis.NxComplexCurve]: {
+    name: NxDataVis.NxComplexCurve,
+    Icon: MdGesture,
+    Container: NxComplexCurveContainer,
+    ConfigProvider: ComplexCurveConfigProvider,
+    supports: async (_, signal) => hasComplexType(signal),
+    isPrimary: () => false,
   },
 
   [NxDataVis.NxComplexLine]: {
