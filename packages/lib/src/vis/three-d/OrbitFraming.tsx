@@ -113,6 +113,12 @@ function OrbitFraming(props: Props) {
       return;
     }
 
+    // From or to a flat box (e.g. planar curve), the view cannot be scaled: frame it anew
+    if (prevHeight === 0 || zHeight === 0) {
+      frameRef.current();
+      return;
+    }
+
     const zRatio = zHeight / prevHeight;
     const sizeRatio =
       getBoxRadius(w, h, zHeight) / getBoxRadius(w, h, prevHeight);
