@@ -260,9 +260,13 @@ function Axes3D(props: Props) {
       300,
       Array.isArray(scaleType) ? scaleType[0] : scaleType,
     );
-    const zTicks = zScale
-      .ticks(Math.max(Math.round(zHeight * 8), 2))
-      .filter((val) => zFormatter(val) !== '');
+    // Flat box (e.g. planar curve): no Z axis to annotate
+    const zTicks =
+      zHeight > 0
+        ? zScale
+            .ticks(Math.max(Math.round(zHeight * 8), 2))
+            .filter((val) => zFormatter(val) !== '')
+        : [];
 
     const xNear = (sx * w) / 2;
     const xFar = -xNear;
@@ -355,7 +359,7 @@ function Axes3D(props: Props) {
       },
     );
 
-    if (zConfig.label) {
+    if (zConfig.label && zHeight > 0) {
       texts.push({
         key: 'z-label',
         text: zConfig.label,
