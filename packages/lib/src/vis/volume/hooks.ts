@@ -278,7 +278,11 @@ export function useIsosurfaces(
           const retries = retriesRef.current.get(key) ?? 0;
           const isRetryable =
             error_ instanceof WorkerError && !error_.isLoadFailure;
-          if (isRetryable && retries < 1) {
+          const isLoadFailure =
+            error_ instanceof WorkerError && error_.isLoadFailure;
+          if (isLoadFailure) {
+            // Worker can't run here: the effect runs again and falls back to the main thread
+          } else if (isRetryable && retries < 1) {
             retriesRef.current.set(key, retries + 1);
           } else {
             fail(key, error_ as Error);
