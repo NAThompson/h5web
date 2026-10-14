@@ -92,10 +92,24 @@ describe('initPlaybackClock', () => {
 
   it('should restart from beginning when at the end in once mode', () => {
     const params = { length: 5, stride: 1, mode: 'once' } as const;
-    expect(initPlaybackClock(4, params, 0).cursor.value).toBe(0);
+    const clock = initPlaybackClock(4, params, 0);
+    expect(clock.restart).toBe(true);
+
+    // Restart slice is prefetched, then shown once ready
+    const settings = { ...params, fps: 10, timing: 'wait' } as const;
+    expect(tickPlayback(clock, 0, settings, allReady).upcoming).toStrictEqual([
+      0, 1, 2, 3, 4,
+    ]);
+    expect(tickPlayback(clock, 100, settings, noneReady).clock).toBe(clock);
+
+    const res = tickPlayback(clock, 100, settings, allReady);
+    expect(res.clock.cursor.value).toBe(0);
+    expect(res.clock.restart).toBeUndefined();
+    expect(res.upcoming).toStrictEqual([1, 2, 3, 4]);
+
     expect(
-      initPlaybackClock(4, { ...params, mode: 'loop' }, 0).cursor.value,
-    ).toBe(4);
+      initPlaybackClock(4, { ...params, mode: 'loop' }, 0).restart,
+    ).toBeUndefined();
   });
 });
 

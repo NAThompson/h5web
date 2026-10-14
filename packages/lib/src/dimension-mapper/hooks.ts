@@ -98,9 +98,6 @@ export function usePlayback(params: PlaybackParams): void {
       { ...initial, mode: initial.settings.mode },
       Date.now(),
     );
-    if (clock.cursor.value !== initial.value) {
-      initial.onFrame(clock.cursor.value);
-    }
 
     function tick() {
       const { settings, length, stride, isReady, onFrame, onEnd, onPrefetch } =

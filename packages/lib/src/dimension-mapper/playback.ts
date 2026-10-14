@@ -46,6 +46,7 @@ export interface PlaybackClock {
   cursor: PlaybackCursor;
   frameTime: number; // time at which the current frame was due
   window?: number[]; // real-time mode: frames being prefetched since the last advance
+  restart?: boolean; // `once` mode started on last frame: go back to first frame
 }
 
 export interface TickResult {
@@ -126,14 +127,20 @@ export function initPlaybackClock(
   now: number,
 ): PlaybackClock {
   // When starting at the end in `once` mode, restart from the beginning
-  const atEnd = value >= params.length - 1;
+  const restart = params.mode === 'once' && value >= params.length - 1;
   return {
-    cursor: {
-      value: params.mode === 'once' && atEnd ? 0 : value,
-      direction: 1,
-    },
+    cursor: { value, direction: 1 },
     frameTime: now,
+    ...(restart && { restart }),
   };
+}
+
+/* When restarting in `once` mode, the sequence is the same as in `loop` mode until the end */
+function getSequenceParams(
+  clock: PlaybackClock,
+  params: SequenceParams,
+): SequenceParams {
+  return clock.restart ? { ...params, mode: 'loop' } : params;
 }
 
 /* Advance the clock to `now`. `isReady` tells whether a frame can be shown without waiting
@@ -146,6 +153,7 @@ export function tickPlayback(
   isReady: (value: number) => boolean,
 ): TickResult {
   const { fps, timing } = settings;
+  const sequence = getSequenceParams(clock, settings);
   const interval = 1000 / clampFps(fps);
   const prefetchCount = getPrefetchCount(fps);
 
@@ -158,7 +166,7 @@ export function tickPlayback(
       ended: false,
       upcoming:
         clock.window ??
-        toValues(getUpcomingFrames(clock.cursor, settings, prefetchCount)),
+        toValues(getUpcomingFrames(clock.cursor, sequence, prefetchCount)),
       delay: Math.max(interval - elapsed, 1),
     };
   }
@@ -168,8 +176,10 @@ export function tickPlayback(
     timing === 'realtime' ? Math.min(dueSteps, settings.length * 2) : 1;
   const candidates = getUpcomingFrames(
     clock.cursor,
-    settings,
-    maxSteps + prefetchCount,
+    sequence,
+    clock.restart // don't go round twice
+      ? Math.min(maxSteps + prefetchCount, settings.length)
+      : maxSteps + prefetchCount,
   );
 
   if (candidates.length === 0) {
