@@ -131,6 +131,27 @@ test('suggest iso levels without storing them until edited', async () => {
   await page.viewport(1920, 1080);
 });
 
+test('show notes in visualizations without overlays', async () => {
+  await renderApp('/view_hints/line_overlays');
+
+  expect(getSelectedVisTab()).toBe(Vis.Line);
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('ignored invalid "scaleType"');
+  expect(getNotes()).toHaveTextContent('overlays are drawn on heatmaps only');
+});
+
+test('note overlay features not drawn in 3D', async () => {
+  const { user } = await renderApp('/view_hints/psi');
+  await expect.poll(() => getPointsCx()).toHaveLength(1);
+  expect(page.getByText(/not drawn in 3D/u)).not.toBeInTheDocument();
+
+  await user.click(page.getByRole('button', { name: 'Show as 3D surface' }));
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('not drawn in 3D: text, dashes, inline labels');
+});
+
 test('ignore malformed hint', async () => {
   await renderApp('/view_hints/bad_json');
 

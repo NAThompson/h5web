@@ -927,6 +927,15 @@ export function makeMockFile(): GroupWithChildren {
             ),
           ],
         }),
+        array('line_overlays', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              '{"vis": "line", "scaleType": 1, "overlays": [{"points": "point"}]}',
+            ),
+          ],
+        }),
         array('bad_json', {
           valueId: 'twoD',
           attributes: [scalarAttr('H5WEB_view', '{"vis": "line"')],

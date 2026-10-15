@@ -12,7 +12,9 @@ import MappedVolumeVis from '../../core/volume/MappedVolumeVis';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
+import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getVolumeSuggestions } from '../../view-hints/suggestions';
+import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -103,6 +105,7 @@ function NxVolumeContainer(props: VisContainerProps) {
           }}
         />
       </VisBoundary>
+      <OverlayNotes notes={getHintNotes(hint)} />
     </>
   );
 }

@@ -13,10 +13,12 @@ import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
+import OverlayNotes from '../../view-hints/OverlayNotes';
 import {
   getLineDimSuggestions,
   getLineSuggestions,
 } from '../../view-hints/suggestions';
+import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
@@ -97,6 +99,7 @@ function LineVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
+      <OverlayNotes notes={getHintNotes(hint)} />
     </>
   );
 }

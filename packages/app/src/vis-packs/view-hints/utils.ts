@@ -423,3 +423,24 @@ export async function getHintSafely(
     };
   }
 }
+
+/* Notes about a hint in a vis that doesn't draw overlays (e.g. line, volume) */
+export function getHintNotes(hint: ViewHint): string[] {
+  return hint.overlays.length > 0
+    ? [...hint.notes, 'overlays are drawn on heatmaps only']
+    : hint.notes;
+}
+
+/* Note about overlay features not drawn on 3D surfaces, if the hint uses any */
+export function getNotesIn3D(hint: ViewHint): string[] {
+  const unsupported = [
+    hint.overlays.some(({ kind }) => kind === 'text') && 'text',
+    hint.overlays.some(({ dash }) => dash) && 'dashes',
+    hint.overlays.some(({ labelMode }) => labelMode === 'inline') &&
+      'inline labels',
+  ].filter((feature) => typeof feature === 'string');
+
+  return unsupported.length > 0
+    ? [`not drawn in 3D: ${unsupported.join(', ')}`]
+    : [];
+}

@@ -11,7 +11,13 @@ import {
   getLineDimSuggestions,
   getLineSuggestions,
 } from './suggestions';
-import { findHintVis, isSurfaceHint, parseViewHint } from './utils';
+import {
+  findHintVis,
+  getHintNotes,
+  getNotesIn3D,
+  isSurfaceHint,
+  parseViewHint,
+} from './utils';
 
 describe('parseViewHint', () => {
   it('parse known keys', () => {
@@ -277,6 +283,25 @@ describe('suggestions', () => {
       getLineDimSuggestions(parseViewHint('{"multiDim": 1}'), [8, 100])
         .defaultMultiDim,
     ).toBeUndefined();
+  });
+});
+
+describe('notes', () => {
+  it('note overlays in visualizations without overlays', () => {
+    expect(
+      getHintNotes(parseViewHint('{"overlays": [{"curve": "c"}]}')),
+    ).toEqual(['overlays are drawn on heatmaps only']);
+    expect(getHintNotes(parseViewHint('{"vis": "line"}'))).toEqual([]);
+  });
+
+  it('note overlay features not drawn in 3D', () => {
+    const hint = parseViewHint(
+      '{"overlays": [{"text": "a", "at": [0, 0]}, {"curve": "c", "dash": true}]}',
+    );
+    expect(getNotesIn3D(hint)).toEqual(['not drawn in 3D: text, dashes']);
+    expect(
+      getNotesIn3D(parseViewHint('{"overlays": [{"curve": "c"}]}')),
+    ).toEqual([]);
   });
 });
 

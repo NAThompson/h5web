@@ -10,7 +10,9 @@ import { getMultiPlotMapping } from '../../core/line/utils';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
+import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getLineSuggestions } from '../../view-hints/suggestions';
+import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericLikeNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -130,6 +132,7 @@ function NxLineContainer(props: VisContainerProps) {
           }}
         />
       </VisBoundary>
+      <OverlayNotes notes={getHintNotes(hint)} />
     </>
   );
 }
