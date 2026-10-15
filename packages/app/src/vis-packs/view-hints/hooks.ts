@@ -4,12 +4,7 @@ import {
   type Dataset,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
-import {
-  keepPreviousData,
-  useQueries,
-  useQuery,
-  useSuspenseQuery,
-} from '@tanstack/react-query';
+import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import {
   type ComponentProps,
   useEffect,
@@ -24,7 +19,7 @@ import { createGeometryContext } from '../core/geometry/utils';
 import { type VolumeConfig } from '../core/volume/config';
 import { useSlicingProps } from '../slicing';
 import type LinkedDimMapper from './LinkedDimMapper';
-import { type ViewHint } from './models';
+import { EMPTY_HINT, VIEW_HINT_ATTR, type ViewHint } from './models';
 import {
   type AxisDims,
   buildOverlayShapes,
@@ -39,13 +34,21 @@ import {
 } from './overlays';
 import { viewHintQuery } from './utils';
 
-/* `H5WEB_view` hint of a dataset or NXdata group (already in cache once the entity is resolved) */
+/* `H5WEB_view` hint of a dataset or NXdata group (usually in cache once the entity is resolved).
+ * Never suspends nor throws: no hint until fetched, or if it can't be fetched (with a note). */
 export function useViewHint(
   entity: ProvidedEntity,
   signal?: ProvidedEntity,
 ): ViewHint {
   const dataContext = useDataContext();
-  return useSuspenseQuery(viewHintQuery(entity, dataContext, signal)).data;
+  const { data, error } = useQuery(viewHintQuery(entity, dataContext, signal));
+  if (error) {
+    return {
+      ...EMPTY_HINT,
+      notes: [`${VIEW_HINT_ATTR} could not be fetched: ${error.message}`],
+    };
+  }
+  return data ?? EMPTY_HINT;
 }
 
 /* Iso levels suggested by a hint replace the current ones when the volume is opened (they

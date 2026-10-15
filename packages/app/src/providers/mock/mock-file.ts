@@ -886,6 +886,13 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/theta'], ['/view_hints/alpha']] },
         ),
+        // Attribute values that fail to load (see `MockApi#getAttrValues`)
+        ...['attr_error', 'attr_network_error'].map((name) =>
+          array(name, {
+            valueId: 'twoD',
+            attributes: [scalarAttr('H5WEB_view', '{"vis": "line"}')],
+          }),
+        ),
         array('bad_json', {
           valueId: 'twoD',
           attributes: [scalarAttr('H5WEB_view', '{"vis": "line"')],

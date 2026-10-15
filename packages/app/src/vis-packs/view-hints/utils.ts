@@ -14,6 +14,8 @@ import {
 import { queryOptions } from '@tanstack/react-query';
 
 import { type DataContextValue } from '../../providers/DataProvider';
+import { isTransportError } from '../../providers/utils';
+import { getAttributeValue } from '../../utils';
 import { findStrAttr } from '../core/geometry/utils';
 import { type ColorMap } from '../core/heatmap/models';
 import { type VisDef } from '../models';
@@ -302,7 +304,8 @@ export function parseViewHint(json: string): ViewHint {
   };
 }
 
-/* Hint of a dataset, or of an NXdata group (falling back to its signal's) */
+/* Hint of a dataset, or of an NXdata group (falling back to its signal's). Data errors give no
+ * hint (with a note); transport errors are thrown (cf. `getHintSafely`). */
 export async function getViewHint(
   entity: ProvidedEntity,
   dataContext: DataContextValue,
@@ -315,9 +318,20 @@ export async function getViewHint(
 
     const attr = findStrAttr(candidate, VIEW_HINT_ATTR);
     if (attr) {
-      const { queryClient, queries } = dataContext;
-      const values = await queryClient.query(queries.attrValues(candidate)); // eslint-disable-line no-await-in-loop -- signal only if group has no hint
-      const value: unknown = values[attr.name];
+      let value: unknown;
+      try {
+        value = await getAttributeValue(candidate, attr, dataContext); // eslint-disable-line no-await-in-loop -- signal only if group has no hint
+      } catch (error) {
+        if (isTransportError(error)) {
+          throw error; // transient: not cached, fetched again later
+        }
+        // e.g. another attribute of the entity can't be decoded: open the entity without hint
+        return {
+          ...EMPTY_HINT,
+          notes: [`${VIEW_HINT_ATTR} could not be read`],
+        };
+      }
+
       const str = Array.isArray(value) ? (value[0] as unknown) : value;
       if (typeof str === 'string') {
         const anchor = isGroup(candidate)
@@ -392,4 +406,20 @@ export function isSurfaceHint(hint: ViewHint): boolean | undefined {
   return hint.vis === HintVis.Heatmap || hint.vis === HintVis.ComplexHeatmap
     ? false
     : undefined;
+}
+
+/* Hint for resolving the vis to open: a hint that can't be fetched (e.g. network error) must not
+ * prevent opening the entity, and is fetched again by the vis (cf. `useViewHint`) */
+export async function getHintSafely(
+  ...args: Parameters<typeof viewHintQuery>
+): Promise<ViewHint> {
+  const [entity, dataContext] = args;
+  try {
+    return await dataContext.queryClient.query(viewHintQuery(...args));
+  } catch {
+    return {
+      ...EMPTY_HINT,
+      notes: [`${VIEW_HINT_ATTR} of ${entity.name} could not be fetched`],
+    };
+  }
 }

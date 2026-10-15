@@ -91,6 +91,20 @@ test('let user change hinted settings', async () => {
   expect(page.getByRole('combobox', { name: 'Linear' })).toBeVisible();
 });
 
+test('open dataset whose hint cannot be read or fetched', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/attr_error');
+
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap); // heuristics
+  await expect.element(getNotes()).toHaveTextContent('could not be read');
+
+  await selectExplorerNode('attr_network_error');
+  await expect
+    .element(page.getByRole('figure', { name: 'attr_network_error' }))
+    .toBeVisible();
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+  await expect.element(getNotes()).toHaveTextContent('could not be fetched');
+});
+
 test('ignore malformed hint', async () => {
   await renderApp('/view_hints/bad_json');
 

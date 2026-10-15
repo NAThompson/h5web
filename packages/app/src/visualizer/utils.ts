@@ -30,7 +30,7 @@ import {
   NxDataVis,
   type NxDataVisDef,
 } from '../vis-packs/nexus/visualizations';
-import { findHintVis, viewHintQuery } from '../vis-packs/view-hints/utils';
+import { findHintVis, getHintSafely } from '../vis-packs/view-hints/utils';
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function resolvePathQuery(path: string, dataContext: DataContextValue) {
@@ -58,7 +58,7 @@ async function resolvePath(
     }
 
     // `H5WEB_view` hint takes precedence over heuristics
-    const hint = await queryClient.query(viewHintQuery(entity, dataContext));
+    const hint = await getHintSafely(entity, dataContext);
     return {
       entity,
       supportedVis,
@@ -105,9 +105,7 @@ async function resolvePath(
         ? await findAxesForPrimaryVis(entity, signal, dataContext)
         : [];
       // `H5WEB_view` hint takes precedence over NeXus `interpretation`
-      const hint = await queryClient.query(
-        viewHintQuery(entity, dataContext, signal),
-      );
+      const hint = await getHintSafely(entity, dataContext, signal);
       return {
         entity,
         supportedVis,
