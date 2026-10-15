@@ -12,6 +12,11 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import {
+  getLineDimSuggestions,
+  getLineSuggestions,
+} from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
@@ -25,8 +30,13 @@ function LineVisContainer(props: VisContainerProps) {
   assertNumericLikeType(entity);
 
   const { dims } = entity.shape;
+  const hint = useViewHint(entity);
+  const { defaultSlice, defaultMultiDim } = useMemo(
+    () => getLineDimSuggestions(hint, dims),
+    [hint, dims],
+  );
   const [dimMapping, setDimMapping, multiDim, setMultiDim] = useDimMappingState(
-    { dims, axesCount: 1 },
+    { dims, axesCount: 1, defaultSlice, defaultMultiDim },
   );
 
   const lineMapping = useMemo(
@@ -34,7 +44,7 @@ function LineVisContainer(props: VisContainerProps) {
     [dimMapping, multiDim],
   );
 
-  const config = useLineConfig();
+  const config = useLineConfig(getLineSuggestions(hint));
   const selection = getSliceSelection(lineMapping);
 
   const dimHints = useDimHints(entity);

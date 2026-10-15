@@ -15,7 +15,7 @@ import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { type ColorMap } from '../heatmap/models';
-import { useSuggestion } from '../hooks';
+import { useSuggestions } from '../hooks';
 
 export interface IsoLevel {
   id: number;
@@ -143,16 +143,10 @@ export function VolumeConfigProvider(props: PropsWithChildren) {
 }
 
 export function useVolumeConfig(
-  suggestions: Partial<Pick<VolumeConfig, 'scaleType'>> = {},
+  suggestions: Partial<VolumeConfig> = {},
 ): VolumeConfig {
   const config = useStore(useContext(StoreContext));
 
-  // e.g. NeXus `SILX_style` signal scale type
-  const [scaleType, setScaleType] = useSuggestion(
-    suggestions.scaleType,
-    config.scaleType,
-    config.setScaleType,
-  );
-
-  return { ...config, scaleType, setScaleType };
+  // e.g. NeXus `SILX_style` signal scale type, or a file's `H5WEB_view` hint
+  return useSuggestions(config, suggestions);
 }

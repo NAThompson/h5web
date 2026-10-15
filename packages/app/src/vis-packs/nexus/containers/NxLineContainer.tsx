@@ -9,6 +9,8 @@ import MappedLineVis from '../../core/line/MappedLineVis';
 import { getMultiPlotMapping } from '../../core/line/utils';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import { getLineSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericLikeNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -50,12 +52,16 @@ function NxLineContainer(props: VisContainerProps) {
   const [isSignalVisible, setSignalVisible] = useState(true);
   const [auxVisible, setAuxVisible] = useState(auxDefs.map(() => true));
 
-  const config = useLineConfig({
-    xScaleType: silxStyle.axisScaleTypes?.[xDimIndex],
-    yScaleType: isAxisScaleType(silxStyle.signalScaleType)
-      ? silxStyle.signalScaleType
-      : ScaleType.Linear,
-  });
+  // `H5WEB_view` hint > NeXus `SILX_style`
+  const hint = useViewHint(entity, signalDef.dataset);
+  const config = useLineConfig(
+    getLineSuggestions(hint, {
+      xScaleType: silxStyle.axisScaleTypes?.[xDimIndex],
+      yScaleType: isAxisScaleType(silxStyle.signalScaleType)
+        ? silxStyle.signalScaleType
+        : ScaleType.Linear,
+    }),
+  );
 
   const { slicingProps, playbackRange } = useNxSlicingProps(
     nxData,

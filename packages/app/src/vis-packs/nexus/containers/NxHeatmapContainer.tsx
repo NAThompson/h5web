@@ -16,6 +16,8 @@ import MappedHeatmapVis from '../../core/heatmap/MappedHeatmapVis';
 import { guessKeepRatio } from '../../core/utils';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
@@ -43,10 +45,14 @@ function NxHeatmapContainer(props: VisContainerProps) {
   const xAxisDef = axisDefs[dimMapping.indexOf('x')];
   const yAxisDef = axisDefs[dimMapping.indexOf('y')];
 
-  const config = useHeatmapConfig({
-    scaleType: silxStyle.signalScaleType,
-    keepRatio: guessKeepRatio(xAxisDef, yAxisDef),
-  });
+  // `H5WEB_view` hint > NeXus `SILX_style` > heuristics
+  const hint = useViewHint(entity, signalDef.dataset);
+  const config = useHeatmapConfig(
+    getHeatmapSuggestions(hint, selectedDataset.path, {
+      scaleType: silxStyle.signalScaleType,
+      keepRatio: guessKeepRatio(xAxisDef, yAxisDef),
+    }),
+  );
 
   const nxDataToFetch = useNxHeatmapDataToFetch(nxData, selectedDef);
 

@@ -12,6 +12,8 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { guessKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
@@ -35,12 +37,15 @@ function HeatmapVisContainer(props: VisContainerProps) {
   const dimUnits = useDimUnits(entity);
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
-  const config = useHeatmapConfig({
-    keepRatio: guessKeepRatio(
-      { unit: dimUnits[dimMapping.indexOf('x')] },
-      { unit: dimUnits[dimMapping.indexOf('y')] },
-    ),
-  });
+  const hint = useViewHint(entity);
+  const config = useHeatmapConfig(
+    getHeatmapSuggestions(hint, entity.path, {
+      keepRatio: guessKeepRatio(
+        { unit: dimUnits[dimMapping.indexOf('x')] },
+        { unit: dimUnits[dimMapping.indexOf('y')] },
+      ),
+    }),
+  );
   const selection = getSliceSelection(dimMapping);
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(

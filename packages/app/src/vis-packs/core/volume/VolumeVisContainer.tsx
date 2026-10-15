@@ -8,6 +8,8 @@ import {
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useSuggestedIsoLevels, useViewHint } from '../../view-hints/hooks';
+import { getVolumeSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useVolumeConfig } from './config';
@@ -20,7 +22,9 @@ function VolumeVisContainer(props: VisContainerProps) {
   assertNumDims(entity, 3);
   assertNumericType(entity);
 
-  const config = useVolumeConfig();
+  const hint = useViewHint(entity);
+  const config = useVolumeConfig(getVolumeSuggestions(hint));
+  useSuggestedIsoLevels(hint, config);
 
   // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
   // as `keepRatio` does for heatmaps

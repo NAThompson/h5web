@@ -8,6 +8,8 @@ import { useVolumeConfig } from '../../core/volume/config';
 import MappedVolumeVis from '../../core/volume/MappedVolumeVis';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useSuggestedIsoLevels, useViewHint } from '../../view-hints/hooks';
+import { getVolumeSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -41,7 +43,11 @@ function NxVolumeContainer(props: VisContainerProps) {
     defaultSlice: volumeDefaultSlice,
   });
 
-  const config = useVolumeConfig({ scaleType: silxStyle.signalScaleType });
+  const hint = useViewHint(entity, signalDef.dataset);
+  const config = useVolumeConfig(
+    getVolumeSuggestions(hint, { scaleType: silxStyle.signalScaleType }),
+  );
+  useSuggestedIsoLevels(hint, config);
 
   // Size the volume by its axes (and express gradients in their unit) only if all three share a unit
   const volumeAxisDefs = axisDefs.slice(-3);
