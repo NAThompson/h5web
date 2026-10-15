@@ -54,5 +54,9 @@ describe('getPixelIndex', () => {
     expect(descending).toEqual([4, 3, 2, 1]);
     expect(getPixelIndex(3.5, descending)).toBe(0);
     expect(getPixelIndex(1.2, descending)).toBe(2);
+
+    const centred = getPixelEdges([1, 2, 4, 8], 4); // non-uniform pixel values
+    expect(centred).toEqual([0.5, 1.5, 3, 6, 10]);
+    expect(getPixelIndex(5, centred)).toBe(2);
   });
 });

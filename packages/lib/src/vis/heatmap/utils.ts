@@ -20,6 +20,7 @@ import {
   NearestFilter,
   RedFormat,
   RGBAFormat,
+  RGFormat,
   UnsignedByteType,
   UVMapping,
 } from 'three';
@@ -200,6 +201,191 @@ export function getPixelEdgeValues(
   }
 
   return rawValues.slice(0, pixelEdgeCount);
+}
+
+/* Relative deviation of the steps from the mean step above which values are not evenly spaced */
+const UNIFORMITY_TOLERANCE = 1e-3;
+
+/* Whether values are strictly monotonic but not evenly spaced (e.g. Chebyshev or log grid) */
+export function isNonUniform(values: NumArray): boolean {
+  const n = values.length;
+  if (n < 3) {
+    return false;
+  }
+
+  const meanStep = (values[n - 1] - values[0]) / (n - 1);
+  if (meanStep === 0 || !Number.isFinite(meanStep)) {
+    return false;
+  }
+
+  let isUniform = true;
+  for (let i = 1; i < n; i += 1) {
+    const step = values[i] - values[i - 1];
+    if (!(step / meanStep > 0)) {
+      return false; // not strictly monotonic (or NaN): drawn as evenly spaced
+    }
+    if (Math.abs(step - meanStep) > UNIFORMITY_TOLERANCE * Math.abs(meanStep)) {
+      isUniform = false;
+    }
+  }
+
+  return !isUniform;
+}
+
+/*
+ * Pixel edges of a heatmap axis: as `getPixelEdgeValues`, except for non-uniform pixel values,
+ * which are taken as pixel centres (edges at mid-points, outer edges half a step out)
+ */
+export function getCellEdges(
+  rawValues: NumArray | undefined,
+  pixelCount: number,
+): NumArray {
+  if (rawValues?.length !== pixelCount || !isNonUniform(rawValues)) {
+    return getPixelEdgeValues(rawValues, pixelCount);
+  }
+
+  const n = pixelCount;
+  return [
+    rawValues[0] - (rawValues[1] - rawValues[0]) / 2,
+    ...Array.from(
+      { length: n - 1 },
+      (_, i) => (rawValues[i] + rawValues[i + 1]) / 2,
+    ),
+    rawValues[n - 1] + (rawValues[n - 1] - rawValues[n - 2]) / 2,
+  ];
+}
+
+/*
+ * Relative positions (from 0 to 1) of the edges and centres of the pixels of a non-uniform axis,
+ * interleaved: `[edge 0, centre 0, edge 1, ..., centre N-1, edge N]` (centres default to mid-points)
+ */
+export function getRelativePixels(
+  edges: NumArray,
+  centres?: NumArray,
+): Float32Array {
+  const count = edges.length - 1;
+  const [first, last] = [edges[0], edges[count]];
+  return Float32Array.from({ length: 2 * count + 1 }, (_, i) => {
+    const k = Math.floor(i / 2);
+    const val =
+      i % 2 === 0 ? edges[k] : (centres?.[k] ?? (edges[k] + edges[k + 1]) / 2);
+    return (val - first) / (last - first);
+  });
+}
+
+/* Relative positions of pixels `start` to `end` (excluded), rescaled from 0 to 1 */
+export function sliceRelativePixels(
+  relPixels: Float32Array,
+  start: number,
+  end: number,
+): Float32Array {
+  const [first, last] = [relPixels[2 * start], relPixels[2 * end]];
+  return relPixels
+    .slice(2 * start, 2 * end + 1)
+    .map((pos) => (pos - first) / (last - first));
+}
+
+/*
+ * Position from 0 to 1 within a heatmap's non-uniform pixels of a pixel-edge index coordinate,
+ * i.e. where the centre of pixel `i` is at `i + 0.5` (e.g. vertices of contour lines);
+ * `undefined` if pixels are evenly spaced (index coordinates are then proportional to positions).
+ * Between pixel centres, positions are interpolated from the pixel values, if given.
+ */
+export function getIndexToPosition(
+  rawValues: NumArray | undefined,
+  pixelCount: number,
+): ((index: number) => number) | undefined {
+  const edges = getCellEdges(rawValues, pixelCount);
+  if (!isNonUniform(edges)) {
+    return undefined;
+  }
+
+  // Knots: outer edges and pixel centres (`k - 0.5` for knot `k`), e.g. bin centres of bin edges
+  const relPixels = getRelativePixels(edges, getPixelCentres(rawValues, edges));
+  function knotIndex(k: number): number {
+    return Math.min(Math.max(k - 0.5, 0), pixelCount);
+  }
+  function knotPos(k: number): number {
+    return relPixels[Math.min(Math.max(2 * k - 1, 0), 2 * pixelCount)];
+  }
+
+  return (index) => {
+    const k = Math.min(Math.max(Math.floor(index + 0.5), 0), pixelCount);
+    const [u0, u1] = [knotIndex(k), knotIndex(k + 1)];
+    const [p0, p1] = [knotPos(k), knotPos(k + 1)];
+    return p0 + ((index - u0) / (u1 - u0)) * (p1 - p0);
+  };
+}
+
+/* Non-uniform pixel values (i.e. pixel centres), if given */
+export function getPixelCentres(
+  rawValues: NumArray | undefined,
+  edges: NumArray,
+): NumArray | undefined {
+  return rawValues?.length === edges.length - 1 && isNonUniform(rawValues)
+    ? rawValues
+    : undefined;
+}
+
+/* Texture of the relative start and centre of each pixel along a non-uniform axis */
+export function getPixelsTexture(
+  relPixels: Float32Array | undefined,
+): DataTexture | undefined {
+  if (!relPixels) {
+    return undefined;
+  }
+
+  const count = (relPixels.length - 1) / 2;
+  const data = relPixels.slice(0, 2 * count); // interleaved starts and centres
+  const texture = new DataTexture(data, count, 1, RGFormat, FloatType);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/*
+ * GLSL remapping of the `coords` varying (linear across the mesh) to texture coordinates on
+ * non-uniform axes, from `xPixels`/`yPixels` textures: centre of the texel of the pixel at a
+ * relative position or, with linear filtering, linear between texel centres at pixel centres
+ */
+export function getGlslPixels(
+  withX: boolean,
+  withY: boolean,
+  isLinear = false,
+): { declarations: string; remapping: string } {
+  if (!withX && !withY) {
+    return { declarations: '', remapping: '' };
+  }
+
+  const x = withX ? 'toTexCoord(xPixels, coords.x)' : 'coords.x';
+  const y = withY ? 'toTexCoord(yPixels, coords.y)' : 'coords.y';
+  return {
+    declarations: `
+      uniform sampler2D xPixels;
+      uniform sampler2D yPixels;
+
+      float toTexCoord(sampler2D pixels, float pos) {
+        int count = textureSize(pixels, 0).x;
+        int lo = 0;
+        int hi = count - 1;
+        for (int k = 0; k < 24; k++) { // last pixel that starts (or is centred) before \`pos\`
+          if (lo >= hi) break;
+          int mid = (lo + hi + 1) / 2;
+          if (texelFetch(pixels, ivec2(mid, 0), 0).${isLinear ? 'g' : 'r'} <= pos) { lo = mid; } else { hi = mid - 1; }
+        }
+        float t = 0.;
+        ${
+          isLinear
+            ? `float centre = texelFetch(pixels, ivec2(lo, 0), 0).g;
+        if (pos > centre && lo < count - 1) {
+          t = (pos - centre) / (texelFetch(pixels, ivec2(lo + 1, 0), 0).g - centre);
+        }`
+            : ''
+        }
+        return (float(lo) + 0.5 + t) / float(count);
+      }
+    `,
+    remapping: `vec2 coords = vec2(${x}, ${y}); // shadows varying (non-uniform axes)`,
+  };
 }
 
 export function getInterpolator(
@@ -408,6 +594,8 @@ export function getChunkBounds(
   chunk: TextureChunk,
   shape: number[],
   size: Size,
+  relX?: Float32Array, // relative pixels of non-uniform axes (cf. `getRelativePixels`)
+  relY?: Float32Array,
 ): ChunkBounds {
   const [rows, cols] = shape;
   const { width, height } = size;
@@ -419,11 +607,42 @@ export function getChunkBounds(
   const texCols = c.texEnd - c.texStart;
 
   return {
-    x: [c.start * cellWidth - width / 2, c.end * cellWidth - width / 2],
-    y: [r.start * cellHeight - height / 2, r.end * cellHeight - height / 2],
-    u: [(c.start - c.texStart) / texCols, (c.end - c.texStart) / texCols],
-    v: [(r.start - r.texStart) / texRows, (r.end - r.texStart) / texRows],
+    x: relX
+      ? getNonUniformBounds(relX, c, width)
+      : [c.start * cellWidth - width / 2, c.end * cellWidth - width / 2],
+    y: relY
+      ? getNonUniformBounds(relY, r, height)
+      : [r.start * cellHeight - height / 2, r.end * cellHeight - height / 2],
+    u: relX
+      ? getNonUniformTexBounds(relX, c)
+      : [(c.start - c.texStart) / texCols, (c.end - c.texStart) / texCols],
+    v: relY
+      ? getNonUniformTexBounds(relY, r)
+      : [(r.start - r.texStart) / texRows, (r.end - r.texStart) / texRows],
   };
+}
+
+function getNonUniformBounds(
+  relPixels: Float32Array,
+  { start, end }: ChunkRange,
+  size: number,
+): [number, number] {
+  return [
+    (relPixels[2 * start] - 0.5) * size,
+    (relPixels[2 * end] - 0.5) * size,
+  ];
+}
+
+/* Relative positions within the chunk's texture, remapped to texels in the shader (`getGlslPixels`) */
+function getNonUniformTexBounds(
+  relPixels: Float32Array,
+  { start, end, texStart, texEnd }: ChunkRange,
+): [number, number] {
+  const [first, last] = [relPixels[2 * texStart], relPixels[2 * texEnd]];
+  return [
+    (relPixels[2 * start] - first) / (last - first),
+    (relPixels[2 * end] - first) / (last - first),
+  ];
 }
 
 export function getChunkGeometry(bounds: ChunkBounds): BufferGeometry {

@@ -190,6 +190,8 @@ export {
   getLinearGradient,
   getVisDomain,
   getSafeDomain,
+  getCellEdges,
+  isNonUniform,
 } from './vis/heatmap/utils';
 
 export { useVisDomain, useSafeDomain } from './vis/heatmap/hooks';

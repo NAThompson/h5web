@@ -31,8 +31,9 @@ import { DEFAULT_DOMAIN } from '../utils';
 import ColorBar from './ColorBar';
 import HeatmapMesh from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
-import { useMask, usePixelEdgeValues, useTextureSafeNdArray } from './hooks';
+import { useCellEdges, useMask, useTextureSafeNdArray } from './hooks';
 import { type ColorMap, type TooltipData } from './models';
+import { getPixelCentres, isNonUniform } from './utils';
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -97,16 +98,22 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
   } = ordinateParams;
   const [rows, cols] = dataArray.shape;
 
-  const abscissas = usePixelEdgeValues(abscissaValue, cols);
+  const abscissas = useCellEdges(abscissaValue, cols);
   const abscissaDomain = useAxisDomain(abscissas);
   assertDefined(abscissaDomain, 'Abscissas have undefined domain');
 
-  const ordinates = usePixelEdgeValues(ordinateValue, rows);
+  const ordinates = useCellEdges(ordinateValue, rows);
   const ordinateDomain = useAxisDomain(ordinates);
   assertDefined(ordinateDomain, 'Ordinates have undefined domain');
 
   const abscissaToIndex = useValueToIndexScale(abscissas);
   const ordinateToIndex = useValueToIndexScale(ordinates);
+
+  // Non-uniform pixels: mesh remapped to the edges; pixel values (if given) are pixel centres
+  const xEdges = isNonUniform(abscissas) ? abscissas : undefined;
+  const yEdges = isNonUniform(ordinates) ? ordinates : undefined;
+  const xCentres = getPixelCentres(abscissaValue, abscissas);
+  const yCentres = getPixelCentres(ordinateValue, ordinates);
 
   const safeDataArray = useTextureSafeNdArray(dataArray);
   const safeAlphaArray = useTextureSafeNdArray(alpha?.array);
@@ -147,8 +154,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           renderTooltip={(x, y) => {
             const xi = abscissaToIndex(x);
             const yi = ordinateToIndex(y);
-            const abscissa = abscissas[xi];
-            const ordinate = ordinates[yi];
+            const abscissa = (xCentres ?? abscissas)[xi];
+            const ordinate = (yCentres ?? ordinates)[yi];
 
             if (renderTooltip) {
               return renderTooltip({ abscissa, ordinate, xi, yi, x, y });
@@ -181,6 +188,10 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           minFilter={minFilter}
           mask={maskArray}
           badColor={ignoredColor}
+          xEdges={xEdges}
+          yEdges={yEdges}
+          xCentres={xCentres}
+          yCentres={yCentres}
         />
 
         {children}

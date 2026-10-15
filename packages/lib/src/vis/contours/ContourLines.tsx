@@ -9,6 +9,7 @@ import { LineMaterial as ThreeLineMaterial } from 'three/addons/lines/LineMateri
 import { LineSegments2 as ThreeLineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
+import { useIndexToPosition } from '../heatmap/hooks';
 import { useCameraState } from '../hooks';
 import { type VisScaleType } from '../models';
 import Html from '../shared/Html';
@@ -37,6 +38,9 @@ interface Props {
   /* Colour of the halo (default: darker shade of each line's colour) */
   haloColor?: string;
   formatLabel?: (level: number) => string;
+  /* Axis values of the heatmap, to follow its non-uniform pixels (if any) */
+  abscissas?: NumArray;
+  ordinates?: NumArray;
 }
 
 interface LabelPosition {
@@ -63,9 +67,13 @@ function ContourLines(props: Props) {
     withHalo = false,
     haloColor,
     formatLabel = formatTooltipVal,
+    abscissas,
+    ordinates,
   } = props;
 
   const [rows, cols] = dataArray.shape;
+  const toX = useIndexToPosition(abscissas, cols);
+  const toY = useIndexToPosition(ordinates, rows);
   const { visSize, worldToHtml } = useVisCanvasContext();
 
   const { contours, error } = useContours(dataArray, levels, {
@@ -81,14 +89,15 @@ function ContourLines(props: Props) {
         // Wide lines need each segment's end points (no indexing)
         const positions = new Float32Array(segments.length * 3);
         segments.forEach((vertex, i) => {
-          positions[i * 3] = vertices[vertex * 2] / cols - 0.5;
-          positions[i * 3 + 1] = vertices[vertex * 2 + 1] / rows - 0.5;
+          const [u, v] = [vertices[vertex * 2], vertices[vertex * 2 + 1]];
+          positions[i * 3] = (toX ? toX(u) : u / cols) - 0.5;
+          positions[i * 3 + 1] = (toY ? toY(v) : v / rows) - 0.5;
         });
         const geometry = new LineSegmentsGeometry();
         geometry.setPositions(positions);
         return geometry;
       }),
-    [contours, rows, cols],
+    [contours, rows, cols, toX, toY],
   );
 
   useEffect(
@@ -120,7 +129,7 @@ function ContourLines(props: Props) {
         return [];
       }
 
-      const frame = { rows, cols, scaleX, scaleY };
+      const frame = { rows, cols, scaleX, scaleY, toX, toY };
       return contours.flatMap(({ level, labels: anchors }, i) =>
         anchors.map(({ x, y, angle }, j): LabelPosition => {
           const html = worldToHtml(camera, toWorld(x, y, frame));
@@ -148,7 +157,19 @@ function ContourLines(props: Props) {
         }),
       );
     },
-    [showLabels, contours, rows, cols, scaleX, scaleY, worldToHtml, colorsKey], // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      showLabels,
+      contours,
+      rows,
+      cols,
+      scaleX,
+      scaleY,
+      toX,
+      toY,
+      worldToHtml,
+      colorsKey,
+    ],
     areLabelsEqual,
   );
 
@@ -224,10 +245,19 @@ function ContourLines(props: Props) {
 function toWorld(
   u: number,
   v: number,
-  frame: { rows: number; cols: number; scaleX: number; scaleY: number },
+  frame: {
+    rows: number;
+    cols: number;
+    scaleX: number;
+    scaleY: number;
+    toX?: (u: number) => number;
+    toY?: (v: number) => number;
+  },
 ): Vector3 {
-  const { rows, cols, scaleX, scaleY } = frame;
-  return new Vector3((u / cols - 0.5) * scaleX, (v / rows - 0.5) * scaleY, 0);
+  const { rows, cols, scaleX, scaleY, toX, toY } = frame;
+  const x = toX ? toX(u) : u / cols;
+  const y = toY ? toY(v) : v / rows;
+  return new Vector3((x - 0.5) * scaleX, (y - 0.5) * scaleY, 0);
 }
 
 function areLabelsEqual(prev: LabelPosition[], next: LabelPosition[]): boolean {

@@ -1,4 +1,4 @@
-import { type Domain } from '@h5web/shared/vis-models';
+import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { type ThreeElements, useThree } from '@react-three/fiber';
 import { type RGBColor } from 'd3-color';
 import { type NdArray } from 'ndarray';
@@ -16,7 +16,9 @@ import { type ColorMap, type TextureSafeTypedArray } from './models';
 import {
   getChunkBounds,
   getChunkGeometry,
+  getRelativePixels,
   getTextureChunks,
+  sliceRelativePixels,
   sliceTextureChunk,
 } from './utils';
 
@@ -32,6 +34,12 @@ interface Props extends VisMeshProps {
   magFilter?: MagnificationTextureFilter;
   minFilter?: MinificationTextureFilter;
   mask?: NdArray<Uint8Array>;
+  /* Pixel edges along non-uniform axes (pixels are evenly spaced along an axis without edges) */
+  xEdges?: NumArray;
+  yEdges?: NumArray;
+  /* Pixel centres along non-uniform axes (default: mid-points of the edges) */
+  xCentres?: NumArray;
+  yCentres?: NumArray;
 }
 
 function HeatmapMesh(props: Props) {
@@ -47,6 +55,10 @@ function HeatmapMesh(props: Props) {
     magFilter,
     minFilter,
     mask,
+    xEdges,
+    yEdges,
+    xCentres,
+    yCentres,
     size,
     ...meshProps
   } = props;
@@ -79,15 +91,34 @@ function HeatmapMesh(props: Props) {
     [mask, chunks],
   );
 
+  const relX = useMemo(
+    () => xEdges && getRelativePixels(xEdges, xCentres),
+    [xEdges, xCentres],
+  );
+  const relY = useMemo(
+    () => yEdges && getRelativePixels(yEdges, yCentres),
+    [yEdges, yCentres],
+  );
+
   const { width, height } = size ?? visSize;
   const geometries = useMemo(
     () =>
       chunks?.map((chunk) =>
         getChunkGeometry(
-          getChunkBounds(chunk, [rows, cols], { width, height }),
+          getChunkBounds(chunk, [rows, cols], { width, height }, relX, relY),
         ),
       ),
-    [chunks, rows, cols, width, height],
+    [chunks, rows, cols, width, height, relX, relY],
+  );
+
+  // Each chunk's texture spans its own pixels (including overlapping texels)
+  const pixelsChunks = useMemo(
+    () =>
+      chunks?.map(({ rows: r, cols: c }) => ({
+        x: relX && sliceRelativePixels(relX, c.texStart, c.texEnd),
+        y: relY && sliceRelativePixels(relY, r.texStart, r.texEnd),
+      })),
+    [chunks, relX, relY],
   );
 
   useEffect(
@@ -117,6 +148,8 @@ function HeatmapMesh(props: Props) {
           values={values}
           alphaValues={alphaValues}
           mask={mask}
+          xPixels={relX}
+          yPixels={relY}
           {...materialProps}
         />
       </VisMesh>
@@ -131,6 +164,8 @@ function HeatmapMesh(props: Props) {
             values={valuesChunks[i]}
             alphaValues={alphaChunks?.[i]}
             mask={maskChunks?.[i]}
+            xPixels={pixelsChunks?.[i].x}
+            yPixels={pixelsChunks?.[i].y}
             {...materialProps}
           />
         </mesh>

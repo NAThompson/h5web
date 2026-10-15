@@ -1,3 +1,4 @@
+import { isNonUniform } from '@h5web/lib';
 import {
   hasArrayShape,
   hasNumericType,
@@ -1025,9 +1026,10 @@ export function buildOverlayShapes(
 }
 
 /**
- * Position at which a heatmap draws a sample of an axis: a heatmap draws each of N axis values as
- * the start of its pixel, so a sample at value `v` sits at the centre of its pixel, half a pixel
- * further; with N + 1 values (bin edges) or no values (indices), see below. Overlay coordinates
+ * Position at which a heatmap draws a sample of an axis: a heatmap draws each of N evenly spaced
+ * axis values as the start of its pixel, so a sample at value `v` sits at the centre of its pixel,
+ * half a pixel further; with non-uniform values (pixel centres), N + 1 values (bin edges) or no
+ * values (indices), see below. Overlay coordinates
  * are sample positions, so they are drawn where the samples are (as on 3D surfaces, whose
  * vertices are the samples).
  */
@@ -1038,31 +1040,16 @@ export function getPixelCentreShift(
   if (!axisValues) {
     return (value) => value + 0.5; // pixel i spans [i, i + 1]
   }
-  if (axisValues.length > pixelCount || pixelCount < 2) {
-    return (value) => value; // bin edges: coordinates are used as is
+  if (
+    axisValues.length > pixelCount ||
+    pixelCount < 2 ||
+    isNonUniform(axisValues)
+  ) {
+    return (value) => value; // bin edges or pixel centres: coordinates are used as is
   }
 
-  const values = [...axisValues].slice(0, pixelCount);
-  const isAscending = values[pixelCount - 1] >= values[0];
-  return (value) => {
-    // Pixel whose start is the last axis value before `value` (first or last one outside)
-    let lo = 0;
-    let hi = pixelCount - 1;
-    while (hi - lo > 1) {
-      const mid = Math.floor((lo + hi) / 2);
-      if (values[mid] <= value === isAscending) {
-        lo = mid;
-      } else {
-        hi = mid;
-      }
-    }
-    const i = values[hi] <= value === isAscending ? hi : lo;
-    const width =
-      i < pixelCount - 1
-        ? values[i + 1] - values[i]
-        : values[i] - values[i - 1];
-    return value + width / 2;
-  };
+  const step = axisValues[1] - axisValues[0];
+  return (value) => value + step / 2;
 }
 
 /* Shapes moved to where a heatmap draws the samples of its axes (cf. `getPixelCentreShift`) */
