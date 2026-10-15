@@ -408,7 +408,7 @@ function getColorBarTicks(): string[] {
 }
 
 test('label logarithms as powers', async () => {
-  const { selectExplorerNode } = await renderApp(
+  const { user, selectExplorerNode } = await renderApp(
     '/view_hints/value_transform_line',
   );
 
@@ -422,6 +422,14 @@ test('label logarithms as powers', async () => {
     .poll(getColorBarTicks)
     .toEqual(expect.arrayContaining(['2⁻⁸', '2⁻⁴', '2⁰']));
   expect(page.getByLabelText('Min: 3.906e-3')).toBeVisible();
+
+  // Real values on other scales too, like the bounds
+  await user.click(page.getByRole('combobox', { name: /Linear/u }));
+  await user.click(page.getByRole('option', { name: 'SymLog', exact: true }));
+  await expect
+    .poll(getColorBarTicks)
+    .toEqual(expect.arrayContaining(['2⁻⁸', '2⁰']));
+  expect(getColorBarTicks()).not.toContain('−8');
 });
 
 /* Tooltip of a line plot at sample `index` of `count` (abscissas are indices) */

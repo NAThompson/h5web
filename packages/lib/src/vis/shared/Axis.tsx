@@ -13,6 +13,7 @@ import {
   getScaleTickValues,
   getTickFormatter,
   getTickPrecision,
+  withTicksFormat,
 } from '../utils';
 import styles from './AxisSystem.module.css';
 import Tick from './Tick';
@@ -80,15 +81,13 @@ function Axis(props: Props) {
         ? { tickValues: scaleTickValues }
         : { numTicks };
 
+  const scaleFormatter = getTickFormatter(
+    domain,
+    axisLength,
+    Array.isArray(scaleType) ? scaleType[0] : scaleType,
+  );
   const tickFormatter: (val: number, precision: number) => string =
-    formatTick ||
-    (customTicks
-      ? customTicks.format
-      : getTickFormatter(
-          domain,
-          axisLength,
-          Array.isArray(scaleType) ? scaleType[0] : scaleType,
-        ));
+    formatTick || customTicks?.format || withTicksFormat(scaleFormatter, ticks);
 
   return (
     <>

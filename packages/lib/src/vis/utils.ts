@@ -394,6 +394,18 @@ export function formatPowerTick(
   return `${getPowerBase(transform)}${exp < 0 ? '⁻' : ''}${digits}`;
 }
 
+/* Tick formatter of an axis on a scale without custom ticks (cf. `getCustomTicks`): logarithms as
+ * real values, keeping the ticks that the scale's formatter hides */
+export function withTicksFormat(
+  formatter: (val: number, precision?: number) => string,
+  ticks: AxisTicks | undefined,
+): (val: number, precision?: number) => string {
+  return ticks && ticks !== 'pi'
+    ? (val, precision) =>
+        formatter(val, precision) && formatPowerTick(val, ticks)
+    : formatter;
+}
+
 /* Ticks at multiples of π or at powers, on linear axes (`undefined`: default ticks) */
 export function getCustomTicks(
   ticks: AxisTicks | undefined,

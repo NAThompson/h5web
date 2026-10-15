@@ -14,6 +14,7 @@ import {
   getScaleTickValues,
   getTextContent,
   getTickPrecision,
+  withTicksFormat,
 } from '../utils';
 import styles from './ColorBar.module.css';
 import { type ColorMap } from './models';
@@ -82,13 +83,15 @@ function ColorBar(props: Props) {
   const tickValues =
     powers?.values ?? getScaleTickValues(scaleType, domain, numTicks);
   const ticks = tickValues ?? axisScale.ticks(numTicks);
-  const formatAxisTick: (val: number) => string = powers
-    ? powers.format
-    : scaleType === ScaleType.Log
+  const scaleFormatter: (val: number) => string =
+    scaleType === ScaleType.Log
       ? // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
         axisScale.tickFormat(numTicks, formatTick)
       : (val) =>
           formatTick(val, getTickPrecision(ticks.map((value) => ({ value }))));
+  const formatAxisTick: (val: number) => string = powers
+    ? powers.format
+    : withTicksFormat(scaleFormatter, valueTransform);
 
   // Vertical bar: room for the longest tick label (e.g. many digits on narrow domains)
   const maxTickChars = Math.max(
