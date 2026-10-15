@@ -171,6 +171,7 @@ export {
   getValueToIndexScale,
   createBufferAttr,
   createIndex,
+  withSymlogConstant,
 } from './vis/utils';
 
 export {

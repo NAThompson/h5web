@@ -250,14 +250,6 @@ export function getValueToIndexScale(
   return scaleThreshold<number, number>({ domain: thresholds, range: indices });
 }
 
-/**
- * We can't rely on the axis scale's `ticks` method to get integer tick values because
- * `d3.tickStep` sometimes returns incoherent step values - e.g. `d3.tickStep(0, 2, 3)`
- * returns 0.5 instead of 1.
- *
- * So we implement our own, simplified version of `d3.ticks` that always outputs integer values.
- */
-/* Whether an axis only needs integer ticks: index axis (no values), or linear axis of integers */
 /* Axis scale type with the symlog constant, if given */
 export function withSymlogConstant(
   scaleType: AxisScaleType | undefined,
@@ -268,6 +260,14 @@ export function withSymlogConstant(
     : scaleType;
 }
 
+/**
+ * We can't rely on the axis scale's `ticks` method to get integer tick values because
+ * `d3.tickStep` sometimes returns incoherent step values - e.g. `d3.tickStep(0, 2, 3)`
+ * returns 0.5 instead of 1.
+ *
+ * So we implement our own, simplified version of `d3.ticks` that always outputs integer values.
+ */
+/* Whether an axis only needs integer ticks: index axis (no values), or linear axis of integers */
 export function isIntegerAxis(
   values: NumArray | undefined,
   scaleType: AxisScaleType = ScaleType.Linear,

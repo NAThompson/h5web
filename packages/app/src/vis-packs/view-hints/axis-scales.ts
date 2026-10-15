@@ -1,7 +1,7 @@
 import {
-  type AxisConfig,
   type DimensionMapping,
   getHeatmapAxis,
+  withSymlogConstant,
 } from '@h5web/lib';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { type AxisScaleType, ScaleType } from '@h5web/shared/vis-models';
@@ -16,13 +16,10 @@ function canShowAxis(
   pixelCount: number,
   isHeatmap: boolean,
 ): boolean {
-  const { scaleType, symlogConstant = 1, value } = scale;
+  const { scaleType, symlogConstant, value } = scale;
   const values = toNumArray(value);
   if (isHeatmap) {
-    const type: AxisConfig['scaleType'] =
-      scaleType === ScaleType.SymLog
-        ? [ScaleType.SymLog, symlogConstant]
-        : scaleType;
+    const type = withSymlogConstant(scaleType, symlogConstant);
     return (
       getHeatmapAxis(values, pixelCount, type).scaleType !== ScaleType.Linear
     );
