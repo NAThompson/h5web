@@ -121,9 +121,10 @@ function NxHeatmapContainer(props: VisContainerProps) {
                   dimMapping={dimMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
-                  title={title}
+                  title={hint.title ?? title}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  onDataDomainChange={setDataDomain}
                 />
               );
             }

@@ -246,6 +246,15 @@ describe('suggestions', () => {
     });
   });
 
+  it('suggest domain of complex surfaces', () => {
+    expect(
+      getHeatmapSuggestions(
+        parseViewHint('{"vis": "complexSurface", "domain": [0, 10]}'),
+        '/f',
+      ),
+    ).toMatchObject({ customDomain: [0, 10], surfaceCustomDomain: [0, 10] });
+  });
+
   it('suggest height scale of complex surfaces', () => {
     const suggestions = getHeatmapSuggestions(
       parseViewHint('{"vis": "complexSurface", "height": "linear"}'),

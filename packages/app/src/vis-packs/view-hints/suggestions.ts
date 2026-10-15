@@ -87,11 +87,14 @@ export function getHeatmapSuggestions(
   dataDomain?: Domain, // for `"colorMap": "auto"` and `"domain": "symmetric"`
 ): HeatmapSuggestions {
   const isComplexSurface = hint.vis === HintVis.ComplexSurface;
+  const colors = getColorSuggestions(hint, dataDomain);
   return {
     ...fallbacks,
     scaleType: hint.scaleType ?? hint.height ?? fallbacks.scaleType,
     keepRatio: hint.keepRatio ?? fallbacks.keepRatio,
-    ...getColorSuggestions(hint, dataDomain),
+    ...colors,
+    // Complex surfaces have a domain of their own
+    surfaceCustomDomain: isComplexSurface ? colors.customDomain : undefined,
     invertColorMap: hint.invertColorMap,
     surface: isSurfaceHint(hint),
     heightScale: hint.heightScale,
