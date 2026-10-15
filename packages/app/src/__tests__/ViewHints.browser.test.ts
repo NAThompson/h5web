@@ -183,7 +183,8 @@ test('draw static overlays in axis values, unclipped on the edges of the domain'
         .querySelectorAll('[data-testid="overlay-line"] path')
         .item(i)
         .getAttribute('d')
-        ?.slice(1).split(',')[0],
+        ?.slice(1)
+        .split(',')[0],
     ),
   );
   const pointX = Number(getPointsCx()[0]);

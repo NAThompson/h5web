@@ -59,6 +59,9 @@
   width: 100%;
   height: 100%;
   overflow: visible;
+  clip-path: inset(
+    -10px
+  ); /* shapes on the edges of the domain are drawn whole, others clipped */
   pointer-events: none;
 }
 
