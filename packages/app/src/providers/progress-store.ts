@@ -34,6 +34,9 @@ export async function trackProgress<TResult>(
   queryHash: string,
   fn: (onProgress: OnProgress) => Promise<TResult>,
 ): Promise<TResult> {
+  /* Suspense queries start fetching while a component renders: wait for it to finish, so that
+   * progress subscribers (e.g. `ValueLoader`) are not updated while another component renders */
+  await Promise.resolve();
   progressStore.getState().setProgress(queryHash, undefined);
 
   try {
