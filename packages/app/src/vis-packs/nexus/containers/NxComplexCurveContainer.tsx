@@ -11,6 +11,7 @@ import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
+import { getAxisNames } from '../utils';
 
 /** Complex NeXus signal along one axis as a 3D curve (abscissa from NeXus axes, real, imaginary). */
 function NxComplexCurveContainer(props: VisContainerProps) {
@@ -44,6 +45,7 @@ function NxComplexCurveContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={signalDims}
         dimHints={axisLabels}
+        dimLabels={getAxisNames(axisDefs)}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

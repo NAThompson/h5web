@@ -30,7 +30,7 @@ import {
   type StringType,
 } from '@h5web/shared/hdf5-models';
 import { getChildEntity } from '@h5web/shared/hdf5-utils';
-import { NxInterpretation } from '@h5web/shared/nexus-models';
+import { type AxisMapping, NxInterpretation } from '@h5web/shared/nexus-models';
 import { castArray } from '@h5web/shared/vis-utils';
 
 import { type DataContextValue } from '../../providers/DataProvider';
@@ -40,7 +40,13 @@ import {
   getAttributeValue,
   hasAttribute,
 } from '../../utils';
-import { type DefaultSlice, type FieldInfo, type SilxStyle } from './models';
+import { getUniqueLabels } from '../dimscales/utils';
+import {
+  type AxisDef,
+  type DefaultSlice,
+  type FieldInfo,
+  type SilxStyle,
+} from './models';
 
 export async function getNxClass(
   group: Group,
@@ -469,4 +475,11 @@ export function getVolumeDefaultSlice(
  * "Expected"), as opposed to transient errors (e.g. network) */
 export function isMalformedError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith('Expected');
+}
+
+/* Unique short names of the dimensions for the dimension mapper: names of the axis datasets */
+export function getAxisNames(
+  axisDefs: AxisMapping<AxisDef>,
+): AxisMapping<string> {
+  return getUniqueLabels(axisDefs.map((def) => def?.dataset.name));
 }

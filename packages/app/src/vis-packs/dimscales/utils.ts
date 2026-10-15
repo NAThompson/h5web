@@ -38,6 +38,17 @@ interface UsableScale {
   value: ArrayValue<NumericType>;
 }
 
+/* Short labels of dimensions, `undefined` (i.e. `D<i>`) for those whose label isn't unique */
+export function getUniqueLabels(
+  labels: AxisMapping<string>,
+): AxisMapping<string> {
+  return labels.map((label) =>
+    label && labels.indexOf(label) === labels.lastIndexOf(label)
+      ? label
+      : undefined,
+  );
+}
+
 export async function getDimScales(
   dataset: Dataset<ArrayShape>,
   dataContext: DataContextValue,

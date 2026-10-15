@@ -7,10 +7,10 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { hashKey, useSuspenseQuery } from '@tanstack/react-query';
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { useDataContext } from '../../providers/DataProvider';
-import { type DimScale, getDimScales } from './utils';
+import { type DimScale, getDimScales, getUniqueLabels } from './utils';
 
 export interface DimScaleAxes {
   axisLabels: AxisMapping<string>;
@@ -18,7 +18,7 @@ export interface DimScaleAxes {
   axisTicks: AxisMapping<AxisTicks>; // from the scales' `H5WEB_ticks`
 }
 
-function getQueryKey(filepath: string, dataset: Dataset<ArrayShape>) {
+function getQueryKey(filepath: string, dataset: Dataset) {
   return [filepath, 'dimScales', dataset.path];
 }
 
@@ -43,28 +43,28 @@ export function useDimScales(dataset: Dataset<ArrayShape>): DimScaleAxes {
   };
 }
 
-/* Dimension labels for the dimension mapper, which sits outside the
- * `VisBoundary`: read whatever `useDimScales` has resolved so far, without
- * fetching (and thus without suspending or throwing). */
-export function useDimHints(dataset: Dataset<ArrayShape>): AxisMapping<string> {
-  return useCachedDimScales(dataset).map((scale) => scale?.label);
+export interface DimInfo {
+  dimHints: AxisMapping<string>; // full labels (with units), e.g. as hints of the dimension mapper
+  dimLabels: AxisMapping<string>; // unique short names, for the dimension mapper's buttons and sliders
+  dimUnits: AxisMapping<string>; // e.g. to suggest whether to keep the ratio
 }
 
-/* Short names of the dimensions (dimension labels or scale names) for the dimension mapper's
- * sliders and buttons, as `useDimHints` */
-export function useDimNames(dataset: Dataset<ArrayShape>): AxisMapping<string> {
-  return useCachedDimScales(dataset).map((scale) => scale?.name);
+/* Labels and units of the dimensions for the dimension mapper and suggestions, which sit outside
+ * the `VisBoundary`: read whatever `useDimScales` has resolved so far, without fetching (and thus
+ * without suspending or throwing); empty until then. */
+export function useDimInfo(dataset: Dataset): DimInfo {
+  const dimScales = useCachedDimScales(dataset);
+  return useMemo(
+    () => ({
+      dimHints: dimScales.map((scale) => scale?.label),
+      dimLabels: getUniqueLabels(dimScales.map((scale) => scale?.name)),
+      dimUnits: dimScales.map((scale) => scale?.unit),
+    }),
+    [dimScales],
+  );
 }
 
-/* Units of the dimension scales, to suggest whether to keep the ratio from
- * outside the `VisBoundary`. Empty until `useDimScales` has resolved. */
-export function useDimUnits(dataset: Dataset<ArrayShape>): AxisMapping<string> {
-  return useCachedDimScales(dataset).map((scale) => scale?.unit);
-}
-
-export function useCachedDimScales(
-  dataset: Dataset<ArrayShape>,
-): AxisMapping<DimScale> {
+export function useCachedDimScales(dataset: Dataset): AxisMapping<DimScale> {
   const { filepath, queryClient } = useDataContext();
   const queryCache = queryClient.getQueryCache();
   const queryKey = getQueryKey(filepath, dataset);

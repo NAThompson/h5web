@@ -13,6 +13,7 @@ import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
+import { getAxisNames } from '../utils';
 
 function NxRgbContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -49,6 +50,7 @@ function NxRgbContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={dims}
         dimHints={axisLabels}
+        dimLabels={getAxisNames(axisDefs)}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

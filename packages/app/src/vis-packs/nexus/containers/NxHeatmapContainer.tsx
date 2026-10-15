@@ -29,6 +29,7 @@ import VisBoundary from '../../VisBoundary';
 import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
+import { getAxisNames } from '../utils';
 
 function NxHeatmapContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -85,6 +86,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
       className={extraSlider ? undefined : visualizerStyles.dimMapper}
       dims={dims}
       dimHints={axisLabels}
+      dimLabels={getAxisNames(axisDefs)}
       dimMapping={dimMapping}
       {...slicingProps}
       onChange={setDimMapping}

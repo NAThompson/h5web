@@ -18,7 +18,7 @@ import { assertNumericLikeNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxLineSignalPicker from '../NxLineSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
-import { areSameDims } from '../utils';
+import { areSameDims, getAxisNames } from '../utils';
 
 function NxLineContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -92,6 +92,7 @@ function NxLineContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={signalDims}
         dimHints={axisLabels}
+        dimLabels={getAxisNames(axisDefs)}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

@@ -10,7 +10,7 @@ import { useMemo } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimHints, useDimNames, useDimUnits } from '../../dimscales/hooks';
+import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
@@ -46,15 +46,14 @@ function VolumeVisContainer(props: VisContainerProps) {
 
   // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
   // as `keepRatio` does for heatmaps
-  const dimUnits = useDimUnits(entity).slice(-3);
+  const { dimHints, dimLabels, dimUnits: allUnits } = useDimInfo(entity);
+  const dimUnits = allUnits.slice(-3);
   const withPhysicalAspect =
     dimUnits.length === 3 && dimUnits.every((unit) => unit === dimUnits[0]);
 
   // Stable dimensions, so that presentation changes don't make a new data array (and drop cached isosurfaces)
   const volumeDims = useMemo(() => dims.slice(-3), [dims]);
 
-  const dimHints = useDimHints(entity);
-  const dimNames = useDimNames(entity);
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
@@ -68,7 +67,7 @@ function VolumeVisContainer(props: VisContainerProps) {
           className={visualizerStyles.dimMapper}
           dims={dims}
           dimHints={dimHints}
-          dimLabels={dimNames}
+          dimLabels={dimLabels}
           dimMapping={dimMapping}
           {...slicingProps}
           onChange={setDimMapping}

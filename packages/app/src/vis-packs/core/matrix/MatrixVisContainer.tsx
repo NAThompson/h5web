@@ -7,6 +7,7 @@ import {
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
@@ -28,12 +29,15 @@ function MatrixVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(dimMapping);
 
   const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
+  const { dimHints, dimLabels } = useDimInfo(entity); // once resolved, e.g. by another vis
 
   return (
     <>
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
+        dimHints={dimHints}
+        dimLabels={dimLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

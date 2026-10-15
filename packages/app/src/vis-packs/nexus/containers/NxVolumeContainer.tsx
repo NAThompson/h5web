@@ -19,7 +19,7 @@ import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxValuesFetcher from '../NxValuesFetcher';
-import { getVolumeDefaultSlice } from '../utils';
+import { getAxisNames, getVolumeDefaultSlice } from '../utils';
 
 /*
  * The last three dimensions of the signal form the volume (`[z, y, x]`); leading dimensions,
@@ -78,6 +78,7 @@ function NxVolumeContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={dims}
         dimHints={axisDefs.map((def) => def?.label)}
+        dimLabels={getAxisNames(axisDefs)}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

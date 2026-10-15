@@ -13,6 +13,7 @@ import { assertComplexNxData } from '../guards';
 import { useNxData } from '../hooks';
 import NxLineSignalPicker from '../NxLineSignalPicker';
 import NxValuesFetcher from '../NxValuesFetcher';
+import { getAxisNames } from '../utils';
 
 function NxComplexLineContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -68,6 +69,7 @@ function NxComplexLineContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={signalDims}
         dimHints={axisLabels}
+        dimLabels={getAxisNames(axisDefs)}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

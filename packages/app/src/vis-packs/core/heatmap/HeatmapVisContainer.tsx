@@ -10,7 +10,7 @@ import { Suspense, useState } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimHints, useDimNames, useDimUnits } from '../../dimscales/hooks';
+import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import {
@@ -47,9 +47,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
     axesCount: 2,
   });
 
-  const dimHints = useDimHints(entity);
-  const dimNames = useDimNames(entity);
-  const dimUnits = useDimUnits(entity);
+  const { dimHints, dimLabels, dimUnits } = useDimInfo(entity);
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
@@ -96,7 +94,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
       className={extraSlider ? undefined : visualizerStyles.dimMapper}
       dims={dims}
       dimHints={dimHints}
-      dimLabels={dimNames}
+      dimLabels={dimLabels}
       dimMapping={dimMapping}
       {...slicingProps}
       onChange={setDimMapping}

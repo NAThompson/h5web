@@ -2,7 +2,7 @@ import { arrayShape, floatType, strType } from '@h5web/shared/hdf5-utils';
 import { dataset, group } from '@h5web/shared/mock-utils';
 import { describe, expect, it } from 'vitest';
 
-import { isUsableScale } from './utils';
+import { getUniqueLabels, isUsableScale } from './utils';
 
 function scaleOfShape(dims: number[]) {
   return dataset('scale', arrayShape(dims), floatType());
@@ -32,5 +32,17 @@ describe('isUsableScale', () => {
     expect(isUsableScale(scaleOfShape([9]), 10)).toBe(false);
     expect(isUsableScale(scaleOfShape([11]), 10)).toBe(false);
     expect(isUsableScale(scaleOfShape([10, 2]), 10)).toBe(false);
+  });
+});
+
+describe('getUniqueLabels', () => {
+  it('should leave out labels shared by several dimensions', () => {
+    expect(getUniqueLabels(['k', 'x', undefined, 'x', ''])).toEqual([
+      'k',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 });

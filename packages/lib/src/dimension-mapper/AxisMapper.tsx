@@ -47,7 +47,7 @@ function AxisMapper(props: Props) {
             label={dimLabels?.[i] ?? `D${i}`}
             value={i.toString()}
             disabled={val === null} // locked dimension
-            hint={dimHints?.[i]}
+            hint={dimHints?.[i] ?? dimLabels?.[i]} // full name of a label cut short
           />
         ))}
       </ToggleGroup>

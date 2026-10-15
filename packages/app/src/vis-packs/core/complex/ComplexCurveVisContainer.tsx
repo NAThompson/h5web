@@ -8,7 +8,7 @@ import {
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimHints, useDimNames } from '../../dimscales/hooks';
+import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
@@ -33,8 +33,7 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
   const config = useComplexCurveConfig();
   const selection = getSliceSelection(dimMapping);
 
-  const dimHints = useDimHints(entity);
-  const dimNames = useDimNames(entity);
+  const { dimHints, dimLabels } = useDimInfo(entity);
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -48,7 +47,7 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={dims}
         dimHints={dimHints}
-        dimLabels={dimNames}
+        dimLabels={dimLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

@@ -8,7 +8,7 @@ import { type ReactElement } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useDimHints, useDimNames } from '../../dimscales/hooks';
+import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { type DefaultSlice } from '../../nexus/models';
 import { useDatasetSlicingProps } from '../../slicing';
@@ -55,8 +55,7 @@ function GeometryVisContainer(props: Props) {
 
   const selection = getSliceSelection(dimMapping);
   const hint = useViewHint(entity);
-  const dimHints = useDimHints(entity);
-  const dimNames = useDimNames(entity);
+  const { dimHints, dimLabels } = useDimInfo(entity);
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
@@ -70,7 +69,7 @@ function GeometryVisContainer(props: Props) {
           className={visualizerStyles.dimMapper}
           dims={dims}
           dimHints={dimHints}
-          dimLabels={dimNames}
+          dimLabels={dimLabels}
           dimMapping={dimMapping}
           {...slicingProps}
           onChange={setDimMapping}

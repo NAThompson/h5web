@@ -27,12 +27,12 @@ function LinkedDimMapper(props: Props) {
         className={styles.linked}
         title={`Slices the overlays that share the "${link.label}" dimension scale`}
       >
-        <span className={styles.linkedLabel}>{link.label}</span>
         <DimensionMapper
           className={styles.linkedMapper}
           role="group"
           aria-label={`Linked dimension ${link.label}`}
           dims={[link.length]}
+          dimLabels={[link.label]}
           dimMapping={mapping}
           {...slicingProps}
           onChange={([val]) => onChange(val as number)}

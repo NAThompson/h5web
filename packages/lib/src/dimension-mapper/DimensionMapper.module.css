@@ -21,6 +21,19 @@
   font-size: 0.875em;
 }
 
+/* Long dimension names (e.g. of scales) are cut short; in full in the button's title */
+.axisMapper button {
+  max-width: 6em;
+}
+
+.axisMapper button > span,
+.axisMapper button > span > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .axisLabel {
   margin-right: 0.125rem;
   font-family: math;
