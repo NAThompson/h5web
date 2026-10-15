@@ -56,6 +56,8 @@ function useFillColors(
 }
 
 const DASH = '6 4';
+const HALO_WIDTH = 3; // px added around lines (1.5 px on each side)
+const HALO_OPACITY = 0.7;
 export const MAX_SVG_POINTS = 5000; // per point set; larger sets are drawn as GL points
 const TEXT_GAP = 8; // px between a position and the text placed next to it
 
@@ -206,15 +208,18 @@ function OverlayLayer2D(props: Props) {
                     // eslint-disable-next-line react/no-array-index-key
                     <g key={i} data-testid="overlay-line">
                       {line.label && <title>{line.label}</title>}
-                      <path
-                        d={d}
-                        fill="none"
-                        stroke={halo}
-                        strokeOpacity={0.4}
-                        strokeWidth={line.width + 1.5}
-                        strokeLinejoin="round"
-                        strokeDasharray={line.dash ? DASH : undefined}
-                      />
+                      {line.halo && (
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke={halo}
+                          strokeOpacity={HALO_OPACITY}
+                          strokeWidth={line.width + HALO_WIDTH}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                          strokeDasharray={line.dash ? DASH : undefined}
+                        />
+                      )}
                       <path
                         d={d}
                         fill="none"
@@ -245,21 +250,34 @@ function OverlayLayer2D(props: Props) {
                       if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
                         return null;
                       }
+                      // Coloured by value: white and dark rings; one colour: contrasting ring
+                      const isColoured = points.values !== undefined;
+                      const ring =
+                        points.stroke ??
+                        (isColoured ? '#202020' : getHaloColor(points.fill));
                       return (
                         // eslint-disable-next-line react/no-array-index-key
                         <g key={j}>
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={points.size + 2.5}
-                            fill={points.stroke}
-                          />
+                          {points.halo && (
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={points.size + 2.5}
+                              fill={ring}
+                            />
+                          )}
                           <circle
                             cx={pt.x}
                             cy={pt.y}
                             r={points.size}
                             fill={fills[i][j]}
-                            stroke="white"
+                            stroke={
+                              points.halo
+                                ? isColoured
+                                  ? 'white'
+                                  : undefined
+                                : points.stroke
+                            }
                             strokeWidth={1.5}
                           />
                         </g>
@@ -279,9 +297,9 @@ function OverlayLayer2D(props: Props) {
                       x={pt.x}
                       y={pt.y}
                       fill={text.color}
-                      stroke={getHaloColor(text.color)}
-                      strokeOpacity={0.6}
-                      strokeWidth={3}
+                      stroke={text.halo ? getHaloColor(text.color) : undefined}
+                      strokeOpacity={HALO_OPACITY}
+                      strokeWidth={HALO_WIDTH}
                       paintOrder="stroke"
                       fontSize={13}
                       {...TEXT_PLACEMENT[text.anchor]}

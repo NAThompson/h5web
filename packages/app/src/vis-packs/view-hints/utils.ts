@@ -147,6 +147,7 @@ function parseOverlayStyle(raw: Json) {
     label: optStr(raw, 'label'),
     labelMode: raw.labelMode === 'inline' ? ('inline' as const) : undefined,
     dash: raw.dash === true ? true : undefined,
+    halo: raw.halo === false ? false : undefined,
     stroke: optStr(raw, 'stroke'),
   };
 }

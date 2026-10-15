@@ -517,8 +517,9 @@ export interface OverlayPoints {
   z?: number[]; // heights (values of the base dataset); on the surface if undefined
   values?: number[]; // coloured with the base colour map
   fill: string;
-  stroke: string;
+  stroke?: string; // outline (default: halo contrasting with the fill)
   size: number;
+  halo: boolean;
   label?: string;
 }
 
@@ -528,6 +529,7 @@ export interface OverlayLine {
   stroke: string;
   width: number;
   dash: boolean;
+  halo: boolean;
   label?: string;
   head: boolean; // marker at the last point (e.g. current position of a trail)
 }
@@ -538,6 +540,7 @@ export interface OverlayText {
   text: string;
   anchor: TextAnchor; // side of the position where the text goes
   color: string;
+  halo: boolean;
 }
 
 export interface OverlayShapes {
@@ -571,11 +574,12 @@ function getColumns(
 
 function getLineStyle(
   hint: OverlayHint,
-): Pick<OverlayLine, 'stroke' | 'width' | 'dash' | 'label'> {
+): Pick<OverlayLine, 'stroke' | 'width' | 'dash' | 'halo' | 'label'> {
   return {
     stroke: hint.color ?? 'white',
     width: hint.width ?? 1.5,
     dash: hint.dash ?? false,
+    halo: hint.halo ?? true,
     label: hint.label,
   };
 }
@@ -595,6 +599,7 @@ function buildText(
     text: hint.text,
     anchor: hint.anchor,
     color: hint.color ?? 'white',
+    halo: hint.halo ?? true,
   };
 }
 
@@ -612,7 +617,16 @@ function getInlineLabel(
   );
   return i === -1
     ? []
-    : [{ x: x[i], y: y[i], text: hint.label, anchor: 'right', color }];
+    : [
+        {
+          x: x[i],
+          y: y[i],
+          text: hint.label,
+          anchor: 'right',
+          color,
+          halo: hint.halo ?? true,
+        },
+      ];
 }
 
 /* Column `col` of a row-major (rows x cols) array */
@@ -662,8 +676,9 @@ function buildPoints(
     z: zValues,
     values: colorValues,
     fill: hint.color ?? 'white',
-    stroke: hint.stroke ?? '#202020',
+    stroke: hint.stroke,
     size: hint.size ?? 5,
+    halo: hint.halo ?? true,
     label: hint.label,
   };
 }

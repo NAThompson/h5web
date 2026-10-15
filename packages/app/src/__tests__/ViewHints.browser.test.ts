@@ -22,8 +22,9 @@ function getNotes() {
 }
 
 function getPointsCx(): string[] {
+  // Disc of each point, drawn over its halo
   const points = document.querySelector('[data-testid="overlay-points"]');
-  return [...(points?.querySelectorAll('circle[stroke="white"]') ?? [])].map(
+  return [...(points?.querySelectorAll('g > circle:last-child') ?? [])].map(
     (circle) => circle.getAttribute('cx') ?? '',
   );
 }

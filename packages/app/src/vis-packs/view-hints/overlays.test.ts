@@ -376,6 +376,7 @@ describe('shapes', () => {
         stroke: 'white',
         width: 1.5,
         dash: false,
+        halo: true,
         label: undefined,
         head: true,
       },
@@ -488,8 +489,15 @@ describe('shapes', () => {
       AXES,
     );
     expect(shapes.texts).toEqual([
-      { x: 1.5, y: 0, text: 'r₁₂ = 0', anchor: 'top', color: 'white' },
-      { x: 0, y: 3, text: 'e–n', anchor: 'right', color: '#000' },
+      {
+        x: 1.5,
+        y: 0,
+        text: 'r₁₂ = 0',
+        anchor: 'top',
+        color: 'white',
+        halo: true,
+      },
+      { x: 0, y: 3, text: 'e–n', anchor: 'right', color: '#000', halo: true },
     ]);
     expect(shapes.lines[0]).toMatchObject({ stroke: '#000', dash: true });
   });
@@ -503,6 +511,21 @@ describe('shapes', () => {
       AXES,
     );
     expect(shapes.points[0]).toMatchObject({ x: [1, 3, 5], y: [2, 4, 6] });
+  });
+
+  it('draw halos unless disabled', () => {
+    const edge = { dataset: arr('edge', [2, 2]) };
+    const shapes = buildOverlayShapes(
+      [
+        overlay({ curve: 'edge', halo: false }, { curve: edge }),
+        overlay({ points: 'edge' }, { points: edge }),
+      ],
+      () => [0, 0, 0, 3],
+      undefined,
+      AXES,
+    );
+    expect(shapes.lines[0].halo).toBe(false);
+    expect(shapes.points[0].halo).toBe(true);
   });
 
   it('skip overlays whose values are not available yet', () => {
