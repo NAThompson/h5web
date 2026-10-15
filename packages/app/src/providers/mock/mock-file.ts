@@ -893,6 +893,16 @@ export function makeMockFile(): GroupWithChildren {
             attributes: [scalarAttr('H5WEB_view', '{"vis": "line"}')],
           }),
         ),
+        array('volume_iso', {
+          valueId: 'threeD_fermi',
+          attributes: [
+            scalarAttr('H5WEB_view', '{"vis": "volume", "isoLevels": [-1, 1]}'),
+          ],
+        }),
+        array('volume_plain', {
+          valueId: 'threeD_fermi',
+          attributes: [scalarAttr('H5WEB_view', '{"vis": "volume"}')],
+        }),
         array('bad_json', {
           valueId: 'twoD',
           attributes: [scalarAttr('H5WEB_view', '{"vis": "line"')],

@@ -5,18 +5,11 @@ import {
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
-import {
-  type ComponentProps,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ComponentProps, useMemo, useRef, useState } from 'react';
 
 import { useDataContext } from '../../providers/DataProvider';
 import { type ValueQueryParams } from '../../providers/models';
 import { createGeometryContext } from '../core/geometry/utils';
-import { type VolumeConfig } from '../core/volume/config';
 import { useSlicingProps } from '../slicing';
 import type LinkedDimMapper from './LinkedDimMapper';
 import { EMPTY_HINT, VIEW_HINT_ATTR, type ViewHint } from './models';
@@ -49,31 +42,6 @@ export function useViewHint(
     };
   }
   return data ?? EMPTY_HINT;
-}
-
-/* Iso levels suggested by a hint replace the current ones when the volume is opened (they
- * depend on the dataset); the user may then change them freely */
-export function useSuggestedIsoLevels(
-  hint: ViewHint,
-  config: Pick<VolumeConfig, 'isoLevels' | 'addIsoLevel' | 'removeIsoLevel'>,
-): void {
-  const isApplied = useRef(false);
-  const initial = useRef({ levels: hint.isoLevels, config });
-
-  useEffect(() => {
-    const { levels, config: initialConfig } = initial.current;
-    if (!levels || isApplied.current) {
-      return;
-    }
-
-    isApplied.current = true;
-    for (const { id } of initialConfig.isoLevels) {
-      initialConfig.removeIsoLevel(id);
-    }
-    for (const value of levels) {
-      initialConfig.addIsoLevel(value);
-    }
-  }, []);
 }
 
 /* Same array as on previous render if its elements haven't changed */

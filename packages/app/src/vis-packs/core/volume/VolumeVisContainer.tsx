@@ -8,11 +8,11 @@ import {
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
-import { useSuggestedIsoLevels, useViewHint } from '../../view-hints/hooks';
+import { useViewHint } from '../../view-hints/hooks';
 import { getVolumeSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
-import { useVolumeConfig } from './config';
+import { useSuggestedIsoLevels, useVolumeConfig } from './config';
 import MappedVolumeVis from './MappedVolumeVis';
 
 function VolumeVisContainer(props: VisContainerProps) {
@@ -23,8 +23,10 @@ function VolumeVisContainer(props: VisContainerProps) {
   assertNumericType(entity);
 
   const hint = useViewHint(entity);
-  const config = useVolumeConfig(getVolumeSuggestions(hint));
-  useSuggestedIsoLevels(hint, config);
+  const config = useSuggestedIsoLevels(
+    useVolumeConfig(getVolumeSuggestions(hint)),
+    hint.isoLevels,
+  );
 
   // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
   // as `keepRatio` does for heatmaps

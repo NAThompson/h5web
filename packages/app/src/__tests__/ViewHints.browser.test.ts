@@ -105,6 +105,32 @@ test('open dataset whose hint cannot be read or fetched', async () => {
   await expect.element(getNotes()).toHaveTextContent('could not be fetched');
 });
 
+test('suggest iso levels without storing them until edited', async () => {
+  await page.viewport(2560, 1080); // whole volume toolbar
+  const { user, selectExplorerNode } = await renderApp(
+    '/view_hints/volume_iso',
+  );
+
+  expect(getSelectedVisTab()).toBe(Vis.Volume);
+  const isoBtn = page.getByRole('button', { name: 'Isosurfaces', exact: true });
+  await user.click(isoBtn);
+  await expect
+    .element(page.getByRole('textbox', { name: 'Level 2 value' }))
+    .toBeVisible();
+  await userEvent.keyboard('{Escape}');
+
+  // Hinted levels don't leak to other datasets
+  await selectExplorerNode('volume_plain');
+  await expect.element(page.getByRole('figure')).toBeVisible();
+  await user.click(isoBtn);
+  await expect
+    .element(page.getByRole('dialog', { name: 'Isosurfaces' }))
+    .toBeVisible();
+  expect(page.getByRole('listitem')).not.toBeInTheDocument();
+
+  await page.viewport(1920, 1080);
+});
+
 test('ignore malformed hint', async () => {
   await renderApp('/view_hints/bad_json');
 
