@@ -203,8 +203,10 @@ export function getPixelEdgeValues(
   return rawValues.slice(0, pixelEdgeCount);
 }
 
-/* Relative deviation of the steps from the mean step above which values are not evenly spaced */
-const UNIFORMITY_TOLERANCE = 1e-3;
+/* Deviation of the steps from the mean step above which values are not evenly spaced: relative to
+ * the mean step, but no less than float32 rounding of the values allows (e.g. a float32 linspace) */
+const UNIFORMITY_TOLERANCE = 1e-2;
+const FLOAT_PRECISION = 2 ** -20; // a few float32 ulps, relative to the largest value
 
 /* Whether values are strictly monotonic but not evenly spaced (e.g. Chebyshev or log grid) */
 export function isNonUniform(values: NumArray): boolean {
@@ -218,18 +220,39 @@ export function isNonUniform(values: NumArray): boolean {
     return false;
   }
 
+  const maxAbs = Math.max(Math.abs(values[0]), Math.abs(values[n - 1]));
+  const tolerance = Math.max(
+    UNIFORMITY_TOLERANCE * Math.abs(meanStep),
+    FLOAT_PRECISION * maxAbs,
+  );
+
   let isUniform = true;
   for (let i = 1; i < n; i += 1) {
     const step = values[i] - values[i - 1];
     if (!(step / meanStep > 0)) {
       return false; // not strictly monotonic (or NaN): drawn as evenly spaced
     }
-    if (Math.abs(step - meanStep) > UNIFORMITY_TOLERANCE * Math.abs(meanStep)) {
+    if (Math.abs(step - meanStep) > tolerance) {
       isUniform = false;
     }
   }
 
   return !isUniform;
+}
+
+/*
+ * Whether a heatmap axis of `pixelCount` pixels is drawn at non-uniform positions, from its values
+ * (pixel centres, or edges): the one test of the mesh, its edges and contours, so they agree
+ */
+export function isNonUniformAxis(
+  rawValues: NumArray | undefined,
+  pixelCount: number,
+): rawValues is NumArray {
+  return (
+    rawValues !== undefined &&
+    rawValues.length >= pixelCount &&
+    isNonUniform(rawValues.slice(0, pixelCount + 1))
+  );
 }
 
 /*
@@ -240,7 +263,10 @@ export function getCellEdges(
   rawValues: NumArray | undefined,
   pixelCount: number,
 ): NumArray {
-  if (rawValues?.length !== pixelCount || !isNonUniform(rawValues)) {
+  if (
+    rawValues?.length !== pixelCount ||
+    !isNonUniformAxis(rawValues, pixelCount)
+  ) {
     return getPixelEdgeValues(rawValues, pixelCount);
   }
 
@@ -295,10 +321,10 @@ export function getIndexToPosition(
   rawValues: NumArray | undefined,
   pixelCount: number,
 ): ((index: number) => number) | undefined {
-  const edges = getCellEdges(rawValues, pixelCount);
-  if (!isNonUniform(edges)) {
+  if (!isNonUniformAxis(rawValues, pixelCount)) {
     return undefined;
   }
+  const edges = getCellEdges(rawValues, pixelCount);
 
   // Knots: outer edges and pixel centres (`k - 0.5` for knot `k`), e.g. bin centres of bin edges
   const relPixels = getRelativePixels(edges, getPixelCentres(rawValues, edges));
@@ -322,7 +348,8 @@ export function getPixelCentres(
   rawValues: NumArray | undefined,
   edges: NumArray,
 ): NumArray | undefined {
-  return rawValues?.length === edges.length - 1 && isNonUniform(rawValues)
+  return rawValues?.length === edges.length - 1 &&
+    isNonUniformAxis(rawValues, rawValues.length)
     ? rawValues
     : undefined;
 }

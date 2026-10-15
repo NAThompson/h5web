@@ -192,6 +192,7 @@ export {
   getSafeDomain,
   getCellEdges,
   isNonUniform,
+  isNonUniformAxis,
 } from './vis/heatmap/utils';
 
 export { useVisDomain, useSafeDomain } from './vis/heatmap/hooks';

@@ -1,4 +1,4 @@
-import { isNonUniform } from '@h5web/lib';
+import { isNonUniformAxis } from '@h5web/lib';
 import {
   hasArrayShape,
   hasNumericType,
@@ -1043,7 +1043,7 @@ export function getPixelCentreShift(
   if (
     axisValues.length > pixelCount ||
     pixelCount < 2 ||
-    isNonUniform(axisValues)
+    isNonUniformAxis(axisValues, pixelCount)
   ) {
     return (value) => value; // bin edges or pixel centres: coordinates are used as is
   }

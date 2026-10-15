@@ -14,6 +14,7 @@ import {
   getSafeDomain,
   getTextureChunks,
   isNonUniform,
+  isNonUniformAxis,
   sliceRelativePixels,
   sliceTextureChunk,
   toTextureSafeNdArray,
@@ -304,8 +305,20 @@ describe('isNonUniform', () => {
     expect(isNonUniform([0, 1, 2, 3, 4])).toBe(false);
     expect(isNonUniform([4, 3, 2, 1, 0])).toBe(false);
     expect(isNonUniform([0, 0.1, 0.2, 0.3])).toBe(false); // rounding errors
-    expect(isNonUniform([0, 1.0005, 2, 3])).toBe(false);
-    expect(isNonUniform([0, 1.01, 2, 3])).toBe(true);
+    expect(isNonUniform([0, 1.005, 2, 3])).toBe(false);
+    expect(isNonUniform([0, 1.02, 2, 3])).toBe(true);
+  });
+
+  it('should consider float32 linspaces uniform, despite rounding', () => {
+    const linspace = Float32Array.from(
+      { length: 1000 },
+      (_, i) => 1000 + i * 0.01,
+    );
+    expect(isNonUniform(linspace)).toBe(false);
+    expect(isNonUniformAxis(linspace, 1000)).toBe(false);
+    expect(isNonUniformAxis(linspace, 999)).toBe(false); // as edges
+    expect(getCellEdges(linspace, 1000)).toHaveLength(1001);
+    expect(getIndexToPosition(linspace, 1000)).toBeUndefined(); // contours as the mesh
   });
 
   it('should ignore values that cannot be remapped', () => {

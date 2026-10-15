@@ -37,7 +37,7 @@ import HeatmapMesh from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
 import { useCellEdges, useMask, useTextureSafeNdArray } from './hooks';
 import { type ColorMap, type TooltipData } from './models';
-import { getPixelCentres, isNonUniform } from './utils';
+import { getPixelCentres, isNonUniformAxis } from './utils';
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -118,8 +118,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
   const ordinateToIndex = useValueToIndexScale(ordinates);
 
   // Non-uniform pixels: mesh remapped to the edges; pixel values (if given) are pixel centres
-  const xEdges = isNonUniform(abscissas) ? abscissas : undefined;
-  const yEdges = isNonUniform(ordinates) ? ordinates : undefined;
+  const xEdges = isNonUniformAxis(abscissaValue, cols) ? abscissas : undefined;
+  const yEdges = isNonUniformAxis(ordinateValue, rows) ? ordinates : undefined;
   const xCentres = getPixelCentres(abscissaValue, abscissas);
   const yCentres = getPixelCentres(ordinateValue, ordinates);
 
