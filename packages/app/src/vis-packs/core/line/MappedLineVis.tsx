@@ -39,6 +39,7 @@ import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useEnvelopes } from '../../view-hints/envelope';
+import { useStableObjects } from '../../view-hints/hooks';
 import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import { type Envelope } from '../../view-hints/models';
 import ReferenceLayer from '../../view-hints/ReferenceLayer';
@@ -363,7 +364,8 @@ function MappedLineVis(props: Props) {
       ignoreValue: curve.ignoreValue ?? ignoreNone, // not the signal's
     })),
   ];
-  const auxiliaries = [...curveAuxiliaries, ...extraCurves];
+  // Same curves while unchanged, for their unplottable marks and the legend's corner
+  const auxiliaries = useStableObjects([...curveAuxiliaries, ...extraCurves]);
 
   const exportEntries = useExportEntries(['npy', 'csv'], dataset, selection, {
     csv: () =>

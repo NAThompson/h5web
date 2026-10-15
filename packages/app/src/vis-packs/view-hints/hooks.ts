@@ -99,6 +99,25 @@ export function useStableArray<T>(arr: T[]): T[] {
   return ref.current;
 }
 
+/* Same array as on previous render if its objects' fields haven't changed (e.g. curves) */
+export function useStableObjects<T extends object>(arr: T[]): T[] {
+  const ref = useRef(arr);
+  const prev = ref.current;
+  if (
+    prev.length !== arr.length ||
+    prev.some((obj, i) => {
+      const keys = Object.keys(obj) as (keyof T)[];
+      return (
+        keys.length !== Object.keys(arr[i]).length ||
+        keys.some((key) => !Object.is(obj[key], arr[i][key]))
+      );
+    })
+  ) {
+    ref.current = arr;
+  }
+  return ref.current;
+}
+
 /* Overlays of a hint, resolved in the background: `undefined` until then, so they never hold up
  * nor break the base dataset's vis */
 export function useResolvedOverlays(
