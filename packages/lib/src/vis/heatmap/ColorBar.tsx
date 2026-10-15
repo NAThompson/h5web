@@ -11,6 +11,7 @@ import {
   createScale,
   getScaleTickValues,
   getTextContent,
+  getTickPrecision,
 } from '../utils';
 import styles from './ColorBar.module.css';
 import { type ColorMap } from './models';
@@ -109,7 +110,7 @@ function ColorBar(props: Props) {
                     // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
                     formatTick,
                   )
-                : formatTick
+                : (val, _, ticks) => formatTick(val, getTickPrecision(ticks))
             }
           />
         </svg>

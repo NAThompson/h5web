@@ -1,4 +1,5 @@
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
+import { formatTick } from '@h5web/shared/vis-utils';
 import { tickStep } from 'd3-array';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -20,8 +21,10 @@ import {
   getSizeToFit,
   getSymlogTicks,
   getTextContent,
+  getTickPrecision,
   getValueToIndexScale,
   getVisRatio,
+  isIntegerValued,
 } from './utils';
 
 const MAX = Number.MAX_VALUE / 2;
@@ -633,5 +636,42 @@ describe('getTextContent()', () => {
     expect(getTextContent(['Ψ', createElement('sub', { key: 1 }, 'K')])).toBe(
       'ΨK',
     );
+  });
+});
+
+function toTicks(vals: number[]) {
+  return vals.map((value) => ({ value }));
+}
+
+describe('getTickPrecision()', () => {
+  it('should keep 3 significant digits when they tell ticks apart', () => {
+    expect(getTickPrecision(toTicks([0, 0.2, 0.4, 0.6]))).toBe(3);
+    expect(getTickPrecision(toTicks([1e-17, 2e-17, 1e-16, 1e-15]))).toBe(3); // log
+    expect(getTickPrecision(toTicks([5]))).toBe(3);
+  });
+
+  it('should add digits on narrow domains', () => {
+    const ticks = toTicks([0.9994, 0.9995, 0.9996, 0.9997]);
+    const precision = getTickPrecision(ticks);
+    expect(precision).toBe(4);
+    expect(ticks.map(({ value }) => formatTick(value, precision))).toEqual([
+      '0.9994',
+      '0.9995',
+      '0.9996',
+      '0.9997',
+    ]);
+    expect(
+      formatTick(10_050, getTickPrecision(toTicks([10_000, 10_050]))),
+    ).toBe('1.005e+4');
+  });
+});
+
+describe('isIntegerValued()', () => {
+  it('should tell if all values are integers', () => {
+    expect(isIntegerValued([0, 1, 2, 8])).toBe(true);
+    expect(isIntegerValued(Float32Array.from([2000, 2001]))).toBe(true);
+    expect(isIntegerValued([0, 0.5])).toBe(false);
+    expect(isIntegerValued([])).toBe(false);
+    expect(isIntegerValued(undefined)).toBe(false);
   });
 });

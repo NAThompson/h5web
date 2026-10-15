@@ -31,7 +31,7 @@ import {
 } from '../models';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
-import { DEFAULT_DOMAIN, getTextContent } from '../utils';
+import { DEFAULT_DOMAIN, getTextContent, isIntegerValued } from '../utils';
 import ColorBar from './ColorBar';
 import HeatmapMesh from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
@@ -129,7 +129,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         abscissaConfig={{
           visDomain: abscissaDomain,
           showGrid,
-          isIndexAxis: !abscissaValue,
+          isIndexAxis: !abscissaValue || isIntegerValued(abscissaValue),
           label: abscissaLabel,
           flip: flipXAxis,
           ticks: abscissaTicks,
@@ -137,7 +137,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         ordinateConfig={{
           visDomain: ordinateDomain,
           showGrid,
-          isIndexAxis: !ordinateValue,
+          isIndexAxis: !ordinateValue || isIntegerValued(ordinateValue),
           label: ordinateLabel,
           flip: flipYAxis,
           ticks: ordinateTicks,

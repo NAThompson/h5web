@@ -27,19 +27,31 @@ export const formatTooltipVal = format('.5~g');
 export const formatTooltipErr = format('.3~g');
 export const formatScalarComplex = createComplexFormatter(format('.12~g'));
 
-const TICK_PRECISION = 3;
+const TICK_PRECISION = 3; // significant digits, unless more are needed (cf. `getTickPrecision`)
 const TICK_DECIMAL_REGEX = /0\.(\d+)$/u; // can start with minus sign
-const formatTickAuto = format(`.${TICK_PRECISION}~g`); // automatic mode (`Number.toPrecision`)
-const formatTickExp = format(`.${TICK_PRECISION}~e`); // exponent mode
+const tickFormats = new Map<
+  number,
+  [auto: (val: number) => string, exp: (val: number) => string]
+>();
 
-export function formatTick(val: number | { valueOf: () => number }): string {
-  const str = formatTickAuto(val);
+export function formatTick(
+  val: number | { valueOf: () => number },
+  precision = TICK_PRECISION,
+): string {
+  let formats = tickFormats.get(precision);
+  if (!formats) {
+    // automatic mode (`Number.toPrecision`) and exponent mode
+    formats = [format(`.${precision}~g`), format(`.${precision}~e`)];
+    tickFormats.set(precision, formats);
+  }
+  const [formatAuto, formatExp] = formats;
+  const str = formatAuto(val.valueOf());
 
-  /* If automatic mode gives a decimal number with more than three decimals,
+  /* If automatic mode gives a decimal number with more decimals than significant digits,
    * force exponent notation - e.g. 0.00000123456 => 0.00000123 => 1.235e-6 */
   const match = TICK_DECIMAL_REGEX.exec(str);
-  if (match && match[1].length > TICK_PRECISION) {
-    return formatTickExp(val);
+  if (match && match[1].length > precision) {
+    return formatExp(val.valueOf());
   }
 
   return str;

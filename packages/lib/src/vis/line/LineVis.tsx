@@ -28,7 +28,12 @@ import {
 import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
-import { DEFAULT_DOMAIN, extendDomain, getTextContent } from '../utils';
+import {
+  DEFAULT_DOMAIN,
+  extendDomain,
+  getTextContent,
+  isIntegerValued,
+} from '../utils';
 import DataCurve from './DataCurve';
 import { useAxisValues } from './hooks';
 import styles from './LineVis.module.css';
@@ -150,7 +155,10 @@ function LineVis(props: PropsWithChildren<Props>) {
           visDomain: abscissaDomain,
           showGrid,
           scaleType: abscissaScaleType,
-          isIndexAxis: !abscissaValue,
+          isIndexAxis:
+            !abscissaValue ||
+            ((abscissaScaleType ?? ScaleType.Linear) === ScaleType.Linear &&
+              isIntegerValued(abscissaValue)),
           label: abscissaLabel,
           ticks: abscissaTicks,
         }}

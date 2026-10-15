@@ -13,6 +13,7 @@ import {
   getPiTicks,
   getScaleTickValues,
   getTickFormatter,
+  getTickPrecision,
 } from '../utils';
 import styles from './AxisSystem.module.css';
 import Tick from './Tick';
@@ -80,7 +81,7 @@ function Axis(props: Props) {
         ? { tickValues: scaleTickValues }
         : { numTicks };
 
-  const tickFormatter =
+  const tickFormatter: (val: number, precision: number) => string =
     formatTick ||
     (isPiAxis
       ? formatPiTick
@@ -102,8 +103,8 @@ function Axis(props: Props) {
         >
           <AxisComponent
             scale={scale}
-            tickFormat={(val: ScaleInput<AxisScale>) =>
-              tickFormatter(val.valueOf())
+            tickFormat={(val: ScaleInput<AxisScale>, _, allTicks) =>
+              tickFormatter(val.valueOf(), getTickPrecision(allTicks))
             }
             label={typeof label === 'string' ? label : undefined}
             labelOffset={labelOffset}

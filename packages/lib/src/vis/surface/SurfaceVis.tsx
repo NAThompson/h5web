@@ -15,7 +15,12 @@ import {
 } from '../models';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
 import Vis3DLayout from '../three-d/Vis3DLayout';
-import { createScale, DEFAULT_DOMAIN, SCALES_VALID_MINS } from '../utils';
+import {
+  createScale,
+  DEFAULT_DOMAIN,
+  isIntegerValued,
+  SCALES_VALID_MINS,
+} from '../utils';
 import { SurfaceContext, type SurfaceContextValue } from './context';
 import SurfaceMesh from './SurfaceMesh';
 import {
@@ -178,7 +183,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const abscissaConfig = useMemo<Axis3DConfig>(
     () => ({
       domain: xDomain,
-      isIndexAxis: !abscissaValue,
+      isIndexAxis: !abscissaValue || isIntegerValued(abscissaValue),
       label: abscissaLabel,
       flip: flipXAxis,
       ticks: abscissaTicks,
@@ -189,7 +194,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const ordinateConfig = useMemo<Axis3DConfig>(
     () => ({
       domain: yDomain,
-      isIndexAxis: !ordinateValue,
+      isIndexAxis: !ordinateValue || isIntegerValued(ordinateValue),
       label: ordinateLabel,
       flip: flipYAxis,
       ticks: ordinateTicks,

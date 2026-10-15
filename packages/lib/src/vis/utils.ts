@@ -254,6 +254,11 @@ export function getValueToIndexScale(
  *
  * So we implement our own, simplified version of `d3.ticks` that always outputs integer values.
  */
+/* Whether axis values are all integers, to only get integer ticks as on index axes */
+export function isIntegerValued(values: NumArray | undefined): boolean {
+  return !!values && values.length > 0 && values.every(Number.isInteger);
+}
+
 export function getIntegerTicks(domain: Domain, count: number): number[] {
   const min = Math.min(...domain);
   const max = Math.max(...domain);
@@ -411,11 +416,33 @@ export function getScaleTickValues(
     : undefined;
 }
 
+function exponent(x: number): number {
+  return Math.floor(Math.log10(x) + 1e-9); // as in `toExponential`
+}
+
+/* Significant digits for adjacent ticks to differ once formatted, like d3's `tickFormat(count)`
+ * (at least 3, as by default: e.g. 0.9994, 0.9995, 0.9996 rather than 0.999, 1, 1) */
+export function getTickPrecision(
+  ticks: { value: { valueOf: () => number } }[],
+): number {
+  let precision = 3;
+  for (let i = 1; i < ticks.length; i += 1) {
+    const prev = ticks[i - 1].value.valueOf();
+    const val = ticks[i].value.valueOf();
+    const step = Number(Math.abs(val - prev).toPrecision(12)); // e.g. 0.9997 - 0.9996
+    if (step > 0 && Number.isFinite(step)) {
+      const max = Math.max(Math.abs(prev), Math.abs(val));
+      precision = Math.max(precision, exponent(max) - exponent(step) + 1);
+    }
+  }
+  return Math.min(precision, 21); // max of `toPrecision`
+}
+
 export function getTickFormatter(
   domain: Domain,
   availableSize: number,
   scaleType: ScaleType,
-): (val: number | { valueOf: () => number }) => string {
+): (val: number | { valueOf: () => number }, precision?: number) => string {
   if (scaleType !== ScaleType.Log) {
     return formatTick;
   }
@@ -435,9 +462,11 @@ export function getTickFormatter(
   }
 
   // Otherwise, use formatter that hides non-exact powers of 10
-  return (val) => {
+  return (val, precision) => {
     const loggedVal = Math.log10(Math.abs(val.valueOf()));
-    return loggedVal === Math.floor(loggedVal) ? formatTick(val) : '';
+    return loggedVal === Math.floor(loggedVal)
+      ? formatTick(val, precision)
+      : '';
   };
 }
 
