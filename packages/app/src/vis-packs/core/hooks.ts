@@ -123,7 +123,7 @@ export function useSuggestion<T>(
   );
 
   if (isIgnored || !isDefined(suggestion)) {
-    return [storeValue, storeSetter];
+    return [storeValue, patchedSetter]; // a change before the suggestion arrives is kept
   }
 
   return [suggestion, patchedSetter];
