@@ -22,6 +22,8 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
+import { type NumArray } from '@h5web/shared/vis-models';
+import { type NdArray } from 'ndarray';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -52,6 +54,11 @@ const MAX_LEGEND_CURVES = 10; // multi-plots with a legend of their slices
 
 function ignoreNone(): boolean {
   return false;
+}
+
+// Multi-plot slices without any finite value draw nothing: left out of the legend
+function hasValues(array: NdArray<NumArray>): boolean {
+  return array.data.some(Number.isFinite);
 }
 
 interface Props {
@@ -245,13 +252,18 @@ function MappedLineVis(props: Props) {
     );
   }
 
+  const slicesVisible = [dataArray, ...sliceArrays].map(
+    (array) => !isMultiPlot || hasValues(array),
+  );
+  const visibleSliceCount = slicesVisible.filter(Boolean).length;
+
   const auxiliaries = isMultiPlot
     ? sliceArrays.map((array, i) => ({
         label: getSliceLabel(i + 1),
         array,
         errors: sliceErrorsArrays[i],
         color: getSliceColor(i + 1),
-        visible: true,
+        visible: slicesVisible[i + 1],
       }))
     : auxArrays.map((array, i) => ({
         label: auxLabels[i],
@@ -307,8 +319,12 @@ function MappedLineVis(props: Props) {
         auxiliaries={auxiliaries}
         ignoreValue={ignoreValue}
         interpolation={interpolation}
-        visible={valueVisible}
-        showLegend={isMultiPlot && sliceArrays.length < MAX_LEGEND_CURVES}
+        visible={valueVisible && slicesVisible[0]}
+        showLegend={
+          isMultiPlot &&
+          visibleSliceCount > 1 &&
+          visibleSliceCount <= MAX_LEGEND_CURVES
+        }
         testid={dimMapping.toString()}
       >
         <KeepZoom visKey="line" xOnly />

@@ -1141,6 +1141,16 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/angle'], []] },
         ),
+        withDimScales(
+          array('line_nan_curves', {
+            valueId: 'multi_nan_curves', // all-NaN middle curve
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              scalarAttr('H5WEB_multi_dim', 'angle'),
+            ],
+          }),
+          { scales: [['/view_hints/angle'], []] },
+        ),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

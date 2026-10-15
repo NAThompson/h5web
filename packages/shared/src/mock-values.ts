@@ -592,6 +592,11 @@ export const mockValues = {
   multi_angle: () => ndarray([0.5236, 1.0472, 1.5708]),
   multi_curves: () =>
     ndarray([1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7], [3, 5]),
+  multi_nan_curves: () =>
+    ndarray(
+      range(0, 15).map((i) => (i >= 5 && i < 10 ? Number.NaN : i)),
+      [3, 5],
+    ),
   // Stack (κ, row, column) of 4 × 3 × 5, with value 10 (k + 1) + row + column / 10
   probe_kappa: () => ndarray([0.5, 1, 2, 4]),
   probe_stack: () =>

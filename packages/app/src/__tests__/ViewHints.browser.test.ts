@@ -583,6 +583,13 @@ test('show a legend of a few multi-plotted curves', async () => {
       .map((li) => li.textContent),
   ).toEqual(['angle: 0.524', 'angle: 1.05', 'angle: 1.57']);
 
+  // All-NaN curves left out
+  await selectExplorerNode('line_nan_curves');
+  await expect
+    .poll(() => legend.getByRole('listitem').elements().length)
+    .toBe(2);
+  expect(legend.getByRole('listitem').nth(1)).toHaveTextContent('angle: 1.57');
+
   // Too many curves (20): legend left to snapshots
   await selectExplorerNode('line');
   await expect.element(page.getByTestId('y,x')).toBeVisible();
