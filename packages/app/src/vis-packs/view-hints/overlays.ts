@@ -195,8 +195,10 @@ interface FoundOverlay {
   roles: FoundRole[];
 }
 
-/* Link: declared scale, else a scale shared by an overlay's dataset and the base dataset,
- * else the scale of the first dimension of a dataset that needs slicing (e.g. `generation`) */
+/* Link: declared scale, else a scale shared by an overlay's dataset and a sliced dimension of the
+ * base dataset, else the scale of the first dimension of a dataset that needs slicing (e.g.
+ * `generation`). Scales of the base's axes (last two dimensions) are never guessed as links: a
+ * curve along the x axis, say, is drawn whole. */
 async function findLink(
   hint: ViewHint,
   anchor: string,
@@ -209,6 +211,10 @@ async function findLink(
     return entity && getLink(entity.path, baseScales, ctx);
   }
 
+  const axisDimsCount = 2;
+  const slicedScales = baseScales?.slice(0, -axisDimsCount) ?? [];
+  const axisScales = new Set(baseScales?.slice(-axisDimsCount).flat());
+
   const datasets = found.flatMap(({ roles }) =>
     roles.flatMap(({ entity, rank }) =>
       isOverlayDataset(entity) ? [{ dataset: entity, rank }] : [],
@@ -220,15 +226,15 @@ async function findLink(
 
   const shared = allScales
     .flatMap((scales) => scales?.flat() ?? [])
-    .find((path) => baseScales?.some((paths) => paths.includes(path)));
+    .find((path) => slicedScales.some((paths) => paths.includes(path)));
   const leading = datasets
     .map(({ dataset, rank }, i) =>
       getDims(dataset).length === rank + 1 ? allScales[i]?.[0]?.[0] : undefined,
     )
-    .find((path) => path !== undefined);
+    .find((path) => path !== undefined && !axisScales.has(path));
 
   const scalePath = shared ?? leading;
-  return scalePath ? getLink(scalePath, baseScales, ctx) : undefined;
+  return scalePath ? getLink(scalePath, slicedScales, ctx) : undefined;
 }
 
 /* Names of each dimension of the base dataset: names of its scales (dataset name and `NAME`) */

@@ -138,6 +138,30 @@ describe('resolveOverlays', () => {
     expect(resolved.link?.baseDim).toBe(0);
   });
 
+  it('draw a curve along an axis of the base whole, not linked by that axis', async () => {
+    // Ridge (X, 2) with the base's own x scale attached to its first dimension
+    const { ctx, hint } = setup({ overlays: [{ curve: 'ridge' }] }, [
+      arr('x', [40]),
+      arr('ridge', [40, 2], [['/run/x'], []]),
+    ]);
+    const base = arr('f', [50, 40], [[], ['/run/x']]) as Dataset<ArrayShape>;
+    const resolved = await resolveOverlays(
+      hint,
+      { ...base, path: '/run/f' },
+      {
+        ...ctx,
+        getDimensionScales: async (dset) =>
+          dset.name === 'f'
+            ? [[], ['/run/x']]
+            : ((dset as { dimScales?: string[][] }).dimScales ?? []),
+      },
+    );
+
+    expect(resolved.notes).toEqual([]);
+    expect(resolved.link).toBeUndefined();
+    expect(resolved.overlays[0].inputs.curve?.linkedDim).toBeUndefined();
+  });
+
   it('resolve absolute, relative and ancestor paths', async () => {
     const { base, ctx, hint } = setup(
       {
