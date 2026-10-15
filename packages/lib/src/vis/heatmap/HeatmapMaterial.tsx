@@ -86,7 +86,7 @@ function HeatmapMaterial(props: Props) {
   const glslPixels = getGlslPixels(
     !!xPixels,
     !!yPixels,
-    magFilter === LinearFilter || minFilter === LinearFilter, // interpolate between centres
+    magFilter === LinearFilter, // interpolate between centres; else cells end at their edges (as tooltips), visible when magnified
   );
 
   const colorMapTexture = useMemo(
