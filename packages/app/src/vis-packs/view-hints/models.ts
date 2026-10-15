@@ -71,7 +71,7 @@ export interface ViewHint {
   multiDim?: number; // line: dimension whose slices are all plotted
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension
   overlays: OverlayHint[];
-  owner?: string; // path of the dataset or group carrying the hint (to resolve overlay paths)
+  anchor?: string; // overlay paths are resolved relative to this path (dataset with the hint, or `<group>/.`)
   notes: string[]; // why parts of the hint were ignored
 }
 

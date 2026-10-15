@@ -11,8 +11,10 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
-import { useDatasetSlicingProps } from '../../slicing';
-import { useViewHint } from '../../view-hints/hooks';
+import { useSlicingProps } from '../../slicing';
+import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
+import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
+import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { guessKeepRatio } from '../utils';
@@ -48,22 +50,37 @@ function HeatmapVisContainer(props: VisContainerProps) {
   );
   const selection = getSliceSelection(dimMapping);
 
-  const { slicingProps, playbackRange } = useDatasetSlicingProps(
-    entity,
+  // Overlays declared by the hint, sliced along a linked dimension (e.g. `generation`)
+  const overlays = useLinkedOverlays(entity, hint, dimMapping);
+  const { extraSlider } = overlays;
+
+  const { slicingProps, playbackRange } = useSlicingProps(
+    (sel) => [
+      { dataset: entity, selection: sel },
+      ...overlays.getSliceRequests(sel),
+    ],
     dimMapping,
     { withPlaybackRange: true },
   );
 
+  const dimMapper = (
+    <DimensionMapper
+      className={extraSlider ? undefined : visualizerStyles.dimMapper}
+      dims={dims}
+      dimHints={dimHints}
+      dimMapping={dimMapping}
+      {...slicingProps}
+      onChange={setDimMapping}
+    />
+  );
+
   return (
     <>
-      <DimensionMapper
-        className={visualizerStyles.dimMapper}
-        dims={dims}
-        dimHints={dimHints}
-        dimMapping={dimMapping}
-        {...slicingProps}
-        onChange={setDimMapping}
-      />
+      {extraSlider ? (
+        <LinkedDimMapper {...extraSlider}>{dimMapper}</LinkedDimMapper>
+      ) : (
+        dimMapper
+      )}
       <VisBoundary
         resetKey={dimMapping}
         isSlice={selection !== undefined}
@@ -85,12 +102,14 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   title={entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  overlays={overlays.shapes}
                 />
               )}
             />
           )}
         />
       </VisBoundary>
+      <OverlayNotes notes={overlays.notes} />
     </>
   );
 }

@@ -32,6 +32,9 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
+import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
+import { type OverlayShapes } from '../../view-hints/overlays';
 import {
   useExportEntries,
   useMappedArray,
@@ -52,6 +55,7 @@ interface Props {
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
+  overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_view` hint
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -64,6 +68,7 @@ function MappedHeatmapVis(props: Props) {
     title,
     toolbarContainer,
     config,
+    overlays,
   } = props;
 
   const {
@@ -193,7 +198,9 @@ function MappedHeatmapVis(props: Props) {
           heightScale={heightScale}
           shading={shading}
           ignoreValue={ignoreValue}
-        />
+        >
+          {overlays && <OverlayLayer3D shapes={overlays} />}
+        </SurfaceVis>
       ) : (
         <HeatmapVis
           className={visualizerStyles.vis}
@@ -224,6 +231,17 @@ function MappedHeatmapVis(props: Props) {
               flipXAxis={flipXAxis}
               flipYAxis={flipYAxis}
               showLabels={contourLabels}
+            />
+          )}
+          {overlays && (
+            <OverlayLayer2D
+              shapes={overlays}
+              colorParams={{
+                domain: safeDomain,
+                scaleType,
+                colorMap,
+                invertColorMap,
+              }}
             />
           )}
         </HeatmapVis>

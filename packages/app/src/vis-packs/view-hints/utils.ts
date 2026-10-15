@@ -246,7 +246,10 @@ export async function getViewHint(
       const value: unknown = values[attr.name];
       const str = Array.isArray(value) ? (value[0] as unknown) : value;
       if (typeof str === 'string') {
-        return { ...parseViewHint(str), owner: candidate.path };
+        const anchor = isGroup(candidate)
+          ? `${candidate.path.replace(/\/$/u, '')}/.`
+          : candidate.path;
+        return { ...parseViewHint(str), anchor };
       }
     }
   }

@@ -182,7 +182,7 @@ export function getCoordinatePaths(fieldPath: string, name: string): string[] {
   return paths;
 }
 
-async function resolveCoordinate(
+export async function resolveCoordinate(
   fieldPath: string,
   name: string,
   ctx: GeometryContext,
