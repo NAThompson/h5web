@@ -939,6 +939,25 @@ export function makeMockFile(): GroupWithChildren {
             floatAttr('H5WEB_contour_emphasize', 0),
           ],
         }),
+        // Probe: value at a pixel against κ
+        array('kappa', {
+          valueId: 'probe_kappa',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'kappa'),
+            scalarAttr('long_name', 'κ'),
+            scalarAttr('units', '1/m'),
+          ],
+        }),
+        withDimScales(
+          array('probe_stack', {
+            attributes: [
+              scalarAttr('H5WEB_probe_dim', 'kappa'),
+              intAttr('H5WEB_keep_ratio', 0), // pixels fill the canvas
+            ],
+          }),
+          { scales: [['/view_hints/kappa'], [], []] },
+        ),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

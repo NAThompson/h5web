@@ -105,6 +105,10 @@ export interface HeatmapConfig {
   /* Levels drawn emphasized (e.g. 0: nodal lines), whatever the contour mode */
   contourEmphasis: number[];
   setContourEmphasis: (contourEmphasis: number[]) => void;
+
+  /* Click a pixel of a stack to plot its values along a sliced dimension */
+  probe: boolean;
+  setProbe: (probe: boolean) => void;
 }
 
 function createHeatmapConfigStore() {
@@ -189,6 +193,9 @@ function createHeatmapConfigStore() {
 
         contourEmphasis: [],
         setContourEmphasis: (contourEmphasis) => set({ contourEmphasis }),
+
+        probe: false,
+        setProbe: (probe) => set({ probe }),
       }),
       {
         name: 'h5web:heatmap',
@@ -201,13 +208,14 @@ function createHeatmapConfigStore() {
           }
           return state as never;
         },
-        // 3D mode is opt-in for the session: don't open datasets in 3D after a reload
+        // 3D mode and probe are opt-in for the session: not restored after a reload
         // Custom and emphasized contour levels are dataset-specific: don't restore them either
         // Custom domain of complex surfaces is dataset-specific
         partialize: ({
           surface,
           contourLevels,
           contourEmphasis,
+          probe,
           surfaceCustomDomain,
           ...state
         }) => state,

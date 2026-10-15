@@ -190,6 +190,15 @@ describe('parseViewHint', () => {
     expect(invalid.notes).toHaveLength(2);
   });
 
+  it('parse probe dimension', () => {
+    const dimNames = [['kappa', 'κ'], [], []];
+    expect(hint({ H5WEB_probe_dim: 'kappa' }, dimNames).probeDim).toBe(0);
+    expect(hint({ H5WEB_probe_dim: { int: 2 } }, dimNames).probeDim).toBe(2);
+    const unknown = hint({ H5WEB_probe_dim: 'k' }, dimNames);
+    expect(unknown.probeDim).toBeUndefined();
+    expect(unknown.notes).toEqual(['ignored invalid "H5WEB_probe_dim"']);
+  });
+
   it('map dimensions to scale names or indices', () => {
     const dimNames = [['generation'], ['x', 'abscissa']];
     expect(

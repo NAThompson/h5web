@@ -555,6 +555,18 @@ export const mockValues = {
       nodal().data.map((v) => Math.abs(v) + 0.1),
       [24, 32],
     ),
+  // Stack (κ, row, column) of 4 × 3 × 5, with value 10 (k + 1) + row + column / 10
+  probe_kappa: () => ndarray([0.5, 1, 2, 4]),
+  probe_stack: () =>
+    ndarray(
+      range(0, 60).map(
+        (i) =>
+          10 * (Math.floor(i / 15) + 1) +
+          Math.floor((i % 15) / 5) +
+          (i % 5) / 10,
+      ),
+      [4, 3, 5],
+    ),
   constant_twoD: () =>
     ndarray(
       Array.from({ length: 12 }, () => 1),

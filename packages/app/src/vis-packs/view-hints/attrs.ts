@@ -226,7 +226,7 @@ export function createAttrReader(
   return { str, nums, num, bool, oneOf };
 }
 
-/* Dimension named by `H5WEB_x_dim` / `H5WEB_multi_dim`: name of a dimension scale (see
+/* Dimension named by `H5WEB_x_dim` / `H5WEB_multi_dim` / `H5WEB_probe_dim`: name of a dimension scale (see
  * `getDimNames`), or index */
 function readDim(
   reader: AttrReader,
@@ -310,6 +310,7 @@ export function parseViewHint(
     ),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
+    probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
     title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),

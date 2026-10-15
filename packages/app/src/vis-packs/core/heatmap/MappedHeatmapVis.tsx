@@ -35,6 +35,8 @@ import { type ContourSource } from '../../view-hints/hooks';
 import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
 import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
 import { type OverlayShapes } from '../../view-hints/overlays';
+import { type ProbePoint } from '../../view-hints/probe';
+import ProbeLayer from '../../view-hints/ProbeLayer';
 import {
   useExportEntries,
   useMappedArray,
@@ -59,6 +61,7 @@ interface Props {
   onDataDomainChange?: (dataDomain: Domain) => void; // e.g. for hints that depend on the data
   contourSource?: ContourSource | null; // dataset contoured instead (`H5WEB_contour_of`; `null`: none)
   emphasisStyle?: EmphasisStyle; // of emphasized contours
+  probe?: { point?: ProbePoint; onProbe: (point: ProbePoint) => void }; // stacks
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -75,6 +78,7 @@ function MappedHeatmapVis(props: Props) {
     onDataDomainChange,
     contourSource,
     emphasisStyle,
+    probe,
   } = props;
 
   const {
@@ -164,6 +168,7 @@ function MappedHeatmapVis(props: Props) {
             onCustomContourLevelsChange={(levels) =>
               setContourLevels(dataset.path, levels)
             }
+            withProbe={!!probe}
           />,
           toolbarContainer,
         )}
@@ -210,6 +215,16 @@ function MappedHeatmapVis(props: Props) {
           <KeepZoom visKey="heatmap" />
           {contours.regular && <ContourLines {...contours.regular} />}
           {contours.emphasized && <ContourLines {...contours.emphasized} />}
+          {probe && config.probe && (
+            <ProbeLayer
+              abscissas={abscissaParams.value}
+              ordinates={ordinateParams.value}
+              shape={dataArray.shape}
+              axisDims={{ x: xDimIndex, y: yDimIndex }}
+              point={probe.point}
+              onProbe={probe.onProbe}
+            />
+          )}
           {overlays && (
             <OverlayLayer2D
               shapes={overlays}

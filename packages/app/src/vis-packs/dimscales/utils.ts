@@ -26,6 +26,7 @@ export interface DimScale {
   label?: string;
   value?: ArrayValue<NumericType>; // undefined if the dimension is labelled but has no usable scale
   unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
+  longName?: string; // scale's CF `long_name`, e.g. to label the axis of a probe
 }
 
 interface UsableScale {
@@ -60,7 +61,10 @@ export async function getDimScales(
       }
 
       const { dataset: scaleDataset, value } = scale;
-      const { name, unit } = await getScaleMeta(scaleDataset, dataContext);
+      const { name, unit, longName } = await getScaleMeta(
+        scaleDataset,
+        dataContext,
+      );
 
       // The dimension label wins over the scale's own name, as for NeXus `long_name`
       const base = label || name || scaleDataset.name;
@@ -69,6 +73,7 @@ export async function getDimScales(
         label: unit ? `${base} (${unit})` : base,
         value,
         unit,
+        longName,
       };
     }),
   );
@@ -79,9 +84,9 @@ export async function getDimScales(
 async function getScaleMeta(
   scaleDataset: Dataset<ArrayShape, NumericType>,
   dataContext: DataContextValue,
-): Promise<{ name?: string; unit?: string }> {
+): Promise<{ name?: string; unit?: string; longName?: string }> {
   try {
-    const [name, unit] = await Promise.all([
+    const [name, unit, longName] = await Promise.all([
       getAttributeValue(
         scaleDataset,
         findScalarStrAttr(scaleDataset, 'NAME'),
@@ -92,8 +97,13 @@ async function getScaleMeta(
         findScalarStrAttr(scaleDataset, 'units'),
         dataContext,
       ),
+      getAttributeValue(
+        scaleDataset,
+        findScalarStrAttr(scaleDataset, 'long_name'),
+        dataContext,
+      ),
     ]);
-    return { name, unit: unit || undefined };
+    return { name, unit: unit || undefined, longName: longName || undefined };
   } catch {
     return {};
   }

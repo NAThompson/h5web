@@ -53,7 +53,7 @@ export function useDimUnits(dataset: Dataset<ArrayShape>): AxisMapping<string> {
   return useCachedDimScales(dataset).map((scale) => scale?.unit);
 }
 
-function useCachedDimScales(
+export function useCachedDimScales(
   dataset: Dataset<ArrayShape>,
 ): AxisMapping<DimScale> {
   const { filepath, queryClient } = useDataContext();

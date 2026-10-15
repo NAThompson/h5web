@@ -99,6 +99,7 @@ export interface ViewHint {
   isoLevels?: number[];
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
+  probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
   title?: string; // title of the figure
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension
   sliceByAnchor?: string; // `sliceBy` is resolved relative to this path (default: `anchor`)

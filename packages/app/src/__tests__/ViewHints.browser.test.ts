@@ -1,3 +1,4 @@
+import { assertNonNull } from '@h5web/shared/guards';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 
@@ -5,6 +6,7 @@ import {
   advanceFakeTimers as advance,
   getSelectedVisTab,
   renderApp,
+  waitForAllLoaders,
 } from '../test-utils';
 import { Vis } from '../vis-packs/core/visualizations';
 import { NxDataVis } from '../vis-packs/nexus/visualizations';
@@ -391,4 +393,86 @@ test('contour another dataset on the same grid', async () => {
     .element(getNotes())
     .toHaveTextContent(/"psi" is not on the same grid/u);
   expect(countContourLabels('0')).toBe(0);
+});
+
+/* Click pixel (row, col) of a heatmap whose image fills the canvas (no kept ratio) */
+async function clickPixel(row: number, col: number, shape: [number, number]) {
+  await waitForAllLoaders(); // heatmap of the current slice shown
+  await expect // canvas resized to its area (e.g. after a new slice or the probe panel)
+    .poll(() => {
+      const area = document.querySelector('figure [class*="canvasArea"]');
+      const gl = document.querySelector('figure canvas');
+      return area && gl && area.clientHeight - gl.clientHeight;
+    })
+    .toBe(0);
+  const canvas = document.querySelector('figure [class*="canvasArea"]'); // canvas may lag behind resizes
+  assertNonNull(canvas);
+  const { width, height } = canvas.getBoundingClientRect();
+  const [rows, cols] = shape;
+  await userEvent.click(page.elementLocator(canvas), {
+    position: {
+      x: ((col + 0.5) / cols) * width,
+      y: (1 - (row + 0.5) / rows) * height, // rows go up
+    },
+  });
+}
+
+function getProbe() {
+  return page.getByRole('region', { name: 'Probe' });
+}
+
+test('probe a pixel of a stack along the hinted dimension', async () => {
+  await page.viewport(2560, 1080); // whole heatmap toolbar
+  const { user } = await renderApp('/view_hints/probe_stack');
+  await expect
+    .element(page.getByRole('button', { name: 'Probe', exact: true }))
+    .toHaveAttribute('aria-pressed', 'true'); // hinted
+
+  // Value at (κ, row, col) is 10 (k + 1) + row + col / 10
+  await clickPixel(1, 2, [3, 5]);
+  await expect.element(getProbe()).toBeVisible();
+  expect(getProbe()).toHaveTextContent('Probe at D1 = 1, D2 = 2');
+  expect(page.getByLabelText('Probed value')).toHaveTextContent(
+    'κ (1/m) = 0.5: 11.2',
+  );
+  expect(getProbe().getByText('κ (1/m)', { exact: true })).toBeVisible(); // x axis
+  expect(document.querySelector('[data-testid="probe-marker"]')).not.toBeNull();
+  expect(document.querySelector('[data-testid="probe-slice"]')).not.toBeNull();
+
+  // Current slice moves along the probed line
+  await user.click(page.getByRole('slider', { name: 'D0' }));
+  await userEvent.keyboard('{ArrowUp}{ArrowUp}');
+  await expect
+    .element(page.getByLabelText('Probed value'))
+    .toHaveTextContent('κ (1/m) = 2: 31.2');
+
+  // Another pixel
+  await clickPixel(2, 4, [3, 5]);
+  await expect
+    .element(page.getByLabelText('Probed value'))
+    .toHaveTextContent('κ (1/m) = 2: 32.4');
+
+  await user.click(page.getByRole('button', { name: 'Close probe' }));
+  expect(getProbe()).not.toBeInTheDocument();
+
+  await page.viewport(1920, 1080);
+});
+
+test('probe a stack with the toolbar toggle, without hint', async () => {
+  await page.viewport(2560, 1080); // whole heatmap toolbar
+  const { user } = await renderApp('/view_hints/landscapes');
+
+  const probeBtn = page.getByRole('button', { name: 'Probe', exact: true });
+  await expect.element(probeBtn).toHaveAttribute('aria-pressed', 'false');
+  const canvas = document.querySelector('figure canvas');
+  assertNonNull(canvas);
+  await userEvent.click(page.elementLocator(canvas)); // probe off: nothing
+  expect(getProbe()).not.toBeInTheDocument();
+
+  await user.click(probeBtn);
+  await userEvent.click(page.elementLocator(canvas));
+  await expect.element(getProbe()).toBeVisible();
+  expect(getProbe()).toHaveTextContent('generation'); // first sliced dimension
+
+  await page.viewport(1920, 1080);
 });

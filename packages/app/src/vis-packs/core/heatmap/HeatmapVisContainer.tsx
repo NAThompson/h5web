@@ -5,7 +5,7 @@ import {
   assertMinDims,
   assertNumericLikeType,
 } from '@h5web/shared/guards';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -21,6 +21,12 @@ import {
 import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
 import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
+import {
+  getProbeDim,
+  getProbeSelection,
+  type ProbePoint,
+} from '../../view-hints/probe';
+import ProbePanel from '../../view-hints/ProbePanel';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { guessKeepRatio } from '../utils';
@@ -66,6 +72,17 @@ function HeatmapVisContainer(props: VisContainerProps) {
   const overlays = useLinkedOverlays(entity, hint, dimMapping);
   const contourOf = useContourSource(entity, hint, dimMapping);
   const { extraSlider } = overlays;
+
+  // Probe: values of a clicked pixel along a sliced dimension
+  const [probePoint, setProbePoint] = useState<ProbePoint>();
+  const [chosenProbeDim, setChosenProbeDim] = useState<number>();
+  const probeDim = getProbeDim(dimMapping, chosenProbeDim ?? hint.probeDim);
+  const showProbe =
+    config.probe &&
+    !config.surface &&
+    probeDim !== undefined &&
+    probePoint !== undefined &&
+    getProbeSelection(dimMapping, probeDim, probePoint) !== undefined;
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -119,6 +136,11 @@ function HeatmapVisContainer(props: VisContainerProps) {
                     width: hint.contourEmphasizeWidth,
                     color: hint.contourEmphasizeColor,
                   }}
+                  probe={
+                    probeDim === undefined
+                      ? undefined
+                      : { point: probePoint, onProbe: setProbePoint }
+                  }
                 />
               )}
             />
@@ -133,6 +155,19 @@ function HeatmapVisContainer(props: VisContainerProps) {
         ]}
       />
       <OverlayLegend items={overlays.legend} />
+      {showProbe && (
+        <Suspense fallback={null}>
+          <ProbePanel
+            key={probeDim} // no values of another dimension kept while loading
+            dataset={entity}
+            dimMapping={dimMapping}
+            probeDim={probeDim}
+            point={probePoint}
+            onProbeDimChange={setChosenProbeDim}
+            onClose={() => setProbePoint(undefined)}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
