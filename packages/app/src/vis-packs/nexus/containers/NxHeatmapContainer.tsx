@@ -15,13 +15,15 @@ import { useHeatmapConfig } from '../../core/heatmap/config';
 import MappedHeatmapVis from '../../core/heatmap/MappedHeatmapVis';
 import { guessKeepRatio } from '../../core/utils';
 import { type VisContainerProps } from '../../models';
-import { useNxSlicingProps } from '../../slicing';
-import { useViewHint } from '../../view-hints/hooks';
+import { useSlicingProps } from '../../slicing';
+import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
+import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
+import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
-import NxValuesFetcher from '../NxValuesFetcher';
+import NxValuesFetcher, { getNxValueRequests } from '../NxValuesFetcher';
 
 function NxHeatmapContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -56,10 +58,28 @@ function NxHeatmapContainer(props: VisContainerProps) {
 
   const nxDataToFetch = useNxHeatmapDataToFetch(nxData, selectedDef);
 
-  const { slicingProps, playbackRange } = useNxSlicingProps(
-    nxDataToFetch,
+  // Overlays declared by the hint, sliced along a linked dimension (e.g. `generation`)
+  const overlays = useLinkedOverlays(selectedDataset, hint, dimMapping);
+  const { extraSlider } = overlays;
+
+  const { slicingProps, playbackRange } = useSlicingProps(
+    (sel) => [
+      ...Object.values(getNxValueRequests(nxDataToFetch, sel)),
+      ...overlays.getSliceRequests(sel),
+    ],
     dimMapping,
     { withPlaybackRange: true },
+  );
+
+  const dimMapper = (
+    <DimensionMapper
+      className={extraSlider ? undefined : visualizerStyles.dimMapper}
+      dims={dims}
+      dimHints={axisLabels}
+      dimMapping={dimMapping}
+      {...slicingProps}
+      onChange={setDimMapping}
+    />
   );
 
   return (
@@ -73,14 +93,11 @@ function NxHeatmapContainer(props: VisContainerProps) {
         />
       )}
 
-      <DimensionMapper
-        className={visualizerStyles.dimMapper}
-        dims={dims}
-        dimHints={axisLabels}
-        dimMapping={dimMapping}
-        {...slicingProps}
-        onChange={setDimMapping}
-      />
+      {extraSlider ? (
+        <LinkedDimMapper {...extraSlider}>{dimMapper}</LinkedDimMapper>
+      ) : (
+        dimMapper
+      )}
 
       <VisBoundary resetKey={dimMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
@@ -118,11 +135,13 @@ function NxHeatmapContainer(props: VisContainerProps) {
                 title={title}
                 toolbarContainer={toolbarContainer}
                 config={config}
+                overlays={overlays.shapes}
               />
             );
           }}
         />
       </VisBoundary>
+      <OverlayNotes notes={overlays.notes} />
     </>
   );
 }

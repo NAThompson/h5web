@@ -886,6 +886,12 @@ export function makeMockFile(): GroupWithChildren {
             ),
           ],
         }),
+        nxData('nx_overlay', {
+          signal: array('signal', { valueId: 'twoD' }),
+          attributes: [
+            scalarAttr('H5WEB_view', '{"overlays": [{"points": "../point"}]}'),
+          ],
+        }),
         nxData('nx_line', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [

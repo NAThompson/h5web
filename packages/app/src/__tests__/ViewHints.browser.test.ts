@@ -69,6 +69,13 @@ test('take hint over NeXus metadata', async () => {
     .toBeVisible();
 });
 
+test('draw overlays of a hint on an NXdata group', async () => {
+  await renderApp('/view_hints/nx_overlay');
+
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
+  await expect.poll(() => getPointsCx()).toHaveLength(1); // path relative to the group
+});
+
 test('let user change hinted settings', async () => {
   const { user } = await renderApp('/view_hints/landscape');
 

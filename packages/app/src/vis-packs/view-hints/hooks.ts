@@ -94,7 +94,7 @@ export function useResolvedOverlays(
 ): ResolvedOverlays | undefined {
   const dataContext = useDataContext();
   const { data, error } = useQuery({
-    queryKey: [dataContext.filepath, 'overlays', base.path],
+    queryKey: [dataContext.filepath, 'overlays', base.path, hint.anchor],
     queryFn: async () =>
       resolveOverlays(hint, base, createGeometryContext(dataContext)),
     enabled: hint.overlays.length > 0 || hint.notes.length > 0,
