@@ -108,6 +108,8 @@ function MappedParamSurfaceVis(props: Props) {
         shading={shading}
         ignoreValue={ignoreValue}
         nanColor={hint.nanColor}
+        belowColor={hint.belowColor}
+        aboveColor={hint.aboveColor}
       />
     </>
   );

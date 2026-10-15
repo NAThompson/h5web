@@ -56,6 +56,8 @@ interface Props extends ClassStyleAttrs {
   ignoreValue?: IgnoreValue;
   maxVertices?: number;
   nanColor?: string; // CSS colour of `NaN` and ignored values, drawn on the surface rather than as holes
+  belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
+  aboveColor?: string;
 }
 
 function ParamSurfaceVis(props: PropsWithChildren<Props>) {
@@ -80,6 +82,8 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
     ignoreValue,
     maxVertices = DEFAULT_MAX_VERTICES,
     nanColor,
+    belowColor,
+    aboveColor,
     children,
     className,
     style,
@@ -128,7 +132,10 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
   );
 
   const [w, h, d] = getBoxSize(domains, keepRatio);
-  const specialColors = useMemo(() => getSpecialColors(nanColor), [nanColor]);
+  const specialColors = useMemo(
+    () => getSpecialColors(nanColor, belowColor, aboveColor),
+    [nanColor, belowColor, aboveColor],
+  );
   const keepInvalidValues = specialColors?.nan !== undefined;
 
   const buffers = useMemo(
@@ -181,6 +188,8 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
       scaleType={scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
+      belowColor={belowColor}
+      aboveColor={aboveColor}
       headlight
     >
       <ParamSurfaceMesh

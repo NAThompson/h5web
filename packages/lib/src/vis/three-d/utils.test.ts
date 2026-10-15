@@ -156,13 +156,13 @@ describe('getWorldTransform', () => {
 });
 
 describe('getColorParams', () => {
-  it('should normalize values with domain and clamp', () => {
+  it('should normalize values with domain, beyond [0, 1] outside it', () => {
     const params = getColorParams(
       [0, 5, 10, 20, -5],
       [0, 10],
       ScaleType.Linear,
     );
-    expect([...params]).toEqual([0, 0.5, 1, 1, 0]);
+    expect([...params]).toEqual([0, 0.5, 1, 2, -0.5]);
   });
 
   it('should return NaN for values that cannot be coloured', () => {
@@ -204,6 +204,16 @@ describe('getSpecialColors', () => {
     expect(getSpecialColors('#fff')).toEqual({ nan: [1, 1, 1] });
     expect(getSpecialColors('not a colour')).toBeUndefined();
     expect(getSpecialColors()).toBeUndefined();
+  });
+
+  it('should clamp params, or colour them beyond the domain if asked', () => {
+    const lut = Float32Array.from([0, 0, 0, 1, 1, 1]);
+    const params = Float32Array.from([-1, 2]);
+    expect([...getVertexColors(params, lut)]).toEqual([0, 0, 0, 1, 1, 1]);
+    const special = getSpecialColors(undefined, '#f00', '#00f');
+    expect([...getVertexColors(params, lut, special)]).toEqual([
+      1, 0, 0, 0, 0, 1,
+    ]);
   });
 
   it('should colour NaN params with the NaN colour', () => {

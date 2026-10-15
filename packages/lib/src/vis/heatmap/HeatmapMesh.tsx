@@ -29,6 +29,8 @@ interface Props extends VisMeshProps {
   alphaValues?: NdArray<TextureSafeTypedArray>;
   alphaDomain?: Domain;
   badColor?: RGBColor | string;
+  belowColor?: string;
+  aboveColor?: string;
   magFilter?: MagnificationTextureFilter;
   minFilter?: MinificationTextureFilter;
   mask?: NdArray<Uint8Array>;
@@ -44,6 +46,8 @@ function HeatmapMesh(props: Props) {
     alphaValues,
     alphaDomain,
     badColor,
+    belowColor,
+    aboveColor,
     magFilter,
     minFilter,
     mask,
@@ -106,6 +110,8 @@ function HeatmapMesh(props: Props) {
     invertColorMap,
     alphaDomain,
     badColor,
+    belowColor,
+    aboveColor,
     magFilter,
     minFilter,
   };

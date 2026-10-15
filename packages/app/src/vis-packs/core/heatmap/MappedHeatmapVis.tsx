@@ -208,6 +208,8 @@ function MappedHeatmapVis(props: Props) {
           shading={shading}
           ignoreValue={ignoreValue}
           nanColor={specialColors.nanColor}
+          belowColor={specialColors.belowColor}
+          aboveColor={specialColors.aboveColor}
         >
           {overlays && <OverlayLayer3D shapes={overlays} />}
         </SurfaceVis>
@@ -230,6 +232,8 @@ function MappedHeatmapVis(props: Props) {
           flipYAxis={flipYAxis}
           ignoreValue={ignoreValue}
           ignoredColor={specialColors.nanColor}
+          belowColor={specialColors.belowColor}
+          aboveColor={specialColors.aboveColor}
         >
           <KeepZoom visKey="heatmap" />
           {contours.regular && <ContourLines {...contours.regular} />}

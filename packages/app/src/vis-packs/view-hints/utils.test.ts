@@ -206,8 +206,18 @@ describe('parseViewHint', () => {
     expect(unknown.notes).toEqual(['ignored invalid "H5WEB_probe_dim"']);
   });
 
-  it('parse colour of NaN values', () => {
-    expect(hint({ H5WEB_nan_color: '#ddd' }).nanColor).toBe('#ddd');
+  it('parse colours of NaN values and of values beyond the domain', () => {
+    expect(
+      hint({
+        H5WEB_nan_color: '#ddd',
+        H5WEB_below_color: 'blue',
+        H5WEB_above_color: 'rgb(255, 0, 0)',
+      }),
+    ).toMatchObject({
+      nanColor: '#ddd',
+      belowColor: 'blue',
+      aboveColor: 'rgb(255, 0, 0)',
+    });
     const invalid = hint({ H5WEB_nan_color: { int: 1 } });
     expect(invalid.nanColor).toBeUndefined();
     expect(invalid.notes).toEqual(['ignored invalid "H5WEB_nan_color"']);

@@ -610,3 +610,19 @@ test('colour NaN values with `H5WEB_nan_color`', async () => {
     .toEqual([255, 0, 255, 255]);
   expect(getCanvasPixel(7 / 12, 1 / 2)).not.toEqual([255, 0, 255, 255]);
 });
+
+test('colour values beyond the domain with `H5WEB_below_color` / `H5WEB_above_color`', async () => {
+  await renderApp('/view_hints/beyond_colors');
+
+  // Columns 1 to 5: -0.1 (below [0, 1]), 0.3, 0.7, 1.1 and 1.5 (above)
+  await expect
+    .poll(() => getCanvasPixel(3 / 12, 1 / 2))
+    .toEqual([0, 0, 255, 255]);
+  expect(getCanvasPixel(9 / 12, 1 / 2)).toEqual([255, 0, 0, 255]);
+  expect(getCanvasPixel(11 / 12, 1 / 2)).toEqual([255, 0, 0, 255]);
+  expect(getCanvasPixel(5 / 12, 1 / 2)).not.toEqual([0, 0, 255, 255]);
+
+  // Triangles at the ends of the colour bar
+  expect(page.getByTitle('Below the domain')).toBeVisible();
+  expect(page.getByTitle('Above the domain')).toBeVisible();
+});

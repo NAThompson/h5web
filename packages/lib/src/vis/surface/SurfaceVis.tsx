@@ -76,6 +76,8 @@ interface Props extends ClassStyleAttrs {
   /* CSS colour of `NaN`, ignored and unsupported values, drawn on the floor of the box rather than
    * as holes */
   nanColor?: string;
+  belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
+  aboveColor?: string;
 }
 
 function SurfaceVis(props: PropsWithChildren<Props>) {
@@ -103,6 +105,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     colorDomain,
     colorScaleType,
     nanColor,
+    belowColor,
+    aboveColor,
     children,
     className = '',
     style,
@@ -213,7 +217,10 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [colorValues, colorDomain, colorScaleType, domain],
   );
 
-  const specialColors = useMemo(() => getSpecialColors(nanColor), [nanColor]);
+  const specialColors = useMemo(
+    () => getSpecialColors(nanColor, belowColor, aboveColor),
+    [nanColor, belowColor, aboveColor],
+  );
   const floorInvalid = specialColors?.nan !== undefined;
 
   // Colour bar shows the field used for colours
@@ -339,6 +346,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       colorMap={colorMap}
       invertColorMap={invertColorMap}
       colorBarLabel={colorArray ? undefined : valueLabel} // colour shows the height
+      belowColor={belowColor}
+      aboveColor={aboveColor}
     >
       <SurfaceMesh
         values={values}

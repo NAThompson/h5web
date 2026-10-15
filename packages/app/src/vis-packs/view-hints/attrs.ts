@@ -320,6 +320,8 @@ export function parseViewHint(
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
     nanColor: read.str('H5WEB_nan_color', isCssColor),
+    belowColor: read.str('H5WEB_below_color', isCssColor),
+    aboveColor: read.str('H5WEB_above_color', isCssColor),
     title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),

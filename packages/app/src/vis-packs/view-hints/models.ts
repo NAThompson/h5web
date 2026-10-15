@@ -102,6 +102,8 @@ export interface ViewHint {
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
   nanColor?: string; // CSS colour of NaN / ignored values (3D: drawn on the floor, not as holes)
+  belowColor?: string; // CSS colour of values below the colour domain (default: saturate)
+  aboveColor?: string;
   title?: string; // title of the figure
   valueLabel?: string; // colour bar / value axis: CF `units`, with `long_name` if not the title
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension
@@ -112,6 +114,9 @@ export interface ViewHint {
 }
 
 /* Colours of special values (from a hint) */
-export type SpecialColorsHint = Pick<ViewHint, 'nanColor'>;
+export type SpecialColorsHint = Pick<
+  ViewHint,
+  'nanColor' | 'belowColor' | 'aboveColor'
+>;
 
 export const EMPTY_HINT: ViewHint = { overlayPaths: [], notes: [] };
