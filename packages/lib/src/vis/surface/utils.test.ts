@@ -18,7 +18,7 @@ import {
   getFootprint,
   getSampledIndices,
   getSurfaceColors,
-  interpolateGrid,
+  interpolateMeshHeight,
   isSurfaceSupported,
   sampleArray,
 } from './utils';
@@ -363,22 +363,48 @@ describe('findCell', () => {
   });
 });
 
-describe('interpolateGrid', () => {
-  // f(x, y) = x + 10 y on a 2 x 3 grid (rows: y, columns: x)
-  const values = ndarray([0, 1, 2, 10, 11, 12], [2, 3]);
+describe('interpolateMeshHeight', () => {
+  // Heights h(x, y) = x + 10 y at vertices of a 2 x 3 grid (rows: y, columns: x)
+  const heights = ndarray([0, 1, 2, 10, 11, 12], [2, 3]);
+  function getHeight(row: number, col: number): number {
+    return heights.get(row, col);
+  }
 
-  it('interpolate bilinearly', () => {
-    expect(interpolateGrid(values, [0, 1, 2], [0, 1], 1.5, 0.5)).toBeCloseTo(
-      6.5,
+  it('interpolate on the triangles of the mesh', () => {
+    // Planar data: same as bilinear
+    expect(
+      interpolateMeshHeight(getHeight, [0, 1, 2], [0, 1], 1.5, 0.5),
+    ).toBeCloseTo(6.5);
+
+    // Non-planar cell: lower-left triangle (a, b, c) uses a, b, c only
+    const saddle = ndarray([0, 1, 1, 0], [2, 2]);
+    function getSaddle(row: number, col: number): number {
+      return saddle.get(row, col);
+    }
+    expect(interpolateMeshHeight(getSaddle, [0, 1], [0, 1], 0.25, 0.25)).toBe(
+      0.5,
     );
-    expect(interpolateGrid(values, [0, 1, 2], [0, 1], 2, 1)).toBe(12);
+    expect(interpolateMeshHeight(getSaddle, [0, 1], [0, 1], 0.75, 0.75)).toBe(
+      0.5,
+    );
   });
 
   it('follow descending coordinates', () => {
-    expect(interpolateGrid(values, [2, 1, 0], [0, 1], 2, 0)).toBe(0);
+    expect(interpolateMeshHeight(getHeight, [2, 1, 0], [0, 1], 2, 0)).toBe(0);
   });
 
-  it('return NaN outside the grid', () => {
-    expect(interpolateGrid(values, [0, 1, 2], [0, 1], 3, 0)).toBeNaN();
+  it('return NaN over holes and undefined outside the grid', () => {
+    function getHole(row: number, col: number): number {
+      return row === 0 && col === 0 ? Number.NaN : getHeight(row, col);
+    }
+    expect(
+      interpolateMeshHeight(getHole, [0, 1, 2], [0, 1], 0.5, 0.5),
+    ).toBeNaN();
+    expect(
+      interpolateMeshHeight(getHole, [0, 1, 2], [0, 1], 1.5, 0.5),
+    ).toBeCloseTo(6.5);
+    expect(
+      interpolateMeshHeight(getHeight, [0, 1, 2], [0, 1], 3, 0),
+    ).toBeUndefined();
   });
 });

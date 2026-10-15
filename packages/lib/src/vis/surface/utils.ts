@@ -342,29 +342,36 @@ export function findCell(
 }
 
 /**
- * Bilinear interpolation of a 2D array (rows x cols) at a point given in data coordinates,
- * with `xCoords` the coordinates of the columns and `yCoords` those of the rows;
- * `NaN` outside the grid.
+ * Height of a triangulated grid (as built by `buildSurfaceBuffers`: cell split along the diagonal
+ * from its top-right to its bottom-left vertex) at a point given in the coordinates of the grid's
+ * columns (`xCoords`) and rows (`yCoords`), from the heights of its vertices (`getHeight`, `NaN`
+ * for vertices that leave holes). `undefined` outside the grid, `NaN` over a hole.
  */
-export function interpolateGrid(
-  values: NdArray<NumArray>,
+export function interpolateMeshHeight(
+  getHeight: (row: number, col: number) => number,
   xCoords: number[],
   yCoords: number[],
   x: number,
   y: number,
-): number {
+): number | undefined {
   const xCell = findCell(xCoords, x);
   const yCell = findCell(yCoords, y);
   if (!xCell || !yCell) {
-    return Number.NaN;
+    return undefined;
   }
 
   const [col, tx] = xCell;
   const [row, ty] = yCell;
-  const col1 = Math.min(col + 1, xCoords.length - 1);
-  const row1 = Math.min(row + 1, yCoords.length - 1);
+  const a = getHeight(row, col);
+  const b = getHeight(row, col + 1);
+  const c = getHeight(row + 1, col);
+  const d = getHeight(row + 1, col + 1);
+  if (![a, b, c, d].every(Number.isFinite)) {
+    return Number.NaN; // cell is a hole in the mesh
+  }
 
-  const top = values.get(row, col) * (1 - tx) + values.get(row, col1) * tx;
-  const bottom = values.get(row1, col) * (1 - tx) + values.get(row1, col1) * tx;
-  return top * (1 - ty) + bottom * ty;
+  // Triangles (a, b, c) and (b, d, c), as in `buildSurfaceBuffers`
+  return tx + ty <= 1
+    ? a + tx * (b - a) + ty * (c - a)
+    : d + (1 - tx) * (c - d) + (1 - ty) * (b - d);
 }

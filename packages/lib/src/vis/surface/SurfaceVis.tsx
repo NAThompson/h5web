@@ -26,11 +26,11 @@ import {
   getDownsamplingStride,
   getFootprint,
   getSampledIndices,
-  interpolateGrid,
+  interpolateMeshHeight,
   sampleArray,
 } from './utils';
 
-const OVERLAY_LIFT = 0.005; // lift children drawn on the surface, so it doesn't hide them
+const OVERLAY_LIFT = 0.002; // lift children drawn on the surface (with the mesh's polygon offset)
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -209,28 +209,56 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     const validMin =
       SCALES_VALID_MINS[Array.isArray(scaleType) ? scaleType[0] : scaleType];
 
+    // Normalized height of a vertex of the drawn (downsampled) mesh; `NaN` if it leaves a hole
+    function getVertexHeight(row: number, col: number): number {
+      const val = values.get(row, col);
+      if (!Number.isFinite(val) || ignoreValue?.(val)) {
+        return Number.NaN;
+      }
+      if (val < validMin) {
+        return floorUnsupported ? 0 : Number.NaN;
+      }
+      return zScale(val);
+    }
+
     return {
       dataToWorld: (x, y, value) => {
-        const val =
-          value ?? interpolateGrid(dataArray, xCenters, yCenters, x, y);
-        // On the surface, over a hole (e.g. `NaN` on the edges of the domain): on the floor
-        const isSupported = val >= validMin; // `NaN` fails
-        if (!isSupported && value !== undefined) {
+        const wx = xScale(x);
+        const wy = yScale(y);
+        const isInBox =
+          Math.abs(wx) <= w / 2 + 1e-9 && Math.abs(wy) <= h / 2 + 1e-9; // `NaN` fails
+        if (!isInBox) {
           return undefined;
         }
 
-        const pos: [number, number, number] = [
-          xScale(x),
-          yScale(y),
-          (isSupported ? zScale(val) * heightScale : 0) + OVERLAY_LIFT,
+        if (value !== undefined) {
+          const isValid =
+            Number.isFinite(value) &&
+            !ignoreValue?.(value) &&
+            value >= validMin;
+          return isValid
+            ? [wx, wy, zScale(value) * heightScale + OVERLAY_LIFT]
+            : undefined;
+        }
+
+        // On the mesh as drawn; over a hole (e.g. `NaN` on the edges of the domain): on the floor
+        const height = interpolateMeshHeight(
+          getVertexHeight,
+          xCoords,
+          yCoords,
+          wx,
+          wy,
+        );
+        return [
+          wx,
+          wy,
+          (Number.isFinite(height) ? (height ?? 0) * heightScale : 0) +
+            OVERLAY_LIFT,
         ];
-        const isInBox =
-          Math.abs(pos[0]) <= w / 2 + 1e-9 && Math.abs(pos[1]) <= h / 2 + 1e-9;
-        return isInBox ? pos : undefined; // `NaN` fails
       },
       cellSize: [
-        Math.abs(xDomain[1] - xDomain[0]) / Math.max(cols - 1, 1),
-        Math.abs(yDomain[1] - yDomain[0]) / Math.max(rows - 1, 1),
+        Math.abs(xDomain[1] - xDomain[0]) / Math.max(colIndices.length - 1, 1),
+        Math.abs(yDomain[1] - yDomain[0]) / Math.max(rowIndices.length - 1, 1),
       ],
       domain,
       scaleType,
@@ -238,11 +266,13 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       invertColorMap,
     };
   }, [
-    rows,
-    cols,
-    dataArray,
-    xCenters,
-    yCenters,
+    values,
+    xCoords,
+    yCoords,
+    rowIndices,
+    colIndices,
+    ignoreValue,
+    floorUnsupported,
     xDomain,
     yDomain,
     w,
