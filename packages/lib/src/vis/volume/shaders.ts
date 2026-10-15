@@ -85,18 +85,25 @@ export function getVolumeFragmentShader(
       return ${GLSL_SCALE[scaleType] || 'value'};
     }
 
-    // Texture coordinate at a relative position, between the knots around it (binary search)
-    float lookUp(sampler2D knots, float pos) {
-      int count = textureSize(knots, 0).x;
+    // Knot of a lookup table, wrapped onto rows (cf. \`getLookupTexture\`)
+    float knot(sampler2D knots, int k) {
+      int width = textureSize(knots, 0).x;
+      return texelFetch(knots, ivec2(k % width, k / width), 0).r;
+    }
+
+    // Texture coordinate at a relative position, between the knots around it (binary search) of
+    // the edges and centres of \`voxels\`
+    float lookUp(sampler2D knots, float voxels, float pos) {
+      int count = 2 * int(voxels) + 1;
       int lo = 0;
       int hi = count - 2;
       for (int k = 0; k < 24; k++) {
         if (lo >= hi) break;
         int mid = (lo + hi + 1) / 2;
-        if (texelFetch(knots, ivec2(mid, 0), 0).r <= pos) { lo = mid; } else { hi = mid - 1; }
+        if (knot(knots, mid) <= pos) { lo = mid; } else { hi = mid - 1; }
       }
-      float start = texelFetch(knots, ivec2(lo, 0), 0).r;
-      float end = texelFetch(knots, ivec2(lo + 1, 0), 0).r;
+      float start = knot(knots, lo);
+      float end = knot(knots, lo + 1);
       float t = clamp((pos - start) / max(end - start, 1e-30), 0., 1.);
       return (float(lo) + t) / float(count - 1);
     }
@@ -104,13 +111,13 @@ export function getVolumeFragmentShader(
     // Texture coordinates of a position in the box (voxels at their coordinates on non-uniform axes)
     vec3 toTexCoords(vec3 p) {
       #ifdef LOOKUP_X
-        p.x = lookUp(xLookup, p.x);
+        p.x = lookUp(xLookup, dims.x, p.x);
       #endif
       #ifdef LOOKUP_Y
-        p.y = lookUp(yLookup, p.y);
+        p.y = lookUp(yLookup, dims.y, p.y);
       #endif
       #ifdef LOOKUP_Z
-        p.z = lookUp(zLookup, p.z);
+        p.z = lookUp(zLookup, dims.z, p.z);
       #endif
       return p;
     }

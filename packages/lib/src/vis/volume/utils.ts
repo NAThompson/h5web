@@ -169,8 +169,15 @@ export function remapIsosurface(
   return { positions: newPositions, normals: newNormals };
 }
 
+const LOOKUP_WIDTH = 2048; // WebGL 2's minimum `MAX_TEXTURE_SIZE`: longer tables wrap onto rows
+
+/* Texture of a lookup table, knot `k` at texel (`k % width`, `k / width`) */
 export function getLookupTexture(table: Float32Array): DataTexture {
-  const texture = new DataTexture(table, table.length, 1, RedFormat, FloatType);
+  const width = Math.min(table.length, LOOKUP_WIDTH);
+  const height = Math.ceil(table.length / width);
+  const data = new Float32Array(width * height);
+  data.set(table);
+  const texture = new DataTexture(data, width, height, RedFormat, FloatType);
   texture.needsUpdate = true;
   return texture;
 }

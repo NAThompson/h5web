@@ -13,6 +13,7 @@ import {
   getAxisLookup,
   getBoxSize,
   getBoxSizeFromAxes,
+  getLookupTexture,
   getStepCount,
   getVolumeTexture,
   remapIsosurface,
@@ -198,6 +199,21 @@ describe('getAxisLookup', () => {
     expect(getStepCount(undefined, 3)).toBe(3);
     expect(getStepCount(knots, 3)).toBe(12);
     expect(getStepCount(getAxisLookup([0, 1, 3], 3), 3)).toBeCloseTo(4.5);
+  });
+});
+
+describe('getLookupTexture', () => {
+  it('should wrap long lookup tables onto rows', () => {
+    expect(getLookupTexture(new Float32Array(7)).image).toMatchObject({
+      width: 7,
+      height: 1,
+    });
+
+    // Axis of 3000 voxels: 6001 knots, over 3 rows of 2048 texels
+    const table = Float32Array.from({ length: 6001 }, (_, k) => k / 6000);
+    const { width, height, data } = getLookupTexture(table).image;
+    expect([width, height]).toEqual([2048, 3]);
+    expect(data?.[2048 + 5]).toBe(table[2048 + 5]);
   });
 });
 
