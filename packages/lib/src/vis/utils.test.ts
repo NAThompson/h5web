@@ -11,12 +11,14 @@ import {
   createScale,
   extendDomain,
   formatPiTick,
+  formatPowerTick,
   getAxisDomain,
   getCombinedDomain,
   getDomain,
   getDomains,
   getIntegerTicks,
   getPiTicks,
+  getPowerTicks,
   getScaleTickValues,
   getSizeToFit,
   getSymlogTicks,
@@ -447,6 +449,32 @@ describe('getPiTicks', () => {
 
   it('should return no ticks for an empty domain', () => {
     expect(getPiTicks([1, 1], 5)).toEqual([]);
+  });
+});
+
+describe('getPowerTicks', () => {
+  it('should label integer exponents as powers', () => {
+    const ticks = getPowerTicks([-12.4, 0.2], 7);
+    expect(ticks.map((t) => formatPowerTick(t, 'exp10'))).toEqual([
+      '10⁻¹²',
+      '10⁻¹⁰',
+      '10⁻⁸',
+      '10⁻⁶',
+      '10⁻⁴',
+      '10⁻²',
+      '10⁰',
+    ]);
+    expect(formatPowerTick(3, 'exp2')).toBe('2³');
+  });
+
+  it('should label other exponents by their real values when zoomed in', () => {
+    const ticks = getPowerTicks([0, 1], 2);
+    expect(ticks).toEqual([0, 0.5, 1]);
+    expect(ticks.map((t) => formatPowerTick(t, 'exp10'))).toEqual([
+      '10⁰',
+      '3.16',
+      '10¹',
+    ]);
   });
 });
 

@@ -399,6 +399,29 @@ test('set the linear band of symlog scales around 0', async () => {
     .toEqual(expect.arrayContaining(['1e-10', '1e-8', '1e-6']));
 });
 
+function getColorBarTicks(): string[] {
+  return [...document.querySelectorAll('[class*="colorBar"] svg text')].map(
+    (tick) => tick.textContent,
+  );
+}
+
+test('label logarithms as powers', async () => {
+  const { selectExplorerNode } = await renderApp(
+    '/view_hints/value_transform_line',
+  );
+
+  await expect
+    .poll(() => getTickLabels('ordinate'))
+    .toEqual(expect.arrayContaining(['10⁻¹²', '10⁻⁶', '10⁰']));
+
+  // Colour bar of log2 values; −∞ ignored as NaN, out of the domain
+  await selectExplorerNode('value_transform_heatmap');
+  await expect
+    .poll(getColorBarTicks)
+    .toEqual(expect.arrayContaining(['2⁻⁸', '2⁻⁴', '2⁰']));
+  expect(page.getByLabelText('Min: 3.906e-3')).toBeVisible();
+});
+
 function countContourLabels(text: string): number {
   // Contour labels are HTML spans, unlike axis tick labels (SVG text)
   return [...document.querySelectorAll('figure span')].filter(

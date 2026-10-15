@@ -53,7 +53,10 @@ export interface AxisConfig {
   ticks?: AxisTicks;
 }
 
-export type AxisTicks = 'pi'; // ticks at multiples of π (π/4, π/2, π...)
+export type AxisTicks = 'pi' | ValueTransform; // ticks at multiples of π (π/4, π/2, π...), or powers
+
+/* Values are log10 / log2 of the quantity: labelled as powers (`10⁻³`), shown as real values */
+export type ValueTransform = 'exp10' | 'exp2';
 
 /* Symlog scale with the given constant, i.e. width of the linear band around 0 (default 1) */
 export type SymLogScaleType = [ScaleType.SymLog, number];

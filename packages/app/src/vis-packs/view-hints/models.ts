@@ -1,4 +1,4 @@
-import { type PlaybackSettings } from '@h5web/lib';
+import { type PlaybackSettings, type ValueTransform } from '@h5web/lib';
 import {
   type ColorScaleType,
   type ComplexVisType,
@@ -99,6 +99,7 @@ export interface ViewHint {
   contourOfAnchor?: string; // `contourOf` is resolved relative to this path
   complex?: ComplexVisType;
   isoLevels?: number[];
+  valueTransform?: ValueTransform; // values are log10 / log2: shown as powers
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension

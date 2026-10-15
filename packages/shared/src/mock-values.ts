@@ -619,6 +619,18 @@ export const mockValues = {
       range(0, 6000).flatMap((i) => [(i * 7) % 41, (i * 3) % 20]),
       [6000, 2],
     ),
+  // log10 of an error decaying over 12 decades, exactly 0 (log10: −∞) at k = 6
+  log10_error: () =>
+    ndarray(
+      range(0, 13).map((k) => (k === 6 ? -Infinity : 0.3 * Math.sin(k) - k)),
+    ),
+  log10_twoD: () =>
+    ndarray(
+      range(0, 24).map((i) =>
+        i === 9 ? -Infinity : -Math.floor(i / 6) - (i % 6),
+      ),
+      [4, 6],
+    ),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();

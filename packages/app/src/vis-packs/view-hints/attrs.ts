@@ -4,6 +4,7 @@ import {
   type PlaybackMode,
   type PlaybackRange,
   type PlaybackSettings,
+  type ValueTransform,
 } from '@h5web/lib';
 import {
   hasArrayShape,
@@ -364,6 +365,10 @@ export function parseViewHint(
     isoLevels: read.nums(
       'H5WEB_iso_levels',
       (arr) => arr.length > 0 && arr.every(Number.isFinite),
+    ),
+    valueTransform: read.oneOf(
+      'H5WEB_value_transform',
+      parseAmong<ValueTransform>(['exp10', 'exp2']),
     ),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),

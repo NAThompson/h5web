@@ -24,6 +24,7 @@ import {
   type AxisConfig,
   type AxisParams,
   type ClassStyleAttrs,
+  type ValueTransform,
 } from '../models';
 import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
@@ -32,6 +33,7 @@ import {
   createScale,
   DEFAULT_DOMAIN,
   extendDomain,
+  getRealValue,
   getTextContent,
   isIntegerAxis,
 } from '../utils';
@@ -71,6 +73,7 @@ interface Props extends ClassStyleAttrs {
   interpolation?: Interpolation;
   visible?: boolean;
   showLegend?: boolean; // legend of the curves, else only in snapshots
+  valueTransform?: ValueTransform; // values are logarithms: y ticks as powers, real values in tooltips
 }
 
 function LineVis(props: PropsWithChildren<Props>) {
@@ -98,6 +101,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     interpolation = Interpolation.Linear,
     visible = true,
     showLegend = false,
+    valueTransform,
     className = '',
     style,
   } = props;
@@ -130,6 +134,12 @@ function LineVis(props: PropsWithChildren<Props>) {
         : axisScaleType,
     [axisScaleType, symlogConstant],
   );
+
+  function formatValue(val: number): string {
+    return formatTooltipVal(
+      valueTransform ? getRealValue(val, valueTransform) : val,
+    );
+  }
 
   const dataDomain = useMemo(() => {
     return domain ? extendDomain(domain, 0.05, scaleType) : DEFAULT_DOMAIN;
@@ -201,6 +211,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           showGrid,
           scaleType,
           label: ordinateLabel,
+          ticks: valueTransform,
         }}
       >
         <DefaultInteractions {...interactions} />
@@ -236,7 +247,7 @@ function LineVis(props: PropsWithChildren<Props>) {
                   )}
                   <span>
                     {dataLabel && `${dataLabel} = `}
-                    <strong>{formatTooltipVal(value)}</strong>
+                    <strong>{formatValue(value)}</strong>
                     {error !== undefined && ` ±${formatTooltipErr(error)}`}
                     {dtype && <em>{` (${dtype})`}</em>}
                   </span>
@@ -268,7 +279,7 @@ function LineVis(props: PropsWithChildren<Props>) {
                               }}
                             />
                             {label ? `${label} = ` : ''}
-                            {formatTooltipVal(array.get(xi))}
+                            {formatValue(array.get(xi))}
                             {errors && ` ±${formatTooltipErr(errors.get(xi))}`}
                           </div>
                         ) : null,

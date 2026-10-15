@@ -11,6 +11,7 @@ import {
   useSafeDomain,
   useSlicedDimsAndMapping,
   useVisDomain,
+  type ValueTransform,
 } from '@h5web/lib';
 import {
   type ArrayShape,
@@ -33,7 +34,11 @@ import {
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { toUnicodeScripts } from '../../view-hints/attrs';
-import { type ContourSource, useSymlogThreshold } from '../../view-hints/hooks';
+import {
+  type ContourSource,
+  useSymlogThreshold,
+  useTransformIgnoreValue,
+} from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type SpecialColorsHint } from '../../view-hints/models';
 import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
@@ -70,6 +75,7 @@ interface Props {
   emphasisStyle?: EmphasisStyle; // of emphasized contours
   probe?: { point?: ProbePoint; onProbe: (point: ProbePoint) => void }; // stacks
   specialColors?: SpecialColorsHint; // e.g. of NaN
+  valueTransform?: ValueTransform; // values are logarithms: ±∞ (e.g. log of 0) drawn as NaN
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -91,6 +97,7 @@ function MappedHeatmapVis(props: Props) {
     emphasisStyle,
     probe,
     specialColors = {},
+    valueTransform,
   } = props;
 
   const {
@@ -109,7 +116,10 @@ function MappedHeatmapVis(props: Props) {
     setContourLevels,
   } = config;
 
-  const ignoreValue = useIgnoreValue(dataset);
+  const ignoreValue = useTransformIgnoreValue(
+    useIgnoreValue(dataset),
+    valueTransform,
+  );
   const packing = usePacking(dataset);
 
   const numArray = useToNumArray(useUnpackedNumArray(value, packing));
@@ -241,6 +251,7 @@ function MappedHeatmapVis(props: Props) {
           ignoredColor={specialColors.nanColor}
           belowColor={specialColors.belowColor}
           aboveColor={specialColors.aboveColor}
+          valueTransform={valueTransform}
         >
           <KeepZoom visKey="heatmap" />
           {contours.regular && (

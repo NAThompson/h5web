@@ -1,4 +1,8 @@
-import { type DimensionMapping, type VisScaleType } from '@h5web/lib';
+import {
+  type DimensionMapping,
+  type ValueTransform,
+  type VisScaleType,
+} from '@h5web/lib';
 import {
   hasArrayShape,
   hasNumericLikeType,
@@ -11,7 +15,11 @@ import {
   type NumericLikeType,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
-import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
+import {
+  type ColorScaleType,
+  type IgnoreValue,
+  ScaleType,
+} from '@h5web/shared/vis-models';
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { type ComponentProps, useMemo, useRef, useState } from 'react';
 
@@ -269,6 +277,20 @@ export function useLinkedOverlays(
         ? { link, index: extraIndex, onChange: setExtraIndex, slicingProps }
         : undefined,
   };
+}
+
+/* Values to ignore with `H5WEB_value_transform`: also ±∞ (logarithms of 0 and ∞), as NaN */
+export function useTransformIgnoreValue(
+  ignoreValue: IgnoreValue | undefined,
+  valueTransform: ValueTransform | undefined,
+): IgnoreValue | undefined {
+  return useMemo(
+    () =>
+      valueTransform
+        ? (val: number) => !Number.isFinite(val) || !!ignoreValue?.(val)
+        : ignoreValue,
+    [ignoreValue, valueTransform],
+  );
 }
 
 /* Scale with the width of its linear band around 0 when symlog (`H5WEB_symlog_threshold`) */

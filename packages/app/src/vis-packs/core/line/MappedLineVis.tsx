@@ -11,6 +11,7 @@ import {
   useSafeDomain,
   useSlicedDimsAndMapping,
   useVisDomain,
+  type ValueTransform,
 } from '@h5web/lib';
 import { isComplexArray } from '@h5web/shared/guards';
 import {
@@ -82,6 +83,7 @@ interface Props {
   toolbarContainer?: HTMLDivElement | undefined;
   config: LineConfig;
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
+  valueTransform?: ValueTransform; // values are logarithms (`H5WEB_value_transform`)
 }
 
 function MappedLineVis(props: Props) {
@@ -106,6 +108,7 @@ function MappedLineVis(props: Props) {
     toolbarContainer,
     config,
     symlogThreshold,
+    valueTransform,
   } = props;
 
   const {
@@ -326,6 +329,7 @@ function MappedLineVis(props: Props) {
           visibleSliceCount <= MAX_LEGEND_CURVES
         }
         testid={dimMapping.toString()}
+        valueTransform={valueTransform}
       >
         <KeepZoom visKey="line" xOnly />
       </LineVis>

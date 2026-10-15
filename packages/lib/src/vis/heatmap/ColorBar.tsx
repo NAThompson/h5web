@@ -4,11 +4,13 @@ import { useMeasure } from '@react-hookz/web';
 import { AxisBottom, AxisRight } from '@visx/axis';
 import { type CSSProperties, type ReactNode } from 'react';
 
-import { type VisScaleType } from '../models';
+import { type ValueTransform, type VisScaleType } from '../models';
 import Tick from '../shared/Tick';
 import {
   adaptedNumTicks,
   createScale,
+  getCustomTicks,
+  getRealValue,
   getScaleTickValues,
   getTextContent,
   getTickPrecision,
@@ -27,6 +29,21 @@ interface Props {
   label?: ReactNode; // e.g. quantity and unit of the values
   belowColor?: string; // shown as a triangle beyond the lower end (cf. matplotlib's `extend`)
   aboveColor?: string;
+  valueTransform?: ValueTransform; // values are logarithms: ticks and bounds as powers
+}
+
+/* Ends of the domain (real values of logarithms) */
+function formatBounds(
+  domain: Domain,
+  valueTransform: ValueTransform | undefined,
+): [string, string] {
+  if (domain[0] === domain[1]) {
+    return ['−∞', '+∞'];
+  }
+  const [min, max] = valueTransform
+    ? domain.map((val) => getRealValue(val, valueTransform))
+    : domain;
+  return [formatBound(min), formatBound(max)];
 }
 
 function ColorBar(props: Props) {
@@ -40,6 +57,7 @@ function ColorBar(props: Props) {
     label,
     belowColor,
     aboveColor,
+    valueTransform,
   } = props;
 
   const [barSize, barRef] = useMeasure<HTMLDivElement>();
@@ -50,9 +68,7 @@ function ColorBar(props: Props) {
     : 0;
 
   const Axis = horizontal ? AxisBottom : AxisRight;
-  const isEmptyDomain = domain[0] === domain[1];
-  const minBound = isEmptyDomain ? '−∞' : formatBound(domain[0]);
-  const maxBound = isEmptyDomain ? '+∞' : formatBound(domain[1]);
+  const [minBound, maxBound] = formatBounds(domain, valueTransform);
 
   const axisScale = createScale(scaleType, {
     domain,
@@ -62,10 +78,13 @@ function ColorBar(props: Props) {
   });
 
   const numTicks = adaptedNumTicks(gradientLength);
-  const tickValues = getScaleTickValues(scaleType, domain, numTicks);
+  const powers = getCustomTicks(valueTransform, scaleType, domain, numTicks);
+  const tickValues =
+    powers?.values ?? getScaleTickValues(scaleType, domain, numTicks);
   const ticks = tickValues ?? axisScale.ticks(numTicks);
-  const formatAxisTick: (val: number) => string =
-    scaleType === ScaleType.Log
+  const formatAxisTick: (val: number) => string = powers
+    ? powers.format
+    : scaleType === ScaleType.Log
       ? // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
         axisScale.tickFormat(numTicks, formatTick)
       : (val) =>

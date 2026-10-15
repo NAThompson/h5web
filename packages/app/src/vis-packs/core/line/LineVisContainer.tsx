@@ -100,6 +100,7 @@ function LineVisContainer(props: VisContainerProps) {
                   toolbarContainer={toolbarContainer}
                   config={config}
                   symlogThreshold={hint.symlogThreshold}
+                  valueTransform={hint.valueTransform}
                 />
               )}
             />

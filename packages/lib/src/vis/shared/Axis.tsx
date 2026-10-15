@@ -8,9 +8,8 @@ import { type AxisConfig, type AxisScale, type Size } from '../models';
 import {
   adaptedNumTicks,
   createScale,
-  formatPiTick,
+  getCustomTicks,
   getIntegerTicks,
-  getPiTicks,
   getScaleTickValues,
   getTickFormatter,
   getTickPrecision,
@@ -72,9 +71,9 @@ function Axis(props: Props) {
 
   const numTicks = adaptedNumTicks(axisLength);
   const scaleTickValues = getScaleTickValues(scaleType, domain, numTicks);
-  const isPiAxis = ticks === 'pi' && scaleType === ScaleType.Linear;
-  const ticksProp = isPiAxis
-    ? { tickValues: getPiTicks(domain, numTicks) }
+  const customTicks = getCustomTicks(ticks, scaleType, domain, numTicks); // π or powers
+  const ticksProp = customTicks
+    ? { tickValues: customTicks.values }
     : isIndexAxis
       ? { tickValues: getIntegerTicks(domain, numTicks) }
       : scaleTickValues
@@ -83,8 +82,8 @@ function Axis(props: Props) {
 
   const tickFormatter: (val: number, precision: number) => string =
     formatTick ||
-    (isPiAxis
-      ? formatPiTick
+    (customTicks
+      ? customTicks.format
       : getTickFormatter(
           domain,
           axisLength,

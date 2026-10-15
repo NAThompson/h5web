@@ -1151,6 +1151,22 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/angle'], []] },
         ),
+        // `H5WEB_value_transform`: values are logarithms, labelled as powers
+        array('value_transform_line', {
+          valueId: 'log10_error',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_value_transform', 'exp10'),
+          ],
+        }),
+        array('value_transform_heatmap', {
+          valueId: 'log10_twoD',
+          attributes: [
+            scalarAttr('H5WEB_value_transform', 'EXP2'),
+            scalarAttr('H5WEB_nan_color', '#f0f'), // also −∞
+            intAttr('H5WEB_keep_ratio', 0),
+          ],
+        }),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

@@ -27,11 +27,17 @@ import {
   type Aspect,
   type AxisParams,
   type ClassStyleAttrs,
+  type ValueTransform,
   type VisScaleType,
 } from '../models';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
-import { DEFAULT_DOMAIN, getTextContent, isIntegerAxis } from '../utils';
+import {
+  DEFAULT_DOMAIN,
+  getRealValue,
+  getTextContent,
+  isIntegerAxis,
+} from '../utils';
 import ColorBar from './ColorBar';
 import HeatmapMesh from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
@@ -63,6 +69,7 @@ interface Props extends ClassStyleAttrs {
   ignoredColor?: RGBColor | string;
   belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
   aboveColor?: string;
+  valueTransform?: ValueTransform; // values are logarithms: shown as powers in the colour bar
 }
 
 function HeatmapVis(props: PropsWithChildren<Props>) {
@@ -91,6 +98,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     ignoredColor,
     belowColor,
     aboveColor,
+    valueTransform,
     className = '',
     style,
   } = props;
@@ -174,7 +182,13 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
                 {`${abscissaLabel ?? 'x'}=${formatTooltipVal(abscissa)}, `}
                 {`${ordinateLabel ?? 'y'}=${formatTooltipVal(ordinate)}`}
                 <div className={styles.tooltipValue}>
-                  <strong>{formatTooltipVal(dataArray.get(yi, xi))}</strong>
+                  <strong>
+                    {formatTooltipVal(
+                      valueTransform
+                        ? getRealValue(dataArray.get(yi, xi), valueTransform)
+                        : dataArray.get(yi, xi),
+                    )}
+                  </strong>
                   {dtype && <em>{` (${dtype})`}</em>}
                   {alpha && ` (${formatTooltipVal(alpha.array.get(yi, xi))})`}
                 </div>
@@ -216,6 +230,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         label={colorBarLabel}
         belowColor={belowColor}
         aboveColor={aboveColor}
+        valueTransform={valueTransform}
       />
     </figure>
   );

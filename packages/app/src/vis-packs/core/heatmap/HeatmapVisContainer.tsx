@@ -140,6 +140,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   overlays={overlays.shapes}
                   symlogThreshold={hint.symlogThreshold}
                   specialColors={hint}
+                  valueTransform={hint.valueTransform}
                   onDataDomainChange={setDataDomain}
                   contourSource={contourOf.source}
                   emphasisStyle={{

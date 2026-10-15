@@ -29,12 +29,14 @@ import { BufferAttribute, type IUniform, MathUtils } from 'three';
 import {
   type Aspect,
   type AxisOffsets,
+  type AxisTicks,
   type ExtractScaleType,
   type GetDomainOpts,
   type Scale,
   type ScaleConfig,
   type ScaleGammaConfig,
   type Size,
+  type ValueTransform,
   type VisScaleType,
 } from './models';
 import { scaleGamma } from './scaleGamma';
@@ -344,6 +346,61 @@ export function formatPiTick(val: number | { valueOf: () => number }): string {
   const den = 12 / divisor;
   const sign = twelfths < 0 ? '−' : '';
   return `${sign}${num === 1 ? '' : num}π${den === 1 ? '' : `/${den}`}`;
+}
+
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+function getPowerBase(transform: ValueTransform): number {
+  return transform === 'exp2' ? 2 : 10;
+}
+
+/* Real value of a logarithm (`H5WEB_value_transform`) */
+export function getRealValue(val: number, transform: ValueTransform): number {
+  return getPowerBase(transform) ** val;
+}
+
+/* Integer exponents on axes spanning two decades or more, else plain nice ticks */
+export function getPowerTicks(domain: Domain, count: number): number[] {
+  const span = Math.abs(domain[1] - domain[0]);
+  return span >= 2
+    ? getIntegerTicks(domain, count)
+    : scaleLinear({ domain }).ticks(count);
+}
+
+/* Tick label of a logarithm: power at integers (`10⁻³`), else the real value */
+export function formatPowerTick(
+  val: number | { valueOf: () => number },
+  transform: ValueTransform,
+  precision?: number,
+): string {
+  const exp = val.valueOf();
+  if (!Number.isInteger(exp)) {
+    return formatTick(getRealValue(exp, transform), precision);
+  }
+  const digits = Math.abs(exp)
+    .toString()
+    .replaceAll(/\d/gu, (d) => SUPERSCRIPTS[Number(d)]);
+  return `${getPowerBase(transform)}${exp < 0 ? '⁻' : ''}${digits}`;
+}
+
+/* Ticks at multiples of π or at powers, on linear axes (`undefined`: default ticks) */
+export function getCustomTicks(
+  ticks: AxisTicks | undefined,
+  scaleType: VisScaleType | undefined,
+  domain: Domain,
+  count: number,
+):
+  | { values: number[]; format: (val: number, precision?: number) => string }
+  | undefined {
+  if (!ticks || scaleType !== ScaleType.Linear) {
+    return undefined;
+  }
+  return ticks === 'pi'
+    ? { values: getPiTicks(domain, count), format: formatPiTick }
+    : {
+        values: getPowerTicks(domain, count),
+        format: (val, precision) => formatPowerTick(val, ticks, precision),
+      };
 }
 
 /**
