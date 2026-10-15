@@ -56,6 +56,9 @@ function toVector4(color: RGBColor): Vector4 {
 /* Colour as a uniform, and whether it is given (and valid) */
 function getColorUniform(css: string | undefined): [Vector4, number] {
   const color = rgb(css ?? '');
+  if (color.opacity === 0) {
+    return [new Vector4(0, 0, 0, 0), 1]; // e.g. `transparent` (RGB channels are `NaN`)
+  }
   return Number.isFinite(color.r) ? [toVector4(color), 1] : [new Vector4(), 0];
 }
 
