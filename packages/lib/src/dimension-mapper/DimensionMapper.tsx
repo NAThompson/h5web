@@ -1,5 +1,5 @@
 import { type DimensionMapping } from '@h5web/shared/vis-models';
-import { type HTMLAttributes, useState } from 'react';
+import { type HTMLAttributes, useMemo, useState } from 'react';
 
 import AxisMapper from './AxisMapper';
 import styles from './DimensionMapper.module.css';
@@ -31,7 +31,9 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
     nextMappings: DimensionMapping[],
     currentMapping: DimensionMapping,
   ) => boolean;
-  // Slices known to be empty (e.g. all `NaN`): skipped by playback, step buttons and arrow keys
+  /* Slices known to be empty (e.g. all `NaN`): skipped by playback, step buttons and arrow keys.
+   * Called for every slice of each sliced dimension when it changes identity (or the mapping
+   * does), so it should only change when emptiness may have (e.g. new values in a cache). */
   isSliceEmpty?: (mapping: DimensionMapping) => boolean;
   // Playback: dimension being played (controlled when `onPlayingDimChange` is provided)
   playingDim?: number;
@@ -87,6 +89,25 @@ function DimensionMapper(props: Props) {
     setLocalSettings(settings);
     onPlaybackSettingsChange?.(settings);
   }
+
+  // Empty slices of each sliced dimension (the other dimensions at their current index)
+  const emptySlices = useMemo(
+    () =>
+      isSliceEmpty &&
+      dimMapping.map((val, dim) => {
+        if (typeof val !== 'number') {
+          return undefined;
+        }
+        const mapping = [...dimMapping];
+        return new Set(
+          Array.from({ length: dims[dim] }, (_, i) => i).filter((i) => {
+            mapping[dim] = i;
+            return isSliceEmpty(mapping);
+          }),
+        );
+      }),
+    [isSliceEmpty, dimMapping, dims],
+  );
 
   if (dims.length !== dimMapping.length) {
     throw new Error('Expected dimensions and mapping arrays of same length');
@@ -169,9 +190,7 @@ function DimensionMapper(props: Props) {
               isReady={
                 isSliceReady && ((newVal) => isSliceReady(withMapping(newVal)))
               }
-              isEmpty={
-                isSliceEmpty && ((newVal) => isSliceEmpty(withMapping(newVal)))
-              }
+              emptySlices={emptySlices?.[index]}
               onPrefetch={
                 prefetchSlices &&
                 ((values, current) =>

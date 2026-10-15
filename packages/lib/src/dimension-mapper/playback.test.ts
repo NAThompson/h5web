@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getNearestFrame,
   getNextFrame,
   getPrefetchCount,
   getUpcomingFrames,
@@ -214,5 +215,24 @@ describe('tickPlayback', () => {
     expect(
       tickPlayback(endClock, 0, settings('once'), allReady).upcoming,
     ).toStrictEqual([19]);
+  });
+});
+
+function isSkippedFrame(val: number): boolean {
+  return [0, 1, 5, 6, 9].includes(val); // of 10
+}
+
+describe('getNearestFrame', () => {
+  it('should land on the nearest frame not skipped in the given direction', () => {
+    expect(getNearestFrame(0, 1, 4, 10, isSkippedFrame)).toBe(2); // `Home`
+    expect(getNearestFrame(9, -1, 4, 10, isSkippedFrame)).toBe(8); // `End`
+    expect(getNearestFrame(5, 1, 3, 10, isSkippedFrame)).toBe(7);
+    expect(getNearestFrame(14, 1, 4, 10, isSkippedFrame)).toBe(8); // clamped, then back
+    expect(getNearestFrame(-6, -1, 4, 10, isSkippedFrame)).toBe(2);
+  });
+
+  it('should return `undefined` if every frame towards the target is skipped', () => {
+    expect(getNearestFrame(9, 1, 8, 10, isSkippedFrame)).toBeUndefined();
+    expect(getNearestFrame(0, -1, 2, 10, isSkippedFrame)).toBeUndefined();
   });
 });

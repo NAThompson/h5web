@@ -215,3 +215,30 @@ function clampValue(val: number, max: number): number {
 function toValues(frames: PlaybackCursor[]): number[] {
   return frames.map(({ value }) => value);
 }
+
+/* Frame closest to `target` (clamped) that isn't skipped, looking in `direction` first, then back
+ * towards `from` (excluded); `undefined` if there is none (e.g. `End` past known-empty slices) */
+export function getNearestFrame(
+  target: number,
+  direction: 1 | -1,
+  from: number,
+  length: number,
+  isSkipped?: (value: number) => boolean,
+): number | undefined {
+  const start = clampValue(target, length - 1);
+  for (let val = start; val >= 0 && val < length; val += direction) {
+    if (!isSkipped?.(val)) {
+      return val;
+    }
+  }
+  for (
+    let val = start - direction;
+    val !== from && val >= 0 && val < length;
+    val -= direction
+  ) {
+    if (!isSkipped?.(val)) {
+      return val;
+    }
+  }
+  return undefined;
+}

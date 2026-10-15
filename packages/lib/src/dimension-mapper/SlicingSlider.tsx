@@ -9,7 +9,11 @@ import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 import Btn from '../toolbar/controls/Btn';
 import { useDynamicDebouncedCallback, usePlayback } from './hooks';
-import { getNextFrame, type PlaybackSettings } from './playback';
+import {
+  getNearestFrame,
+  getNextFrame,
+  type PlaybackSettings,
+} from './playback';
 import PlaybackControls from './PlaybackControls';
 import styles from './SlicingSlider.module.css';
 
@@ -34,6 +38,8 @@ const STEP_KEYS: Record<string, 1 | -1> = {
   ArrowDown: -1,
   ArrowLeft: -1,
 };
+const PAGE_KEYS: Record<string, 1 | -1> = { PageUp: 1, PageDown: -1 };
+const PAGE_STEP = 10; // as Radix
 
 interface Props {
   dimension: number;
@@ -48,7 +54,7 @@ interface Props {
   isPlaying?: boolean;
   onPlayingChange?: (isPlaying: boolean) => void;
   isReady?: (value: number) => boolean;
-  isEmpty?: (value: number) => boolean; // skipped by playback and steps; dim marks on the track
+  emptySlices?: ReadonlySet<number>; // skipped by playback and steps; hollow marks on the track
   onPrefetch?: (values: number[], current: number) => boolean;
   playbackSettings: PlaybackSettings;
   onPlaybackSettingsChange: (settings: PlaybackSettings) => void;
@@ -69,7 +75,7 @@ function SlicingSlider(props: Props) {
     isPlaying = false,
     onPlayingChange,
     isReady,
-    isEmpty,
+    emptySlices,
     onPrefetch,
     playbackSettings,
     onPlaybackSettingsChange,
@@ -84,16 +90,7 @@ function SlicingSlider(props: Props) {
   const strideInputId = useId();
 
   const [value, setValue] = useState(initialValue);
-
-  // Follow values set from outside (e.g. past an empty first slice), not the slider's own ones
-  const [propValue, setPropValue] = useState(initialValue);
-  const [emittedValue, setEmittedValue] = useState(initialValue);
-  if (initialValue !== propValue) {
-    setPropValue(initialValue);
-    if (initialValue !== emittedValue) {
-      setValue(initialValue);
-    }
-  }
+  const isEmpty = emptySlices && ((val: number) => emptySlices.has(val));
 
   /* During playback, frames are only shown once ready, so there is no need to debounce.
    * Ref is updated on render, and as soon as user interaction pauses playback (so the slice
@@ -115,6 +112,18 @@ function SlicingSlider(props: Props) {
       return isFastSlice?.(val) ? SHORT_DELAY : LONG_DELAY;
     },
   );
+
+  // Follow values set from outside (e.g. past an empty first slice), not echoes of the slider's own
+  const [propValue, setPropValue] = useState(initialValue);
+  const [emittedValue, setEmittedValue] = useState<number>(); // emitted, not echoed yet
+  if (initialValue !== propValue) {
+    setPropValue(initialValue);
+    setEmittedValue(undefined);
+    if (initialValue !== emittedValue) {
+      onDebouncedChange.cancel(); // outside value wins over a pending one
+      setValue(initialValue);
+    }
+  }
 
   const waiting = usePlayback({
     isPlaying: isPlaying && length > 1,
@@ -139,16 +148,46 @@ function SlicingSlider(props: Props) {
     }
   }
 
-  function step(direction: 1 | -1) {
+  function moveTo(next: number | undefined) {
     pause();
+    if (next !== undefined && next !== value) {
+      setValue(next);
+      onDebouncedChange(next);
+    }
+  }
+
+  function step(direction: 1 | -1, by = stride) {
     const next = getNextFrame(
       { value, direction },
-      { length, stride, mode: 'once', isSkipped: isEmpty },
+      { length, stride: by, mode: 'once', isSkipped: isEmpty },
     );
-    if (next) {
-      setValue(next.value);
-      onDebouncedChange(next.value);
+    moveTo(next?.value);
+  }
+
+  /* Keys of the slider, over empty slices: by one slice (by a page with `Shift`), to the first
+   * or last slice, or by a page, landing on the nearest slice that isn't empty */
+  function handleKeyOverEmpty(key: string, shiftKey: boolean): boolean {
+    const direction = STEP_KEYS[key] ?? PAGE_KEYS[key];
+    if (key === 'Home' || key === 'End') {
+      const [target, dir] =
+        key === 'Home' ? [0, 1 as const] : [length - 1, -1 as const];
+      moveTo(getNearestFrame(target, dir, value, length, isEmpty));
+    } else if (key in PAGE_KEYS || (key in STEP_KEYS && shiftKey)) {
+      moveTo(
+        getNearestFrame(
+          value + direction * PAGE_STEP,
+          direction,
+          value,
+          length,
+          isEmpty,
+        ),
+      );
+    } else if (key in STEP_KEYS) {
+      step(direction, 1);
+    } else {
+      return false;
     }
+    return true;
   }
 
   const [containerSize, containerRef] = useMeasure<HTMLDivElement>();
@@ -185,10 +224,10 @@ function SlicingSlider(props: Props) {
             <span className={styles.track} />
             {containerSize &&
               (containerSize.height / length >= MIN_HEIGHT_PER_MARK ||
-                (isEmpty && length <= MAX_EMPTY_MARKS_LENGTH)) &&
+                (emptySlices && length <= MAX_EMPTY_MARKS_LENGTH)) &&
               Array.from({ length }, (_, index) => {
                 // Empty slices are marked even when there are too many slices to mark them all
-                const empty = isEmpty?.(index);
+                const empty = emptySlices?.has(index);
                 return (
                   (empty ||
                     containerSize.height / length >= MIN_HEIGHT_PER_MARK) && (
@@ -210,9 +249,11 @@ function SlicingSlider(props: Props) {
                 if (withPlayback && evt.key === ' ') {
                   evt.preventDefault(); // don't scroll
                   onPlayingChange?.(!isPlaying);
-                } else if (isEmpty && evt.key in STEP_KEYS) {
-                  evt.preventDefault(); // step over empty slices instead
-                  step(STEP_KEYS[evt.key]);
+                } else if (
+                  isEmpty &&
+                  handleKeyOverEmpty(evt.key, evt.shiftKey)
+                ) {
+                  evt.preventDefault(); // over empty slices instead
                 } else if (SLIDER_KEYS.has(evt.key)) {
                   pause(); // even if value doesn't change (e.g. `Home` on first slice)
                 }

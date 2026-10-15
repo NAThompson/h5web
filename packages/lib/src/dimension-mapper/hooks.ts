@@ -24,7 +24,7 @@ export function useDynamicDebouncedCallback<
   callback: Fn,
   deps: DependencyList,
   getDelay: (...args: Parameters<Fn>) => number,
-): (...args: Parameters<Fn>) => void {
+): ((...args: Parameters<Fn>) => void) & { cancel: () => void } {
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const cb = useRef(callback);
   const getDelayRef = useSyncedRef(getDelay);
@@ -45,6 +45,11 @@ export function useDynamicDebouncedCallback<
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
 
   return useMemo(() => {
+    function cancel() {
+      clear();
+      lastCallArgs.current = undefined;
+    }
+
     function execute() {
       clear();
 
@@ -58,7 +63,7 @@ export function useDynamicDebouncedCallback<
       cb.current(...context);
     }
 
-    return (...args) => {
+    function debounced(...args: Parameters<Fn>) {
       if (timeout.current) {
         clearTimeout(timeout.current);
       }
@@ -67,7 +72,9 @@ export function useDynamicDebouncedCallback<
 
       // Plan regular execution
       timeout.current = setTimeout(execute, getDelayRef.current(...args));
-    };
+    }
+
+    return Object.assign(debounced, { cancel });
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
