@@ -226,7 +226,7 @@ export function createAttrReader(
   return { str, nums, num, bool, oneOf };
 }
 
-/* Dimension named by `H5WEB_x_dim` / `H5WEB_multi_dim`: name of a dimension scale (see
+/* Dimension named by `H5WEB_x_dim` / `H5WEB_multi_dim` / `H5WEB_probe_dim`: name of a dimension scale (see
  * `getDimNames`), or index */
 function readDim(
   reader: AttrReader,
@@ -242,6 +242,13 @@ function readDim(
     const dim = dimNames.findIndex((names) => names.includes(val));
     return dim !== -1 ? dim : undefined;
   });
+}
+
+function isLevels(arr: number[]): boolean {
+  return arr.length > 0 && arr.every(Number.isFinite);
+}
+function isPos(val: number): boolean {
+  return Number.isFinite(val) && val > 0;
 }
 
 /**
@@ -261,10 +268,7 @@ export function parseViewHint(
   const fixedDomain = domain?.map((v) => (Number.isFinite(v) ? v : null)) as
     [number | null, number | null] | undefined;
   const isSymmetric = read.bool('H5WEB_symmetric');
-  const levels = read.nums(
-    'H5WEB_contour_levels',
-    (arr) => arr.length > 0 && arr.every(Number.isFinite),
-  );
+  const levels = read.nums('H5WEB_contour_levels', isLevels);
   const count = read.num(
     'H5WEB_contour_count',
     (v) => Number.isInteger(v) && v >= 0,
@@ -297,6 +301,10 @@ export function parseViewHint(
     contours: levels ?? count,
     contourLabels: read.bool('H5WEB_contour_labels'),
     contourColor: read.str('H5WEB_contour_color'),
+    contourEmphasize: read.nums('H5WEB_contour_emphasize', isLevels),
+    contourEmphasizeWidth: read.num('H5WEB_contour_emphasize_width', isPos),
+    contourEmphasizeColor: read.str('H5WEB_contour_emphasize_color'),
+    contourOf: read.str('H5WEB_contour_of'),
     complex: read.oneOf('H5WEB_complex', (val) =>
       COMPLEX_TYPES.get(toKey(val)),
     ),
@@ -306,6 +314,7 @@ export function parseViewHint(
     ),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
+    probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
     title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),

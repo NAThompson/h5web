@@ -144,6 +144,15 @@ const twoD_contours = () => {
   );
 };
 
+// Sign-changing field: its zero contours are nodal lines
+const nodal = () =>
+  ndarray(
+    range(0, 24 * 32).map(
+      (i) => Math.sin((i % 32) / 5) * Math.cos(Math.floor(i / 32) / 4),
+    ),
+    [24, 32],
+  );
+
 const threeD_rgb = () =>
   ndarray(
     [
@@ -545,6 +554,24 @@ export const mockValues = {
     ndarray(
       range(0, 3 * 17).map((i) => 10 ** -(i % 17)),
       [3, 17],
+    ),
+  nodal,
+  nodal_amplitude: () =>
+    ndarray(
+      nodal().data.map((v) => Math.abs(v) + 0.1),
+      [24, 32],
+    ),
+  // Stack (κ, row, column) of 4 × 3 × 5, with value 10 (k + 1) + row + column / 10
+  probe_kappa: () => ndarray([0.5, 1, 2, 4]),
+  probe_stack: () =>
+    ndarray(
+      range(0, 60).map(
+        (i) =>
+          10 * (Math.floor(i / 15) + 1) +
+          Math.floor((i % 15) / 5) +
+          (i % 5) / 10,
+      ),
+      [4, 3, 5],
     ),
   constant_twoD: () =>
     ndarray(

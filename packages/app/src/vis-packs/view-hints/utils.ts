@@ -36,6 +36,8 @@ async function getDimLabels(
   }
 }
 
+const DIM_ATTRS = ['H5WEB_x_dim', 'H5WEB_multi_dim', 'H5WEB_probe_dim'];
+
 /* Hint of a dataset, or of an NXdata group (falling back to its signal's), from their `H5WEB_*`
  * attributes. Data errors give no hint (with a note); transport errors are thrown (cf.
  * `getHintSafely`). */
@@ -81,11 +83,11 @@ export async function getViewHint(
   });
   const merged = { ...entity, attributes: [...attributes.values()] };
 
-  // Dimensions named by `H5WEB_x_dim` and `H5WEB_multi_dim`: scale names or dimension labels
+  // Dimensions named by `H5WEB_x_dim`, `_multi_dim`, `_probe_dim`: scale names or dimension labels
   const dataset = isDataset(entity) ? entity : signal;
   let dimNames: string[][] = [];
   if (
-    (attributes.has('H5WEB_x_dim') || attributes.has('H5WEB_multi_dim')) &&
+    DIM_ATTRS.some((name) => attributes.has(name)) &&
     dataset &&
     isDataset(dataset) &&
     hasArrayShape(dataset)
@@ -121,6 +123,7 @@ export async function getViewHint(
     ...parseViewHint(merged, values, dimNames),
     anchor: getAnchor('H5WEB_overlays'),
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
+    contourOfAnchor: getAnchor('H5WEB_contour_of'),
   };
 }
 

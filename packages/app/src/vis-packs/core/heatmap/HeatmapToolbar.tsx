@@ -20,6 +20,7 @@ import {
 import {
   MdAspectRatio,
   MdGridOn,
+  MdShowChart,
   MdSwapHoriz,
   MdSwapVert,
   MdViewInAr,
@@ -49,6 +50,7 @@ interface Props {
   autoContourLevels?: number[];
   customContourLevels?: number[];
   onCustomContourLevelsChange?: (levels: number[]) => void;
+  withProbe?: boolean; // probe pixels of a stack
 }
 
 /**
@@ -115,6 +117,7 @@ function HeatmapToolbar(props: Props) {
     autoContourLevels,
     customContourLevels = [],
     onCustomContourLevelsChange = () => {},
+    withProbe,
   } = props;
   const {
     showGrid,
@@ -235,6 +238,20 @@ function HeatmapToolbar(props: Props) {
             onColorModeChange={config.setContourColorMode}
             onColorChange={config.setContourColor}
             onShowLabelsChange={config.setContourLabels}
+            emphasis={config.contourEmphasis}
+            onEmphasisChange={config.setContourEmphasis}
+          />
+          <Separator />
+        </>
+      )}
+
+      {withProbe && !showSurface && (
+        <>
+          <ToggleBtn
+            label="Probe"
+            Icon={MdShowChart}
+            value={config.probe}
+            onToggle={() => config.setProbe(!config.probe)}
           />
           <Separator />
         </>

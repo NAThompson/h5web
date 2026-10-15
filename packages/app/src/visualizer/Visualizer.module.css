@@ -20,6 +20,7 @@
   grid-template:
     'dimMapper bar' auto
     'dimMapper vis' 1fr
+    'dimMapper probe' auto
     / min-content 1fr;
 }
 

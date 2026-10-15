@@ -942,6 +942,48 @@ export function makeMockFile(): GroupWithChildren {
             ],
           }),
         ),
+        // Emphasized zero contour (nodal lines), alone, and of another dataset on the same grid
+        array('nodal', {
+          attributes: [
+            floatAttr('H5WEB_contour_emphasize', 0),
+            intAttr('H5WEB_contour_labels', 1),
+          ],
+        }),
+        array('nodal_amplitude', {
+          attributes: [
+            scalarAttr('H5WEB_contour_of', 'nodal'),
+            floatAttr('H5WEB_contour_emphasize', 0),
+            floatAttr('H5WEB_contour_emphasize_width', 4),
+            scalarAttr('H5WEB_contour_emphasize_color', 'black'),
+            intAttr('H5WEB_contour_labels', 1),
+          ],
+        }),
+        array('contour_of_mismatch', {
+          valueId: 'nodal_amplitude',
+          attributes: [
+            scalarAttr('H5WEB_contour_of', 'psi'),
+            floatAttr('H5WEB_contour_emphasize', 0),
+          ],
+        }),
+        // Probe: value at a pixel against κ
+        array('kappa', {
+          valueId: 'probe_kappa',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'kappa'),
+            scalarAttr('long_name', 'κ'),
+            scalarAttr('units', '1/m'),
+          ],
+        }),
+        withDimScales(
+          array('probe_stack', {
+            attributes: [
+              scalarAttr('H5WEB_probe_dim', 'kappa'),
+              intAttr('H5WEB_keep_ratio', 0), // pixels fill the canvas
+            ],
+          }),
+          { scales: [['/view_hints/kappa'], [], []] },
+        ),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

@@ -90,3 +90,47 @@
   width: 1.25rem;
   height: 0.75rem;
 }
+
+.probe {
+  grid-area: probe;
+  display: flex;
+  flex-direction: column;
+  height: 16rem;
+  border-top: 1px solid var(--secondary);
+}
+
+.probeHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.probeTitle {
+  font-weight: 600;
+}
+
+.probeValue {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.probeClose {
+  display: flex;
+  padding: 0.125rem;
+  border: none;
+  background: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.probeVis {
+  flex: 1;
+  min-height: 0;
+}
+
+.probeError {
+  margin: 1rem;
+  font-style: italic;
+}

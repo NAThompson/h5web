@@ -27,6 +27,7 @@ export interface DimScale {
   label?: string;
   value?: ArrayValue<NumericType>; // undefined if the dimension is labelled but has no usable scale
   unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
+  longName?: string; // scale's CF `long_name`, e.g. to label the axis of a probe
   ticks?: AxisTicks; // scale's `H5WEB_ticks` attribute
 }
 
@@ -62,7 +63,7 @@ export async function getDimScales(
       }
 
       const { dataset: scaleDataset, value } = scale;
-      const { name, unit, ticks } = await getScaleMeta(
+      const { name, longName, unit, ticks } = await getScaleMeta(
         scaleDataset,
         dataContext,
       );
@@ -74,6 +75,7 @@ export async function getDimScales(
         label: unit ? `${base} (${unit})` : base,
         value,
         unit,
+        longName,
         ticks,
       };
     }),
@@ -85,12 +87,22 @@ export async function getDimScales(
 async function getScaleMeta(
   scaleDataset: Dataset<ArrayShape, NumericType>,
   dataContext: DataContextValue,
-): Promise<{ name?: string; unit?: string; ticks?: AxisTicks }> {
+): Promise<{
+  name?: string;
+  longName?: string;
+  unit?: string;
+  ticks?: AxisTicks;
+}> {
   try {
-    const [name, unit, ticks] = await Promise.all([
+    const [name, longName, unit, ticks] = await Promise.all([
       getAttributeValue(
         scaleDataset,
         findScalarStrAttr(scaleDataset, 'NAME'),
+        dataContext,
+      ),
+      getAttributeValue(
+        scaleDataset,
+        findScalarStrAttr(scaleDataset, 'long_name'),
         dataContext,
       ),
       getAttributeValue(
@@ -100,7 +112,12 @@ async function getScaleMeta(
       ),
       getTicksHint(scaleDataset, dataContext),
     ]);
-    return { name, unit: unit || undefined, ticks };
+    return {
+      name,
+      longName: longName || undefined,
+      unit: unit || undefined,
+      ticks,
+    };
   } catch {
     return {};
   }

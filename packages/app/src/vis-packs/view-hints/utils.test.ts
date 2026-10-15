@@ -169,6 +169,41 @@ describe('parseViewHint', () => {
     ).toMatchObject({ contourLabels: true, contourColor: 'white' });
   });
 
+  it('parse emphasized contours and contoured dataset', () => {
+    expect(
+      hint({
+        H5WEB_contour_emphasize: 0, // scalar: one level
+        H5WEB_contour_emphasize_width: 3,
+        H5WEB_contour_emphasize_color: 'black',
+        H5WEB_contour_of: 'psi_re',
+      }),
+    ).toMatchObject({
+      contourEmphasize: [0],
+      contourEmphasizeWidth: 3,
+      contourEmphasizeColor: 'black',
+      contourOf: 'psi_re',
+      contours: undefined, // emphasized levels don't turn regular contours on
+      notes: [],
+    });
+
+    const invalid = hint({
+      H5WEB_contour_emphasize: [0, Number.NaN],
+      H5WEB_contour_emphasize_width: -1,
+    });
+    expect(invalid.contourEmphasize).toBeUndefined();
+    expect(invalid.contourEmphasizeWidth).toBeUndefined();
+    expect(invalid.notes).toHaveLength(2);
+  });
+
+  it('parse probe dimension', () => {
+    const dimNames = [['kappa', 'κ'], [], []];
+    expect(hint({ H5WEB_probe_dim: 'kappa' }, dimNames).probeDim).toBe(0);
+    expect(hint({ H5WEB_probe_dim: { int: 2 } }, dimNames).probeDim).toBe(2);
+    const unknown = hint({ H5WEB_probe_dim: 'k' }, dimNames);
+    expect(unknown.probeDim).toBeUndefined();
+    expect(unknown.notes).toEqual(['ignored invalid "H5WEB_probe_dim"']);
+  });
+
   it('map dimensions to scale names or indices', () => {
     const dimNames = [['generation'], ['x', 'abscissa']];
     expect(
@@ -265,6 +300,13 @@ describe('suggestions', () => {
       contourMode: ContourMode.Custom,
       contourLevels: { path: '/f', levels: [1, 2] },
     });
+
+    const emphasis = getHeatmapSuggestions(
+      hint({ H5WEB_contour_emphasize: [0, 1] }),
+      '/f',
+    );
+    expect(emphasis.contourEmphasis).toEqual([0, 1]);
+    expect(emphasis).not.toHaveProperty('contourMode'); // regular contours stay as they are
   });
 
   it('suggest domain of complex surfaces', () => {

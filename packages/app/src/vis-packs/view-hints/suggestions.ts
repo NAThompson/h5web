@@ -110,6 +110,8 @@ export function getHeatmapSuggestions(
     contourLabels: hint.contourLabels,
     contourColor: hint.contourColor,
     contourColorMode: hint.contourColor ? ContourColorMode.Single : undefined,
+    contourEmphasis: hint.contourEmphasize,
+    probe: hint.probeDim === undefined ? undefined : true,
   };
 }
 
