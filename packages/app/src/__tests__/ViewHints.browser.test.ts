@@ -536,6 +536,12 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
 
   const probeBtn = page.getByRole('button', { name: 'Probe', exact: true });
   await expect.element(probeBtn).toHaveAttribute('aria-pressed', 'false');
+  const slider = page.getByRole('slider', { name: 'generation' });
+  const labelId = slider.element().getAttribute('aria-labelledby') ?? '';
+  expect(document.getElementById(labelId)).toHaveAttribute(
+    'title',
+    'generation',
+  ); // if cut short
   const canvas = document.querySelector('figure canvas');
   assertNonNull(canvas);
   await userEvent.click(page.elementLocator(canvas)); // probe off: nothing

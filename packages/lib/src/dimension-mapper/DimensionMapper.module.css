@@ -23,7 +23,7 @@
 
 /* Long dimension names (e.g. of scales) are cut short; in full in the button's title */
 .axisMapper button {
-  max-width: 6em;
+  max-width: 7.5em;
 }
 
 .axisMapper button > span,
