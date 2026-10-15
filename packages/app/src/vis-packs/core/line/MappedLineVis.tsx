@@ -47,6 +47,7 @@ import LineToolbar from './LineToolbar';
 import { generateCsv, getMultiPlotSliceLabel, getRows } from './utils';
 
 const interpolateSliceColor = INTERPOLATORS.Viridis;
+const MAX_LEGEND_CURVES = 10; // multi-plots with a legend of their slices
 
 function ignoreNone(): boolean {
   return false;
@@ -304,6 +305,7 @@ function MappedLineVis(props: Props) {
         ignoreValue={ignoreValue}
         interpolation={interpolation}
         visible={valueVisible}
+        showLegend={isMultiPlot && sliceArrays.length < MAX_LEGEND_CURVES}
         testid={dimMapping.toString()}
       >
         <KeepZoom visKey="line" xOnly />

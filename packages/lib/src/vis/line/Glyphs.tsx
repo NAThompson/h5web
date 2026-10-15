@@ -17,6 +17,7 @@ interface Props {
   size?: number;
   visible?: boolean;
   ignoreValue?: IgnoreValue;
+  isolatedOnly?: boolean; // only points without valid neighbours (e.g. alongside a line)
 }
 
 function Glyphs(props: Props & ThreeElements['points']) {
@@ -28,6 +29,7 @@ function Glyphs(props: Props & ThreeElements['points']) {
     size = 6,
     visible = true,
     ignoreValue,
+    isolatedOnly,
     ...pointsProps
   } = props;
 
@@ -41,8 +43,16 @@ function Glyphs(props: Props & ThreeElements['points']) {
         abscissaScale,
         ordinateScale,
         ignoreValue,
+        isolatedOnly,
       }),
-    [abscissaScale, abscissas, ignoreValue, ordinateScale, ordinates],
+    [
+      abscissaScale,
+      abscissas,
+      ignoreValue,
+      isolatedOnly,
+      ordinateScale,
+      ordinates,
+    ],
   );
 
   useUpdateGeometry(geometry, {

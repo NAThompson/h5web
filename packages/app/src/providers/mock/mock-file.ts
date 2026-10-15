@@ -1085,6 +1085,24 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { labels: ['series', ''], scales: [[], ['/dimension_scales/X']] },
         ),
+        // Few curves along a dimension: legend of their scale values
+        array('angle', {
+          valueId: 'multi_angle',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'angle'),
+          ],
+        }),
+        withDimScales(
+          array('line_curves', {
+            valueId: 'multi_curves',
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              scalarAttr('H5WEB_multi_dim', 'angle'),
+            ],
+          }),
+          { scales: [['/view_hints/angle'], []] },
+        ),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

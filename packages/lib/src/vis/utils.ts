@@ -254,9 +254,17 @@ export function getValueToIndexScale(
  *
  * So we implement our own, simplified version of `d3.ticks` that always outputs integer values.
  */
-/* Whether axis values are all integers, to only get integer ticks as on index axes */
-export function isIntegerValued(values: NumArray | undefined): boolean {
-  return !!values && values.length > 0 && values.every(Number.isInteger);
+/* Whether an axis only needs integer ticks: index axis (no values), or linear axis of integers */
+export function isIntegerAxis(
+  values: NumArray | undefined,
+  scaleType: AxisScaleType = ScaleType.Linear,
+): boolean {
+  return (
+    !values ||
+    (scaleType === ScaleType.Linear &&
+      values.length > 0 &&
+      values.every(Number.isInteger))
+  );
 }
 
 export function getIntegerTicks(domain: Domain, count: number): number[] {

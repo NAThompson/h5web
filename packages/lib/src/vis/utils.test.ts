@@ -25,7 +25,7 @@ import {
   getTickPrecision,
   getValueToIndexScale,
   getVisRatio,
-  isIntegerValued,
+  isIntegerAxis,
 } from './utils';
 
 const MAX = Number.MAX_VALUE / 2;
@@ -667,13 +667,14 @@ describe('getTickPrecision()', () => {
   });
 });
 
-describe('isIntegerValued()', () => {
-  it('should tell if all values are integers', () => {
-    expect(isIntegerValued([0, 1, 2, 8])).toBe(true);
-    expect(isIntegerValued(Float32Array.from([2000, 2001]))).toBe(true);
-    expect(isIntegerValued([0, 0.5])).toBe(false);
-    expect(isIntegerValued([])).toBe(false);
-    expect(isIntegerValued(undefined)).toBe(false);
+describe('isIntegerAxis()', () => {
+  it('should tell if an axis only needs integer ticks', () => {
+    expect(isIntegerAxis(undefined)).toBe(true); // index axis
+    expect(isIntegerAxis([0, 1, 2, 8])).toBe(true);
+    expect(isIntegerAxis(Float32Array.from([2000, 2001]))).toBe(true);
+    expect(isIntegerAxis([0, 0.5])).toBe(false);
+    expect(isIntegerAxis([])).toBe(false);
+    expect(isIntegerAxis([1, 10, 100], ScaleType.Log)).toBe(false);
   });
 });
 

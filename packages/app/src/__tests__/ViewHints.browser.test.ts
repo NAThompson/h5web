@@ -558,6 +558,26 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
   await page.viewport(1920, 1080);
 });
 
+test('show a legend of a few multi-plotted curves', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/line_curves');
+
+  const legend = page.getByRole('figure').getByRole('list');
+  await expect.element(legend).toBeVisible();
+  expect(
+    legend
+      .getByRole('listitem')
+      .elements()
+      .map((li) => li.textContent),
+  ).toEqual(['angle: 0.524', 'angle: 1.05', 'angle: 1.57']);
+
+  // Too many curves (20): legend left to snapshots
+  await selectExplorerNode('line');
+  await expect.element(page.getByTestId('y,x')).toBeVisible();
+  await expect
+    .element(page.getByRole('figure').getByRole('list'))
+    .not.toBeInTheDocument(); // hidden
+});
+
 test('label figures, colour bars and axes from CF `long_name` and `units`', async () => {
   const { selectExplorerNode } = await renderApp('/view_hints/cf_heatmap');
 

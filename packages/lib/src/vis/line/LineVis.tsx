@@ -32,7 +32,7 @@ import {
   DEFAULT_DOMAIN,
   extendDomain,
   getTextContent,
-  isIntegerValued,
+  isIntegerAxis,
 } from '../utils';
 import DataCurve from './DataCurve';
 import { useAxisValues } from './hooks';
@@ -68,6 +68,7 @@ interface Props extends ClassStyleAttrs {
   ignoreValue?: IgnoreValue;
   interpolation?: Interpolation;
   visible?: boolean;
+  showLegend?: boolean; // legend of the curves, else only in snapshots
 }
 
 function LineVis(props: PropsWithChildren<Props>) {
@@ -94,6 +95,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     ignoreValue,
     interpolation = Interpolation.Linear,
     visible = true,
+    showLegend = false,
     className = '',
     style,
   } = props;
@@ -155,10 +157,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           visDomain: abscissaDomain,
           showGrid,
           scaleType: abscissaScaleType,
-          isIndexAxis:
-            !abscissaValue ||
-            ((abscissaScaleType ?? ScaleType.Linear) === ScaleType.Linear &&
-              isIntegerValued(abscissaValue)),
+          isIndexAxis: isIntegerAxis(abscissaValue, abscissaScaleType),
           label: abscissaLabel,
           ticks: abscissaTicks,
         }}
@@ -276,9 +275,12 @@ function LineVis(props: PropsWithChildren<Props>) {
         )}
 
         {hasVisibleAux && (
-          /* Legend is only shown in snapshots (cf. `[data-snapshot]` in CSS) */
+          /* Legend shown in snapshots (cf. `[data-snapshot]` in CSS) unless `showLegend` */
           <Overlay>
-            <ul className={styles.legend}>
+            <ul
+              className={styles.legend}
+              data-visible={showLegend || undefined}
+            >
               {visible && (
                 <li className={styles.legendItem}>
                   <span
