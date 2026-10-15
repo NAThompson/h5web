@@ -288,3 +288,42 @@ test('colour volumes on the scale of the hint', async () => {
     .toBeVisible();
   await expect.poll(countColorBarPowers).toBeGreaterThanOrEqual(4);
 });
+
+/* Pixels of the volume's colour at the top of the colour map (e.g. maxima in MIP mode) */
+function countBrightPixels(): number {
+  const canvas = document.querySelector<HTMLCanvasElement>('figure canvas');
+  assertNonNull(canvas);
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const ctx = copy.getContext('2d');
+  assertNonNull(ctx);
+  ctx.drawImage(canvas, 0, 0);
+  const { data } = ctx.getImageData(0, 0, copy.width, copy.height);
+  let count = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i] > 200 && data[i + 1] > 150) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+test('place the voxels of non-uniform volume axes at their coordinates', async () => {
+  const { user, selectExplorerNode } = await renderApp(
+    '/axis_hints/volume_uniform',
+  );
+  await page.viewport(2560, 1080); // whole volume toolbar
+  await user.click(page.getByRole('radio', { name: 'MIP' }));
+  await expect.poll(countBrightPixels).toBeGreaterThan(1000);
+  const uniform = countBrightPixels();
+
+  // x < 1: half the voxels, but a thin slab of the axis' extent (0.01 to 100)
+  await selectExplorerNode('volume_nonuniform');
+  await expect
+    .poll(() => {
+      const count = countBrightPixels();
+      return count > 0 && count < uniform / 2; // a wall, seen at an angle
+    })
+    .toBe(true);
+});

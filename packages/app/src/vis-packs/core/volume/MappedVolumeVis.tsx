@@ -193,6 +193,7 @@ function MappedVolumeVis(props: Props) {
         isoMessage={message}
         gradientLabel={gradientLabel}
         boxSize={boxSize}
+        axisValues={axisCoords}
       />
     </>
   );

@@ -3,12 +3,13 @@ import { type Domain } from '@h5web/shared/vis-models';
 import { type ColorMap } from '../heatmap/models';
 import Headlight from './Headlight';
 import IsosurfaceMesh from './IsosurfaceMesh';
-import { IsoColorMode, type IsosurfaceParams } from './models';
+import { type AxisValues, IsoColorMode, type IsosurfaceParams } from './models';
 
 interface Props {
   isosurfaces: IsosurfaceParams[];
   shape: number[];
   boxSize: [number, number, number];
+  axisValues: AxisValues;
   colorMode: IsoColorMode | undefined;
   gradientDomain: Domain | undefined;
   colorMap: ColorMap;

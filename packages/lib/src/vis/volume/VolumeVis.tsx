@@ -20,16 +20,19 @@ import { getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
 import Isosurfaces from './Isosurfaces';
 import {
+  type AxisValues,
   IsoColorMode,
   type IsosurfaceParams,
   VolumeQuality,
   VolumeRenderMode,
 } from './models';
-import { getBoxSize, normalizeBoxSize } from './utils';
+import { getAxisLookup, getBoxSize, normalizeBoxSize } from './utils';
 import VolumeControls from './VolumeControls';
 import VolumeLegend from './VolumeLegend';
-import VolumeMesh from './VolumeMesh';
+import VolumeMesh, { type AxisLookups } from './VolumeMesh';
 import styles from './VolumeVis.module.css';
+
+const NO_AXIS_VALUES: AxisValues = [undefined, undefined, undefined];
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -57,6 +60,9 @@ interface Props extends ClassStyleAttrs {
   isoMessage?: string;
   /* Physical size of the volume along x, y and z (defaults to the shape) */
   boxSize?: [number, number, number];
+  /* Coordinates of the voxels along x, y and z: voxels of non-uniform axes (cf.
+   * `isNonUniformAxis`) are placed at their coordinates within the box */
+  axisValues?: AxisValues;
 }
 
 function VolumeVis(props: PropsWithChildren<Props>) {
@@ -81,6 +87,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     isoProgress,
     isoMessage,
     boxSize: customBoxSize,
+    axisValues = NO_AXIS_VALUES,
     children,
     className = '',
     style,
@@ -98,6 +105,17 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     return geometry;
   }, []);
   useEffect(() => () => edges.dispose(), [edges]);
+
+  const [depth, rows, cols] = dataArray.shape;
+  const [xValues, yValues, zValues] = axisValues;
+  const axisLookups = useMemo(
+    (): AxisLookups => [
+      getAxisLookup(xValues, cols),
+      getAxisLookup(yValues, rows),
+      getAxisLookup(zValues, depth),
+    ],
+    [xValues, yValues, zValues, cols, rows, depth],
+  );
 
   const boxSize = customBoxSize
     ? normalizeBoxSize(customBoxSize)
@@ -118,6 +136,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
             isosurfaces={isosurfaces}
             shape={dataArray.shape}
             boxSize={boxSize}
+            axisValues={axisValues}
             colorMode={isoColorMode}
             gradientDomain={gradientDomain}
             colorMap={colorMap}
@@ -126,6 +145,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
           {showVolume && (
             <VolumeMesh
               boxSize={boxSize}
+              axisLookups={axisLookups}
               withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
               dataArray={dataArray}
               domain={domain}

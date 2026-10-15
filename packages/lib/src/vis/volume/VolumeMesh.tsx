@@ -43,6 +43,8 @@ import {
   getBoxSize,
   getGLErrors,
   getHalfFloatTexture,
+  getLookupTexture,
+  getStepCount,
   getVolumeTexture,
   SAMPLES_PER_VOXEL,
   toContiguousArray,
@@ -50,6 +52,13 @@ import {
   uploadHalfFloatChunks,
   withMemoryCheck,
 } from './utils';
+
+export type AxisLookups = [
+  x: Float32Array | undefined,
+  y: Float32Array | undefined,
+  z: Float32Array | undefined,
+];
+const NO_LOOKUPS: AxisLookups = [undefined, undefined, undefined];
 
 interface Props {
   dataArray: NdArray<NumArray>;
@@ -63,6 +72,8 @@ interface Props {
   quality: VolumeQuality;
   interactingRef: RefObject<boolean>;
   boxSize?: [number, number, number];
+  /* Lookup tables of non-uniform axes x, y and z (cf. `getAxisLookup`) */
+  axisLookups?: AxisLookups;
   /* Stop rays at opaque isosurfaces (rendered in `SURFACE_DEPTH_LAYER`) */
   withSurfaceDepth?: boolean;
 }
@@ -80,6 +91,7 @@ function VolumeMesh(props: Props) {
     quality,
     interactingRef,
     boxSize,
+    axisLookups = NO_LOOKUPS,
     withSurfaceDepth = false,
   } = props;
 
@@ -285,6 +297,20 @@ function VolumeMesh(props: Props) {
   useEffect(() => () => volumeTexture.dispose(), [volumeTexture]);
   useEffect(() => () => colorMapTexture.dispose(), [colorMapTexture]);
 
+  const lookupTextures = useMemo(
+    () => axisLookups.map((table) => table && getLookupTexture(table)),
+    [axisLookups],
+  );
+  useEffect(
+    () => () => {
+      lookupTextures.forEach((texture) => {
+        texture?.dispose();
+      });
+    },
+    [lookupTextures],
+  );
+  const [hasX, hasY, hasZ] = axisLookups.map((table) => !!table);
+
   const [scaleType, gammaExponent, symlogConstant] =
     getShaderScale(visScaleType);
 
@@ -293,11 +319,19 @@ function VolumeMesh(props: Props) {
       new ShaderMaterial({
         glslVersion: GLSL3,
         vertexShader: VOLUME_VERTEX_SHADER,
-        fragmentShader: getVolumeFragmentShader(mode, scaleType),
+        fragmentShader: getVolumeFragmentShader(mode, scaleType, [
+          hasX,
+          hasY,
+          hasZ,
+        ]),
         uniforms: getUniforms({
           volume: null,
           colorMap: null,
+          xLookup: null,
+          yLookup: null,
+          zLookup: null,
           dims: new Vector3(),
+          stepDims: new Vector3(),
           domainMin: 0,
           oneOverRange: 1,
           gammaExponent: 1,
@@ -318,7 +352,7 @@ function VolumeMesh(props: Props) {
         depthWrite: false,
         depthTest: false, // rays are stopped at opaque surfaces in the shader instead
       }),
-    [mode, scaleType],
+    [mode, scaleType, hasX, hasY, hasZ],
   );
 
   useEffect(() => () => material.dispose(), [material]);
@@ -329,7 +363,14 @@ function VolumeMesh(props: Props) {
   useEffect(() => {
     uniforms.volume.value = volumeTexture;
     uniforms.colorMap.value = colorMapTexture;
+    [uniforms.xLookup.value, uniforms.yLookup.value, uniforms.zLookup.value] =
+      lookupTextures;
     (uniforms.dims.value as Vector3).set(shape[2], shape[1], shape[0]);
+    (uniforms.stepDims.value as Vector3).set(
+      getStepCount(axisLookups[0], shape[2]),
+      getStepCount(axisLookups[1], shape[1]),
+      getStepCount(axisLookups[2], shape[0]),
+    );
     uniforms.domainMin.value = min;
     // Empty domain (or range too small for float32) is flagged with 0 in the shader
     const oneOverRange = Math.fround(1 / (max - min));
@@ -347,6 +388,8 @@ function VolumeMesh(props: Props) {
     uniforms,
     volumeTexture,
     colorMapTexture,
+    lookupTextures,
+    axisLookups,
     shape,
     min,
     max,

@@ -1,7 +1,10 @@
+import { type NumArray } from '@h5web/shared/vis-models';
 import { createArrayFromView } from '@h5web/shared/vis-utils';
 import ndarray, { type NdArray } from 'ndarray';
 import {
   Data3DTexture,
+  DataTexture,
+  FloatType,
   HalfFloatType,
   LinearFilter,
   NearestFilter,
@@ -10,8 +13,15 @@ import {
 } from 'three';
 
 import { type TextureSafeTypedArray } from '../heatmap/models';
-import { TEXTURE_TYPES } from '../heatmap/utils';
-import { VolumeQuality } from './models';
+import {
+  getCellEdges,
+  getIndexToPosition,
+  getPixelCentres,
+  getRelativePixels,
+  isNonUniformAxis,
+  TEXTURE_TYPES,
+} from '../heatmap/utils';
+import { type AxisValues, VolumeQuality } from './models';
 import { type HalfFloatChunk } from './prepare/client';
 import {
   getFloat32Bounds,
@@ -65,20 +75,104 @@ export function getBoxSizeFromAxes(
 
   const extents = axisValues.map((axis, i) => {
     const n = sizes[i];
-    let extent: number;
-    if (axis?.length === n + 1) {
-      extent = Math.abs(axis[n] - axis[0]); // bin edges
-    } else if (axis?.length === n && n >= 2) {
-      extent = (Math.abs(axis[n - 1] - axis[0]) * n) / (n - 1); // voxel centres
-    } else {
+    if (!axis || (axis.length !== n + 1 && (axis.length !== n || n < 2))) {
       return undefined;
     }
+    // From the first to the last voxel edge (as heatmaps: non-uniform values are voxel centres)
+    const edges = getCellEdges(axis as NumArray, n);
+    const extent = Math.abs(edges[n] - edges[0]);
     return Number.isFinite(extent) && extent > 0 ? extent : undefined;
   });
 
   return extents.every((extent) => extent !== undefined)
     ? (extents as [number, number, number])
     : undefined;
+}
+
+/*
+ * Lookup table of a non-uniform volume axis: relative positions (from 0 to 1) of the voxel edges
+ * and centres, interleaved, i.e. knot `k` is at texture coordinate `k / (2 count)` (cf.
+ * `getRelativePixels`); `undefined` if the voxels are evenly spaced
+ */
+export function getAxisLookup(
+  values: NumArray | undefined,
+  count: number,
+): Float32Array | undefined {
+  if (!isNonUniformAxis(values, count)) {
+    return undefined;
+  }
+  const edges = getCellEdges(values, count);
+  return getRelativePixels(edges, getPixelCentres(values, edges));
+}
+
+const MAX_STEP_DENSITY = 4; // relative to evenly spaced voxels, to bound the cost of rays
+
+/* Number of voxels along an axis for the ray marcher's step size: enough to sample the narrowest
+ * voxel of a non-uniform axis (cf. `getAxisLookup`), up to `MAX_STEP_DENSITY` times more */
+export function getStepCount(
+  knots: Float32Array | undefined,
+  count: number,
+): number {
+  if (!knots) {
+    return count;
+  }
+  let minWidth = 1;
+  for (let k = 2; k < knots.length; k += 2) {
+    minWidth = Math.min(minWidth, knots[k] - knots[k - 2]);
+  }
+  return Math.min(Math.max(count, 1 / minWidth), MAX_STEP_DENSITY * count);
+}
+
+const SLOPE_STEP = 1e-3; // index units, to differentiate positions along non-uniform axes
+
+/*
+ * Vertices of an isosurface in index coordinates (voxel centres at integers), moved along
+ * non-uniform axes to where the volume draws its voxels (cf. `getAxisLookup`), with normals
+ * following the stretch of each axis; `undefined` if all axes are evenly spaced
+ */
+export function remapIsosurface(
+  positions: Float32Array,
+  normals: Float32Array,
+  shape: number[],
+  axisValues: AxisValues,
+): { positions: Float32Array; normals: Float32Array } | undefined {
+  const [depth, rows, cols] = shape;
+  const sizes = [cols, rows, depth];
+  const toPositions = axisValues.map((values, axis) =>
+    getIndexToPosition(values, sizes[axis]),
+  );
+  if (toPositions.every((toPos) => !toPos)) {
+    return undefined;
+  }
+
+  const newPositions = Float32Array.from(positions);
+  const newNormals = Float32Array.from(normals);
+  for (let i = 0; i < positions.length; i += 3) {
+    toPositions.forEach((toPos, axis) => {
+      if (toPos) {
+        const n = sizes[axis];
+        const index = positions[i + axis] + 0.5; // from the first voxel edge
+        newPositions[i + axis] = toPos(index) * n - 0.5;
+        const slope =
+          ((toPos(index + SLOPE_STEP) - toPos(index - SLOPE_STEP)) * n) /
+          (2 * SLOPE_STEP);
+        newNormals[i + axis] = normals[i + axis] / slope;
+      }
+    });
+    const len = Math.hypot(newNormals[i], newNormals[i + 1], newNormals[i + 2]);
+    if (len > 0) {
+      newNormals[i] /= len;
+      newNormals[i + 1] /= len;
+      newNormals[i + 2] /= len;
+    }
+  }
+  return { positions: newPositions, normals: newNormals };
+}
+
+export function getLookupTexture(table: Float32Array): DataTexture {
+  const texture = new DataTexture(table, table.length, 1, RedFormat, FloatType);
+  texture.needsUpdate = true;
+  return texture;
 }
 
 // Textures are uploaded straight from `data`, so views (transposed, sliced, etc.) must be copied first

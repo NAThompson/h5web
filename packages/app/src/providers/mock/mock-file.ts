@@ -57,6 +57,15 @@ function floatAttr(name: string, ...values: number[]) {
 // Axis values of `axis_hints`: log-spaced ρ from 1e-3 to 1e2, χ from -1000 to 1000
 const RHO = Array.from({ length: 12 }, (_, i) => 10 ** (-3 + (5 * i) / 11));
 const CHI = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
+// Log-spaced from 0.01 to 100, and a volume that is 1 where x < 1 (first half of the voxels)
+const RHO_VOLUME = Array.from(
+  { length: 16 },
+  (_, i) => 10 ** (-2 + (4 * i) / 15),
+);
+const NEAR_ORIGIN = Array.from({ length: 12 * 12 * 16 }, (_, i) =>
+  RHO_VOLUME[i % 16] < 1 ? 1 : 0,
+);
+
 function indices(length = 60) {
   return Array.from({ length }, (_, i) => i);
 }
@@ -942,6 +951,32 @@ export function makeMockFile(): GroupWithChildren {
               scalarAttr('H5WEB_scale', 'symlog'),
               floatAttr('H5WEB_symlog_threshold', 1e-9),
             ],
+          },
+        ),
+        // Volume on a log-spaced x axis: voxels at their coordinates, x < 1 (half the voxels) thin
+        dataset('rho_volume', arrayShape([16]), floatType(), RHO_VOLUME, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'rho'),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'volume_nonuniform',
+            arrayShape([12, 12, 16]),
+            floatType(),
+            NEAR_ORIGIN,
+            { attributes: [scalarAttr('H5WEB_vis', 'volume')] },
+          ),
+          { scales: [[], [], ['/axis_hints/rho_volume']] },
+        ),
+        dataset(
+          'volume_uniform',
+          arrayShape([12, 12, 16]),
+          floatType(),
+          NEAR_ORIGIN,
+          {
+            attributes: [scalarAttr('H5WEB_vis', 'volume')],
           },
         ),
       ]),

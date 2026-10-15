@@ -1,3 +1,5 @@
+import { type NumArray } from '@h5web/shared/vis-models';
+
 import { type IsosurfaceGeometry } from './marchingCubes';
 
 export enum VolumeRenderMode {
@@ -23,3 +25,10 @@ export interface IsosurfaceParams {
   color: string;
   opacity: number;
 }
+
+/* Coordinates of voxels along x, y and z (`undefined`: evenly spaced) */
+export type AxisValues = [
+  x: NumArray | undefined,
+  y: NumArray | undefined,
+  z: NumArray | undefined,
+];
