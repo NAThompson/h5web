@@ -664,3 +664,17 @@ test('skip empty images during playback and steps with `H5WEB_playback_skip_empt
   await userEvent.keyboard('{ArrowDown}');
   await expect.element(kSlider).toHaveValue(4);
 });
+
+test('start with the hinted playback settings, until the user changes them', async () => {
+  await renderApp('/view_hints/playback_settings');
+
+  await page.getByRole('button', { name: 'D0 playback settings' }).click();
+  const dialog = page.getByRole('dialog', { name: 'D0 playback settings' });
+  await expect.element(dialog.getByLabelText('Speed')).toHaveValue(4);
+  expect(dialog.getByLabelText('Bounce')).toBeChecked();
+  expect(dialog.getByLabelText('Range: Each slice')).toBeChecked();
+
+  await dialog.getByLabelText('Loop').click();
+  await expect.element(dialog.getByLabelText('Loop')).toBeChecked();
+  expect(dialog.getByLabelText('Speed')).toHaveValue(4);
+});

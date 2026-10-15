@@ -2,6 +2,7 @@ import {
   type DimensionMapperProps,
   type DimensionMapping,
   getSliceSelection,
+  type PlaybackSettings,
 } from '@h5web/lib';
 import {
   type ArrayShape,
@@ -66,6 +67,9 @@ export interface SlicingOpts {
   /* Skip slices whose values (the first request) are all `NaN` or ignored, once in cache (e.g.
    * prefetched during playback): no value is fetched to find out */
   skipEmpty?: boolean;
+  /* Initial playback settings (e.g. from a view hint), over the remembered ones until the user
+   * changes them */
+  playbackDefaults?: Partial<PlaybackSettings>;
 }
 
 export function useSlicingProps(
@@ -78,11 +82,16 @@ export function useSlicingProps(
     withPlaybackRange = false,
     getExtraRequests = () => [],
     skipEmpty = false,
+    playbackDefaults,
   } = opts;
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
   const [emptyValues] = useState(() => new WeakMap<object, boolean>());
-  const [playbackSettings, setPlaybackSettings] = usePlaybackSettingsState();
+  const [storedSettings, setPlaybackSettings] = usePlaybackSettingsState();
+  const [isSettingsEdited, setSettingsEdited] = useState(false);
+  const playbackSettings = isSettingsEdited
+    ? storedSettings
+    : { ...storedSettings, ...playbackDefaults };
   const [playingDim, setPlayingDim] = useState<number>();
 
   // Prefetch only what `LargeValueGuard` would let through in this vis
@@ -154,7 +163,10 @@ export function useSlicingProps(
         maxAutoFetchSize,
       ),
     playbackSettings,
-    onPlaybackSettingsChange: setPlaybackSettings,
+    onPlaybackSettingsChange: (settings) => {
+      setSettingsEdited(true);
+      setPlaybackSettings(settings);
+    },
     playingDim,
     onPlayingDimChange: (dim) => {
       setPlayingDim(dim);

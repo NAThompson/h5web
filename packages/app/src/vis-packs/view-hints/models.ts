@@ -1,3 +1,4 @@
+import { type PlaybackSettings } from '@h5web/lib';
 import {
   type ColorScaleType,
   type ComplexVisType,
@@ -105,6 +106,7 @@ export interface ViewHint {
   belowColor?: string; // CSS colour of values below the colour domain (default: saturate)
   aboveColor?: string;
   playbackSkipEmpty?: boolean; // playback and steps skip slices that are all NaN / ignored
+  playback?: Partial<PlaybackSettings>; // initial speed, mode and range of playback
   title?: string; // title of the figure
   valueLabel?: string; // colour bar / value axis: CF `units`, with `long_name` if not the title
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension

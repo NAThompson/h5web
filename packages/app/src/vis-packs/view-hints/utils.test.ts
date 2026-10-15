@@ -225,8 +225,18 @@ describe('parseViewHint', () => {
 
   it('parse playback hints', () => {
     expect(
-      hint({ H5WEB_playback_skip_empty: { int: 1 } }).playbackSkipEmpty,
-    ).toBe(true);
+      hint({
+        H5WEB_playback_skip_empty: { int: 1 },
+        H5WEB_playback_fps: 100, // clamped
+        H5WEB_playback_mode: 'Bounce',
+      }),
+    ).toMatchObject({
+      playbackSkipEmpty: true,
+      playback: { fps: 60, mode: 'bounce' },
+    });
+    const invalid = hint({ H5WEB_playback_range: 'all' });
+    expect(invalid.playback).toBeUndefined();
+    expect(invalid.notes).toEqual(['ignored invalid "H5WEB_playback_range"']);
   });
 
   it('map dimensions to scale names or indices', () => {

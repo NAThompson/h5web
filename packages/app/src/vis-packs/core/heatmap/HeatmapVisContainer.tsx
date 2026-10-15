@@ -90,6 +90,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
       withPlaybackRange: true,
       getExtraRequests: overlays.getSliceRequests,
       skipEmpty: hint.playbackSkipEmpty,
+      playbackDefaults: hint.playback,
     },
   );
 

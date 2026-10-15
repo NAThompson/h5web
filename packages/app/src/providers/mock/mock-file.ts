@@ -1012,6 +1012,15 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_vis', 'heatmap'),
           ],
         }),
+        // Initial playback settings
+        array('playback_settings', {
+          valueId: 'triangle_stack',
+          attributes: [
+            floatAttr('H5WEB_playback_fps', 4),
+            scalarAttr('H5WEB_playback_mode', 'Bounce'),
+            scalarAttr('H5WEB_playback_range', 'frame'),
+          ],
+        }),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {
