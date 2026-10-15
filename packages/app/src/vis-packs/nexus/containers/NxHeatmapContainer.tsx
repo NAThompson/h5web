@@ -78,7 +78,12 @@ function NxHeatmapContainer(props: VisContainerProps) {
   const { slicingProps, playbackRange } = useNxSlicingProps(
     nxDataToFetch,
     dimMapping,
-    { withPlaybackRange: true, getExtraRequests: overlays.getSliceRequests },
+    {
+      withPlaybackRange: true,
+      getExtraRequests: overlays.getSliceRequests,
+      skipEmpty: hint.playbackSkipEmpty,
+      playbackDefaults: hint.playback,
+    },
   );
 
   const dimMapper = (
@@ -150,6 +155,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
                 config={config}
                 overlays={overlays.shapes}
                 symlogThreshold={hint.symlogThreshold}
+                specialColors={hint}
                 onDataDomainChange={setDataDomain}
                 contourSource={contourOf.source}
                 emphasisStyle={{

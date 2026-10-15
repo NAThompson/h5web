@@ -17,16 +17,21 @@ function sequence(
   start = 0,
   stride = 1,
   count = 10,
+  isSkipped?: (value: number) => boolean,
 ): number[] {
   return getUpcomingFrames(
     { value: start, direction: 1 },
-    { length, stride, mode },
+    { length, stride, mode, isSkipped },
     count,
   ).map(({ value }) => value);
 }
 
 function allReady(): boolean {
   return true;
+}
+
+function isOneOrTwo(val: number): boolean {
+  return val === 1 || val === 2;
 }
 
 function noneReady(): boolean {
@@ -52,6 +57,27 @@ describe('getNextFrame', () => {
         { length: 4, stride: 1, mode: 'once' },
       ),
     ).toBeUndefined();
+  });
+
+  it('should skip frames, unless they all are', () => {
+    expect(sequence('loop', 5, 0, 1, 4, isOneOrTwo)).toStrictEqual([
+      3, 4, 0, 3,
+    ]);
+    expect(sequence('bounce', 5, 0, 1, 5, isOneOrTwo)).toStrictEqual([
+      3, 4, 3, 0, 3,
+    ]);
+    expect(
+      getNextFrame(
+        { value: 0, direction: 1 },
+        { length: 3, stride: 1, mode: 'once', isSkipped: (val) => val > 0 },
+      ),
+    ).toBeUndefined(); // nothing left to show
+    expect(
+      getNextFrame(
+        { value: 0, direction: 1 },
+        { length: 3, stride: 1, mode: 'loop', isSkipped: () => true },
+      ),
+    ).toBeDefined(); // no endless loop
   });
 
   it('should respect stride and always visit edges', () => {

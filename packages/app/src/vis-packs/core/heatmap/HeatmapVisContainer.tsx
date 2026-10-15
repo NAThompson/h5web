@@ -86,7 +86,12 @@ function HeatmapVisContainer(props: VisContainerProps) {
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
-    { withPlaybackRange: true, getExtraRequests: overlays.getSliceRequests },
+    {
+      withPlaybackRange: true,
+      getExtraRequests: overlays.getSliceRequests,
+      skipEmpty: hint.playbackSkipEmpty,
+      playbackDefaults: hint.playback,
+    },
   );
 
   const dimMapper = (
@@ -133,6 +138,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   config={config}
                   overlays={overlays.shapes}
                   symlogThreshold={hint.symlogThreshold}
+                  specialColors={hint}
                   onDataDomainChange={setDataDomain}
                   contourSource={contourOf.source}
                   emphasisStyle={{

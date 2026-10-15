@@ -56,6 +56,8 @@ interface Props extends ClassStyleAttrs {
   interactions?: DefaultInteractionsConfig;
   ignoreValue?: IgnoreValue;
   ignoredColor?: RGBColor | string;
+  belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
+  aboveColor?: string;
 }
 
 function HeatmapVis(props: PropsWithChildren<Props>) {
@@ -82,6 +84,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     interactions,
     ignoreValue,
     ignoredColor,
+    belowColor,
+    aboveColor,
     className = '',
     style,
   } = props;
@@ -181,6 +185,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           minFilter={minFilter}
           mask={maskArray}
           badColor={ignoredColor}
+          belowColor={belowColor}
+          aboveColor={aboveColor}
         />
 
         {children}
@@ -193,6 +199,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         invertColorMap={invertColorMap}
         withBounds
         label={colorBarLabel}
+        belowColor={belowColor}
+        aboveColor={aboveColor}
       />
     </figure>
   );

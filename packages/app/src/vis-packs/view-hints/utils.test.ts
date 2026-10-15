@@ -206,6 +206,39 @@ describe('parseViewHint', () => {
     expect(unknown.notes).toEqual(['ignored invalid "H5WEB_probe_dim"']);
   });
 
+  it('parse colours of NaN values and of values beyond the domain', () => {
+    expect(
+      hint({
+        H5WEB_nan_color: '#ddd',
+        H5WEB_below_color: 'blue',
+        H5WEB_above_color: 'rgb(255, 0, 0)',
+      }),
+    ).toMatchObject({
+      nanColor: '#ddd',
+      belowColor: 'blue',
+      aboveColor: 'rgb(255, 0, 0)',
+    });
+    const invalid = hint({ H5WEB_nan_color: { int: 1 } });
+    expect(invalid.nanColor).toBeUndefined();
+    expect(invalid.notes).toEqual(['ignored invalid "H5WEB_nan_color"']);
+  });
+
+  it('parse playback hints', () => {
+    expect(
+      hint({
+        H5WEB_playback_skip_empty: { int: 1 },
+        H5WEB_playback_fps: 100, // clamped
+        H5WEB_playback_mode: 'Bounce',
+      }),
+    ).toMatchObject({
+      playbackSkipEmpty: true,
+      playback: { fps: 60, mode: 'bounce' },
+    });
+    const invalid = hint({ H5WEB_playback_range: 'all' });
+    expect(invalid.playback).toBeUndefined();
+    expect(invalid.notes).toEqual(['ignored invalid "H5WEB_playback_range"']);
+  });
+
   it('map dimensions to scale names or indices', () => {
     const dimNames = [['generation'], ['x', 'abscissa']];
     expect(

@@ -546,6 +546,27 @@ export const mockValues = {
       ),
       [21, 21],
     ),
+  /* Stack of 5 slices of 4 x 6: slices 1 and 2 all `NaN`; others `NaN` in column 0, then
+   * -0.1, 0.3, 0.7, 1.1, 1.5 (beyond [0, 1] in columns 1, 4 and 5) */
+  nan_stack: () =>
+    ndarray(
+      range(0, 5 * 4 * 6).map((i) => {
+        const [slice, col] = [Math.floor(i / 24), i % 6];
+        return slice === 1 || slice === 2 || col === 0
+          ? Number.NaN
+          : (col * 2) / 5 - 0.5;
+      }),
+      [5, 4, 6],
+    ),
+  /* Triangular stack (k, p, 2, 3), as FockExpansion's: `NaN` images where p > k / 2 */
+  triangle_stack: () =>
+    ndarray(
+      range(0, 6 * 3 * 6).map((i) => {
+        const [k, p] = [Math.floor(i / 18), Math.floor(i / 6) % 3];
+        return p > k / 2 ? Number.NaN : k + p + (i % 6) / 10;
+      }),
+      [6, 3, 2, 3],
+    ),
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
   psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),

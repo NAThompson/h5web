@@ -34,6 +34,7 @@ export interface SequenceParams {
   length: number;
   stride: number;
   mode: PlaybackMode;
+  isSkipped?: (value: number) => boolean; // e.g. slices known to be empty
 }
 
 export interface PlaybackCursor {
@@ -66,9 +67,23 @@ export function getPrefetchCount(fps: number): number {
   );
 }
 
-/* Next frame in playback order, or `undefined` once the end is reached in `once` mode.
- * Edges are always visited, even when they are not a multiple of the stride away. */
+/* Next frame in playback order, or `undefined` once the end is reached in `once` mode, skipping
+ * frames that `isSkipped` (unless they all are). Edges are always visited (unless skipped), even
+ * when they are not a multiple of the stride away. */
 export function getNextFrame(
+  cursor: PlaybackCursor,
+  params: SequenceParams,
+): PlaybackCursor | undefined {
+  const { length, isSkipped } = params;
+  let next = getAdjacentFrame(cursor, params);
+  // Bounce mode may go past each frame twice
+  for (let i = 0; next && isSkipped?.(next.value) && i < 2 * length; i += 1) {
+    next = getAdjacentFrame(next, params);
+  }
+  return next;
+}
+
+function getAdjacentFrame(
   cursor: PlaybackCursor,
   params: SequenceParams,
 ): PlaybackCursor | undefined {

@@ -33,6 +33,7 @@ import {
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { type ContourSource, useSymlogThreshold } from '../../view-hints/hooks';
+import { type SpecialColorsHint } from '../../view-hints/models';
 import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
 import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
 import { type OverlayShapes } from '../../view-hints/overlays';
@@ -66,6 +67,7 @@ interface Props {
   contourSource?: ContourSource | null; // dataset contoured instead (`H5WEB_contour_of`; `null`: none)
   emphasisStyle?: EmphasisStyle; // of emphasized contours
   probe?: { point?: ProbePoint; onProbe: (point: ProbePoint) => void }; // stacks
+  specialColors?: SpecialColorsHint; // e.g. of NaN
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -86,6 +88,7 @@ function MappedHeatmapVis(props: Props) {
     contourSource,
     emphasisStyle,
     probe,
+    specialColors = {},
   } = props;
 
   const {
@@ -204,6 +207,9 @@ function MappedHeatmapVis(props: Props) {
           heightScale={heightScale}
           shading={shading}
           ignoreValue={ignoreValue}
+          nanColor={specialColors.nanColor}
+          belowColor={specialColors.belowColor}
+          aboveColor={specialColors.aboveColor}
         >
           {overlays && <OverlayLayer3D shapes={overlays} />}
         </SurfaceVis>
@@ -225,6 +231,9 @@ function MappedHeatmapVis(props: Props) {
           flipXAxis={flipXAxis}
           flipYAxis={flipYAxis}
           ignoreValue={ignoreValue}
+          ignoredColor={specialColors.nanColor}
+          belowColor={specialColors.belowColor}
+          aboveColor={specialColors.aboveColor}
         >
           <KeepZoom visKey="heatmap" />
           {contours.regular && <ContourLines {...contours.regular} />}

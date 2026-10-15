@@ -14,6 +14,7 @@ import {
   getColorParams,
   getLinearColorLut,
   getVertexColors,
+  type SpecialColors,
 } from '../three-d/utils';
 import { buildSurfaceBuffers, flattenArray, getSurfaceColors } from './utils';
 
@@ -27,6 +28,7 @@ interface Props {
   invertColorMap: boolean;
   ignoreValue?: IgnoreValue;
   floorUnsupported?: boolean;
+  specialColors?: SpecialColors; // with a NaN colour, values that can't be coloured lie on the floor
   zHeight: number;
   shading: boolean;
   /* Colour vertices by another field than height (same shape as `values`), e.g. phase of complex values */
@@ -48,10 +50,12 @@ function SurfaceMesh(props: Props) {
     invertColorMap,
     ignoreValue,
     floorUnsupported,
+    specialColors,
     zHeight,
     shading,
     colorField,
   } = props;
+  const floorInvalid = specialColors?.nan !== undefined;
 
   const invalidate = useThree((state) => state.invalidate);
 
@@ -70,6 +74,7 @@ function SurfaceMesh(props: Props) {
       scaleType,
       ignoreValue,
       floorUnsupported,
+      floorInvalid,
     });
 
     const geom = new BufferGeometry();
@@ -86,6 +91,7 @@ function SurfaceMesh(props: Props) {
     scaleType,
     ignoreValue,
     floorUnsupported,
+    floorInvalid,
   ]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -101,8 +107,20 @@ function SurfaceMesh(props: Props) {
             colorField.scaleType,
           ),
           colorLut,
+          specialColors,
         )
-      : getSurfaceColors(positions, colorLut);
+      : specialColors // colours of the values themselves, not of the (clamped) heights
+        ? getVertexColors(
+            getColorParams(
+              flattenArray(values),
+              domain,
+              scaleType,
+              ignoreValue,
+            ),
+            colorLut,
+            specialColors,
+          )
+        : getSurfaceColors(positions, colorLut);
 
     if (geometry.hasAttribute('color')) {
       const attr = geometry.getAttribute('color') as BufferAttribute;
@@ -113,7 +131,17 @@ function SurfaceMesh(props: Props) {
     }
 
     invalidate();
-  }, [geometry, colorLut, colorField, invalidate]);
+  }, [
+    geometry,
+    colorLut,
+    colorField,
+    specialColors,
+    values,
+    domain,
+    scaleType,
+    ignoreValue,
+    invalidate,
+  ]);
 
   // Geometry height is normalized; stretching the mesh keeps normals correct (via normal matrix)
   return (

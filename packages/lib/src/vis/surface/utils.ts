@@ -178,6 +178,29 @@ interface BuildParams {
   scaleType: VisScaleType;
   ignoreValue?: IgnoreValue;
   floorUnsupported?: boolean; // values not supported by the scale go to the floor instead of leaving holes
+  floorInvalid?: boolean; // so do `NaN`, ignored and unsupported values (e.g. to show them in a colour of their own)
+}
+
+/** Normalized height of a value (cf. `buildSurfaceBuffers`): 0 on the floor, `NaN` for a hole. */
+export function getValueHeight(
+  val: number,
+  scale: (val: number) => number,
+  validMin: number,
+  params: Pick<
+    BuildParams,
+    'ignoreValue' | 'floorUnsupported' | 'floorInvalid'
+  >,
+): number {
+  const { ignoreValue, floorUnsupported, floorInvalid } = params;
+  const floor = floorInvalid ? 0 : Number.NaN;
+  if (!Number.isFinite(val) || ignoreValue?.(val)) {
+    return floor;
+  }
+  if (val < validMin) {
+    return floorUnsupported ? 0 : floor;
+  }
+  const height = scale(val);
+  return Number.isFinite(height) ? height : floor;
 }
 
 /**
@@ -186,11 +209,11 @@ interface BuildParams {
  * so height and colour always tell the same story.
  * Cells touching a NaN, an ignored value or a value that is not supported
  * by the scale (e.g. negative values in log) are left out: they appear as holes -
- * unless `floorUnsupported` is set, in which case unsupported values lie on the floor.
+ * unless `floorUnsupported` is set, in which case unsupported values lie on the floor (and so do
+ * all of them with `floorInvalid`).
  */
 export function buildSurfaceBuffers(params: BuildParams): SurfaceBuffers {
   const { values, xCoords, yCoords, domain, scaleType } = params;
-  const { ignoreValue, floorUnsupported = false } = params;
   const [rows, cols] = values.shape;
   const count = rows * cols;
 
@@ -217,24 +240,11 @@ export function buildSurfaceBuffers(params: BuildParams): SurfaceBuffers {
       positions[i * 3] = x;
       positions[i * 3 + 1] = y;
 
-      if (!Number.isFinite(val) || ignoreValue?.(val)) {
-        continue;
+      const height = getValueHeight(val, scale, validMin, params);
+      if (Number.isFinite(height)) {
+        valid[i] = 1;
+        positions[i * 3 + 2] = height;
       }
-
-      if (val < validMin) {
-        if (floorUnsupported) {
-          valid[i] = 1; // height stays 0
-        }
-        continue;
-      }
-
-      const height = scale(val);
-      if (!Number.isFinite(height)) {
-        continue;
-      }
-
-      valid[i] = 1;
-      positions[i * 3 + 2] = height;
     }
   }
 

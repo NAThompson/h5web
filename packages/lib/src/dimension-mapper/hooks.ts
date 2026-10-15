@@ -83,6 +83,7 @@ interface PlaybackParams {
   stride: number;
   settings: PlaybackSettings;
   isReady: (value: number) => boolean;
+  isSkipped?: (value: number) => boolean; // e.g. slices known to be empty
   onFrame: (value: number) => void;
   onEnd: () => void;
   // Returns `false` if upcoming frames can't be fetched automatically (e.g. need confirmation)
@@ -119,13 +120,14 @@ export function usePlayback(
     function tick() {
       const { settings, length, stride, isReady, onFrame, onEnd, onPrefetch } =
         paramsRef.current;
+      const { isSkipped } = paramsRef.current;
 
       const now = Date.now();
       const current = clock.cursor.value;
       const result = tickPlayback(
         clock,
         now,
-        { ...settings, length, stride },
+        { ...settings, length, stride, isSkipped },
         onPrefetch ? isReady : () => isReady(current),
       );
 

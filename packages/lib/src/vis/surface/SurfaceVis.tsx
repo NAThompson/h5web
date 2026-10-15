@@ -14,6 +14,7 @@ import {
   type VisScaleType,
 } from '../models';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
+import { getSpecialColors } from '../three-d/utils';
 import Vis3DLayout from '../three-d/Vis3DLayout';
 import { createScale, DEFAULT_DOMAIN, SCALES_VALID_MINS } from '../utils';
 import { SurfaceContext, type SurfaceContextValue } from './context';
@@ -26,6 +27,7 @@ import {
   getDownsamplingStride,
   getFootprint,
   getSampledIndices,
+  getValueHeight,
   interpolateMeshHeight,
   sampleArray,
 } from './utils';
@@ -71,6 +73,11 @@ interface Props extends ClassStyleAttrs {
   colorArray?: NdArray<NumArray>;
   colorDomain?: Domain; // defaults to `domain`
   colorScaleType?: VisScaleType;
+  /* CSS colour of `NaN`, ignored and unsupported values, drawn on the floor of the box rather than
+   * as holes */
+  nanColor?: string;
+  belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
+  aboveColor?: string;
 }
 
 function SurfaceVis(props: PropsWithChildren<Props>) {
@@ -97,6 +104,9 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     colorArray,
     colorDomain,
     colorScaleType,
+    nanColor,
+    belowColor,
+    aboveColor,
     children,
     className = '',
     style,
@@ -207,6 +217,12 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [colorValues, colorDomain, colorScaleType, domain],
   );
 
+  const specialColors = useMemo(
+    () => getSpecialColors(nanColor, belowColor, aboveColor),
+    [nanColor, belowColor, aboveColor],
+  );
+  const floorInvalid = specialColors?.nan !== undefined;
+
   // Colour bar shows the field used for colours
   const legend = useMemo(
     () => colorField ?? { domain, scaleType },
@@ -233,14 +249,11 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
 
     // Normalized height of a vertex of the drawn (downsampled) mesh; `NaN` if it leaves a hole
     function getVertexHeight(row: number, col: number): number {
-      const val = values.get(row, col);
-      if (!Number.isFinite(val) || ignoreValue?.(val)) {
-        return Number.NaN;
-      }
-      if (val < validMin) {
-        return floorUnsupported ? 0 : Number.NaN;
-      }
-      return zScale(val);
+      return getValueHeight(values.get(row, col), zScale, validMin, {
+        ignoreValue,
+        floorUnsupported,
+        floorInvalid,
+      });
     }
 
     return {
@@ -303,6 +316,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     colIndices,
     ignoreValue,
     floorUnsupported,
+    floorInvalid,
     xDomain,
     yDomain,
     w,
@@ -332,6 +346,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       colorMap={colorMap}
       invertColorMap={invertColorMap}
       colorBarLabel={colorArray ? undefined : valueLabel} // colour shows the height
+      belowColor={belowColor}
+      aboveColor={aboveColor}
     >
       <SurfaceMesh
         values={values}
@@ -343,6 +359,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
         invertColorMap={invertColorMap}
         ignoreValue={ignoreValue}
         floorUnsupported={floorUnsupported}
+        specialColors={specialColors}
         zHeight={heightScale}
         shading={shading}
         colorField={colorField}

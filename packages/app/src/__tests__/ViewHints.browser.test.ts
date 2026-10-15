@@ -508,7 +508,7 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
 
   const probeBtn = page.getByRole('button', { name: 'Probe', exact: true });
   await expect.element(probeBtn).toHaveAttribute('aria-pressed', 'false');
-  const canvas = document.querySelector('figure canvas');
+  const canvas = document.querySelector<HTMLCanvasElement>('figure canvas');
   assertNonNull(canvas);
   await userEvent.click(page.elementLocator(canvas)); // probe off: nothing
   expect(getProbe()).not.toBeInTheDocument();
@@ -584,4 +584,97 @@ test('note a hinted visualization that is not available', async () => {
     .toHaveTextContent(
       '"H5WEB_vis" "volume" is not available for this dataset',
     );
+});
+
+/* Colour of the vis canvas at a position given as fractions of its width and height (from top left) */
+function getCanvasPixel(fx: number, fy: number): number[] {
+  const canvas = document.querySelector<HTMLCanvasElement>('figure canvas');
+  assertNonNull(canvas);
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const ctx = copy.getContext('2d');
+  assertNonNull(ctx);
+  ctx.drawImage(canvas, 0, 0);
+  const x = Math.floor(fx * canvas.width);
+  const y = Math.floor(fy * canvas.height);
+  return [...ctx.getImageData(x, y, 1, 1).data];
+}
+
+test('colour NaN values with `H5WEB_nan_color`', async () => {
+  await renderApp('/view_hints/nan_color');
+
+  // Column 0 is `NaN` (transparent by default)
+  await expect
+    .poll(() => getCanvasPixel(1 / 12, 1 / 2))
+    .toEqual([255, 0, 255, 255]);
+  expect(getCanvasPixel(7 / 12, 1 / 2)).not.toEqual([255, 0, 255, 255]);
+});
+
+test('colour values beyond the domain with `H5WEB_below_color` / `H5WEB_above_color`', async () => {
+  await renderApp('/view_hints/beyond_colors');
+
+  // Columns 1 to 5: -0.1 (below [0, 1]), 0.3, 0.7, 1.1 and 1.5 (above)
+  await expect
+    .poll(() => getCanvasPixel(3 / 12, 1 / 2))
+    .toEqual([0, 0, 255, 255]);
+  expect(getCanvasPixel(9 / 12, 1 / 2)).toEqual([255, 0, 0, 255]);
+  expect(getCanvasPixel(11 / 12, 1 / 2)).toEqual([255, 0, 0, 255]);
+  expect(getCanvasPixel(5 / 12, 1 / 2)).not.toEqual([0, 0, 255, 255]);
+
+  // Triangles at the ends of the colour bar
+  expect(page.getByTitle('Below the domain')).toBeVisible();
+  expect(page.getByTitle('Above the domain')).toBeVisible();
+});
+
+test('skip empty images during playback and steps with `H5WEB_playback_skip_empty`', async () => {
+  // (k, p) stack, empty where p > k / 2
+  await renderApp('/view_hints/skip_blank');
+  const kSlider = page.getByRole('slider', { name: 'D0' });
+  const pSlider = page.getByRole('slider', { name: 'D1' });
+
+  await userEvent.click(pSlider);
+  await userEvent.keyboard('{ArrowUp}{ArrowUp}'); // p = 2: k < 4 empty
+  await expect.element(pSlider).toHaveValue(2);
+  await new Promise((resolve) => {
+    setTimeout(resolve, 300); // slicing is debounced
+  });
+  await waitForAllLoaders();
+
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  const seen: number[] = [];
+  for (let i = 0; i < 30; i += 1) {
+    await advance(100); // eslint-disable-line no-await-in-loop -- 10 slices/s by default
+    seen.push(Number(kSlider.element().getAttribute('aria-valuenow')));
+  }
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  vi.useRealTimers();
+
+  // k = 1 to 3 never shown; k = 0 only before it is known to be empty
+  expect(new Set(seen)).toEqual(new Set([4, 5]));
+  expect(document.querySelectorAll('[data-empty]').length).toBeGreaterThan(0);
+
+  // Steps skip known-empty images too: 5 → 4 → (3, 2, 1, 0 empty) stays at 4
+  await userEvent.click(kSlider);
+  await userEvent.keyboard('{End}');
+  await expect.element(kSlider).toHaveValue(5);
+  await userEvent.keyboard('{ArrowDown}');
+  await expect.element(kSlider).toHaveValue(4);
+  await userEvent.keyboard('{ArrowDown}');
+  await expect.element(kSlider).toHaveValue(4);
+});
+
+test('start with the hinted playback settings, until the user changes them', async () => {
+  await renderApp('/view_hints/playback_settings');
+
+  await page.getByRole('button', { name: 'D0 playback settings' }).click();
+  const dialog = page.getByRole('dialog', { name: 'D0 playback settings' });
+  await expect.element(dialog.getByLabelText('Speed')).toHaveValue(4);
+  expect(dialog.getByLabelText('Bounce')).toBeChecked();
+  expect(dialog.getByLabelText('Range: Each slice')).toBeChecked();
+
+  await dialog.getByLabelText('Loop').click();
+  await expect.element(dialog.getByLabelText('Loop')).toBeChecked();
+  expect(dialog.getByLabelText('Speed')).toHaveValue(4);
 });

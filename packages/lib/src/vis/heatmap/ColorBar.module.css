@@ -58,9 +58,48 @@
 
 .gradientBar {
   grid-area: gradient;
+  position: relative;
   display: flex;
   border: 1px solid currentColor;
   z-index: 1; /* above axis ticks */
+}
+
+/* Triangles beyond the ends of the gradient: colours of values beyond the domain */
+.extend {
+  position: absolute;
+  --extend-size: 7px;
+}
+
+.colorBar:not([data-horizontal]) .extend {
+  left: -1px;
+  right: -1px;
+  height: var(--extend-size);
+}
+
+.colorBar[data-horizontal] .extend {
+  top: -1px;
+  bottom: -1px;
+  width: var(--extend-size);
+}
+
+.colorBar:not([data-horizontal]) .extend[data-end='above'] {
+  bottom: 100%;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.colorBar:not([data-horizontal]) .extend[data-end='below'] {
+  top: 100%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.colorBar[data-horizontal] .extend[data-end='above'] {
+  left: 100%;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.colorBar[data-horizontal] .extend[data-end='below'] {
+  right: 100%;
+  clip-path: polygon(100% 0, 100% 100%, 0 50%);
 }
 
 .gradient {

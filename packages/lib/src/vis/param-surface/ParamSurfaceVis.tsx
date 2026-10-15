@@ -21,6 +21,7 @@ import {
   getColorParams,
   getExtentDomain,
   getLinearColorLut,
+  getSpecialColors,
   getVertexColors,
   getWorldTransform,
 } from '../three-d/utils';
@@ -54,6 +55,9 @@ interface Props extends ClassStyleAttrs {
   representation?: SurfaceRepresentation;
   ignoreValue?: IgnoreValue;
   maxVertices?: number;
+  nanColor?: string; // CSS colour of `NaN` and ignored values, drawn on the surface rather than as holes
+  belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
+  aboveColor?: string;
 }
 
 function ParamSurfaceVis(props: PropsWithChildren<Props>) {
@@ -77,6 +81,9 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
     representation = SurfaceRepresentation.Surface,
     ignoreValue,
     maxVertices = DEFAULT_MAX_VERTICES,
+    nanColor,
+    belowColor,
+    aboveColor,
     children,
     className,
     style,
@@ -125,6 +132,11 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
   );
 
   const [w, h, d] = getBoxSize(domains, keepRatio);
+  const specialColors = useMemo(
+    () => getSpecialColors(nanColor, belowColor, aboveColor),
+    [nanColor, belowColor, aboveColor],
+  );
+  const keepInvalidValues = specialColors?.nan !== undefined;
 
   const buffers = useMemo(
     () =>
@@ -132,8 +144,9 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
         ...sampled,
         toWorld: getWorldTransform(domains, [w, h, d]),
         ignoreValue,
+        keepInvalidValues,
       }),
-    [sampled, domains, w, h, d, ignoreValue],
+    [sampled, domains, w, h, d, ignoreValue, keepInvalidValues],
   );
 
   const colorLut = useMemo(
@@ -151,8 +164,9 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
           ignoreValue,
         ),
         colorLut,
+        specialColors,
       ),
-    [sampled, colorDomain, scaleType, ignoreValue, colorLut],
+    [sampled, colorDomain, scaleType, ignoreValue, colorLut, specialColors],
   );
 
   const [xConfig, yConfig, zConfig] = useMemo<Axis3DConfig[]>(
@@ -174,6 +188,8 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
       scaleType={scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
+      belowColor={belowColor}
+      aboveColor={aboveColor}
       headlight
     >
       <ParamSurfaceMesh

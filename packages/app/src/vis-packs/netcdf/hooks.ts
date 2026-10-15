@@ -52,6 +52,25 @@ function ignoreValueQuery(
   };
 }
 
+/* Invalid raw values (packed values of packed datasets), without fetching: `undefined` until
+ * known (or if there is none) */
+export function getCachedIsInvalid(
+  dataset: Dataset,
+  dataContext: DataContextValue,
+): ((val: number | bigint) => boolean) | undefined {
+  const { queryClient } = dataContext;
+  const packing = queryClient.getQueryData<Packing | null>(
+    packingQuery(dataset, dataContext).queryKey,
+  );
+  if (packing) {
+    return packing.isInvalid;
+  }
+  const ignoreValue = queryClient.getQueryData<IgnoreValue | null>(
+    ignoreValueQuery(dataset, dataContext).queryKey,
+  );
+  return ignoreValue ? (val) => ignoreValue(Number(val)) : undefined;
+}
+
 export function usePackings(
   datasets: (Dataset | undefined)[],
 ): (Packing | undefined)[] {

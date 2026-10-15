@@ -15,6 +15,7 @@ import styles from './SlicingSlider.module.css';
 
 const ID = 'h5w-slider';
 const MIN_HEIGHT_PER_MARK = 25;
+const MAX_EMPTY_MARKS_LENGTH = 1000; // above, empty slices are not looked up for marks
 const SHORT_DELAY = 20;
 const LONG_DELAY = 250;
 const SLIDER_KEYS = new Set([
@@ -27,6 +28,12 @@ const SLIDER_KEYS = new Set([
   'Home',
   'End',
 ]);
+const STEP_KEYS: Record<string, 1 | -1> = {
+  ArrowUp: 1,
+  ArrowRight: 1,
+  ArrowDown: -1,
+  ArrowLeft: -1,
+};
 
 interface Props {
   dimension: number;
@@ -41,6 +48,7 @@ interface Props {
   isPlaying?: boolean;
   onPlayingChange?: (isPlaying: boolean) => void;
   isReady?: (value: number) => boolean;
+  isEmpty?: (value: number) => boolean; // skipped by playback and steps; dim marks on the track
   onPrefetch?: (values: number[], current: number) => boolean;
   playbackSettings: PlaybackSettings;
   onPlaybackSettingsChange: (settings: PlaybackSettings) => void;
@@ -61,6 +69,7 @@ function SlicingSlider(props: Props) {
     isPlaying = false,
     onPlayingChange,
     isReady,
+    isEmpty,
     onPrefetch,
     playbackSettings,
     onPlaybackSettingsChange,
@@ -101,6 +110,7 @@ function SlicingSlider(props: Props) {
     stride,
     settings: playbackSettings,
     isReady: (val) => isReady?.(val) ?? true,
+    isSkipped: isEmpty,
     onFrame: (newValue) => {
       setValue(newValue);
       onDebouncedChange(newValue);
@@ -120,7 +130,7 @@ function SlicingSlider(props: Props) {
     pause();
     const next = getNextFrame(
       { value, direction },
-      { length, stride, mode: 'once' },
+      { length, stride, mode: 'once', isSkipped: isEmpty },
     );
     if (next) {
       setValue(next.value);
@@ -161,14 +171,23 @@ function SlicingSlider(props: Props) {
           >
             <span className={styles.track} />
             {containerSize &&
-              containerSize.height / length >= MIN_HEIGHT_PER_MARK &&
-              Array.from({ length }, (_, index) => (
-                <span
-                  key={index}
-                  className={styles.mark}
-                  style={{ bottom: `${(index / (length - 1)) * 100}%` }}
-                />
-              ))}
+              (containerSize.height / length >= MIN_HEIGHT_PER_MARK ||
+                (isEmpty && length <= MAX_EMPTY_MARKS_LENGTH)) &&
+              Array.from({ length }, (_, index) => {
+                // Empty slices are marked even when there are too many slices to mark them all
+                const empty = isEmpty?.(index);
+                return (
+                  (empty ||
+                    containerSize.height / length >= MIN_HEIGHT_PER_MARK) && (
+                    <span
+                      key={index}
+                      className={styles.mark}
+                      data-empty={empty || undefined}
+                      style={{ bottom: `${(index / (length - 1)) * 100}%` }}
+                    />
+                  )
+                );
+              })}
             <SliderThumb
               ref={setThumb}
               className={styles.thumb}
@@ -178,6 +197,9 @@ function SlicingSlider(props: Props) {
                 if (withPlayback && evt.key === ' ') {
                   evt.preventDefault(); // don't scroll
                   onPlayingChange?.(!isPlaying);
+                } else if (isEmpty && evt.key in STEP_KEYS) {
+                  evt.preventDefault(); // step over empty slices instead
+                  step(STEP_KEYS[evt.key]);
                 } else if (SLIDER_KEYS.has(evt.key)) {
                   pause(); // even if value doesn't change (e.g. `Home` on first slice)
                 }

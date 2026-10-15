@@ -1,4 +1,10 @@
-import { INTERPOLATORS } from '@h5web/lib';
+import {
+  clampPlaybackFps,
+  INTERPOLATORS,
+  type PlaybackMode,
+  type PlaybackRange,
+  type PlaybackSettings,
+} from '@h5web/lib';
 import {
   hasArrayShape,
   hasBoolType,
@@ -56,6 +62,33 @@ const TEXT_ANCHORS = new Set<string>([
   'right',
   'center',
 ]);
+
+function parseAmong<T extends string>(values: T[]) {
+  return (val: string): T | undefined => {
+    const key = val.toLowerCase();
+    return values.find((v) => v === key);
+  };
+}
+
+/* Only the settings that are given */
+function readPlayback(read: AttrReader): Partial<PlaybackSettings> | undefined {
+  const fps = read.num(
+    'H5WEB_playback_fps',
+    (v) => Number.isFinite(v) && v > 0,
+  );
+  const settings = Object.entries({
+    fps: fps === undefined ? undefined : clampPlaybackFps(fps),
+    mode: read.oneOf(
+      'H5WEB_playback_mode',
+      parseAmong<PlaybackMode>(['loop', 'bounce', 'once']),
+    ),
+    range: read.oneOf(
+      'H5WEB_playback_range',
+      parseAmong<PlaybackRange>(['sequence', 'frame']),
+    ),
+  }).filter(([, val]) => val !== undefined);
+  return settings.length > 0 ? Object.fromEntries(settings) : undefined;
+}
 
 function parseScaleType(val: string): ColorScaleType | undefined {
   const type = val.toLowerCase();
@@ -247,6 +280,10 @@ function readDim(
 function isLevels(arr: number[]): boolean {
   return arr.length > 0 && arr.every(Number.isFinite);
 }
+/* Unchecked where CSS is not available (e.g. unit tests in Node) */
+function isCssColor(val: string): boolean {
+  return typeof CSS === 'undefined' || CSS.supports('color', val);
+}
 function isPos(val: number): boolean {
   return Number.isFinite(val) && val > 0;
 }
@@ -315,6 +352,11 @@ export function parseViewHint(
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
+    nanColor: read.str('H5WEB_nan_color', isCssColor),
+    belowColor: read.str('H5WEB_below_color', isCssColor),
+    aboveColor: read.str('H5WEB_above_color', isCssColor),
+    playbackSkipEmpty: read.bool('H5WEB_playback_skip_empty'),
+    playback: readPlayback(read),
     title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),

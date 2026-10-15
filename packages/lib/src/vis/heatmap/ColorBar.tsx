@@ -18,6 +18,8 @@ interface Props {
   withBounds?: boolean;
   invertColorMap: boolean;
   label?: string; // e.g. quantity and unit of the values
+  belowColor?: string; // shown as a triangle beyond the lower end (cf. matplotlib's `extend`)
+  aboveColor?: string;
 }
 
 function ColorBar(props: Props) {
@@ -29,6 +31,8 @@ function ColorBar(props: Props) {
     withBounds,
     invertColorMap,
     label,
+    belowColor,
+    aboveColor,
   } = props;
 
   const [barSize, barRef] = useMeasure<HTMLDivElement>();
@@ -67,6 +71,24 @@ function ColorBar(props: Props) {
         </>
       )}
       <div ref={barRef} className={styles.gradientBar}>
+        {belowColor && (
+          <div
+            className={styles.extend}
+            data-end="below"
+            data-keep-colors
+            title="Below the domain"
+            style={{ backgroundColor: belowColor }}
+          />
+        )}
+        {aboveColor && (
+          <div
+            className={styles.extend}
+            data-end="above"
+            data-keep-colors
+            title="Above the domain"
+            style={{ backgroundColor: aboveColor }}
+          />
+        )}
         <div
           className={styles.gradient}
           data-keep-colors

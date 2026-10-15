@@ -117,6 +117,19 @@ describe('buildParamSurfaceBuffers', () => {
     expect([...withIgnored.index]).toEqual([0, 1, 3, 1, 4, 3]);
   });
 
+  it('should keep vertices with NaN or ignored values with keepInvalidValues', () => {
+    const { index } = buildParamSurfaceBuffers({
+      x,
+      y,
+      z,
+      values: grid([1, Number.NaN, 3, 4, 5, 6], 2, 3),
+      toWorld: identity,
+      ignoreValue: (val) => val === 6,
+      keepInvalidValues: true,
+    });
+    expect(index).toHaveLength(12);
+  });
+
   it('should apply world transform', () => {
     const { positions } = buildParamSurfaceBuffers({
       x,

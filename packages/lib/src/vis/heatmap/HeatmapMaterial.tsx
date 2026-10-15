@@ -31,12 +31,29 @@ interface Props extends VisMeshProps {
   alphaValues?: NdArray<TextureSafeTypedArray>;
   alphaDomain?: Domain;
   badColor?: RGBColor | string;
+  belowColor?: string; // values below the domain (default: colour of its lower end)
+  aboveColor?: string;
   magFilter?: MagnificationTextureFilter;
   minFilter?: MinificationTextureFilter;
   mask?: NdArray<Uint8Array>;
 }
 
 const DEFAULT_BAD_COLOR = rgb(255, 255, 255, 0);
+
+function toVector4(color: RGBColor): Vector4 {
+  return new Vector4(
+    color.r / 255,
+    color.g / 255,
+    color.b / 255,
+    color.opacity,
+  );
+}
+
+/* Colour as a uniform, and whether it is given (and valid) */
+function getColorUniform(css: string | undefined): [Vector4, number] {
+  const color = rgb(css ?? '');
+  return Number.isFinite(color.r) ? [toVector4(color), 1] : [new Vector4(), 0];
+}
 
 function HeatmapMaterial(props: Props) {
   const {
@@ -48,6 +65,8 @@ function HeatmapMaterial(props: Props) {
     alphaValues,
     alphaDomain = DEFAULT_DOMAIN,
     badColor = DEFAULT_BAD_COLOR,
+    belowColor,
+    aboveColor,
     magFilter,
     minFilter,
     mask,
@@ -73,6 +92,8 @@ function HeatmapMaterial(props: Props) {
   const scaledDomain = scaleDomain(domain, scaleType, symlogConstant);
 
   const badColorAsRgb = typeof badColor === 'string' ? rgb(badColor) : badColor;
+  const [below, withBelow] = getColorUniform(belowColor);
+  const [above, withAbove] = getColorUniform(aboveColor);
 
   const shader = {
     uniforms: getUniforms({
@@ -88,12 +109,13 @@ function HeatmapMaterial(props: Props) {
       withAlpha: alphaValues ? 1 : 0,
       alphaMin: alphaDomain[0],
       oneOverAlphaRange: 1 / (alphaDomain[1] - alphaDomain[0]),
-      badColor: new Vector4(
-        badColorAsRgb.r / 255,
-        badColorAsRgb.g / 255,
-        badColorAsRgb.b / 255,
-        badColorAsRgb.opacity,
-      ),
+      badColor: toVector4(badColorAsRgb),
+      domainMin: domain[0],
+      domainMax: domain[1],
+      belowColor: below,
+      withBelow,
+      aboveColor: above,
+      withAbove,
     }),
     vertexShader: VERTEX_SHADER,
     fragmentShader: `
@@ -111,6 +133,13 @@ function HeatmapMaterial(props: Props) {
       uniform float oneOverAlphaRange;
       uniform int withAlpha;
       uniform vec4 badColor;
+
+      uniform float domainMin;
+      uniform float domainMax;
+      uniform vec4 belowColor;
+      uniform int withBelow;
+      uniform vec4 aboveColor;
+      uniform int withAbove;
 
       uniform sampler2D mask;
 
@@ -132,6 +161,10 @@ function HeatmapMaterial(props: Props) {
 
         if (isnan(value) || !isSupported(value) || maskValue == 1.) {
             gl_FragColor = badColor;
+        } else if (withBelow == 1 && value < domainMin) {
+          gl_FragColor = belowColor;
+        } else if (withAbove == 1 && value > domainMax) {
+          gl_FragColor = aboveColor;
         } else {
           float scaledValue = scale(value);
           float normalizedValue = clamp(oneOverRange * (scaledValue - min), 0., 1.);

@@ -69,23 +69,28 @@ interface BuildParams {
   values: NdArray<NumArray>;
   toWorld: WorldTransform;
   ignoreValue?: IgnoreValue;
+  keepInvalidValues?: boolean; // vertices with a `NaN` or ignored value are kept (e.g. coloured apart)
 }
 
 /**
  * Build the vertices, triangles and wireframe edges of a surface defined on a grid of
  * parameters (u, v) by coordinate arrays x(u, v), y(u, v) and z(u, v).
  * Vertices with a non-finite coordinate or value (e.g. `NaN`), or an ignored value,
- * are left out together with the cells and edges touching them: they appear as holes.
+ * are left out together with the cells and edges touching them: they appear as holes (unless
+ * `keepInvalidValues` is set: only non-finite coordinates leave holes).
  */
 export function buildParamSurfaceBuffers(
   params: BuildParams,
 ): ParamSurfaceBuffers {
-  const { x, y, z, values, toWorld, ignoreValue } = params;
+  const { x, y, z, values, toWorld, ignoreValue, keepInvalidValues } = params;
   const [rows, cols] = x.shape;
   const count = rows * cols;
 
   const positions = new Float32Array(count * 3);
   const valid = new Uint8Array(count);
+  function isValidValue(val: number): boolean {
+    return keepInvalidValues || (Number.isFinite(val) && !ignoreValue?.(val));
+  }
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
@@ -94,7 +99,7 @@ export function buildParamSurfaceBuffers(
       const zVal = z.get(row, col);
       const val = values.get(row, col);
 
-      if (areFinite(xVal, yVal, zVal, val) && !ignoreValue?.(val)) {
+      if (areFinite(xVal, yVal, zVal) && isValidValue(val)) {
         const i = row * cols + col;
         positions.set(toWorld(xVal, yVal, zVal), i * 3); // unused vertices stay at origin, so bounds remain finite
         valid[i] = 1;
