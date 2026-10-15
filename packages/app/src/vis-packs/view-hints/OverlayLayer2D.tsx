@@ -3,14 +3,15 @@ import {
   createScale,
   DataToHtml,
   type Domain,
+  Html,
   INTERPOLATORS,
-  SvgElement,
 } from '@h5web/lib';
 import { useMemo } from 'react';
 import { Vector3 } from 'three';
 
 import { type ColorMap } from '../core/heatmap/models';
 import { type OverlayShapes } from './overlays';
+import styles from './ViewHints.module.css';
 
 interface ColorParams {
   domain: Domain;
@@ -77,77 +78,82 @@ function OverlayLayer2D(props: Props) {
   return (
     <DataToHtml points={vectors}>
       {(...htmlPts) => (
-        <SvgElement>
-          <g data-testid="overlays">
-            {shapes.lines.map((line, i) => {
-              const pts = htmlPts
-                .slice(lineOffsets[i], lineOffsets[i] + line.x.length)
-                .filter((pt) => Number.isFinite(pt.x) && Number.isFinite(pt.y));
-              const str = pts.map((pt) => `${pt.x},${pt.y}`).join(' ');
-              const head = pts.at(-1);
-              return (
-                // eslint-disable-next-line react/no-array-index-key
-                <g key={i} data-testid="overlay-line">
-                  <polyline
-                    points={str}
-                    fill="none"
-                    stroke="black"
-                    strokeOpacity={0.4}
-                    strokeWidth={3}
-                    strokeLinejoin="round"
-                  />
-                  <polyline
-                    points={str}
-                    fill="none"
-                    stroke={line.stroke}
-                    strokeWidth={1.5}
-                    strokeLinejoin="round"
-                  />
-                  {line.head && head && (
-                    <circle
-                      cx={head.x}
-                      cy={head.y}
-                      r={4}
-                      fill={line.stroke}
+        // Not clipped by the canvas, so shapes on the edges of the domain are drawn whole
+        <Html overflowCanvas>
+          <svg className={styles.svg}>
+            <g data-testid="overlays">
+              {shapes.lines.map((line, i) => {
+                const pts = htmlPts
+                  .slice(lineOffsets[i], lineOffsets[i] + line.x.length)
+                  .filter(
+                    (pt) => Number.isFinite(pt.x) && Number.isFinite(pt.y),
+                  );
+                const str = pts.map((pt) => `${pt.x},${pt.y}`).join(' ');
+                const head = pts.at(-1);
+                return (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <g key={i} data-testid="overlay-line">
+                    <polyline
+                      points={str}
+                      fill="none"
                       stroke="black"
-                      strokeWidth={1.5}
+                      strokeOpacity={0.4}
+                      strokeWidth={3}
+                      strokeLinejoin="round"
                     />
-                  )}
-                </g>
-              );
-            })}
-            {shapes.points.map((points, i) => (
-              // eslint-disable-next-line react/no-array-index-key
-              <g key={i} data-testid="overlay-points">
-                {points.x.map((_, j) => {
-                  const pt = htmlPts[pointOffsets[i] + j];
-                  if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
-                    return null;
-                  }
-                  return (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <g key={j}>
+                    <polyline
+                      points={str}
+                      fill="none"
+                      stroke={line.stroke}
+                      strokeWidth={1.5}
+                      strokeLinejoin="round"
+                    />
+                    {line.head && head && (
                       <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={points.size + 2.5}
-                        fill={points.stroke}
-                      />
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={points.size}
-                        fill={fills[i][j]}
-                        stroke="white"
+                        cx={head.x}
+                        cy={head.y}
+                        r={4}
+                        fill={line.stroke}
+                        stroke="black"
                         strokeWidth={1.5}
                       />
-                    </g>
-                  );
-                })}
-              </g>
-            ))}
-          </g>
-        </SvgElement>
+                    )}
+                  </g>
+                );
+              })}
+              {shapes.points.map((points, i) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <g key={i} data-testid="overlay-points">
+                  {points.x.map((_, j) => {
+                    const pt = htmlPts[pointOffsets[i] + j];
+                    if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
+                      return null;
+                    }
+                    return (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <g key={j}>
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={points.size + 2.5}
+                          fill={points.stroke}
+                        />
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={points.size}
+                          fill={fills[i][j]}
+                          stroke="white"
+                          strokeWidth={1.5}
+                        />
+                      </g>
+                    );
+                  })}
+                </g>
+              ))}
+            </g>
+          </svg>
+        </Html>
       )}
     </DataToHtml>
   );

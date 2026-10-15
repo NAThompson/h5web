@@ -26,6 +26,7 @@ import { useSlicingProps } from '../slicing';
 import type LinkedDimMapper from './LinkedDimMapper';
 import { type ViewHint } from './models';
 import {
+  type AxisDims,
   buildOverlayShapes,
   getIndexFromSelection,
   getInputRequest,
@@ -113,7 +114,7 @@ export function useResolvedOverlays(
 export function useOverlayShapes(
   resolved: ResolvedOverlays | undefined,
   index: number | undefined,
-  swap: boolean,
+  axes: AxisDims,
 ): { shapes: OverlayShapes | undefined; notes: string[] } {
   const { queries } = useDataContext();
   const requests = getOverlayRequests(resolved, index);
@@ -141,9 +142,9 @@ export function useOverlayShapes(
         return request && toNumbers(values.get(getRequestKey(request)));
       },
       index,
-      swap,
+      axes,
     );
-  }, [resolved, index, swap, data]); // eslint-disable-line react-hooks/exhaustive-deps -- `requests` follow from `resolved` and `index`
+  }, [resolved, index, axes.x, axes.y, data]); // eslint-disable-line react-hooks/exhaustive-deps -- `requests` follow from `resolved` and `index`
 
   const notes = [...(resolved?.notes ?? [])];
   results.forEach(({ error }, i) => {
@@ -194,9 +195,8 @@ export function useLinkedOverlays(
         ? baseIndex
         : undefined;
 
-  // Base dataset shown transposed: first and second columns swap axes
-  const swap = dimMapping.indexOf('x') < dimMapping.indexOf('y');
-  const { shapes, notes } = useOverlayShapes(resolved, index, swap);
+  const axes = { x: dimMapping.indexOf('x'), y: dimMapping.indexOf('y') };
+  const { shapes, notes } = useOverlayShapes(resolved, index, axes);
 
   // Extra slider: prefetch overlays of upcoming indices during playback, as slicing does
   const { slicingProps } = useSlicingProps(

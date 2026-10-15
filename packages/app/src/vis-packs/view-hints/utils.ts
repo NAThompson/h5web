@@ -114,6 +114,12 @@ export function parseOverlay(raw: unknown): OverlayHint | undefined {
 
   const common = {
     columns: parseColumns(raw.columns),
+    columnNames:
+      Array.isArray(raw.columns) &&
+      raw.columns.length >= 2 &&
+      raw.columns.every(isStr)
+        ? raw.columns
+        : undefined,
     stroke: optStr(raw, 'stroke'),
   };
 

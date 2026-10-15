@@ -213,14 +213,20 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       dataToWorld: (x, y, value) => {
         const val =
           value ?? interpolateGrid(dataArray, xCenters, yCenters, x, y);
+        // On the surface, over a hole (e.g. `NaN` on the edges of the domain): on the floor
+        const isSupported = val >= validMin; // `NaN` fails
+        if (!isSupported && value !== undefined) {
+          return undefined;
+        }
+
         const pos: [number, number, number] = [
           xScale(x),
           yScale(y),
-          zScale(val) * heightScale + OVERLAY_LIFT,
+          (isSupported ? zScale(val) * heightScale : 0) + OVERLAY_LIFT,
         ];
         const isInBox =
           Math.abs(pos[0]) <= w / 2 + 1e-9 && Math.abs(pos[1]) <= h / 2 + 1e-9;
-        return val >= validMin && isInBox ? pos : undefined; // `NaN` fails both
+        return isInBox ? pos : undefined; // `NaN` fails
       },
       cellSize: [
         Math.abs(xDomain[1] - xDomain[0]) / Math.max(cols - 1, 1),

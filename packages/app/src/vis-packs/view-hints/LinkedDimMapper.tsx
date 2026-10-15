@@ -30,6 +30,7 @@ function LinkedDimMapper(props: Props) {
         <span className={styles.linkedLabel}>{link.label}</span>
         <DimensionMapper
           className={styles.linkedMapper}
+          role="group"
           aria-label={`Linked dimension ${link.label}`}
           dims={[link.length]}
           dimMapping={mapping}

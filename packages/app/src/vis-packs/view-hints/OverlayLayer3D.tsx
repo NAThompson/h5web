@@ -6,7 +6,10 @@ interface Props {
   shapes: OverlayShapes;
 }
 
-/* Overlays on a 3D surface: points at the height of their value, or on the surface */
+/* Overlays on a 3D surface: points at the height of their value, or on the surface.
+ * TODO: parametric surfaces (CF `coordinates = "x y z"`) - map overlay rows given along the
+ * field's dimension scales (e.g. [alpha, theta]) to x, y, z by bilinear interpolation of the
+ * coordinate grids, and draw them as children of `ParamSurfaceVis`. */
 function OverlayLayer3D(props: Props) {
   const { shapes } = props;
 

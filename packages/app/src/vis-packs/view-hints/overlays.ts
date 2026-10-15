@@ -46,6 +46,13 @@ export interface ResolvedOverlay {
   hint: OverlayHint;
   label: string; // e.g. `overlay 2 (ellipse)`, for notes
   inputs: Partial<Record<string, OverlayInput>>; // by role (`points`, `color`, `mean`...)
+  columnOf: Partial<Record<number, number>>; // data column holding coordinates along each base dimension
+}
+
+/* Dimensions of the base dataset shown on the x and y axes */
+export interface AxisDims {
+  x: number;
+  y: number;
 }
 
 export interface ResolvedOverlays {
@@ -151,6 +158,20 @@ async function getLink(
   };
 }
 
+/* Entity at a path resolved like CF `coordinates`; `undefined` if it can't be found or fetched
+ * (e.g. network error), so that only overlays that need it are skipped */
+async function findEntity(
+  anchor: string,
+  path: string,
+  ctx: GeometryContext,
+): Promise<ProvidedEntity | undefined> {
+  try {
+    return await resolveCoordinate(anchor, path, ctx);
+  } catch {
+    return undefined;
+  }
+}
+
 async function getScales(
   dataset: OverlayDataset,
   ctx: GeometryContext,
@@ -180,7 +201,7 @@ async function findLink(
   ctx: GeometryContext,
 ): Promise<Link | undefined> {
   if (hint.sliceBy) {
-    const entity = await resolveCoordinate(anchor, hint.sliceBy, ctx);
+    const entity = await findEntity(anchor, hint.sliceBy, ctx);
     return entity && getLink(entity.path, baseScales, ctx);
   }
 
@@ -206,9 +227,64 @@ async function findLink(
   return scalePath ? getLink(scalePath, baseScales, ctx) : undefined;
 }
 
+/* Names of each dimension of the base dataset: names of its scales (dataset name and `NAME`) */
+async function getDimNames(
+  baseScales: string[][] | null,
+  ctx: GeometryContext,
+): Promise<string[][]> {
+  return Promise.all(
+    (baseScales ?? []).map(async (paths) => {
+      const names = await Promise.all(
+        paths.map(async (path) => {
+          const entity = await findEntity('/', path, ctx);
+          const name = entity && (await ctx.getStrAttr(entity, 'NAME'));
+          return [path.slice(path.lastIndexOf('/') + 1), name ?? ''];
+        }),
+      );
+      return names.flat().filter(Boolean);
+    }),
+  );
+}
+
+/* Data column holding coordinates along each dimension of the base dataset: by default, columns
+ * 0 and 1 hold the last and second-to-last dimensions (x and y, as first shown); named columns
+ * hold the dimensions whose scales have these names. `undefined` if names don't match. */
+export function getColumnOf(
+  overlay: OverlayHint,
+  base: Dataset<ArrayShape>,
+  dimNames: string[][],
+): ResolvedOverlay['columnOf'] | undefined {
+  const rank = base.shape.dims.length;
+  if (!overlay.columnNames) {
+    const [c0, c1] = overlay.columns ?? [0, 1];
+    return { [rank - 1]: c0, [rank - 2]: c1 };
+  }
+
+  const columnOf: ResolvedOverlay['columnOf'] = {};
+  for (const [col, name] of overlay.columnNames.entries()) {
+    const dim = dimNames.findIndex((names) => names.includes(name));
+    if (dim === -1) {
+      return undefined;
+    }
+    columnOf[dim] = col;
+  }
+  return columnOf;
+}
+
+/* Unlinked dataset of the expected rank; also a single point `(c,)` where rows `(N, c)` are
+ * expected, and a scalar stored as `(1,)` */
+function canUseWhole(dims: number[], rank: number, role: string): boolean {
+  return (
+    dims.length === rank ||
+    (rank === 2 && role !== 'cov' && dims.length === 1) ||
+    (rank === 0 && dims.length === 1 && dims[0] === 1)
+  );
+}
+
 /* Check the datasets of an overlay once sliced at the linked index: inputs, or why not */
 async function checkOverlay(
   { overlay, label, roles }: FoundOverlay,
+  columnOf: ResolvedOverlay['columnOf'],
   link: Link | undefined,
   ctx: GeometryContext,
   notes: string[],
@@ -228,11 +304,13 @@ async function checkOverlay(
     }
 
     const dims = getDims(entity);
-    const linkedDim = findLinkedDim(dims, await getScales(entity, ctx), link); // eslint-disable-line no-await-in-loop -- cached
+    const scales = await getScales(entity, ctx); // eslint-disable-line no-await-in-loop -- cached
+    const linkedDim = findLinkedDim(dims, scales, link);
     const isLinked = linkedDim !== undefined && dims.length === rank + 1;
-    const fitsWhole =
-      dims.length === rank ||
-      (rank === 0 && dims.length === 1 && dims[0] === 1);
+    // A dataset with the link's scale must be sliced; others may be used whole
+    const hasLinkScale =
+      !!link && !!scales?.some((p) => p.includes(link.scalePath));
+    const fitsWhole = !hasLinkScale && canUseWhole(dims, rank, role);
 
     if (overlay.kind === 'curve' && overlay.trail && !isLinked) {
       return `"${path}" has no dimension linked to slicing, needed for a trail`;
@@ -247,7 +325,7 @@ async function checkOverlay(
     };
   }
 
-  return { hint: overlay, label, inputs };
+  return { hint: overlay, label, inputs, columnOf };
 }
 
 /**
@@ -275,20 +353,31 @@ export async function resolveOverlays(
       roles: await Promise.all(
         getRoles(overlay).map(async (role) => ({
           ...role,
-          entity: await resolveCoordinate(anchor, role.path, ctx),
+          entity: await findEntity(anchor, role.path, ctx),
         })),
       ),
     })),
   );
 
   const link = await findLink(hint, anchor, found, baseScales, ctx);
+  const dimNames = found.some(({ overlay }) => overlay.columnNames)
+    ? await getDimNames(baseScales, ctx)
+    : [];
   if (hint.sliceBy && !link) {
     notes.push(`"sliceBy" dimension scale "${hint.sliceBy}" not found`);
   }
 
   const overlays: ResolvedOverlay[] = [];
   for (const item of found) {
-    const result = await checkOverlay(item, link, ctx, notes); // eslint-disable-line no-await-in-loop -- keep notes in order
+    const columnOf = getColumnOf(item.overlay, base, dimNames);
+    if (!columnOf) {
+      notes.push(
+        `${item.label}: "columns" ${JSON.stringify(item.overlay.columnNames)} don't name dimensions of "${base.name}"`,
+      );
+      continue;
+    }
+
+    const result = await checkOverlay(item, columnOf, link, ctx, notes); // eslint-disable-line no-await-in-loop -- keep notes in order
     if (typeof result === 'string') {
       notes.push(`${item.label}: ${result}`);
     } else {
@@ -438,13 +527,17 @@ type ValueGetter = (
   input: OverlayInput,
 ) => number[] | undefined;
 
-/* Columns used as x, y and (optionally) z */
+/* Columns shown along the x and y axes (and z); `undefined` if an axis shows a dimension that
+ * no column holds (e.g. linked dimension mapped to an axis) */
 function getColumns(
-  hint: OverlayHint,
-  swap: boolean,
-): [number, number, number | undefined] {
-  const [cx, cy, cz] = hint.columns ?? [0, 1];
-  return swap ? [cy, cx, cz] : [cx, cy, cz];
+  overlay: ResolvedOverlay,
+  axes: AxisDims,
+): [number, number, number | undefined] | undefined {
+  const cx = overlay.columnOf[axes.x];
+  const cy = overlay.columnOf[axes.y];
+  return cx === undefined || cy === undefined
+    ? undefined
+    : [cx, cy, overlay.hint.columns?.[2]];
 }
 
 /* Column `col` of a row-major (rows x cols) array */
@@ -462,16 +555,17 @@ function buildPoints(
   overlay: ResolvedOverlay,
   hint: PointsOverlay,
   getValues: ValueGetter,
-  swap: boolean,
+  axes: AxisDims,
 ): OverlayPoints | undefined {
   const { points, color, z } = overlay.inputs;
   const values = points && getValues(overlay, points);
-  if (!points || !values) {
+  const columns = getColumns(overlay, axes);
+  if (!points || !values || !columns) {
     return undefined;
   }
 
-  const [cx, cy, cz] = getColumns(hint, swap);
-  const cols = getDims(points.dataset).at(-1) ?? 0;
+  const [cx, cy, cz] = columns;
+  const cols = getDims(points.dataset).at(-1) ?? values.length; // single point: `(c,)`
   if (Math.max(cx, cy, cz ?? 0) >= cols) {
     return undefined;
   }
@@ -499,15 +593,20 @@ function buildEllipses(
   overlay: ResolvedOverlay,
   hint: EllipseOverlay,
   getValues: ValueGetter,
-  swap: boolean,
+  axes: AxisDims,
 ): OverlayLine[] {
   const { mean: meanInput, cov: covInput, scale: scaleInput } = overlay.inputs;
   const mean = meanInput && getValues(overlay, meanInput);
   const cov = covInput && getValues(overlay, covInput);
   const scale = scaleInput ? getValues(overlay, scaleInput)?.[0] : 1;
-  const [cx, cy] = getColumns(hint, swap);
+  const columns = getColumns(overlay, axes);
   const d = mean?.length ?? 0;
-  if (!mean || !cov || scale === undefined || Math.max(cx, cy) >= d) {
+  if (!mean || !cov || scale === undefined || !columns) {
+    return [];
+  }
+
+  const [cx, cy] = columns;
+  if (Math.max(cx, cy) >= d) {
     return [];
   }
 
@@ -528,17 +627,18 @@ function buildCurve(
   hint: CurveOverlay,
   getValues: ValueGetter,
   index: number | undefined,
-  swap: boolean,
+  axes: AxisDims,
 ): OverlayLine | undefined {
   const { curve } = overlay.inputs;
   const values = curve && getValues(overlay, curve);
-  const [cx, cy] = getColumns(hint, swap);
-  const cols = curve ? (getDims(curve.dataset).at(-1) ?? 0) : 0;
-  if (
-    !values ||
-    Math.max(cx, cy) >= cols ||
-    (hint.trail && index === undefined)
-  ) {
+  const columns = getColumns(overlay, axes);
+  if (!curve || !values || !columns || (hint.trail && index === undefined)) {
+    return undefined;
+  }
+
+  const [cx, cy] = columns;
+  const cols = getDims(curve.dataset).at(-1) ?? values.length;
+  if (Math.max(cx, cy) >= cols) {
     return undefined;
   }
 
@@ -557,27 +657,27 @@ function buildCurve(
 }
 
 /**
- * Shapes of the overlays at a linked index, in the base dataset's data coordinates. `swap`:
- * the base dataset is shown transposed, so first and second columns swap axes.
+ * Shapes of the overlays at a linked index, in the base dataset's data coordinates, given the
+ * dimensions of the base dataset shown along the x and y axes.
  * Overlays whose values are not all available (yet) are skipped.
  */
 export function buildOverlayShapes(
   overlays: ResolvedOverlay[],
   getValues: ValueGetter,
   index: number | undefined,
-  swap = false,
+  axes: AxisDims,
 ): OverlayShapes {
   const shapes: OverlayShapes = { points: [], lines: [] };
 
   for (const overlay of overlays) {
     const { hint } = overlay;
     if (hint.kind === 'points') {
-      const points = buildPoints(overlay, hint, getValues, swap);
+      const points = buildPoints(overlay, hint, getValues, axes);
       shapes.points.push(...(points ? [points] : []));
     } else if (hint.kind === 'ellipse') {
-      shapes.lines.push(...buildEllipses(overlay, hint, getValues, swap));
+      shapes.lines.push(...buildEllipses(overlay, hint, getValues, axes));
     } else {
-      const line = buildCurve(overlay, hint, getValues, index, swap);
+      const line = buildCurve(overlay, hint, getValues, index, axes);
       shapes.lines.push(...(line ? [line] : []));
     }
   }

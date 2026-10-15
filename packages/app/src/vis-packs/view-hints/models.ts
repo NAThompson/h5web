@@ -24,7 +24,11 @@ export enum HintVis {
 }
 
 interface OverlayBase {
-  columns?: number[]; // columns of the last dimension used as x, y (and z); default [0, 1]
+  /* Columns of the last dimension holding coordinates along the base dataset's last and
+   * second-to-last dimensions (and z); default [0, 1] */
+  columns?: number[];
+  /* Or: names of the base dataset's dimensions (dimension scales) held by each column */
+  columnNames?: string[];
   stroke?: string; // CSS colour of lines and point outlines
 }
 

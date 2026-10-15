@@ -20,6 +20,7 @@ import { findStrAttr, type GeometryContext } from '../core/geometry/utils';
 import {
   buildOverlayShapes,
   findLinkedDim,
+  getColumnOf,
   getEllipsePoints,
   getIndexFromSelection,
   getLinkedSelection,
@@ -193,6 +194,28 @@ describe('resolveOverlays', () => {
   });
 });
 
+describe('getColumnOf', () => {
+  const base = arr('psi', [21, 30]) as Dataset<ArrayShape>; // (theta, alpha)
+  const dimNames = [['theta'], ['alpha', 'α']];
+
+  it('map columns 0 and 1 to last and second-to-last dimensions by default', () => {
+    const [hint] = parseViewHint('{"overlays": [{"curve": "c"}]}').overlays;
+    expect(getColumnOf(hint, base, dimNames)).toEqual({ 1: 0, 0: 1 });
+  });
+
+  it('map named columns to dimensions with these scale names', () => {
+    const [hint] = parseViewHint(
+      '{"overlays": [{"curve": "c", "columns": ["alpha", "theta"]}]}',
+    ).overlays;
+    expect(getColumnOf(hint, base, dimNames)).toEqual({ 1: 0, 0: 1 });
+
+    const [unknown] = parseViewHint(
+      '{"overlays": [{"curve": "c", "columns": ["x", "theta"]}]}',
+    ).overlays;
+    expect(getColumnOf(unknown, base, dimNames)).toBeUndefined();
+  });
+});
+
 describe('linked slicing', () => {
   const link = { scalePath: G, label: 'generation', length: 10 };
 
@@ -248,11 +271,20 @@ describe('linked slicing', () => {
   });
 });
 
-function overlay(hint: unknown, inputs: ResolvedOverlay['inputs']) {
+/* Base dataset of rank 2: x shows dimension 1, y dimension 0 (unless transposed) */
+const AXES = { x: 1, y: 0 };
+const DEFAULT_COLUMN_OF = { 1: 0, 0: 1 };
+
+function overlay(
+  hint: unknown,
+  inputs: ResolvedOverlay['inputs'],
+  columnOf: ResolvedOverlay['columnOf'] = DEFAULT_COLUMN_OF,
+) {
   return {
     hint: parseViewHint(JSON.stringify({ overlays: [hint] })).overlays[0],
     label: 'overlay',
     inputs,
+    columnOf,
   };
 }
 
@@ -294,6 +326,7 @@ describe('shapes', () => {
       [overlay({ curve: 'mean', trail: true }, { curve: mean })],
       () => meanValues,
       3,
+      AXES,
     );
     expect(shapes.lines).toEqual([
       { x: [0, 1, 2, 3], y: [0, 10, 20, 30], stroke: 'white', head: true },
@@ -305,7 +338,7 @@ describe('shapes', () => {
       [overlay({ curve: 'mean' }, { curve: mean })],
       () => meanValues.slice(0, 4),
       undefined,
-      true,
+      { x: 0, y: 1 }, // transposed
     );
     expect(shapes.lines[0]).toMatchObject({ x: [0, 10], y: [0, 1] });
   });
@@ -317,6 +350,7 @@ describe('shapes', () => {
       [overlay({ points: 'pts', color: 'c' }, { points: pts, color })],
       (_, input) => (input === pts ? [1, 2, 3, 4, 5, 6] : [7, 8]),
       undefined,
+      AXES,
     );
     expect(shapes.points[0]).toMatchObject({
       x: [1, 4],
@@ -334,14 +368,38 @@ describe('shapes', () => {
         overlay(
           { ellipse: { mean: 'm', cov: 'C' }, columns: [0, 2] },
           { mean: m, cov: c },
+          { 1: 0, 0: 2 },
         ),
       ],
       (_, input) => (input === m ? [1, 2, 3] : [4, 0, 0, 0, 1, 0, 0, 0, 9]), // diag(4, 1, 9)
       undefined,
+      AXES,
     );
     const [ellipse] = shapes.lines;
     expect(ellipse.x[0]).toBeCloseTo(1); // major axis along 3rd coordinate (σ = 3)
     expect(ellipse.y[0]).toBeCloseTo(6);
+  });
+
+  it('map named columns to the axes showing these dimensions', () => {
+    // Rows are [theta, alpha] for a field (theta, alpha): theta on y, alpha on x
+    const pts = { dataset: arr('pts', [1, 2]) };
+    const shapes = buildOverlayShapes(
+      [overlay({ points: 'pts' }, { points: pts }, { 0: 0, 1: 1 })],
+      () => [0.5, 2],
+      undefined,
+      AXES,
+    );
+    expect(shapes.points[0]).toMatchObject({ x: [2], y: [0.5] });
+
+    // Single point stored as `(2,)`
+    const point = { dataset: arr('point', [2]) };
+    const single = buildOverlayShapes(
+      [overlay({ points: 'point' }, { points: point })],
+      () => [1, 2],
+      undefined,
+      AXES,
+    );
+    expect(single.points[0]).toMatchObject({ x: [1], y: [2] });
   });
 
   it('skip overlays whose values are not available yet', () => {
@@ -349,6 +407,7 @@ describe('shapes', () => {
       [overlay({ curve: 'mean', trail: true }, { curve: mean })],
       () => undefined,
       3,
+      AXES,
     );
     expect(shapes).toEqual({ points: [], lines: [] });
   });

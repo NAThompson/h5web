@@ -91,8 +91,9 @@ function createRingTexture(): CanvasTexture {
 
 /**
  * Points and/or polyline drawn on top of a `SurfaceVis`, in the surface's data coordinates
- * (e.g. samples of an optimizer on the landscape it explores). Points outside the surface,
- * or whose height is not supported by its scale, are left out.
+ * (e.g. samples of an optimizer on the landscape it explores). Points outside the surface's
+ * footprint, or whose given height is not supported by its scale, are left out; points over
+ * holes of the surface (e.g. `NaN`) lie on the floor.
  */
 function SurfaceOverlay(props: Props) {
   const {

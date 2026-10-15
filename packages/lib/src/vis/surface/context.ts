@@ -7,8 +7,9 @@ import { type VisScaleType } from '../models';
 
 export interface SurfaceContextValue {
   /* World position of a point given in data coordinates, at the height of `value` (in the
-   * surface's height scale and domain) or, without `value`, on the surface; `undefined` if
-   * the point is outside the surface or its height is not supported by the scale */
+   * surface's height scale and domain) or, without `value`, on the surface (on the floor over
+   * holes, e.g. `NaN`); `undefined` if the point is outside the surface's footprint or `value`
+   * is not supported by the scale */
   dataToWorld: (
     x: number,
     y: number,
