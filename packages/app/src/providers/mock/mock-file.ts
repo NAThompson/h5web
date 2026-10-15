@@ -903,6 +903,30 @@ export function makeMockFile(): GroupWithChildren {
           valueId: 'threeD_fermi',
           attributes: [scalarAttr('H5WEB_view', '{"vis": "volume"}')],
         }),
+        array('many_points'),
+        dataset(
+          'huge_points', // 1.6 GB: never fetched for an overlay
+          arrayShape([100_000_000, 2]),
+          floatType(),
+          () => {
+            throw new Error('`huge_points` must not be fetched');
+          },
+        ),
+        array('landscape_large', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              JSON.stringify({
+                overlays: [
+                  { points: 'many_points', color: 'red' },
+                  { points: 'huge_points' },
+                  { points: 'point' },
+                ],
+              }),
+            ),
+          ],
+        }),
         array('bad_json', {
           valueId: 'twoD',
           attributes: [scalarAttr('H5WEB_view', '{"vis": "line"')],

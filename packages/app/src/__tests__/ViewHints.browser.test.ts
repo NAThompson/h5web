@@ -193,6 +193,18 @@ test('slice overlays with the base dataset when it has the linked dimension', as
   await expect.poll(() => getPointsCx()).not.toEqual(before);
 });
 
+test('skip overlays too large to fetch and draw large point sets with GL', async () => {
+  await renderApp('/view_hints/landscape_large');
+
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('"huge_points" is too large to fetch for an overlay');
+
+  // Only the single point is drawn in SVG; the 6000 points are drawn in the canvas
+  await expect.poll(() => getPointsCx()).toHaveLength(1);
+  expect(page.getByTestId('overlay-points').elements()).toHaveLength(1);
+});
+
 test('play base slider with overlays prefetched along', async () => {
   await renderApp('/view_hints/landscapes');
   await expect.poll(() => getPointsCx()).toHaveLength(3);

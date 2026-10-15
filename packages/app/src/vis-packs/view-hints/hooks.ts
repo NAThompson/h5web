@@ -7,10 +7,15 @@ import {
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { type ComponentProps, useMemo, useRef, useState } from 'react';
 
-import { useDataContext } from '../../providers/DataProvider';
+import {
+  type DataContextValue,
+  useDataContext,
+} from '../../providers/DataProvider';
 import { type ValueQueryParams } from '../../providers/models';
+import { isValueInCache } from '../../utils';
 import { createGeometryContext } from '../core/geometry/utils';
 import { useSlicingProps } from '../slicing';
+import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
 import type LinkedDimMapper from './LinkedDimMapper';
 import { EMPTY_HINT, VIEW_HINT_ATTR, type ViewHint } from './models';
 import {
@@ -42,6 +47,18 @@ export function useViewHint(
     };
   }
   return data ?? EMPTY_HINT;
+}
+
+/* Overlays are fetched without confirmation (cf. `LargeValueGuard`): values above the limit
+ * are skipped, unless already in cache */
+function isAffordable(
+  dataContext: DataContextValue,
+  { dataset, selection }: ValueQueryParams,
+): boolean {
+  return (
+    getValueSize(dataset, selection) <= MAX_AUTO_FETCH_SIZE ||
+    isValueInCache(dataContext, dataset, selection)
+  );
 }
 
 /* Same array as on previous render if its elements haven't changed */
@@ -87,8 +104,11 @@ export function useOverlayShapes(
   index: number | undefined,
   axes: AxisDims,
 ): { shapes: OverlayShapes | undefined; notes: string[] } {
-  const { queries } = useDataContext();
-  const requests = getOverlayRequests(resolved, index);
+  const dataContext = useDataContext();
+  const { queries } = dataContext;
+  const allRequests = getOverlayRequests(resolved, index);
+  const requests = allRequests.filter((req) => isAffordable(dataContext, req));
+  const tooLarge = allRequests.filter((req) => !requests.includes(req));
 
   const results = useQueries({
     queries: requests.map(({ dataset, selection }) => ({
@@ -118,6 +138,11 @@ export function useOverlayShapes(
   }, [resolved, index, axes.x, axes.y, data]); // eslint-disable-line react-hooks/exhaustive-deps -- `requests` follow from `resolved` and `index`
 
   const notes = [...(resolved?.notes ?? [])];
+  for (const { dataset, selection } of tooLarge) {
+    notes.push(
+      `"${dataset.name}" is too large to fetch for an overlay (${formatBytes(getValueSize(dataset, selection))})`,
+    );
+  }
   results.forEach(({ error }, i) => {
     if (error) {
       notes.push(`"${requests[i].dataset.name}" could not be loaded`);
@@ -160,6 +185,7 @@ export function useLinkedOverlays(
   hint: ViewHint,
   dimMapping: DimensionMapping,
 ): LinkedOverlays {
+  const dataContext = useDataContext();
   const resolved = useResolvedOverlays(base, hint);
   const link = resolved?.link;
   const baseDim = link?.baseDim;
@@ -183,7 +209,7 @@ export function useLinkedOverlays(
       getOverlayRequests(
         resolved,
         selection === undefined ? undefined : Number(selection),
-      ),
+      ).filter((req) => isAffordable(dataContext, req)),
   });
 
   const legend: LegendItem[] =
@@ -214,7 +240,7 @@ export function useLinkedOverlays(
         : getOverlayRequests(
             resolved,
             getIndexFromSelection(selection, baseDim),
-          ),
+          ).filter((req) => isAffordable(dataContext, req)),
     extraSlider:
       link && baseDim === undefined
         ? { link, index: extraIndex, onChange: setExtraIndex, slicingProps }

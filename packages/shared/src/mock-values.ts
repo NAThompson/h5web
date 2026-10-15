@@ -540,6 +540,11 @@ export const mockValues = {
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
   psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),
+  many_points: () =>
+    ndarray(
+      range(0, 6000).flatMap((i) => [(i * 7) % 41, (i * 3) % 20]),
+      [6000, 2],
+    ),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();
