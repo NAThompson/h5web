@@ -28,6 +28,29 @@ const LUT_SIZE = 256;
 /* Colour of vertices whose value cannot be coloured (e.g. `NaN`, or negative in log scale), in linear RGB */
 export const NAN_COLOR: Vector3Tuple = [0.2, 0.2, 0.2];
 
+/* Colours of values that cannot be coloured, in linear RGB */
+export interface SpecialColors {
+  nan?: Vector3Tuple;
+}
+
+function toLinearRgb(css: string | undefined): Vector3Tuple | undefined {
+  if (!css) {
+    return undefined;
+  }
+  const { r, g, b } = rgb(css);
+  if (![r, g, b].every(Number.isFinite)) {
+    return undefined; // invalid CSS colour
+  }
+  const color = new Color().setRGB(r / 255, g / 255, b / 255, SRGBColorSpace);
+  return [color.r, color.g, color.b];
+}
+
+/** Special colours from CSS colours; `undefined` if none is given. */
+export function getSpecialColors(nanColor?: string): SpecialColors | undefined {
+  const colors = { nan: toLinearRgb(nanColor) };
+  return colors.nan ? colors : undefined;
+}
+
 /** Nice ticks within domain (ascending or descending); integer ticks only for axes of indices. */
 export function getAxisTicks(
   domain: Domain,
@@ -186,14 +209,15 @@ export function getColorParams(
 export function getVertexColors(
   params: Float32Array,
   colorLut: Float32Array,
-  nanColor: Vector3Tuple = NAN_COLOR,
+  special: SpecialColors = {},
 ): Float32Array {
+  const { nan = NAN_COLOR } = special;
   const colors = new Float32Array(params.length * 3);
   const lutMax = colorLut.length / 3 - 1;
 
   for (const [i, param] of params.entries()) {
     if (Number.isNaN(param)) {
-      colors.set(nanColor, i * 3);
+      colors.set(nan, i * 3);
     } else {
       const lutIndex = Math.round(param * lutMax) * 3;
       colors[i * 3] = colorLut[lutIndex];

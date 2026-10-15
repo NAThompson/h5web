@@ -206,6 +206,13 @@ describe('parseViewHint', () => {
     expect(unknown.notes).toEqual(['ignored invalid "H5WEB_probe_dim"']);
   });
 
+  it('parse colour of NaN values', () => {
+    expect(hint({ H5WEB_nan_color: '#ddd' }).nanColor).toBe('#ddd');
+    const invalid = hint({ H5WEB_nan_color: { int: 1 } });
+    expect(invalid.nanColor).toBeUndefined();
+    expect(invalid.notes).toEqual(['ignored invalid "H5WEB_nan_color"']);
+  });
+
   it('map dimensions to scale names or indices', () => {
     const dimNames = [['generation'], ['x', 'abscissa']];
     expect(

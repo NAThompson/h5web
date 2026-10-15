@@ -282,6 +282,20 @@ describe('buildSurfaceBuffers with floorUnsupported', () => {
     });
     expect(index).toHaveLength(0);
   });
+
+  it('should put NaN, ignored and unsupported values on the floor with floorInvalid', () => {
+    const { positions, index } = buildSurfaceBuffers({
+      values: ndarray([Number.NaN, 10, 0, 42], [2, 2]),
+      xCoords: [0, 1],
+      yCoords: [0, 1],
+      domain: [1, 1000],
+      scaleType: ScaleType.Log,
+      ignoreValue: (val) => val === 42,
+      floorInvalid: true,
+    });
+    expect([...index]).toEqual([0, 1, 2, 1, 3, 2]);
+    expect([positions[2], positions[8], positions[11]]).toEqual([0, 0, 0]);
+  });
 });
 
 describe('assertSurfaceArrays', () => {

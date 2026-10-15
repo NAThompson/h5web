@@ -247,6 +247,10 @@ function readDim(
 function isLevels(arr: number[]): boolean {
   return arr.length > 0 && arr.every(Number.isFinite);
 }
+/* Unchecked where CSS is not available (e.g. unit tests in Node) */
+function isCssColor(val: string): boolean {
+  return typeof CSS === 'undefined' || CSS.supports('color', val);
+}
 function isPos(val: number): boolean {
   return Number.isFinite(val) && val > 0;
 }
@@ -315,6 +319,7 @@ export function parseViewHint(
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
+    nanColor: read.str('H5WEB_nan_color', isCssColor),
     title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),

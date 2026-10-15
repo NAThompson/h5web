@@ -8,6 +8,7 @@ import {
   getColorParams,
   getExtentDomain,
   getFramingDistance,
+  getSpecialColors,
   getVertexColors,
   getWorldTransform,
   NAN_COLOR,
@@ -195,6 +196,25 @@ describe('getVertexColors', () => {
       1,
       ...Float32Array.from(NAN_COLOR),
     ]);
+  });
+});
+
+describe('getSpecialColors', () => {
+  it('should convert CSS colours to linear RGB, ignoring invalid ones', () => {
+    expect(getSpecialColors('#fff')).toEqual({ nan: [1, 1, 1] });
+    expect(getSpecialColors('not a colour')).toBeUndefined();
+    expect(getSpecialColors()).toBeUndefined();
+  });
+
+  it('should colour NaN params with the NaN colour', () => {
+    const lut = Float32Array.from([0, 0, 0, 1, 1, 1]);
+    const special = getSpecialColors('#fff');
+    const colors = getVertexColors(
+      Float32Array.from([Number.NaN]),
+      lut,
+      special,
+    );
+    expect([...colors]).toEqual([1, 1, 1]);
   });
 });
 

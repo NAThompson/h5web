@@ -508,7 +508,7 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
 
   const probeBtn = page.getByRole('button', { name: 'Probe', exact: true });
   await expect.element(probeBtn).toHaveAttribute('aria-pressed', 'false');
-  const canvas = document.querySelector('figure canvas');
+  const canvas = document.querySelector<HTMLCanvasElement>('figure canvas');
   assertNonNull(canvas);
   await userEvent.click(page.elementLocator(canvas)); // probe off: nothing
   expect(getProbe()).not.toBeInTheDocument();
@@ -584,4 +584,29 @@ test('note a hinted visualization that is not available', async () => {
     .toHaveTextContent(
       '"H5WEB_vis" "volume" is not available for this dataset',
     );
+});
+
+/* Colour of the vis canvas at a position given as fractions of its width and height (from top left) */
+function getCanvasPixel(fx: number, fy: number): number[] {
+  const canvas = document.querySelector<HTMLCanvasElement>('figure canvas');
+  assertNonNull(canvas);
+  const copy = document.createElement('canvas');
+  copy.width = canvas.width;
+  copy.height = canvas.height;
+  const ctx = copy.getContext('2d');
+  assertNonNull(ctx);
+  ctx.drawImage(canvas, 0, 0);
+  const x = Math.floor(fx * canvas.width);
+  const y = Math.floor(fy * canvas.height);
+  return [...ctx.getImageData(x, y, 1, 1).data];
+}
+
+test('colour NaN values with `H5WEB_nan_color`', async () => {
+  await renderApp('/view_hints/nan_color');
+
+  // Column 0 is `NaN` (transparent by default)
+  await expect
+    .poll(() => getCanvasPixel(1 / 12, 1 / 2))
+    .toEqual([255, 0, 255, 255]);
+  expect(getCanvasPixel(7 / 12, 1 / 2)).not.toEqual([255, 0, 255, 255]);
 });

@@ -987,6 +987,14 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/kappa'], [], []] },
         ),
+        // Colour of `NaN` values
+        array('nan_color', {
+          valueId: 'nan_stack',
+          attributes: [
+            scalarAttr('H5WEB_nan_color', '#f0f'),
+            intAttr('H5WEB_keep_ratio', 0), // pixels fill the canvas
+          ],
+        }),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {
