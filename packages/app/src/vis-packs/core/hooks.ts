@@ -130,7 +130,9 @@ export function useSuggestion<T>(
 }
 
 /* Several suggestions at once (e.g. from NeXus metadata or a file's `H5WEB_view` hint): each
- * applies until the user changes that setting, through its setter (`setFoo` for `foo`). */
+ * applies until the user changes that setting, through its setter (`setFoo` for `foo`). Keys
+ * present without a value yet (e.g. suggestions that depend on data still loading) are watched
+ * too, so a change made before the suggestion arrives is not overridden. */
 export function useSuggestions<C extends object>(
   config: C,
   suggestions: Partial<C>,
@@ -143,18 +145,16 @@ export function useSuggestions<C extends object>(
   for (const [key, value] of Object.entries(suggestions)) {
     const setterKey = `set${key.charAt(0).toUpperCase()}${key.slice(1)}`;
     const setter = patched[setterKey];
-    if (
-      value === undefined ||
-      ignored.has(key) ||
-      typeof setter !== 'function'
-    ) {
+    if (typeof setter !== 'function') {
       continue;
     }
 
-    patched[key] = value;
+    if (value !== undefined && !ignored.has(key)) {
+      patched[key] = value;
+    }
     patched[setterKey] = (...args: unknown[]) => {
       setter(...args); // eslint-disable-line @typescript-eslint/no-unsafe-call
-      setIgnored((prev) => new Set(prev).add(key));
+      setIgnored((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
     };
   }
 
