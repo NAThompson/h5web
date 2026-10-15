@@ -987,6 +987,19 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/kappa'], [], []] },
         ),
+        // Probe in log scale, values labelled by `long_name` (also the title) without `units`
+        withDimScales(
+          array('probe_log', {
+            valueId: 'probe_stack',
+            attributes: [
+              scalarAttr('H5WEB_probe_dim', 'kappa'),
+              scalarAttr('H5WEB_scale', 'log'),
+              scalarAttr('long_name', 'E_{K}'),
+              intAttr('H5WEB_keep_ratio', 0),
+            ],
+          }),
+          { scales: [['/view_hints/kappa'], [], []] },
+        ),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

@@ -502,6 +502,34 @@ test('probe a pixel of a stack along the hinted dimension', async () => {
   await page.viewport(1920, 1080);
 });
 
+test('probe in the scale of the heatmap, labelled by `long_name`', async () => {
+  await page.viewport(2560, 1080);
+  await renderApp('/view_hints/probe_log');
+
+  await clickPixel(1, 2, [3, 5]); // values 11.2, 21.2, 31.2, 41.2
+  await expect.element(getProbe()).toBeVisible();
+  const ordinate = getProbe()
+    .element()
+    .querySelector('svg[data-type="ordinate"]');
+  expect(ordinate?.querySelector('.visx-axis-label')).toHaveTextContent('EK');
+
+  // Log scale: ticks 20, 30, 40 get closer (1.41 times)
+  function getTickY(label: string): number {
+    const tick = [
+      ...(ordinate?.querySelectorAll('.visx-axis-tick') ?? []),
+    ].find((elem) => elem.textContent === label);
+    return tick?.querySelector('line')?.getBoundingClientRect().y ?? Number.NaN;
+  }
+  await expect
+    .poll(
+      () =>
+        (getTickY('20') - getTickY('30')) / (getTickY('30') - getTickY('40')),
+    )
+    .toBeGreaterThan(1.2);
+
+  await page.viewport(1920, 1080);
+});
+
 test('probe a stack with the toolbar toggle, without hint', async () => {
   await page.viewport(2560, 1080); // whole heatmap toolbar
   const { user } = await renderApp('/view_hints/landscapes');
@@ -517,6 +545,15 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
   await userEvent.click(page.elementLocator(canvas));
   await expect.element(getProbe()).toBeVisible();
   expect(getProbe()).toHaveTextContent('generation'); // first sliced dimension
+  await expect // integer generations: no fractional ticks
+    .poll(() =>
+      [
+        ...getProbe()
+          .element()
+          .querySelectorAll('svg[data-type="abscissa"] .visx-axis-tick'),
+      ].map((tick) => tick.textContent),
+    )
+    .toEqual(['0', '1', '2', '3', '4']);
 
   await page.viewport(1920, 1080);
 });

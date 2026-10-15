@@ -21,6 +21,7 @@ import {
   getSizeToFit,
   getSymlogTicks,
   getTextContent,
+  getTickFormatter,
   getTickPrecision,
   getValueToIndexScale,
   getVisRatio,
@@ -673,5 +674,17 @@ describe('isIntegerValued()', () => {
     expect(isIntegerValued([0, 0.5])).toBe(false);
     expect(isIntegerValued([])).toBe(false);
     expect(isIntegerValued(undefined)).toBe(false);
+  });
+});
+
+describe('getTickFormatter()', () => {
+  it('should hide log ticks other than powers of 10 on short axes', () => {
+    const format = getTickFormatter([1, 1000], 80, ScaleType.Log);
+    expect([10, 20].map((val) => format(val))).toEqual(['10', '']);
+  });
+
+  it('should not hide them all when there is no power of 10', () => {
+    const format = getTickFormatter([11, 41], 80, ScaleType.Log);
+    expect([20, 30].map((val) => format(val))).toEqual(['20', '30']);
   });
 });

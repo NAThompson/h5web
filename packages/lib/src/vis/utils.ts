@@ -457,7 +457,10 @@ export function getTickFormatter(
   absDomain.sort((a, b) => a - b);
 
   const [min, max] = absDomain;
-  if (max / min < 10 ** threshold) {
+  if (
+    max / min < 10 ** threshold ||
+    Math.ceil(Math.log10(min)) > Math.log10(max) // no power of 10 to keep (e.g. short axis)
+  ) {
     return formatTick;
   }
 

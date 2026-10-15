@@ -126,6 +126,10 @@ export async function getViewHint(
   return {
     ...parsed,
     valueLabel: getValueLabel(values, parsed.title),
+    longName:
+      typeof values.long_name === 'string'
+        ? values.long_name || undefined
+        : undefined,
     anchor: getAnchor('H5WEB_overlays'),
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
     contourOfAnchor: getAnchor('H5WEB_contour_of'),
