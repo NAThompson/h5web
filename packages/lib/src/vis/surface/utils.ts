@@ -304,3 +304,67 @@ export function flattenArray(values: NdArray<NumArray>): NumArray {
 
   return flat;
 }
+
+/**
+ * Cell of monotonic (ascending or descending) coordinates containing `value`: index of the
+ * cell's first coordinate and position within the cell (0 to 1); `undefined` if outside.
+ */
+export function findCell(
+  coords: number[],
+  value: number,
+): [number, number] | undefined {
+  const last = coords.length - 1;
+  if (last < 1 || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  const isAscending = coords[last] >= coords[0];
+  const [min, max] = isAscending
+    ? [coords[0], coords[last]]
+    : [coords[last], coords[0]];
+  if (value < min || value > max) {
+    return undefined;
+  }
+
+  let lo = 0;
+  let hi = last;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (coords[mid] <= value === isAscending) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+
+  const span = coords[hi] - coords[lo];
+  return [lo, span === 0 ? 0 : (value - coords[lo]) / span];
+}
+
+/**
+ * Bilinear interpolation of a 2D array (rows x cols) at a point given in data coordinates,
+ * with `xCoords` the coordinates of the columns and `yCoords` those of the rows;
+ * `NaN` outside the grid.
+ */
+export function interpolateGrid(
+  values: NdArray<NumArray>,
+  xCoords: number[],
+  yCoords: number[],
+  x: number,
+  y: number,
+): number {
+  const xCell = findCell(xCoords, x);
+  const yCell = findCell(yCoords, y);
+  if (!xCell || !yCell) {
+    return Number.NaN;
+  }
+
+  const [col, tx] = xCell;
+  const [row, ty] = yCell;
+  const col1 = Math.min(col + 1, xCoords.length - 1);
+  const row1 = Math.min(row + 1, yCoords.length - 1);
+
+  const top = values.get(row, col) * (1 - tx) + values.get(row, col1) * tx;
+  const bottom = values.get(row1, col) * (1 - tx) + values.get(row1, col1) * tx;
+  return top * (1 - ty) + bottom * ty;
+}

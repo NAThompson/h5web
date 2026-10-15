@@ -15,7 +15,8 @@ import {
 } from '../models';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
 import Vis3DLayout from '../three-d/Vis3DLayout';
-import { createScale, DEFAULT_DOMAIN } from '../utils';
+import { createScale, DEFAULT_DOMAIN, SCALES_VALID_MINS } from '../utils';
+import { SurfaceContext, type SurfaceContextValue } from './context';
 import SurfaceMesh from './SurfaceMesh';
 import {
   assertSurfaceArrays,
@@ -25,8 +26,11 @@ import {
   getDownsamplingStride,
   getFootprint,
   getSampledIndices,
+  interpolateGrid,
   sampleArray,
 } from './utils';
+
+const OVERLAY_LIFT = 0.005; // lift children drawn on the surface, so it doesn't hide them
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -187,6 +191,59 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [colorField, domain, scaleType],
   );
 
+  // Children (e.g. overlays) are drawn in the data coordinates of the surface
+  const surfaceContext = useMemo<SurfaceContextValue>(() => {
+    const xScale = createScale(ScaleType.Linear, {
+      domain: xDomain,
+      range: flipXAxis ? [w / 2, -w / 2] : [-w / 2, w / 2],
+    });
+    const yScale = createScale(ScaleType.Linear, {
+      domain: yDomain,
+      range: flipYAxis ? [h / 2, -h / 2] : [-h / 2, h / 2],
+    });
+    const zScale = createScale(scaleType, {
+      domain,
+      range: [0, 1],
+      clamp: true,
+    });
+    const validMin =
+      SCALES_VALID_MINS[Array.isArray(scaleType) ? scaleType[0] : scaleType];
+
+    return {
+      dataToWorld: (x, y, value) => {
+        const val =
+          value ?? interpolateGrid(dataArray, xCenters, yCenters, x, y);
+        const pos: [number, number, number] = [
+          xScale(x),
+          yScale(y),
+          zScale(val) * heightScale + OVERLAY_LIFT,
+        ];
+        const isInBox =
+          Math.abs(pos[0]) <= w / 2 + 1e-9 && Math.abs(pos[1]) <= h / 2 + 1e-9;
+        return val >= validMin && isInBox ? pos : undefined; // `NaN` fails both
+      },
+      domain,
+      scaleType,
+      colorMap,
+      invertColorMap,
+    };
+  }, [
+    dataArray,
+    xCenters,
+    yCenters,
+    xDomain,
+    yDomain,
+    w,
+    h,
+    flipXAxis,
+    flipYAxis,
+    domain,
+    scaleType,
+    heightScale,
+    colorMap,
+    invertColorMap,
+  ]);
+
   const valueConfig = useMemo<Axis3DConfig>(
     () => ({ domain, scaleType, label: valueLabel }),
     [domain, scaleType, valueLabel],
@@ -226,7 +283,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
           showGrid={showGrid}
         />
       )}
-      {children}
+      <SurfaceContext value={surfaceContext}>{children}</SurfaceContext>
     </Vis3DLayout>
   );
 }

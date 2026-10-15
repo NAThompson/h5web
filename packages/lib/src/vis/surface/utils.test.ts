@@ -10,6 +10,7 @@ import {
 import {
   assertSurfaceArrays,
   buildSurfaceBuffers,
+  findCell,
   flattenArray,
   getCellCenters,
   getCoordsDomain,
@@ -17,6 +18,7 @@ import {
   getFootprint,
   getSampledIndices,
   getSurfaceColors,
+  interpolateGrid,
   isSurfaceSupported,
   sampleArray,
 } from './utils';
@@ -344,5 +346,39 @@ describe('downsampled colour field', () => {
     const last = sampledHeights.size - 1;
     expect(sampledHeights.data[last]).toBe(rows * cols - 1);
     expect(colors.slice(last * 3, last * 3 + 3)).toEqual(lut.slice(-3));
+  });
+});
+
+describe('findCell', () => {
+  it('find cell of ascending and descending coordinates', () => {
+    expect(findCell([0, 1, 2, 3], 1.25)).toEqual([1, 0.25]);
+    expect(findCell([3, 2, 1, 0], 1.25)).toEqual([1, 0.75]);
+    expect(findCell([0, 1, 2], 2)).toEqual([1, 1]);
+  });
+
+  it('return undefined outside coordinates', () => {
+    expect(findCell([0, 1, 2], -0.1)).toBeUndefined();
+    expect(findCell([0, 1, 2], Number.NaN)).toBeUndefined();
+    expect(findCell([0], 0)).toBeUndefined();
+  });
+});
+
+describe('interpolateGrid', () => {
+  // f(x, y) = x + 10 y on a 2 x 3 grid (rows: y, columns: x)
+  const values = ndarray([0, 1, 2, 10, 11, 12], [2, 3]);
+
+  it('interpolate bilinearly', () => {
+    expect(interpolateGrid(values, [0, 1, 2], [0, 1], 1.5, 0.5)).toBeCloseTo(
+      6.5,
+    );
+    expect(interpolateGrid(values, [0, 1, 2], [0, 1], 2, 1)).toBe(12);
+  });
+
+  it('follow descending coordinates', () => {
+    expect(interpolateGrid(values, [2, 1, 0], [0, 1], 2, 0)).toBe(0);
+  });
+
+  it('return NaN outside the grid', () => {
+    expect(interpolateGrid(values, [0, 1, 2], [0, 1], 3, 0)).toBeNaN();
   });
 });

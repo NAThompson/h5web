@@ -32,6 +32,10 @@ export {
   WorkerError,
 } from './vis/geometry-worker/client';
 export type { SurfaceVisProps } from './vis/surface/SurfaceVis';
+export { default as SurfaceOverlay } from './vis/surface/SurfaceOverlay';
+export type { SurfaceOverlayProps } from './vis/surface/SurfaceOverlay';
+export { useSurfaceContext } from './vis/surface/context';
+export type { SurfaceContextValue } from './vis/surface/context';
 export type { Curve3DVisProps } from './vis/curve/Curve3DVis';
 export type { ParamSurfaceVisProps } from './vis/param-surface/ParamSurfaceVis';
 export { SurfaceRepresentation } from './vis/param-surface/models';
