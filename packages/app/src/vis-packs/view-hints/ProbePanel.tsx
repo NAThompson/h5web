@@ -1,4 +1,9 @@
-import { type DimensionMapping, LineVis, useDomain } from '@h5web/lib';
+import {
+  CurveType,
+  type DimensionMapping,
+  LineVis,
+  useDomain,
+} from '@h5web/lib';
 import {
   type ArrayShape,
   type ArrayValue,
@@ -21,13 +26,9 @@ import { getProbeSelection, type ProbePoint } from './probe';
 import ProbeSliceMarker from './ProbeSliceMarker';
 import styles from './ViewHints.module.css';
 
-/* Axis label of a dimension: its scale's CF `long_name` (and units), else as on the heatmap */
+/* Axis label of a dimension, as on the heatmap (e.g. from its scale's CF `long_name` and units) */
 function getDimLabel(scale: DimScale | undefined, dim: number): string {
-  const { longName, unit, label } = scale ?? {};
-  if (!longName) {
-    return label ?? `D${dim}`;
-  }
-  return unit ? `${longName} (${unit})` : longName;
+  return scale?.label ?? `D${dim}`;
 }
 
 /* Value of a dimension's scale at an index (the index without scale) */
@@ -41,6 +42,7 @@ interface Props {
   dimMapping: DimensionMapping;
   probeDim: number;
   point: ProbePoint;
+  valueLabel?: string; // value axis, as on line views (CF `units` and `long_name`)
   onProbeDimChange: (dim: number) => void;
   onClose: () => void;
 }
@@ -48,8 +50,8 @@ interface Props {
 /* Values of a probed pixel of a stack along a sliced dimension (other sliced dimensions at
  * their current index), with the current slice marked; only this 1D selection is fetched */
 function ProbePanel(props: Props) {
-  const { dataset, dimMapping, probeDim, point, onProbeDimChange, onClose } =
-    props;
+  const { dataset, dimMapping, probeDim, point, valueLabel } = props;
+  const { onProbeDimChange, onClose } = props;
   const { queries } = useDataContext();
   const packing = usePacking(dataset); // in cache since the heatmap is shown
   const ignoreValue = useIgnoreValue(dataset); // e.g. `_FillValue`, masked as on the heatmap
@@ -128,12 +130,14 @@ function ProbePanel(props: Props) {
           <LineVis
             className={styles.probeVis}
             dataArray={ndarray(values)}
+            curveType={CurveType.LineAndGlyphs} // stacks may have only a few slices
             domain={domain}
             abscissaParams={{
               label: xLabel,
               value: scale?.value && toNumArray(scale.value),
+              ticks: scale?.ticks,
             }}
-            ordinateLabel={dataset.name}
+            ordinateLabel={valueLabel ?? dataset.name}
             ignoreValue={ignoreValue}
           >
             {current && <ProbeSliceMarker x={current.x} y={current.y} />}

@@ -166,6 +166,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
             dimMapping={dimMapping}
             probeDim={probeDim}
             point={probePoint}
+            valueLabel={hint.valueLabel}
             onProbeDimChange={setChosenProbeDim}
             onClose={() => setProbePoint(undefined)}
           />

@@ -974,12 +974,14 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('NAME', 'kappa'),
             scalarAttr('long_name', 'κ'),
             scalarAttr('units', '1/m'),
+            scalarAttr('H5WEB_ticks', 'pi'),
           ],
         }),
         withDimScales(
           array('probe_stack', {
             attributes: [
               scalarAttr('H5WEB_probe_dim', 'kappa'),
+              scalarAttr('units', 'eV'),
               intAttr('H5WEB_keep_ratio', 0), // pixels fill the canvas
             ],
           }),

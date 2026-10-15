@@ -475,6 +475,11 @@ test('probe a pixel of a stack along the hinted dimension', async () => {
     'κ (1/m) = 0.5: 11.2',
   );
   expect(getProbe().getByText('κ (1/m)', { exact: true })).toBeVisible(); // x axis
+  expect(getProbe().getByText('eV', { exact: true })).toBeVisible(); // y axis, from `units`
+  const probeTicks = getProbe()
+    .element()
+    .querySelectorAll('svg[data-type="abscissa"] text');
+  expect([...probeTicks].map((tick) => tick.textContent)).toContain('π'); // `H5WEB_ticks` of κ
   expect(document.querySelector('[data-testid="probe-marker"]')).not.toBeNull();
   expect(document.querySelector('[data-testid="probe-slice"]')).not.toBeNull();
 
