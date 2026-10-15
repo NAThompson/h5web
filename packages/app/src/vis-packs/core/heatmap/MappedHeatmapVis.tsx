@@ -1,4 +1,5 @@
 import {
+  type AxisTicks,
   ContourLines,
   type DimensionMapping,
   getContourLevels,
@@ -52,6 +53,7 @@ interface Props {
   value: ArrayValue<NumericLikeType>;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  axisTicks?: AxisMapping<AxisTicks>;
   dimMapping: DimensionMapping;
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
@@ -67,6 +69,7 @@ function MappedHeatmapVis(props: Props) {
     dimMapping,
     axisLabels = [],
     axisValues = [],
+    axisTicks = [],
     title,
     toolbarContainer,
     config,
@@ -131,10 +134,12 @@ function MappedHeatmapVis(props: Props) {
   const abscissaParams = {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
+    ticks: axisTicks[xDimIndex],
   };
   const ordinateParams = {
     label: axisLabels[yDimIndex],
     value: numAxisArrays[yDimIndex],
+    ticks: axisTicks[yDimIndex],
   };
 
   // A surface needs at least two rows and two columns (e.g. not a 1 x N slice)

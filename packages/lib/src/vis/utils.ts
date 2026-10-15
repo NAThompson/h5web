@@ -273,6 +273,62 @@ export function getIntegerTicks(domain: Domain, count: number): number[] {
   return Array.from({ length: numTicks }, (_, i) => (start + i) * step);
 }
 
+const PI_FRACTIONS = [1 / 12, 1 / 6, 1 / 4, 1 / 2]; // finest steps, in units of π
+
+/**
+ * Ticks at multiples of π for about `count` ticks, like d3's nice ticks: the step is the closest
+ * (geometrically) of π/12, π/6, π/4, π/2, π, 2π, 4π... Zoomed in beyond π/12, plain nice ticks.
+ */
+export function getPiTicks(domain: Domain, count: number): number[] {
+  const min = Math.min(...domain);
+  const max = Math.max(...domain);
+  const rawStep = (max - min) / Math.PI / Math.max(count, 1);
+  if (!(rawStep > 0) || !Number.isFinite(rawStep)) {
+    return [];
+  }
+
+  if (rawStep < PI_FRACTIONS[0] / Math.SQRT2) {
+    return scaleLinear({ domain: [min, max] }).ticks(count);
+  }
+
+  const pow2 = 2 ** Math.max(Math.round(Math.log2(rawStep)), 0);
+  const step = [...PI_FRACTIONS, pow2].reduce((best, candidate) =>
+    Math.abs(Math.log(candidate / rawStep)) < Math.abs(Math.log(best / rawStep))
+      ? candidate
+      : best,
+  );
+
+  const eps = 1e-9;
+  const start = Math.ceil(min / Math.PI / step - eps);
+  const stop = Math.floor(max / Math.PI / step + eps);
+  return range(start, stop + 1).map((i) => i * step * Math.PI);
+}
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+/* Tick label of a multiple of π/12 (`π/4`, `3π/2`, `−π`...); other values as by `formatTick` */
+export function formatPiTick(val: number | { valueOf: () => number }): string {
+  const units = (val.valueOf() / Math.PI) * 12;
+  const twelfths = Math.round(units);
+  if (
+    (twelfths === 0 && units !== 0) || // e.g. plain ticks zoomed in near 0
+    Math.abs(units - twelfths) > 1e-9 * Math.abs(units)
+  ) {
+    return formatTick(val);
+  }
+  if (twelfths === 0) {
+    return '0';
+  }
+
+  const divisor = gcd(Math.abs(twelfths), 12);
+  const num = Math.abs(twelfths) / divisor;
+  const den = 12 / divisor;
+  const sign = twelfths < 0 ? '−' : '';
+  return `${sign}${num === 1 ? '' : num}π${den === 1 ? '' : `/${den}`}`;
+}
+
 export function getTickFormatter(
   domain: Domain,
   availableSize: number,

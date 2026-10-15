@@ -916,6 +916,21 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/theta'], ['/view_hints/alpha']] },
         ),
+        // `H5WEB_ticks = "pi"` on a dimension scale: axis ticks at multiples of π
+        array('alpha_pi', {
+          valueId: 'psi_axis',
+          attributes: [scalarAttr('H5WEB_ticks', 'Pi')],
+        }),
+        withDimScales(array('psi_pi', { valueId: 'psi' }), {
+          scales: [['/view_hints/theta'], ['/view_hints/alpha_pi']],
+        }),
+        withDimScales(
+          array('line_pi', {
+            valueId: 'psi_axis',
+            attributes: [scalarAttr('H5WEB_vis', 'line')],
+          }),
+          { scales: [['/view_hints/alpha_pi']] },
+        ),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

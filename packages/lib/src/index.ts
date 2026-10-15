@@ -260,6 +260,7 @@ export type {
   Size,
   AxisConfig,
   AxisParams,
+  AxisTicks,
   VisScaleType,
   ExtractScaleType,
   ScaleConfig,

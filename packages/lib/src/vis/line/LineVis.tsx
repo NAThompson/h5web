@@ -86,6 +86,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     label: abscissaLabel,
     value: abscissaValue,
     scaleType: abscissaScaleType,
+    ticks: abscissaTicks,
   } = abscissaParams;
 
   assertLength(errorsArray, dataArray.size, 'error');
@@ -132,6 +133,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           scaleType: abscissaScaleType,
           isIndexAxis: !abscissaValue,
           label: abscissaLabel,
+          ticks: abscissaTicks,
         }}
         ordinateConfig={{
           visDomain: dataDomain,

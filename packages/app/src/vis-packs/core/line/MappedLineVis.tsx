@@ -1,4 +1,5 @@
 import {
+  type AxisTicks,
   type DimensionMapping,
   getDomain,
   getSliceSelection,
@@ -66,6 +67,7 @@ interface Props {
   dimMapping: DimensionMapping;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  axisTicks?: AxisMapping<AxisTicks>;
   title: string;
   toolbarContainer?: HTMLDivElement | undefined;
   config: LineConfig;
@@ -88,6 +90,7 @@ function MappedLineVis(props: Props) {
     dimMapping,
     axisLabels = [],
     axisValues = [],
+    axisTicks = [],
     title,
     toolbarContainer,
     config,
@@ -217,6 +220,7 @@ function MappedLineVis(props: Props) {
   const abscissaParams = {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
+    ticks: axisTicks[xDimIndex],
     scaleType: xScaleType,
   };
 

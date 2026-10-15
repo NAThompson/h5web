@@ -12,8 +12,8 @@ import {
   type Vector3Tuple,
 } from 'three';
 
-import { type VisScaleType } from '../models';
-import { createScale, getTickFormatter } from '../utils';
+import { type AxisTicks, type VisScaleType } from '../models';
+import { createScale, formatPiTick, getTickFormatter } from '../utils';
 import TextSprite, { updateLabelSprite } from './TextSprite';
 import { getAxisTicks } from './utils';
 
@@ -23,6 +23,7 @@ export interface Axis3DConfig {
   scaleType?: VisScaleType; // Z axis only
   label?: string; // X and Y axes are labelled `x` and `y` by default; Z axis is not labelled by default
   flip?: boolean; // X and Y axes only
+  ticks?: AxisTicks; // X and Y axes only
 }
 
 interface Props {
@@ -248,12 +249,16 @@ function Axes3D(props: Props) {
       xConfig.domain,
       Math.max(Math.round(w * 6), 2),
       !!xConfig.isIndexAxis,
+      xConfig.ticks,
     );
     const yTicks = getAxisTicks(
       yConfig.domain,
       Math.max(Math.round(h * 6), 2),
       !!yConfig.isIndexAxis,
+      yConfig.ticks,
     );
+    const formatX = xConfig.ticks === 'pi' ? formatPiTick : formatTick;
+    const formatY = yConfig.ticks === 'pi' ? formatPiTick : formatTick;
 
     const zFormatter = getTickFormatter(
       valueDomain,
@@ -301,7 +306,7 @@ function Axes3D(props: Props) {
       }
       texts.push({
         key: `x${val}`,
-        text: formatTick(val),
+        text: formatX(val),
         position: [x, yNear + sy * TICK_LABEL_OFFSET, 0],
         outward: [0, sy, 0],
         priority: PRIORITY.tick,
@@ -317,7 +322,7 @@ function Axes3D(props: Props) {
       }
       texts.push({
         key: `y${val}`,
-        text: formatTick(val),
+        text: formatY(val),
         position: [xNear + sx * TICK_LABEL_OFFSET, y, 0],
         outward: [sx, 0, 0],
         priority: PRIORITY.tick,

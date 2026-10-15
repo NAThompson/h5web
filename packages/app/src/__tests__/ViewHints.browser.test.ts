@@ -352,3 +352,23 @@ test('give constant data a finite colour domain', async () => {
   expect(ticks.length).toBeGreaterThan(0);
   expect(ticks.join(' ')).not.toMatch(/∞|NaN/u);
 });
+
+function getTickLabels(type: 'abscissa' | 'ordinate'): string[] {
+  return [...document.querySelectorAll(`svg[data-type="${type}"] text`)]
+    .map((text) => text.textContent)
+    .filter((label) => label !== '');
+}
+
+test('put ticks at multiples of π on axes whose dimension scale says so', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/psi_pi');
+
+  await expect
+    .poll(() => getTickLabels('abscissa'))
+    .toEqual(expect.arrayContaining(['0', 'π/2', 'π']));
+  expect(getTickLabels('ordinate')).toContain('0.5'); // `theta` has no `H5WEB_ticks`
+
+  await selectExplorerNode('line_pi');
+  await expect
+    .poll(() => getTickLabels('abscissa'))
+    .toEqual(expect.arrayContaining(['0', 'π/2', 'π']));
+});

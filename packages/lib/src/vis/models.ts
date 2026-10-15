@@ -50,7 +50,10 @@ export interface AxisConfig {
   flip?: boolean;
   nice?: boolean;
   formatTick?: (val: number) => string;
+  ticks?: AxisTicks;
 }
+
+export type AxisTicks = 'pi'; // ticks at multiples of π (π/4, π/2, π...)
 
 export type VisScaleType = ColorScaleType | [ScaleType.Gamma, number];
 export type ExtractScaleType<V extends VisScaleType> = V extends ColorScaleType
@@ -85,6 +88,7 @@ export interface AxisParams {
   label?: string;
   value?: NumArray;
   scaleType?: AxisScaleType;
+  ticks?: AxisTicks;
 }
 
 export type Coords = [x: number, y: number];

@@ -5,11 +5,13 @@ import { describe, expect, it } from 'vitest';
 import {
   clampBound,
   extendDomain,
+  formatPiTick,
   getAxisDomain,
   getCombinedDomain,
   getDomain,
   getDomains,
   getIntegerTicks,
+  getPiTicks,
   getSizeToFit,
   getValueToIndexScale,
   getVisRatio,
@@ -359,6 +361,81 @@ describe('getIntegerTicks', () => {
     // So we specifically work around it by forcing the step to be greater than or equal to 1
     const prop2 = getIntegerTicks([0, 2], 3);
     expect(prop2).toEqual([0, 1, 2]);
+  });
+});
+
+function piLabels(domain: Domain, count: number): string[] {
+  return getPiTicks(domain, count).map(formatPiTick);
+}
+
+describe('getPiTicks', () => {
+  const { PI } = Math;
+
+  it('should pick a step of π/12, π/6, π/4, π/2, π, 2π... for about `count` ticks', () => {
+    expect(piLabels([0, PI], 4)).toEqual(['0', 'π/4', 'π/2', '3π/4', 'π']);
+    expect(piLabels([0, PI], 2)).toEqual(['0', 'π/2', 'π']);
+    expect(piLabels([0, 2 * PI], 3)).toEqual(['0', 'π/2', 'π', '3π/2', '2π']);
+    expect(piLabels([0, PI / 2], 3)).toEqual(['0', 'π/6', 'π/3', 'π/2']);
+    expect(piLabels([0, PI / 2], 6)).toEqual([
+      '0',
+      'π/12',
+      'π/6',
+      'π/4',
+      'π/3',
+      '5π/12',
+      'π/2',
+    ]);
+  });
+
+  it('should coarsen the step when zoomed out', () => {
+    expect(piLabels([0, 10 * PI], 5)).toEqual([
+      '0',
+      '2π',
+      '4π',
+      '6π',
+      '8π',
+      '10π',
+    ]);
+    expect(piLabels([0, 40 * PI], 5)).toEqual([
+      '0',
+      '8π',
+      '16π',
+      '24π',
+      '32π',
+      '40π',
+    ]);
+  });
+
+  it('should only include ticks within the domain, in either order', () => {
+    expect(piLabels([0.1, 3], 4)).toEqual(['π/4', 'π/2', '3π/4']);
+    expect(getPiTicks([3, 0.1], 4)).toEqual(getPiTicks([0.1, 3], 4));
+  });
+
+  it('should label negative multiples with a minus sign', () => {
+    expect(piLabels([-PI, PI], 4)).toEqual(['−π', '−π/2', '0', 'π/2', 'π']);
+    expect(piLabels([-2 * PI, 0], 4)).toEqual([
+      '−2π',
+      '−3π/2',
+      '−π',
+      '−π/2',
+      '0',
+    ]);
+  });
+
+  it('should fall back to nice ticks when zoomed in beyond π/12', () => {
+    const ticks = getPiTicks([1, 1.1], 5);
+    expect(ticks).toHaveLength(6);
+    expect(ticks[1]).toBeCloseTo(1.02);
+    expect(formatPiTick(1.02)).toBe('1.02');
+    expect(getPiTicks([0, 1e-7], 2).map(formatPiTick)).toEqual([
+      '0',
+      '5e-8',
+      '1e-7',
+    ]);
+  });
+
+  it('should return no ticks for an empty domain', () => {
+    expect(getPiTicks([1, 1], 5)).toEqual([]);
   });
 });
 
