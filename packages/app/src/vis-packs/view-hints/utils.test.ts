@@ -444,7 +444,7 @@ describe('formatLabel', () => {
 describe('notes', () => {
   it('note overlays in visualizations without overlays', () => {
     expect(getHintNotes(hint({ H5WEB_overlays: 'c' }))).toEqual([
-      'overlays are drawn on heatmaps only',
+      'overlays are not drawn in this view',
     ]);
     expect(getHintNotes(hint({ H5WEB_vis: 'line' }))).toEqual([]);
   });
