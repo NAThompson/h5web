@@ -145,6 +145,10 @@ function LineVis(props: PropsWithChildren<Props>) {
         : axisScaleType,
     [axisScaleType, symlogConstant],
   );
+  const xScaleType = useMemo(
+    () => withSymlogConstant(abscissaScaleType, abscissaSymlogConstant),
+    [abscissaScaleType, abscissaSymlogConstant],
+  );
 
   function formatValue(val: number): string {
     return formatTooltipVal(
@@ -194,7 +198,7 @@ function LineVis(props: PropsWithChildren<Props>) {
       getLegendCorner(
         abscissas,
         markedCurves.map(({ ordinates }) => ordinates),
-        createScale(abscissaScaleType ?? ScaleType.Linear, {
+        createScale(xScaleType ?? ScaleType.Linear, {
           domain: abscissaDomain,
           range: [0, 1],
         }),
@@ -207,7 +211,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     [
       markedCurves,
       abscissas,
-      abscissaScaleType,
+      xScaleType,
       abscissaDomain,
       scaleType,
       dataDomain,
@@ -228,10 +232,7 @@ function LineVis(props: PropsWithChildren<Props>) {
         abscissaConfig={{
           visDomain: abscissaDomain,
           showGrid,
-          scaleType: withSymlogConstant(
-            abscissaScaleType,
-            abscissaSymlogConstant,
-          ),
+          scaleType: xScaleType,
           isIndexAxis: isIntegerAxis(abscissaValue, abscissaScaleType),
           label: abscissaLabel,
           ticks: abscissaTicks,
