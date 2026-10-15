@@ -4,7 +4,7 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # Curves and surfaces with a scalar field in HDF5
 
-_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 3._
+_Convention used by the H5Web app (`@h5web/app`) to show a dataset as a **3D curve** or a **parametric surface** coloured by a scalar field (the "Curve" and "Surface" visualizations). Version 4: adds `H5WEB_view` view hints (schema v0.2, phase 1), §5._
 
 The idea, borrowed from ParaView: a curve or surface is a set of points in 3D, and a scalar field is defined on those points (time, curvature, temperature...). The convention reuses existing standards rather than inventing attributes:
 
@@ -93,6 +93,104 @@ for name in "xyz":
     nxdata.attrs[f"{name}_indices"] = [0, 1]
 nxdata["K"] = f["torus/K"]  # has `coordinates = "x y z"`
 ```
+
+## 5. View hints: `H5WEB_view`
+
+The space of visualizations is infinite, and a viewer with an option for everything becomes unusable. Instead, the **file declares how it is meant to be viewed**: a dataset (or an `NXdata` group) may carry a string attribute `H5WEB_view` holding a small JSON object. H5Web opens the declared visualization with the declared settings, so the toolbar can stay small. Files without hints are shown as before (heuristics). This section follows the `H5WEB_view` schema v0.2 agreed with writers; keys marked _Phase 2/3_ are reserved (ignored for now).
+
+- **Forgiving**: unknown keys are ignored; an invalid value drops only that key; invalid JSON drops the hint. Nothing is logged to the console: what was ignored is listed in a small note over the visualization (heatmaps).
+- **Suggestions, not locks**: hinted settings apply when the dataset is opened; any change by the user wins while the dataset stays open (like NeXus `SILX_style`). The hinted visualization is selected each time the dataset is opened (like NeXus `interpretation`).
+- **Precedence**: `H5WEB_view` > NeXus (`default`, `interpretation`, `SILX_style`) > heuristics. On an `NXdata` group, the group's hint is used, else its signal's.
+- **Where**: on the dataset itself (it travels with the data when copied), or on an `NXdata` group.
+
+### Dataset keys
+
+| Key              | Type / values                                                                                                                                                                                                            | Meaning                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`        | `1`                                                                                                                                                                                                                      | Schema version (optional).                                                                                                                                                          |
+| `vis`            | `"heatmap"`, `"surface"`, `"line"`, `"curve"`, `"volume"`, `"matrix"`, `"scalar"`, `"rgb"`, `"complexHeatmap"`, `"complexSurface"`, `"complexLine"`, `"complexCurve"`, `"paramSurface"` (case, spaces, `-`, `_` ignored) | Visualization to open, if supported. `surface`: parametric surface when the dataset has CF `coordinates` (§1, alias `paramSurface`), else the heatmap in 3D. `heatmap` opens in 2D. |
+| `title`          | string                                                                                                                                                                                                                   | Title of the figure, on heatmaps (default: dataset name).                                                                                                                           |
+| `scaleType`      | `"linear"`, `"log"`, `"symlog"`, `"sqrt"`                                                                                                                                                                                | Colour scale (and height of surfaces); y scale of line plots (`sqrt` excepted). `"gamma"` is not supported yet (ignored with a note).                                               |
+| `colorMap`       | colour map name, case-insensitive (`"Viridis"`, `"Inferno"`, `"RdBu"`, `"Twilight"`...), or `"auto"`                                                                                                                     | `auto`: diverging (`RdBu`) centred on `center`, with a symmetric domain unless `domain` is given, when the data changes sign around `center`; sequential (`Viridis`) otherwise.     |
+| `invertColorMap` | boolean                                                                                                                                                                                                                  |                                                                                                                                                                                     |
+| `domain`         | `[min, max]` (numbers or `null` for an automatic bound), or `"symmetric"`                                                                                                                                                | Colour domain; `symmetric`: ±max \|v − center\|.                                                                                                                                    |
+| `center`         | number (default `0`)                                                                                                                                                                                                     | Centre of symmetric domains and of `auto` diverging maps.                                                                                                                           |
+| `keepRatio`      | boolean                                                                                                                                                                                                                  | Equal aspect for the two axes.                                                                                                                                                      |
+| `legend`         | boolean                                                                                                                                                                                                                  | Legend of labelled overlays: shown by default when an overlay has a `label`; `false` hides it.                                                                                      |
+| `overlays`       | list of overlays                                                                                                                                                                                                         | Drawn on top, see below.                                                                                                                                                            |
+
+Also read, ahead of their phase: `contours` (`{"levels": [..]}` or `{"count": n}`, `"labels"`, `"color"`), `isoLevels`, `complex` (`"amplitude"`, `"phase"`, `"phaseAmplitude"`), `axes.x.scaleType` / `axes.y.scaleType` (line plots) and `playback.dim` (as `sliceBy`). Keys proposed by H5Web, not in the schema yet: `sliceBy` (see linking), `xScaleType`/`yScaleType`, `height` (height scale of 3D surfaces), `heightScale` (height relative to the footprint), `xDim`/`multiDim` (line plots: dimension on x, dimension whose slices are all plotted).
+
+_Phase 2_: `symlogThreshold`, `outOfRange`, `nanColor`, `colorBar`, `axes` (labels, π ticks, per dimension name), `contours.emphasize`/`of`, `playback` (fps, mode, range, skipEmpty), `sliceLabels`, `series`, overlays on parametric surfaces. _Phase 3_: group-level `panels`, `layout`, `linkAxes`, `linkCursor`, `sharedDomain`.
+
+### Overlays
+
+`overlays` lists things to draw on top of the dataset (the **base**), in its **data coordinates** - values of its axes (dimension scales or NeXus axes), not indices - on the heatmap and on the 3D surface. Each overlay has exactly one geometry key:
+
+| Geometry  | Value                                                                                                                                               | Draws                                                                                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `points`  | path to an `(N, d)` dataset (or `(d,)` for one point)                                                                                               | markers                                                                                                                                                       |
+| `curve`   | path to an `(N, d)` dataset                                                                                                                         | polyline; a row with a NaN breaks it                                                                                                                          |
+| `ellipse` | `{"mean": path, "cov": path, "scale": path, "nsigma": [1, 2]}`                                                                                      | covariance ellipses of the Gaussian N(mean, scale² cov) at `nsigma` standard deviations (default `[1]`; `scale` optional) - marginal on the two shown columns |
+| `text`    | string, with `"at": [a, b]` and `"anchor": "top"`, `"bottom"`, `"left"`, `"right"`, `"center"` (side of `at` where the text goes, default `center`) | text annotation                                                                                                                                               |
+
+- **Paths**: absolute (`/coalescence/edge`), relative to the base's group (`../run/mean`, `sub/x`), or a bare name also searched in ancestor groups (CF-style, §1). For a hint on an `NXdata` group, relative to that group.
+- **`columns`**: `["alpha", "theta"]` names the base dimension (by dimension-scale name: dataset name or `NAME`) held by each column, and by each component of `at`. Default: column 0 = last HDF5 dimension (x), column 1 = second-to-last (y). Writers should always give `columns`. H5Web also accepts column indices, `[i, j]` (`[i, j, k]`: third column = height on 3D surfaces), e.g. to project 8D points. Overlays follow the axes when the user swaps them.
+- **Style**: `"color"` (CSS colour: lines, and points without `colorBy`), `"size"` (point radius, px), `"width"` (line width, px), `"dash"` (dashed lines), `"label"`, `"labelMode"` (`"legend"` default, or `"inline"`: label drawn next to the last point), `"colorBy"` (path to an `(N,)` dataset colouring the points with the base colour map and domain), `"z"` (3D: `"value"` = points at the height of their `colorBy` value, a path to an `(N,)` dataset, or `"surface"` - default - on the surface). H5Web also reads `"stroke"` (outline of points).
+- **Robustness**: overlays are drawn above the image - NaN pixels never hide them - and are not clipped at the edges of the domain. An overlay that can't be resolved (missing dataset, wrong shape, unreadable values) is skipped with a small note; it never breaks the base view.
+
+### Linking: shared dimension scales
+
+Datasets are **linked** - sliced and played together - when the **same HDF5 dimension scale** is attached to one of their dimensions (e.g. `generation` on the first dimension of the population, fitness, mean, covariance and step size of an optimizer; h5py: `make_scale`, `dims[0].attach_scale`):
+
+- if the base has a dimension with that scale (e.g. a landscape per generation `(G, ny, nx)`), its slider slices the overlays too, and playback prefetches their slices with the base's;
+- if it doesn't (e.g. a fixed landscape `f(x, y)`), H5Web adds a **linked slider** named after the scale below the dimension mapper, with the same playback controls. `"sliceBy": "<scale name or path>"` names the scale (else the scale on the first dimension of an overlay dataset that needs slicing is used).
+- `"trail": true` (curves): rows up to the current index only, e.g. the path of the mean so far.
+
+Overlay datasets with no linked dimension are drawn whole (static overlays). Only the current slice of each linked dataset is fetched; trails are fetched whole, once. A dataset with no dimension scale at all whose first dimension has the linked length is linked by that dimension (for providers that cannot read dimension scales).
+
+### Examples (h5py)
+
+```python
+import json
+
+# Field on [0, π]²: symlog, automatic diverging map, static overlays given as [alpha, theta]
+f["coalescence/electron_nucleus_1"] = [[0, 0], [0, np.pi]]
+f["coalescence/electron_electron"] = [[np.pi / 2, 0]]
+f["psi30"].attrs["H5WEB_view"] = json.dumps({
+    "version": 1,
+    "vis": "heatmap",
+    "scaleType": "symlog",
+    "colorMap": "auto",
+    "keepRatio": True,
+    "overlays": [
+        {"curve": "/coalescence/electron_nucleus_1", "columns": ["alpha", "theta"], "color": "#000", "label": "e–n"},
+        {"points": "/coalescence/electron_electron", "columns": ["alpha", "theta"], "color": "#000",
+         "size": 6, "label": "r₁₂ = 0", "labelMode": "inline"},
+        {"text": "θ = 0", "at": [0.4, 0], "anchor": "top", "columns": ["alpha", "theta"]},
+    ],
+})
+
+# Optimizer run on a landscape, linked by the `generation` scale
+gen = run.create_dataset("generation", data=np.arange(G))
+gen.make_scale("generation")
+for name in ("population", "fitness", "mean", "C", "sigma"):  # (G, λ, 2), (G, λ), (G, 2), (G, 2, 2), (G,)
+    run[name].dims[0].attach_scale(gen)
+run["f"].attrs["H5WEB_view"] = json.dumps({
+    "vis": "heatmap",
+    "sliceBy": "generation",  # f(x, y) has no generation dimension: linked slider
+    "overlays": [
+        {"points": "population", "colorBy": "fitness", "columns": ["x", "y"]},
+        {"ellipse": {"mean": "mean", "cov": "C", "scale": "sigma", "nsigma": [1, 2]}, "columns": ["x", "y"]},
+        {"curve": "mean", "trail": True, "columns": ["x", "y"], "label": "mean"},
+    ],
+})
+
+# Convergence curves: (G, n) with generation on dim 0, all n lines, log y
+conv["sqrt_eigenvalues"].attrs["H5WEB_view"] = json.dumps({"vis": "line", "yScaleType": "log", "xDim": 0, "multiDim": 1})
+```
+
+A complete example (CMA-ES on the Ackley function: 2D with overlays and playback, 8D convergence dashboard) is generated by `make_cmaes.py`.
 
 ## Not covered (yet)
 
