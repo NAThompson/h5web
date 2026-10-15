@@ -1,5 +1,4 @@
 import {
-  type ColorScaleType,
   type Domain,
   type NumArray,
   ScaleType,
@@ -15,7 +14,7 @@ import {
 import { BoxGeometry, EdgesGeometry } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
-import { type ClassStyleAttrs } from '../models';
+import { type ClassStyleAttrs, type VisScaleType } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
 import { getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
@@ -36,7 +35,7 @@ interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
   title?: ReactNode;
   domain: Domain;
-  scaleType?: ColorScaleType;
+  scaleType?: VisScaleType; // e.g. symlog with its constant
   colorMap?: ColorMap;
   invertColorMap?: boolean;
   mode?: VolumeRenderMode;

@@ -264,3 +264,27 @@ test('play the hinted dimension by default, past empty images', async () => {
     'title',
   );
 });
+
+function countColorBarPowers(): number {
+  return [...document.querySelectorAll('[class*="colorBar"] svg text')].filter(
+    (tick) => /1e-\d+$/u.test(tick.textContent), // e.g. `−1e-7`
+  ).length;
+}
+
+test('colour volumes on the scale of the hint', async () => {
+  const { selectExplorerNode } = await renderApp('/axis_hints/volume_log');
+  await page.viewport(2560, 1080); // whole volume toolbar
+
+  expect(getSelectedVisTab()).toBe(Vis.Volume);
+  await expect
+    .element(page.getByRole('combobox', { name: 'Log' }))
+    .toBeVisible();
+  await expect.poll(countColorBarPowers).toBeGreaterThanOrEqual(3);
+
+  // Symlog with `H5WEB_symlog_threshold`: powers of 10 down to the threshold
+  await selectExplorerNode('volume_symlog');
+  await expect
+    .element(page.getByRole('combobox', { name: 'SymLog' }))
+    .toBeVisible();
+  await expect.poll(countColorBarPowers).toBeGreaterThanOrEqual(4);
+});

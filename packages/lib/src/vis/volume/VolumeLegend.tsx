@@ -1,16 +1,13 @@
-import {
-  type ColorScaleType,
-  type Domain,
-  ScaleType,
-} from '@h5web/shared/vis-models';
+import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 
 import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
+import { type VisScaleType } from '../models';
 import styles from './VolumeVis.module.css';
 
 interface Props {
   domain: Domain;
-  scaleType: ColorScaleType;
+  scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
   showVolume: boolean;

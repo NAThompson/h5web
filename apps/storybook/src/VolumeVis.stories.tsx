@@ -8,7 +8,10 @@ import {
   type VolumeVisProps,
 } from '@h5web/lib';
 import { assertDefined } from '@h5web/shared/guards';
-import { COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
+import {
+  COLOR_SCALE_TYPES,
+  type ColorScaleType,
+} from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
 
 import preview from '../.storybook/preview';
@@ -47,8 +50,9 @@ function getVolume(name: VolumeName): NdArray<Float32Array> {
   return volume;
 }
 
-type Props = Omit<VolumeVisProps, 'dataArray' | 'domain'> & {
+type Props = Omit<VolumeVisProps, 'dataArray' | 'domain' | 'scaleType'> & {
   volume?: VolumeName;
+  scaleType?: ColorScaleType;
 };
 
 function VolumeStory(props: Props) {

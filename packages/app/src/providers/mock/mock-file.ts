@@ -57,9 +57,16 @@ function floatAttr(name: string, ...values: number[]) {
 // Axis values of `axis_hints`: log-spaced ρ from 1e-3 to 1e2, χ from -1000 to 1000
 const RHO = Array.from({ length: 12 }, (_, i) => 10 ** (-3 + (5 * i) / 11));
 const CHI = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
-function range60(length = 60) {
+function indices(length = 60) {
   return Array.from({ length }, (_, i) => i);
 }
+
+// 1 at the centre of a 12³ volume down to 1e-12 in its corners
+const DECADES = indices(12 ** 3).map((i) => {
+  const [z, y, x] = [Math.floor(i / 144), Math.floor(i / 12) % 12, i % 12];
+  const r2 = (x - 5.5) ** 2 + (y - 5.5) ** 2 + (z - 5.5) ** 2;
+  return 10 ** ((-12 * r2) / (3 * 5.5 ** 2));
+});
 
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
@@ -832,7 +839,7 @@ export function makeMockFile(): GroupWithChildren {
           { scales: [['/axis_hints/rho']] },
         ),
         // Non-positive values can't be on a log axis; invalid value
-        dataset('zero_based', arrayShape([12]), floatType(), range60(12), {
+        dataset('zero_based', arrayShape([12]), floatType(), indices(12), {
           attributes: [scalarAttr('H5WEB_axis_scale', 'log')],
         }),
         dataset('bad_scale', arrayShape([9]), floatType(), CHI, {
@@ -864,7 +871,7 @@ export function makeMockFile(): GroupWithChildren {
           ],
         }),
         withDimScales(
-          dataset('packages', arrayShape([4, 3, 5]), floatType(), range60()),
+          dataset('packages', arrayShape([4, 3, 5]), floatType(), indices()),
           { scales: [['/axis_hints/package_index'], [], []] },
         ),
         dataset(
@@ -880,7 +887,7 @@ export function makeMockFile(): GroupWithChildren {
           },
         ),
         withDimScales(
-          dataset('blend', arrayShape([3, 5]), floatType(), range60(15), {
+          dataset('blend', arrayShape([3, 5]), floatType(), indices(15), {
             attributes: [
               scalarAttr('H5WEB_vis', 'line'),
               intAttr('H5WEB_multi_dim', 0),
@@ -889,10 +896,10 @@ export function makeMockFile(): GroupWithChildren {
           { scales: [['/axis_hints/blend_angle'], []] },
         ),
         // On the dataset: labels the only dimension of their length
-        dataset('own_labels', arrayShape([4, 3, 5]), floatType(), range60(), {
+        dataset('own_labels', arrayShape([4, 3, 5]), floatType(), indices(), {
           attributes: [scalarAttr('H5WEB_slice_labels', 'package_label')],
         }),
-        dataset('bad_labels', arrayShape([4, 3, 5]), floatType(), range60(), {
+        dataset('bad_labels', arrayShape([4, 3, 5]), floatType(), indices(), {
           attributes: [scalarAttr('H5WEB_slice_labels', 'rho')],
         }),
         // `H5WEB_playback_dim` (path of its scale): empty images skipped along it on load
@@ -907,7 +914,7 @@ export function makeMockFile(): GroupWithChildren {
             'playback_dim',
             arrayShape([3, 4, 2, 3]),
             floatType(),
-            range60(72).map((i) => (i % 24 < 12 ? Number.NaN : i)), // step < 2
+            indices(72).map((i) => (i % 24 < 12 ? Number.NaN : i)), // step < 2
             {
               attributes: [
                 intAttr('H5WEB_playback_skip_empty', 1),
@@ -916,6 +923,26 @@ export function makeMockFile(): GroupWithChildren {
             },
           ),
           { scales: [[], ['/axis_hints/step'], [], []] },
+        ),
+        // `H5WEB_scale` of volumes: density over 12 decades; signed, symlog with its threshold
+        dataset('volume_log', arrayShape([12, 12, 12]), floatType(), DECADES, {
+          attributes: [
+            scalarAttr('H5WEB_vis', 'volume'),
+            scalarAttr('H5WEB_scale', 'log'),
+          ],
+        }),
+        dataset(
+          'volume_symlog',
+          arrayShape([12, 12, 12]),
+          floatType(),
+          DECADES.map((val, i) => (i < 6 * 144 ? -val : val)), // negative below z = 6
+          {
+            attributes: [
+              scalarAttr('H5WEB_vis', 'volume'),
+              scalarAttr('H5WEB_scale', 'symlog'),
+              floatAttr('H5WEB_symlog_threshold', 1e-9),
+            ],
+          },
         ),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
