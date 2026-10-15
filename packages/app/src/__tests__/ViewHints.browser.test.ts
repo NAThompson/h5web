@@ -339,3 +339,16 @@ test('draw static overlays on every slice, never offering netCDF-4 phony dimensi
   expect(getPointsCx()).toEqual(before);
   expect(getNotes()).not.toBeInTheDocument();
 });
+
+test('give constant data a finite colour domain', async () => {
+  await renderApp('/view_hints/constant');
+
+  // One decade around the value (symlog), not `−∞`/`+∞`
+  await expect.element(page.getByLabelText('Min: 3.162e-1')).toBeVisible();
+  expect(page.getByLabelText('Max: 3.162e+0')).toBeVisible();
+  const ticks = [
+    ...document.querySelectorAll('[class*="colorBar"] svg text'),
+  ].map((tick) => tick.textContent);
+  expect(ticks.length).toBeGreaterThan(0);
+  expect(ticks.join(' ')).not.toMatch(/∞|NaN/u);
+});

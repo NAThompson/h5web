@@ -403,6 +403,17 @@ describe('colour map and domain', () => {
     ).toEqual([-1, null]);
   });
 
+  it('fall back to ±1 around `center` for symmetric domains of data all at `center`', () => {
+    expect(
+      getColorSuggestions(hint({ H5WEB_symmetric: { int: 1 } }), [0, 0])
+        .customDomain,
+    ).toEqual([-1, 1]);
+    expect(
+      getColorSuggestions(hint({ H5WEB_symmetric: { int: 1 } }), [2, 2])
+        .customDomain,
+    ).toEqual([-2, 2]); // center ± |v − center|
+  });
+
   it('centre symmetric domains on `center`', () => {
     const parsed = hint({ H5WEB_symmetric: { int: 1 }, H5WEB_center: 1 });
     expect(getColorSuggestions(parsed, [0, 4])).toEqual({

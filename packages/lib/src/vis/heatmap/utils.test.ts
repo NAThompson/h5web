@@ -18,6 +18,44 @@ const black = 'rgb(0, 0, 0)';
 const gradientRegex = /^linear-gradient\(to top, (.+)\)$/;
 
 describe('getSafeDomain', () => {
+  it('should widen the flat domain of constant data', () => {
+    const [linear] = getSafeDomain([2, 2], [2, 2], ScaleType.Linear);
+    expect(linear[0]).toBeCloseTo(1.9);
+    expect(linear[1]).toBeCloseTo(2.1);
+
+    for (const scaleType of [ScaleType.Log, ScaleType.SymLog]) {
+      const [[min, max]] = getSafeDomain([1, 1], [1, 1], scaleType);
+      expect(min).toBeCloseTo(1 / Math.sqrt(10)); // one decade around the value
+      expect(max).toBeCloseTo(Math.sqrt(10));
+    }
+
+    const [negative] = getSafeDomain([-1, -1], [-1, -1], ScaleType.SymLog);
+    expect(negative[0]).toBeCloseTo(-Math.sqrt(10));
+    expect(negative[1]).toBeCloseTo(-1 / Math.sqrt(10));
+
+    expect(getSafeDomain([0, 0], [0, 0], ScaleType.Linear)[0]).toEqual([-1, 1]);
+    expect(getSafeDomain([0, 0], [0, 0], ScaleType.SymLog)[0]).toEqual([-1, 1]);
+    expect(getSafeDomain([0, 0], [0, 0], ScaleType.Sqrt)[0]).toEqual([0, 1]);
+  });
+
+  it('should keep the widened domain of extreme constant values finite', () => {
+    const [huge] = getSafeDomain([1e308, 1e308], [1e308, 1e308], ScaleType.Log);
+    expect(huge[0]).toBeLessThan(1e308);
+    expect(huge[1]).toBe(1e308);
+    const max = Number.MAX_VALUE;
+    expect(getSafeDomain([max, max], [max, max], ScaleType.Linear)[0][1]).toBe(
+      max,
+    );
+    const tiny = Number.MIN_VALUE;
+    expect(getSafeDomain([tiny, tiny], [tiny, tiny], ScaleType.Log)[0][0]).toBe(
+      tiny,
+    );
+  });
+
+  it('should keep a custom flat domain on varying data', () => {
+    expect(getSafeDomain([4, 4], [1, 9], ScaleType.Linear)[0]).toEqual([4, 4]);
+  });
+
   it('should return given domain if safe in given scale', () => {
     const [domain, errors] = getSafeDomain([-10, 5], [1, 2], ScaleType.Linear);
     expect(domain).toEqual([-10, 5]);

@@ -974,6 +974,14 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_keep_ratio', 'yes'),
           ],
         }),
+        // Constant slice (e.g. ψ₀₀ ≡ 1 in a stack): finite colour domain all the same
+        array('constant', {
+          valueId: 'constant_twoD',
+          attributes: [
+            scalarAttr('H5WEB_scale', 'symlog'),
+            scalarAttr('H5WEB_colormap', 'auto'),
+          ],
+        }),
         array('surface', {
           valueId: 'twoD',
           attributes: [

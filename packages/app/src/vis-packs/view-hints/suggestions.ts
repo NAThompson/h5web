@@ -75,7 +75,7 @@ export function getColorSuggestions(
     customDomain: Array.isArray(domain)
       ? domain
       : isSymmetric && halfWidth !== undefined && Number.isFinite(halfWidth)
-        ? [center - halfWidth, center + halfWidth]
+        ? [center - (halfWidth || 1), center + (halfWidth || 1)] // ±1 if data are all `center`
         : undefined,
   };
 }
