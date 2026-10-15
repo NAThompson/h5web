@@ -19,7 +19,7 @@ import styles from './SlicingSlider.module.css';
 
 const ID = 'h5w-slider';
 const MIN_HEIGHT_PER_MARK = 25;
-const MAX_EMPTY_MARKS_LENGTH = 1000; // above, empty slices are not looked up for marks
+export const MAX_EMPTY_MARKS_LENGTH = 1000; // above, empty slices are not looked up for marks
 const SHORT_DELAY = 20;
 const LONG_DELAY = 250;
 const SLIDER_KEYS = new Set([
@@ -54,7 +54,7 @@ interface Props {
   isPlaying?: boolean;
   onPlayingChange?: (isPlaying: boolean) => void;
   isReady?: (value: number) => boolean;
-  emptySlices?: ReadonlySet<number>; // skipped by playback and steps; hollow marks on the track
+  emptySlices?: Pick<ReadonlySet<number>, 'has'>; // skipped by playback and steps; hollow marks
   onPrefetch?: (values: number[], current: number) => boolean;
   playbackSettings: PlaybackSettings;
   onPlaybackSettingsChange: (settings: PlaybackSettings) => void;

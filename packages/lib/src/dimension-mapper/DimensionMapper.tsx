@@ -5,7 +5,9 @@ import AxisMapper from './AxisMapper';
 import styles from './DimensionMapper.module.css';
 import InertBox from './InertBox';
 import { DEFAULT_PLAYBACK_SETTINGS, type PlaybackSettings } from './playback';
-import SlicingSlider from './SlicingSlider';
+import SlicingSlider, { MAX_EMPTY_MARKS_LENGTH } from './SlicingSlider';
+
+const MAX_EMPTY_LOOKUPS = MAX_EMPTY_MARKS_LENGTH; // slices of a dimension all looked up at once
 
 interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   dims: number[];
@@ -90,22 +92,29 @@ function DimensionMapper(props: Props) {
     onPlaybackSettingsChange?.(settings);
   }
 
-  // Empty slices of each sliced dimension (the other dimensions at their current index)
+  /* Empty slices of each sliced dimension (the other dimensions at their current index): looked
+   * up once for short dimensions (e.g. to mark them all), lazily for long ones */
   const emptySlices = useMemo(
     () =>
       isSliceEmpty &&
-      dimMapping.map((val, dim) => {
-        if (typeof val !== 'number') {
-          return undefined;
-        }
-        const mapping = [...dimMapping];
-        return new Set(
-          Array.from({ length: dims[dim] }, (_, i) => i).filter((i) => {
-            mapping[dim] = i;
-            return isSliceEmpty(mapping);
-          }),
-        );
-      }),
+      dimMapping.map(
+        (val, dim): Pick<ReadonlySet<number>, 'has'> | undefined => {
+          if (typeof val !== 'number') {
+            return undefined;
+          }
+          function withIndex(i: number): DimensionMapping {
+            return dimMapping.map((v, d) => (d === dim ? i : v));
+          }
+          if (dims[dim] > MAX_EMPTY_LOOKUPS) {
+            return { has: (i) => isSliceEmpty(withIndex(i)) };
+          }
+          return new Set(
+            Array.from({ length: dims[dim] }, (_, i) => i).filter((i) =>
+              isSliceEmpty(withIndex(i)),
+            ),
+          );
+        },
+      ),
     [isSliceEmpty, dimMapping, dims],
   );
 
