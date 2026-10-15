@@ -1,10 +1,11 @@
-import { DimensionMapper, getSliceSelection } from '@h5web/lib';
+import { DimensionMapper, type Domain, getSliceSelection } from '@h5web/lib';
 import {
   assertArrayShape,
   assertComplexType,
   assertDataset,
   assertMinDims,
 } from '@h5web/shared/guards';
+import { useState } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -38,13 +39,19 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
+  const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
   const config = useHeatmapConfig(
-    getHeatmapSuggestions(hint, entity.path, {
-      keepRatio: guessKeepRatio(
-        { unit: dimUnits[dimMapping.indexOf('x')] },
-        { unit: dimUnits[dimMapping.indexOf('y')] },
-      ),
-    }),
+    getHeatmapSuggestions(
+      hint,
+      entity.path,
+      {
+        keepRatio: guessKeepRatio(
+          { unit: dimUnits[dimMapping.indexOf('x')] },
+          { unit: dimUnits[dimMapping.indexOf('y')] },
+        ),
+      },
+      dataDomain,
+    ),
   );
   const selection = getSliceSelection(dimMapping);
 
@@ -85,6 +92,7 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
                   title={entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  onDataDomainChange={setDataDomain}
                 />
               )}
             />

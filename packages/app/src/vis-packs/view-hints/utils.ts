@@ -389,5 +389,7 @@ export function isSurfaceHint(hint: ViewHint): boolean | undefined {
   if (hint.vis === HintVis.Surface || hint.vis === HintVis.ComplexSurface) {
     return true;
   }
-  return hint.vis === HintVis.Heatmap ? false : undefined;
+  return hint.vis === HintVis.Heatmap || hint.vis === HintVis.ComplexHeatmap
+    ? false
+    : undefined;
 }

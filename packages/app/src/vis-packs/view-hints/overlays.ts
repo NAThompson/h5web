@@ -544,6 +544,11 @@ type ValueGetter = (
   input: OverlayInput,
 ) => number[] | undefined;
 
+/* Dimensions of an input once sliced at the linked index (or of a trail's rows) */
+function getSlicedDims({ dataset, linkedDim }: OverlayInput): number[] {
+  return getDims(dataset).filter((_, i) => i !== linkedDim);
+}
+
 /* Columns shown along the x and y axes (and z); `undefined` if an axis shows a dimension that
  * no column holds (e.g. linked dimension mapped to an axis) */
 function getColumns(
@@ -628,7 +633,7 @@ function buildPoints(
   }
 
   const [cx, cy, cz] = columns;
-  const cols = getDims(points.dataset).at(-1) ?? values.length; // single point: `(c,)`
+  const cols = getSlicedDims(points).at(-1) ?? values.length; // single point: `(c,)`
   if (Math.max(cx, cy, cz ?? 0) >= cols) {
     return undefined;
   }
@@ -704,7 +709,7 @@ function buildCurve(
   }
 
   const [cx, cy] = columns;
-  const cols = getDims(curve.dataset).at(-1) ?? values.length;
+  const cols = getSlicedDims(curve).at(-1) ?? values.length;
   if (Math.max(cx, cy) >= cols) {
     return undefined;
   }

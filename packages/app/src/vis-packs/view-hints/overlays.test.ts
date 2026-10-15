@@ -437,6 +437,17 @@ describe('shapes', () => {
     expect(shapes.lines[0]).toMatchObject({ stroke: '#000', dash: true });
   });
 
+  it('count columns once sliced, when the linked dimension is last', () => {
+    const pts = { dataset: arr('pts', [3, 2, 10]), linkedDim: 2 }; // (N, d, G)
+    const shapes = buildOverlayShapes(
+      [overlay({ points: 'pts' }, { points: pts })],
+      () => [1, 2, 3, 4, 5, 6], // slice (3, 2)
+      4,
+      AXES,
+    );
+    expect(shapes.points[0]).toMatchObject({ x: [1, 3, 5], y: [2, 4, 6] });
+  });
+
   it('skip overlays whose values are not available yet', () => {
     const shapes = buildOverlayShapes(
       [overlay({ curve: 'mean', trail: true }, { curve: mean })],
