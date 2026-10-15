@@ -20,6 +20,7 @@ import {
   getGlslPixels,
   getShaderScale,
   GLSL_IS_SUPPORTED,
+  GLSL_LOG1P,
   GLSL_SCALE,
   scaleDomain,
 } from './utils';
@@ -171,6 +172,8 @@ function HeatmapMaterial(props: Props) {
       bool isSupported(float value) {
         return ${GLSL_IS_SUPPORTED[scaleType] || 'true'};
       }
+
+      ${GLSL_LOG1P}
 
       float scale(float value) {
         return ${GLSL_SCALE[scaleType] || 'value'};

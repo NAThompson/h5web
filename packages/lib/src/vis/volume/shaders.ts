@@ -1,6 +1,6 @@
 import { type ScaleType } from '@h5web/shared/vis-models';
 
-import { GLSL_IS_SUPPORTED, GLSL_SCALE } from '../heatmap/utils';
+import { GLSL_IS_SUPPORTED, GLSL_LOG1P, GLSL_SCALE } from '../heatmap/utils';
 import { VolumeRenderMode } from './models';
 
 export const VOLUME_VERTEX_SHADER = /* glsl */ `
@@ -67,6 +67,8 @@ export function getVolumeFragmentShader(
     bool isSupported(float value) {
       return ${GLSL_IS_SUPPORTED[scaleType] || 'true'};
     }
+
+    ${GLSL_LOG1P}
 
     float scale(float value) {
       return ${GLSL_SCALE[scaleType] || 'value'};

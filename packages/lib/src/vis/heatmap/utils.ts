@@ -55,7 +55,7 @@ const SCALE_FNS: Record<ScaleType, (val: number, constant: number) => number> =
     [ScaleType.Linear]: (val) => val,
     [ScaleType.Log]: Math.log10,
     [ScaleType.SymLog]: (val, constant) =>
-      Math.sign(val) * Math.log10(1 + Math.abs(val) / constant),
+      Math.sign(val) * Math.log1p(Math.abs(val) / constant) * Math.LOG10E,
     [ScaleType.Sqrt]: Math.sqrt,
     [ScaleType.Gamma]: (val) => val,
   };
@@ -66,9 +66,13 @@ const CMAP_SIZE = 256;
 export const GLSL_SCALE: Partial<Record<ScaleType, string>> = {
   [ScaleType.Log]: 'log(value) * oneOverLog10',
   [ScaleType.SymLog]:
-    'sign(value) * log(1. + abs(value) / symlogConstant) * oneOverLog10', // `uniform float symlogConstant`
+    'sign(value) * log1p(abs(value) / symlogConstant) * oneOverLog10', // `uniform float symlogConstant`, `GLSL_LOG1P`
   [ScaleType.Sqrt]: 'sqrt(value)',
 };
+
+// `log(1. + x)` is 0 in float32 for x below ~1e-7 (and imprecise up to ~1e-2): series there
+export const GLSL_LOG1P =
+  'float log1p(float x) { return x < 1e-2 ? x * (1. - x * (.5 - x * (1. / 3. - x * .25))) : log(1. + x); }';
 
 export const GLSL_IS_SUPPORTED: Partial<Record<ScaleType, string>> = {
   [ScaleType.Log]: 'value > 0.',
