@@ -11,6 +11,7 @@ import {
   type ProvidedEntity,
   type ScalarShape,
 } from '@h5web/shared/hdf5-models';
+import { type NumArray } from '@h5web/shared/vis-models';
 
 import { type ValueQueryParams } from '../../providers/models';
 import {
@@ -788,4 +789,66 @@ export function buildOverlayShapes(
   }
 
   return shapes;
+}
+
+/**
+ * Position at which a heatmap draws a sample of an axis: a heatmap draws each of N axis values as
+ * the start of its pixel, so a sample at value `v` sits at the centre of its pixel, half a pixel
+ * further; with N + 1 values (bin edges) or no values (indices), see below. Overlay coordinates
+ * are sample positions, so they are drawn where the samples are (as on 3D surfaces, whose
+ * vertices are the samples).
+ */
+export function getPixelCentreShift(
+  axisValues: NumArray | undefined,
+  pixelCount: number,
+): (value: number) => number {
+  if (!axisValues) {
+    return (value) => value + 0.5; // pixel i spans [i, i + 1]
+  }
+  if (axisValues.length > pixelCount || pixelCount < 2) {
+    return (value) => value; // bin edges: coordinates are used as is
+  }
+
+  const values = [...axisValues].slice(0, pixelCount);
+  const isAscending = values[pixelCount - 1] >= values[0];
+  return (value) => {
+    // Pixel whose start is the last axis value before `value` (first or last one outside)
+    let lo = 0;
+    let hi = pixelCount - 1;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (values[mid] <= value === isAscending) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    const i = values[hi] <= value === isAscending ? hi : lo;
+    const width =
+      i < pixelCount - 1
+        ? values[i + 1] - values[i]
+        : values[i] - values[i - 1];
+    return value + width / 2;
+  };
+}
+
+/* Shapes moved to where a heatmap draws the samples of its axes (cf. `getPixelCentreShift`) */
+export function toPixelCentres(
+  shapes: OverlayShapes,
+  shiftX: (x: number) => number,
+  shiftY: (y: number) => number,
+): OverlayShapes {
+  return {
+    points: shapes.points.map((p) => ({
+      ...p,
+      x: p.x.map(shiftX),
+      y: p.y.map(shiftY),
+    })),
+    lines: shapes.lines.map((l) => ({
+      ...l,
+      x: l.x.map(shiftX),
+      y: l.y.map(shiftY),
+    })),
+    texts: shapes.texts.map((t) => ({ ...t, x: shiftX(t.x), y: shiftY(t.y) })),
+  };
 }

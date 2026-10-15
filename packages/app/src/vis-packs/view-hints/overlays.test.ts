@@ -25,6 +25,7 @@ import {
   getIndexFromSelection,
   getLinkedSelection,
   getOverlayRequests,
+  getPixelCentreShift,
   type OverlayInput,
   type ResolvedOverlay,
   resolveOverlays,
@@ -311,6 +312,22 @@ function overlay(
     columnOf,
   };
 }
+
+describe('getPixelCentreShift', () => {
+  it('shift by half a pixel when an axis has one value per pixel', () => {
+    const shift = getPixelCentreShift([0, 1, 2, 4], 4);
+    expect(shift(0)).toBe(0.5);
+    expect(shift(2)).toBe(3); // pixel [2, 4]
+    expect(shift(4)).toBe(5); // last pixel: width of the previous one
+    expect(shift(-1)).toBe(-0.5); // before the first value
+    expect(getPixelCentreShift([3, 2, 1], 3)(2)).toBe(1.5); // descending
+  });
+
+  it('leave bin edges as is and shift indices by half a pixel', () => {
+    expect(getPixelCentreShift([0, 1, 2], 2)(1)).toBe(1);
+    expect(getPixelCentreShift(undefined, 3)(1)).toBe(1.5);
+  });
+});
 
 describe('shapes', () => {
   it('compute ellipse of a 2D Gaussian along its principal axes', () => {

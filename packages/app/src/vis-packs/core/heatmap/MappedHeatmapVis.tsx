@@ -244,6 +244,9 @@ function MappedHeatmapVis(props: Props) {
           {overlays && (
             <OverlayLayer2D
               shapes={overlays}
+              abscissas={abscissaParams.value}
+              ordinates={ordinateParams.value}
+              shape={dataArray.shape}
               colorParams={{
                 domain: safeDomain,
                 scaleType,

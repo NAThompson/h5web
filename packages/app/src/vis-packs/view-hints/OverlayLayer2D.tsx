@@ -9,12 +9,17 @@ import {
   INTERPOLATORS,
   ScatterPoints,
 } from '@h5web/lib';
+import { type NumArray } from '@h5web/shared/vis-models';
 import { type SVGProps, useMemo } from 'react';
 import { Color, Vector3 } from 'three';
 
 import { type ColorMap } from '../core/heatmap/models';
 import { type TextAnchor } from './models';
-import { type OverlayShapes } from './overlays';
+import {
+  getPixelCentreShift,
+  type OverlayShapes,
+  toPixelCentres,
+} from './overlays';
 import styles from './ViewHints.module.css';
 
 interface ColorParams {
@@ -93,11 +98,32 @@ function getHaloColor(color: string): string {
 interface Props {
   shapes: OverlayShapes;
   colorParams: ColorParams;
+  // Axis values and number of pixels of the heatmap, to draw coordinates where samples are
+  abscissas: NumArray | undefined;
+  ordinates: NumArray | undefined;
+  shape: number[]; // rows, cols
 }
 
 /* Overlays on a heatmap, drawn in SVG in the heatmap's data coordinates */
 function OverlayLayer2D(props: Props) {
-  const { shapes: allShapes, colorParams } = props;
+  const {
+    shapes: dataShapes,
+    colorParams,
+    abscissas,
+    ordinates,
+    shape,
+  } = props;
+  const [rows, cols] = shape;
+
+  const allShapes = useMemo(
+    () =>
+      toPixelCentres(
+        dataShapes,
+        getPixelCentreShift(abscissas, cols),
+        getPixelCentreShift(ordinates, rows),
+      ),
+    [dataShapes, abscissas, ordinates, rows, cols],
+  );
 
   // Large point sets as GL points: SVG elements are re-rendered on every pan and zoom
   const [shapes, glPoints] = useMemo(
