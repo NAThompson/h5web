@@ -1156,6 +1156,14 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/hyperangle']] },
         ),
+        // CF labels without any `H5WEB_*` attribute
+        array('cf_plain', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr('long_name', 'E_{k}'),
+            scalarAttr('units', 'hartree'),
+          ],
+        }),
         // Overlay whose columns don't name the dimension on the y axis
         array('stack_point', {
           valueId: 'psi_point',

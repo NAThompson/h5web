@@ -53,7 +53,7 @@ export async function getViewHint(
     signal && signal !== entity ? [signal, entity] : [entity]
   ).filter(hasViewAttrs);
   if (sources.length === 0) {
-    return EMPTY_HINT;
+    return getCfHint(isDataset(entity) ? entity : signal, dataContext);
   }
 
   let sourceValues: AttributeValues[];
@@ -127,6 +127,36 @@ export async function getViewHint(
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
     contourOfAnchor: getAnchor('H5WEB_contour_of'),
   };
+}
+
+const CF_LABEL_ATTRS = new Set(['units', 'long_name']);
+
+/* Hint of a dataset without `H5WEB_*` attributes: only the value label from its CF `units` and
+ * `long_name` (not a title from `long_name`, which would override e.g. NeXus titles); none if
+ * they can't be read (transport errors are thrown) */
+async function getCfHint(
+  dataset: ProvidedEntity | undefined,
+  dataContext: DataContextValue,
+): Promise<ViewHint> {
+  if (
+    !dataset ||
+    !isDataset(dataset) ||
+    !dataset.attributes.some(({ name }) => CF_LABEL_ATTRS.has(name))
+  ) {
+    return EMPTY_HINT;
+  }
+  try {
+    const values = await dataContext.queryClient.query(
+      dataContext.queries.attrValues(dataset),
+    );
+    const valueLabel = getValueLabel(values, undefined);
+    return valueLabel ? { ...EMPTY_HINT, valueLabel } : EMPTY_HINT;
+  } catch (error) {
+    if (isTransportError(error)) {
+      throw error;
+    }
+    return EMPTY_HINT;
+  }
 }
 
 /* Label of the values (colour bar, value axis) from CF `units` and `long_name`; the long name is

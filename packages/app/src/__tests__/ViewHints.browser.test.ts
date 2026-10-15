@@ -537,6 +537,13 @@ test('label figures, colour bars and axes from CF `long_name` and `units`', asyn
     .toBeVisible();
   const ordinate = await getAxis('ordinate');
   expect(ordinate.getByText('norm (bohr)')).toBeVisible();
+
+  // CF attributes alone: colour bar labelled, title left to the dataset name
+  await selectExplorerNode('cf_plain');
+  await expect
+    .element(page.getByRole('figure', { name: 'cf_plain' }))
+    .toBeVisible();
+  expect(page.getByText('Eₖ (hartree)', { exact: true })).toBeVisible();
 });
 
 test('note overlays not drawn when an axis is not named by their columns', async () => {
