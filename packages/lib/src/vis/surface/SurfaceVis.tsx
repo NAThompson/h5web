@@ -30,6 +30,18 @@ import {
   sampleArray,
 } from './utils';
 
+/* World coordinate within [-half, half], or up to `margin` outside it moved onto the edge */
+function clampToEdge(
+  coord: number,
+  half: number,
+  margin: number,
+): number | undefined {
+  if (!(Math.abs(coord) <= half + margin)) {
+    return undefined; // also `NaN`
+  }
+  return Math.min(Math.max(coord, -half), half);
+}
+
 const OVERLAY_LIFT = 0.002; // lift children drawn on the surface (with the mesh's polygon offset)
 
 interface Props extends ClassStyleAttrs {
@@ -223,11 +235,19 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
 
     return {
       dataToWorld: (x, y, value) => {
-        const wx = xScale(x);
-        const wy = yScale(y);
-        const isInBox =
-          Math.abs(wx) <= w / 2 + 1e-9 && Math.abs(wy) <= h / 2 + 1e-9; // `NaN` fails
-        if (!isInBox) {
+        /* Points up to one cell outside the footprint are moved onto its edge: e.g. lines on
+         * the edges of a domain whose samples stop just short of them (`[0.001, π - 0.001]`) */
+        const wx = clampToEdge(
+          xScale(x),
+          w / 2,
+          w / Math.max(colIndices.length - 1, 1),
+        );
+        const wy = clampToEdge(
+          yScale(y),
+          h / 2,
+          h / Math.max(rowIndices.length - 1, 1),
+        );
+        if (wx === undefined || wy === undefined) {
           return undefined;
         }
 
