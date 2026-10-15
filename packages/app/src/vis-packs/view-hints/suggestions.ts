@@ -3,10 +3,11 @@ import {
   type AxisScaleType,
   type ComplexHeatmapVisType,
   ComplexVisType,
+  type Domain,
 } from '@h5web/shared/vis-models';
 
 import { type HeatmapSuggestions } from '../core/heatmap/config';
-import { ContourMode } from '../core/heatmap/models';
+import { ContourColorMode, ContourMode } from '../core/heatmap/models';
 import { type VolumeConfig } from '../core/volume/config';
 import { type DefaultSlice } from '../nexus/models';
 import { HintVis, type ViewHint } from './models';
@@ -39,20 +40,59 @@ function getContourSuggestions(
   };
 }
 
+export const AUTO_COLOR_MAPS = {
+  diverging: 'RdBu',
+  sequential: 'Viridis',
+} as const;
+
+/* Colour map and domain, which may depend on the data: `"colorMap": "auto"` is a diverging map
+ * centred on `center` (with a symmetric domain, unless one is given) if the data changes sign
+ * around it, a sequential map otherwise; `"domain": "symmetric"` is ±max |v − center| */
+export function getColorSuggestions(
+  hint: ViewHint,
+  dataDomain: Domain | undefined,
+): Pick<HeatmapSuggestions, 'colorMap' | 'customDomain'> {
+  const { colorMap, domain, center = 0 } = hint;
+  const isAuto = colorMap === 'auto';
+  const crosses =
+    !!dataDomain && dataDomain[0] < center && dataDomain[1] > center;
+
+  const isSymmetric =
+    domain === 'symmetric' || (isAuto && crosses && domain === undefined);
+  const halfWidth =
+    dataDomain &&
+    Math.max(
+      Math.abs(dataDomain[0] - center),
+      Math.abs(dataDomain[1] - center),
+    );
+
+  return {
+    colorMap: isAuto
+      ? dataDomain &&
+        (crosses ? AUTO_COLOR_MAPS.diverging : AUTO_COLOR_MAPS.sequential)
+      : colorMap,
+    customDomain: Array.isArray(domain)
+      ? domain
+      : isSymmetric && halfWidth !== undefined && Number.isFinite(halfWidth)
+        ? [center - halfWidth, center + halfWidth]
+        : undefined,
+  };
+}
+
 /* Heatmap settings suggested by a hint (precedence over NeXus and heuristics: `fallbacks`) */
 export function getHeatmapSuggestions(
   hint: ViewHint,
   path: string,
   fallbacks: HeatmapSuggestions = {},
+  dataDomain?: Domain, // for `"colorMap": "auto"` and `"domain": "symmetric"`
 ): HeatmapSuggestions {
   const isComplexSurface = hint.vis === HintVis.ComplexSurface;
   return {
     ...fallbacks,
     scaleType: hint.scaleType ?? hint.height ?? fallbacks.scaleType,
     keepRatio: hint.keepRatio ?? fallbacks.keepRatio,
-    colorMap: hint.colorMap,
+    ...getColorSuggestions(hint, dataDomain),
     invertColorMap: hint.invertColorMap,
-    customDomain: hint.domain,
     surface: isSurfaceHint(hint),
     heightScale: hint.heightScale,
     // Complex values: what 2D shows, what 3D shows and the scale of the height of 3D surfaces
@@ -63,6 +103,9 @@ export function getHeatmapSuggestions(
     surfaceScaleType:
       hint.height ?? (isComplexSurface ? hint.scaleType : undefined),
     ...getContourSuggestions(hint.contours, path),
+    contourLabels: hint.contourLabels,
+    contourColor: hint.contourColor,
+    contourColorMode: hint.contourColor ? ContourColorMode.Single : undefined,
   };
 }
 
@@ -86,9 +129,9 @@ export function getVolumeSuggestions(
   return {
     ...fallbacks,
     scaleType: hint.scaleType ?? fallbacks.scaleType,
-    colorMap: hint.colorMap,
+    colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
-    customDomain: hint.domain,
+    customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
   };
 }
 

@@ -99,7 +99,7 @@ describe('resolveOverlays', () => {
     const { base, ctx, hint } = setup({
       sliceBy: 'generation',
       overlays: [
-        { points: 'population', color: 'fitness' },
+        { points: 'population', colorBy: 'fitness' },
         { ellipse: { mean: 'mean', cov: 'C', scale: 'sigma' } },
         { curve: 'mean', trail: true },
       ],
@@ -116,7 +116,7 @@ describe('resolveOverlays', () => {
 
     const [points, ellipse, curve] = resolved.overlays;
     expect(points.inputs.points?.linkedDim).toBe(0);
-    expect(points.inputs.color?.linkedDim).toBe(0);
+    expect(points.inputs.colorBy?.linkedDim).toBe(0);
     expect(ellipse.inputs.scale?.linkedDim).toBe(0);
     expect(curve.inputs.curve?.linkedDim).toBe(0);
   });
@@ -161,7 +161,7 @@ describe('resolveOverlays', () => {
         { points: 'missing' },
         { points: 'labels' },
         { points: 'sigma' }, // 1D
-        { points: 'population', color: 'nope' },
+        { points: 'population', colorBy: 'nope' },
         { curve: 'static_points', trail: true }, // nothing to trail along
         { ellipse: { mean: 'mean', cov: 'C' } },
       ],
@@ -249,7 +249,7 @@ describe('linked slicing', () => {
   it('fetch slices at the linked index and trails whole', async () => {
     const { base, ctx, hint } = setup({
       overlays: [
-        { points: 'population', color: 'fitness' },
+        { points: 'population', colorBy: 'fitness' },
         { curve: 'mean', trail: true },
         { points: 'static_points' },
       ],
@@ -329,7 +329,15 @@ describe('shapes', () => {
       AXES,
     );
     expect(shapes.lines).toEqual([
-      { x: [0, 1, 2, 3], y: [0, 10, 20, 30], stroke: 'white', head: true },
+      {
+        x: [0, 1, 2, 3],
+        y: [0, 10, 20, 30],
+        stroke: 'white',
+        width: 1.5,
+        dash: false,
+        label: undefined,
+        head: true,
+      },
     ]);
   });
 
@@ -345,9 +353,9 @@ describe('shapes', () => {
 
   it('draw points coloured by values, with z from a third column', () => {
     const pts = { dataset: arr('pts', [2, 3]) };
-    const color = { dataset: arr('c', [2]) };
+    const colorBy = { dataset: arr('c', [2]) };
     const shapes = buildOverlayShapes(
-      [overlay({ points: 'pts', color: 'c' }, { points: pts, color })],
+      [overlay({ points: 'pts', colorBy: 'c' }, { points: pts, colorBy })],
       (_, input) => (input === pts ? [1, 2, 3, 4, 5, 6] : [7, 8]),
       undefined,
       AXES,
@@ -402,6 +410,33 @@ describe('shapes', () => {
     expect(single.points[0]).toMatchObject({ x: [1], y: [2] });
   });
 
+  it('place texts and inline labels, in axis values', () => {
+    const edge = { dataset: arr('edge', [2, 2]) };
+    const shapes = buildOverlayShapes(
+      [
+        overlay({ text: 'r₁₂ = 0', at: [1.5, 0], anchor: 'top' }, {}),
+        overlay(
+          {
+            curve: 'edge',
+            label: 'e–n',
+            labelMode: 'inline',
+            color: '#000',
+            dash: true,
+          },
+          { curve: edge },
+        ),
+      ],
+      () => [0, 0, 0, 3],
+      undefined,
+      AXES,
+    );
+    expect(shapes.texts).toEqual([
+      { x: 1.5, y: 0, text: 'r₁₂ = 0', anchor: 'top', color: 'white' },
+      { x: 0, y: 3, text: 'e–n', anchor: 'right', color: '#000' },
+    ]);
+    expect(shapes.lines[0]).toMatchObject({ stroke: '#000', dash: true });
+  });
+
   it('skip overlays whose values are not available yet', () => {
     const shapes = buildOverlayShapes(
       [overlay({ curve: 'mean', trail: true }, { curve: mean })],
@@ -409,6 +444,6 @@ describe('shapes', () => {
       3,
       AXES,
     );
-    expect(shapes).toEqual({ points: [], lines: [] });
+    expect(shapes).toEqual({ points: [], lines: [], texts: [] });
   });
 });

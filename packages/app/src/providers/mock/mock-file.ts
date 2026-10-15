@@ -803,7 +803,7 @@ export function makeMockFile(): GroupWithChildren {
                 colorMap: 'Inferno',
                 sliceBy: 'generation', // no generation dimension: extra slider
                 overlays: [
-                  { points: 'population', color: 'fitness' },
+                  { points: 'population', colorBy: 'fitness' },
                   {
                     ellipse: { mean: 'mean', cov: 'C', scale: 'sigma' },
                     nsigma: [1, 2],
@@ -854,12 +854,31 @@ export function makeMockFile(): GroupWithChildren {
               scalarAttr(
                 'H5WEB_view',
                 JSON.stringify({
+                  version: 1,
                   vis: 'heatmap',
                   scaleType: 'symlog',
+                  colorMap: 'auto', // data changes sign: diverging, symmetric
+                  title: 'ψ(α, θ)',
                   overlays: [
-                    { curve: 'edge_0' },
-                    { curve: 'edge_pi' },
-                    { points: 'point' },
+                    {
+                      curve: 'edge_0',
+                      columns: ['alpha', 'theta'],
+                      color: '#000',
+                      label: 'e–n',
+                    },
+                    {
+                      curve: 'edge_pi',
+                      columns: ['alpha', 'theta'],
+                      color: '#000',
+                      dash: true,
+                    },
+                    {
+                      points: 'point',
+                      columns: ['alpha', 'theta'],
+                      label: 'e–e',
+                      labelMode: 'inline',
+                    },
+                    { text: 'θ = 0', at: [Math.PI / 4, 0], anchor: 'top' },
                   ],
                 }),
               ),

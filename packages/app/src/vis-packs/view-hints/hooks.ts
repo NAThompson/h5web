@@ -165,9 +165,17 @@ export function useOverlayShapes(
   return { shapes, notes };
 }
 
+export interface LegendItem {
+  label: string;
+  color: string;
+  kind: 'points' | 'line';
+  dash: boolean;
+}
+
 export interface LinkedOverlays {
   shapes: OverlayShapes | undefined;
   notes: string[];
+  legend: LegendItem[]; // labelled overlays, unless the hint hides the legend
   // values of the overlays to fetch with a slice of the base dataset (when the link is one of its dimensions)
   getSliceRequests: (selection: string | undefined) => ValueQueryParams[];
   // extra slider for a linked dimension the base dataset doesn't have
@@ -208,9 +216,28 @@ export function useLinkedOverlays(
     [extraIndex],
   );
 
+  const legend: LegendItem[] =
+    hint.legend === false
+      ? []
+      : (resolved?.overlays ?? []).flatMap(({ hint: overlay }) =>
+          overlay.label &&
+          overlay.labelMode !== 'inline' &&
+          overlay.kind !== 'text'
+            ? [
+                {
+                  label: overlay.label,
+                  color: overlay.color ?? 'white',
+                  kind: overlay.kind === 'points' ? 'points' : 'line',
+                  dash: overlay.dash ?? false,
+                },
+              ]
+            : [],
+        );
+
   return {
     shapes,
     notes,
+    legend,
     getSliceRequests: (selection) =>
       baseDim === undefined
         ? []

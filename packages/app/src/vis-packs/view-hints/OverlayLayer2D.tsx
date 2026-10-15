@@ -6,10 +6,11 @@ import {
   Html,
   INTERPOLATORS,
 } from '@h5web/lib';
-import { useMemo } from 'react';
-import { Vector3 } from 'three';
+import { type SVGProps, useMemo } from 'react';
+import { Color, Vector3 } from 'three';
 
 import { type ColorMap } from '../core/heatmap/models';
+import { type TextAnchor } from './models';
 import { type OverlayShapes } from './overlays';
 import styles from './ViewHints.module.css';
 
@@ -46,6 +47,45 @@ function useFillColors(
   }, [shapes, domain, scaleType, colorMap, invertColorMap]);
 }
 
+const DASH = '6 4';
+const TEXT_GAP = 8; // px between a position and the text placed next to it
+
+/* Text placed on the given side of its position */
+const TEXT_PLACEMENT: Record<TextAnchor, SVGProps<SVGTextElement>> = {
+  top: { textAnchor: 'middle', dy: -TEXT_GAP },
+  bottom: { textAnchor: 'middle', dominantBaseline: 'hanging', dy: TEXT_GAP },
+  left: { textAnchor: 'end', dominantBaseline: 'central', dx: -TEXT_GAP },
+  right: { textAnchor: 'start', dominantBaseline: 'central', dx: TEXT_GAP },
+  center: { textAnchor: 'middle', dominantBaseline: 'central' },
+};
+
+function isFinitePoint(pt: Vector3): boolean {
+  return Number.isFinite(pt.x) && Number.isFinite(pt.y);
+}
+
+/* SVG path through the points, broken at non-finite points (e.g. a NaN row of a curve) */
+function getPathData(pts: Vector3[]): string {
+  let isPenDown = false;
+  return pts
+    .map((pt) => {
+      if (!isFinitePoint(pt)) {
+        isPenDown = false;
+        return '';
+      }
+      const cmd = isPenDown ? 'L' : 'M';
+      isPenDown = true;
+      return `${cmd}${pt.x},${pt.y}`;
+    })
+    .join('');
+}
+
+/* Halo contrasting with a colour, so lines and text stand out on any background */
+function getHaloColor(color: string): string {
+  const hsl = { h: 0, s: 0, l: 0 };
+  new Color(color).getHSL(hsl);
+  return hsl.l < 0.4 ? 'white' : 'black';
+}
+
 interface Props {
   shapes: OverlayShapes;
   colorParams: ColorParams;
@@ -57,7 +97,7 @@ function OverlayLayer2D(props: Props) {
   const fills = useFillColors(shapes, colorParams);
 
   // All points to convert to HTML coordinates, followed by their offsets per shape
-  const { vectors, lineOffsets, pointOffsets } = useMemo(() => {
+  const { vectors, lineOffsets, pointOffsets, textOffset } = useMemo(() => {
     const vecs: Vector3[] = [];
     function addPoints(list: { x: number[]; y: number[] }[]): number[] {
       return list.map(({ x, y }) => {
@@ -71,6 +111,9 @@ function OverlayLayer2D(props: Props) {
     return {
       lineOffsets: addPoints(shapes.lines),
       pointOffsets: addPoints(shapes.points),
+      textOffset: addPoints([
+        { x: shapes.texts.map((t) => t.x), y: shapes.texts.map((t) => t.y) },
+      ])[0],
       vectors: vecs,
     };
   }, [shapes]);
@@ -83,30 +126,33 @@ function OverlayLayer2D(props: Props) {
           <svg className={styles.svg}>
             <g data-testid="overlays">
               {shapes.lines.map((line, i) => {
-                const pts = htmlPts
-                  .slice(lineOffsets[i], lineOffsets[i] + line.x.length)
-                  .filter(
-                    (pt) => Number.isFinite(pt.x) && Number.isFinite(pt.y),
-                  );
-                const str = pts.map((pt) => `${pt.x},${pt.y}`).join(' ');
-                const head = pts.at(-1);
+                const pts = htmlPts.slice(
+                  lineOffsets[i],
+                  lineOffsets[i] + line.x.length,
+                );
+                const d = getPathData(pts); // non-finite points break the line
+                const head = pts.findLast(isFinitePoint);
+                const halo = getHaloColor(line.stroke);
                 return (
                   // eslint-disable-next-line react/no-array-index-key
                   <g key={i} data-testid="overlay-line">
-                    <polyline
-                      points={str}
+                    {line.label && <title>{line.label}</title>}
+                    <path
+                      d={d}
                       fill="none"
-                      stroke="black"
+                      stroke={halo}
                       strokeOpacity={0.4}
-                      strokeWidth={3}
+                      strokeWidth={line.width + 1.5}
                       strokeLinejoin="round"
+                      strokeDasharray={line.dash ? DASH : undefined}
                     />
-                    <polyline
-                      points={str}
+                    <path
+                      d={d}
                       fill="none"
                       stroke={line.stroke}
-                      strokeWidth={1.5}
+                      strokeWidth={line.width}
                       strokeLinejoin="round"
+                      strokeDasharray={line.dash ? DASH : undefined}
                     />
                     {line.head && head && (
                       <circle
@@ -114,7 +160,7 @@ function OverlayLayer2D(props: Props) {
                         cy={head.y}
                         r={4}
                         fill={line.stroke}
-                        stroke="black"
+                        stroke={halo}
                         strokeWidth={1.5}
                       />
                     )}
@@ -124,6 +170,7 @@ function OverlayLayer2D(props: Props) {
               {shapes.points.map((points, i) => (
                 // eslint-disable-next-line react/no-array-index-key
                 <g key={i} data-testid="overlay-points">
+                  {points.label && <title>{points.label}</title>}
                   {points.x.map((_, j) => {
                     const pt = htmlPts[pointOffsets[i] + j];
                     if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
@@ -151,6 +198,29 @@ function OverlayLayer2D(props: Props) {
                   })}
                 </g>
               ))}
+              {shapes.texts.map((text, i) => {
+                const pt = htmlPts[textOffset + i];
+                if (!isFinitePoint(pt)) {
+                  return null;
+                }
+                return (
+                  <text
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={i}
+                    x={pt.x}
+                    y={pt.y}
+                    fill={text.color}
+                    stroke={getHaloColor(text.color)}
+                    strokeOpacity={0.6}
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    fontSize={13}
+                    {...TEXT_PLACEMENT[text.anchor]}
+                  >
+                    {text.text}
+                  </text>
+                );
+              })}
             </g>
           </svg>
         </Html>

@@ -15,9 +15,15 @@ function OverlayLayer3D(props: Props) {
 
   return (
     <>
-      {shapes.lines.map(({ x, y, stroke }, i) => (
-        // eslint-disable-next-line react/no-array-index-key
-        <SurfaceOverlay key={`line${i}`} x={x} y={y} color={stroke} />
+      {shapes.lines.map(({ x, y, stroke, width }, i) => (
+        <SurfaceOverlay
+          // eslint-disable-next-line react/no-array-index-key
+          key={`line${i}`}
+          x={x}
+          y={y}
+          color={stroke}
+          lineWidth={width}
+        />
       ))}
       {shapes.points.map(({ x, y, z, values, fill, size }, i) => (
         <SurfaceOverlay

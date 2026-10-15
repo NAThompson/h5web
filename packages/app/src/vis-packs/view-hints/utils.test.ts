@@ -6,6 +6,7 @@ import { ContourMode } from '../core/heatmap/models';
 import { type VisDef } from '../models';
 import { HintVis } from './models';
 import {
+  getColorSuggestions,
   getHeatmapSuggestions,
   getLineDimSuggestions,
   getLineSuggestions,
@@ -91,11 +92,27 @@ describe('parseViewHint', () => {
     const hint = parseViewHint(
       JSON.stringify({
         overlays: [
-          { points: 'population', color: 'fitness', size: 5 },
+          {
+            points: 'population',
+            colorBy: 'fitness',
+            size: 5,
+            z: 'value',
+            label: 'population',
+          },
           {
             ellipse: { mean: 'mean', cov: 'C', scale: 'sigma', nsigma: [1, 2] },
+            color: '#fff',
           },
-          { curve: 'mean', trail: true, columns: [1, 0], stroke: 'white' },
+          {
+            curve: '/edge',
+            columns: ['alpha', 'theta'],
+            color: '#000',
+            width: 2,
+            dash: true,
+            label: 'e–n',
+            labelMode: 'inline',
+          },
+          { text: 'r₁₂ = 0', at: [1.57, 0], anchor: 'top' },
           { ellipse: { mean: 'mean' } }, // no covariance
           { arrows: 'velocity' }, // unknown kind
           'population',
@@ -103,16 +120,14 @@ describe('parseViewHint', () => {
       }),
     );
 
-    expect(hint.overlays).toEqual([
+    expect(hint.overlays).toMatchObject([
       {
         kind: 'points',
         points: 'population',
-        color: 'fitness',
+        colorBy: 'fitness',
         size: 5,
-        columns: undefined,
-        stroke: undefined,
-        fill: undefined,
-        z: undefined,
+        z: 'value',
+        label: 'population',
       },
       {
         kind: 'ellipse',
@@ -120,21 +135,24 @@ describe('parseViewHint', () => {
         cov: 'C',
         scale: 'sigma',
         nsigma: [1, 2],
-        columns: undefined,
-        stroke: undefined,
+        color: '#fff',
       },
       {
         kind: 'curve',
-        curve: 'mean',
-        trail: true,
-        columns: [1, 0],
-        stroke: 'white',
+        curve: '/edge',
+        trail: false,
+        columnNames: ['alpha', 'theta'],
+        color: '#000',
+        width: 2,
+        dash: true,
+        labelMode: 'inline',
       },
+      { kind: 'text', text: 'r₁₂ = 0', at: [1.57, 0], anchor: 'top' },
     ]);
     expect(hint.notes).toEqual([
-      'ignored invalid overlay 4',
       'ignored invalid overlay 5',
       'ignored invalid overlay 6',
+      'ignored invalid overlay 7',
     ]);
   });
 
@@ -259,5 +277,64 @@ describe('suggestions', () => {
       getLineDimSuggestions(parseViewHint('{"multiDim": 1}'), [8, 100])
         .defaultMultiDim,
     ).toBeUndefined();
+  });
+});
+
+describe('schema v0.2 phase 1', () => {
+  it('parse version, title, legend, auto colour map, symmetric domain', () => {
+    const hint = parseViewHint(
+      '{"version": 1, "title": "ψ", "legend": false, "colorMap": "auto", "domain": "symmetric", "center": 1}',
+    );
+    expect(hint).toMatchObject({
+      title: 'ψ',
+      legend: false,
+      colorMap: 'auto',
+      domain: 'symmetric',
+      center: 1,
+      notes: [],
+    });
+  });
+
+  it('pick diverging map and symmetric domain when data changes sign', () => {
+    const auto = parseViewHint('{"colorMap": "auto"}');
+    expect(getColorSuggestions(auto, [-1, 3])).toEqual({
+      colorMap: 'RdBu',
+      customDomain: [-3, 3],
+    });
+    expect(getColorSuggestions(auto, [1, 3])).toEqual({
+      colorMap: 'Viridis',
+      customDomain: undefined,
+    });
+    expect(getColorSuggestions(auto, undefined).colorMap).toBeUndefined(); // until data is known
+
+    // Given domain wins over the symmetric one
+    expect(
+      getColorSuggestions(
+        parseViewHint('{"colorMap": "auto", "domain": [-1, null]}'),
+        [-1, 3],
+      ).customDomain,
+    ).toEqual([-1, null]);
+  });
+
+  it('centre symmetric domains on `center`', () => {
+    const hint = parseViewHint('{"domain": "symmetric", "center": 1}');
+    expect(getColorSuggestions(hint, [0, 4])).toEqual({
+      colorMap: undefined,
+      customDomain: [-2, 4],
+    });
+  });
+
+  it('open parametric surface for "surface" when supported, alias "paramSurface"', () => {
+    const heatmap = vis('Heatmap');
+    const surface = vis('Surface');
+    expect(
+      findHintVis(parseViewHint('{"vis": "surface"}'), [heatmap, surface]),
+    ).toBe(surface);
+    expect(
+      findHintVis(parseViewHint('{"vis": "paramSurface"}'), [heatmap]),
+    ).toBeUndefined();
+    expect(
+      findHintVis(parseViewHint('{"vis": "complexHeatmap"}'), [heatmap]),
+    ).toBe(heatmap);
   });
 });

@@ -133,10 +133,10 @@ test('play linked slider', async () => {
     .poll(
       () =>
         document
-          .querySelectorAll('[data-testid="overlay-line"] polyline')
+          .querySelectorAll('[data-testid="overlay-line"] path')
           .item(5) // trail of the mean (3rd line, drawn over its halo)
-          .getAttribute('points')
-          ?.split(' ').length,
+          .getAttribute('d')
+          ?.split('L').length,
     )
     .toBeGreaterThan(1);
 });
@@ -180,10 +180,10 @@ test('draw static overlays in axis values, unclipped on the edges of the domain'
   const [edge0, edgePi] = [1, 3].map((i) =>
     Number(
       document
-        .querySelectorAll('[data-testid="overlay-line"] polyline')
+        .querySelectorAll('[data-testid="overlay-line"] path')
         .item(i)
-        .getAttribute('points')
-        ?.split(',')[0],
+        .getAttribute('d')
+        ?.slice(1).split(',')[0],
     ),
   );
   const pointX = Number(getPointsCx()[0]);
@@ -194,4 +194,20 @@ test('draw static overlays in axis values, unclipped on the edges of the domain'
     .querySelector('[data-testid="overlays"]')
     ?.closest('svg');
   expect(svg && getComputedStyle(svg).overflow).toBe('visible');
+});
+
+test('apply v0.2 keys: title, auto colour map, legend, texts, inline labels', async () => {
+  await renderApp('/view_hints/psi');
+
+  await expect
+    .element(page.getByRole('figure', { name: 'ψ(α, θ)' }))
+    .toBeVisible();
+  await expect.element(page.getByText('RdBu', { exact: true })).toBeVisible(); // data changes sign
+
+  const legend = page.getByRole('list', { name: 'Overlays' });
+  await expect.element(legend).toHaveTextContent('e–n'); // inline label not in legend
+  expect(legend).not.toHaveTextContent('e–e');
+
+  const texts = [...document.querySelectorAll('[data-testid="overlays"] text')];
+  expect(texts.map((text) => text.textContent)).toEqual(['e–e', 'θ = 0']);
 });

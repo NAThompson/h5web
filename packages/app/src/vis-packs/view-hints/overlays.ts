@@ -22,6 +22,8 @@ import {
   type EllipseOverlay,
   type OverlayHint,
   type PointsOverlay,
+  type TextAnchor,
+  type TextOverlay,
   type ViewHint,
 } from './models';
 
@@ -74,10 +76,10 @@ function getRoles(hint: OverlayHint): Role[] {
     case 'points':
       return [
         { role: 'points', path: hint.points, rank: 2, required: true },
-        ...(hint.color
-          ? [{ role: 'color', path: hint.color, rank: 1, required: false }]
+        ...(hint.colorBy
+          ? [{ role: 'colorBy', path: hint.colorBy, rank: 1, required: false }]
           : []),
-        ...(hint.z
+        ...(hint.z && hint.z !== 'value' && hint.z !== 'surface'
           ? [{ role: 'z', path: hint.z, rank: 1, required: false }]
           : []),
       ];
@@ -89,6 +91,8 @@ function getRoles(hint: OverlayHint): Role[] {
           ? [{ role: 'scale', path: hint.scale, rank: 0, required: false }]
           : []),
       ];
+    case 'text':
+      return []; // no dataset
     case 'curve':
       // A trail is the sequence of the linked dimension: one row per index
       return [
@@ -508,18 +512,31 @@ export interface OverlayPoints {
   fill: string;
   stroke: string;
   size: number;
+  label?: string;
 }
 
 export interface OverlayLine {
   x: number[];
   y: number[];
   stroke: string;
+  width: number;
+  dash: boolean;
+  label?: string;
   head: boolean; // marker at the last point (e.g. current position of a trail)
+}
+
+export interface OverlayText {
+  x: number;
+  y: number;
+  text: string;
+  anchor: TextAnchor; // side of the position where the text goes
+  color: string;
 }
 
 export interface OverlayShapes {
   points: OverlayPoints[];
   lines: OverlayLine[];
+  texts: OverlayText[]; // text overlays and inline labels
 }
 
 type ValueGetter = (
@@ -540,6 +557,52 @@ function getColumns(
     : [cx, cy, overlay.hint.columns?.[2]];
 }
 
+function getLineStyle(
+  hint: OverlayHint,
+): Pick<OverlayLine, 'stroke' | 'width' | 'dash' | 'label'> {
+  return {
+    stroke: hint.color ?? 'white',
+    width: hint.width ?? 1.5,
+    dash: hint.dash ?? false,
+    label: hint.label,
+  };
+}
+
+function buildText(
+  overlay: ResolvedOverlay,
+  hint: TextOverlay,
+  axes: AxisDims,
+): OverlayText | undefined {
+  const columns = getColumns(overlay, axes);
+  if (!columns || Math.max(columns[0], columns[1]) >= hint.at.length) {
+    return undefined;
+  }
+  return {
+    x: hint.at[columns[0]],
+    y: hint.at[columns[1]],
+    text: hint.text,
+    anchor: hint.anchor,
+    color: hint.color ?? 'white',
+  };
+}
+
+/* Label drawn next to the last finite point of a shape (`labelMode: "inline"`) */
+function getInlineLabel(
+  hint: OverlayHint,
+  { x, y }: { x: number[]; y: number[] },
+  color: string,
+): OverlayText[] {
+  if (!hint.label || hint.labelMode !== 'inline') {
+    return [];
+  }
+  const i = x.findLastIndex(
+    (v, j) => Number.isFinite(v) && Number.isFinite(y[j]),
+  );
+  return i === -1
+    ? []
+    : [{ x: x[i], y: y[i], text: hint.label, anchor: 'right', color }];
+}
+
 /* Column `col` of a row-major (rows x cols) array */
 function column(
   values: number[],
@@ -557,7 +620,7 @@ function buildPoints(
   getValues: ValueGetter,
   axes: AxisDims,
 ): OverlayPoints | undefined {
-  const { points, color, z } = overlay.inputs;
+  const { points, colorBy, z } = overlay.inputs;
   const values = points && getValues(overlay, points);
   const columns = getColumns(overlay, axes);
   if (!points || !values || !columns) {
@@ -572,20 +635,24 @@ function buildPoints(
 
   // Heights: from a dataset, a third column, or else on the surface
   const zColumn = cz ?? (cols === 3 && !hint.columns ? 2 : undefined);
+  const colorValues = colorBy && getValues(overlay, colorBy);
   const zValues = z
     ? getValues(overlay, z)
-    : zColumn === undefined
-      ? undefined
-      : column(values, cols, zColumn);
+    : hint.z === 'value'
+      ? colorValues
+      : zColumn === undefined || hint.z === 'surface'
+        ? undefined
+        : column(values, cols, zColumn);
 
   return {
     x: column(values, cols, cx),
     y: column(values, cols, cy),
     z: zValues,
-    values: color && getValues(overlay, color),
-    fill: hint.fill ?? 'white',
+    values: colorValues,
+    fill: hint.color ?? 'white',
     stroke: hint.stroke ?? '#202020',
     size: hint.size ?? 5,
+    label: hint.label,
   };
 }
 
@@ -617,7 +684,7 @@ function buildEllipses(
   ];
   return hint.nsigma.map((k) => ({
     ...getEllipsePoints([mean[cx], mean[cy]], sub, scale, k),
-    stroke: hint.stroke ?? 'white',
+    ...getLineStyle(hint),
     head: false,
   }));
 }
@@ -651,7 +718,7 @@ function buildCurve(
   return {
     x: column(values, cols, cx, rows),
     y: column(values, cols, cy, rows),
-    stroke: hint.stroke ?? 'white',
+    ...getLineStyle(hint),
     head: hint.trail,
   };
 }
@@ -667,18 +734,30 @@ export function buildOverlayShapes(
   index: number | undefined,
   axes: AxisDims,
 ): OverlayShapes {
-  const shapes: OverlayShapes = { points: [], lines: [] };
+  const shapes: OverlayShapes = { points: [], lines: [], texts: [] };
 
   for (const overlay of overlays) {
     const { hint } = overlay;
     if (hint.kind === 'points') {
       const points = buildPoints(overlay, hint, getValues, axes);
-      shapes.points.push(...(points ? [points] : []));
-    } else if (hint.kind === 'ellipse') {
-      shapes.lines.push(...buildEllipses(overlay, hint, getValues, axes));
+      if (points) {
+        shapes.points.push(points);
+        shapes.texts.push(...getInlineLabel(hint, points, points.fill));
+      }
+    } else if (hint.kind === 'text') {
+      const text = buildText(overlay, hint, axes);
+      shapes.texts.push(...(text ? [text] : []));
     } else {
-      const line = buildCurve(overlay, hint, getValues, index, axes);
-      shapes.lines.push(...(line ? [line] : []));
+      const lines =
+        hint.kind === 'ellipse'
+          ? buildEllipses(overlay, hint, getValues, axes)
+          : [buildCurve(overlay, hint, getValues, index, axes)].filter(
+              (line) => line !== undefined,
+            );
+      shapes.lines.push(...lines);
+      if (lines.length > 0) {
+        shapes.texts.push(...getInlineLabel(hint, lines[0], lines[0].stroke));
+      }
     }
   }
 

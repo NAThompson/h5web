@@ -1,4 +1,4 @@
-import { DimensionMapper, getSliceSelection } from '@h5web/lib';
+import { DimensionMapper, type Domain, getSliceSelection } from '@h5web/lib';
 import {
   assertGroup,
   assertMinDims,
@@ -18,6 +18,7 @@ import { type VisContainerProps } from '../../models';
 import { useSlicingProps } from '../../slicing';
 import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
 import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
+import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
@@ -49,11 +50,17 @@ function NxHeatmapContainer(props: VisContainerProps) {
 
   // `H5WEB_view` hint > NeXus `SILX_style` > heuristics
   const hint = useViewHint(entity, signalDef.dataset);
+  const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
   const config = useHeatmapConfig(
-    getHeatmapSuggestions(hint, selectedDataset.path, {
-      scaleType: silxStyle.signalScaleType,
-      keepRatio: guessKeepRatio(xAxisDef, yAxisDef),
-    }),
+    getHeatmapSuggestions(
+      hint,
+      selectedDataset.path,
+      {
+        scaleType: silxStyle.signalScaleType,
+        keepRatio: guessKeepRatio(xAxisDef, yAxisDef),
+      },
+      dataDomain,
+    ),
   );
 
   const nxDataToFetch = useNxHeatmapDataToFetch(nxData, selectedDef);
@@ -132,16 +139,18 @@ function NxHeatmapContainer(props: VisContainerProps) {
                 dimMapping={dimMapping}
                 axisLabels={axisLabels}
                 axisValues={axisValues}
-                title={title}
+                title={hint.title ?? title}
                 toolbarContainer={toolbarContainer}
                 config={config}
                 overlays={overlays.shapes}
+                onDataDomainChange={setDataDomain}
               />
             );
           }}
         />
       </VisBoundary>
       <OverlayNotes notes={overlays.notes} />
+      <OverlayLegend items={overlays.legend} />
     </>
   );
 }

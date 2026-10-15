@@ -21,7 +21,8 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
-import { useMemo } from 'react';
+import { type Domain } from '@h5web/shared/vis-models';
+import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -56,6 +57,7 @@ interface Props {
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
   overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_view` hint
+  onDataDomainChange?: (dataDomain: Domain) => void; // e.g. for hints that depend on the data
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -69,6 +71,7 @@ function MappedHeatmapVis(props: Props) {
     toolbarContainer,
     config,
     overlays,
+    onDataDomainChange,
   } = props;
 
   const {
@@ -113,6 +116,11 @@ function MappedHeatmapVis(props: Props) {
           { scaleType, ignoreValue },
         ),
     ) || DEFAULT_DOMAIN;
+  const [domainMin, domainMax] = dataDomain;
+  useEffect(() => {
+    onDataDomainChange?.([domainMin, domainMax]);
+  }, [domainMin, domainMax, onDataDomainChange]);
+
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 

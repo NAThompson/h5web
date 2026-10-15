@@ -21,6 +21,7 @@ import {
   EMPTY_HINT,
   HintVis,
   type OverlayHint,
+  type TextAnchor,
   VIEW_HINT_ATTR,
   type ViewHint,
 } from './models';
@@ -65,6 +66,22 @@ function parseAxisScaleType(val: unknown): AxisScaleType | undefined {
   return isAxisScaleType(type) ? type : undefined;
 }
 
+const TEXT_ANCHORS = new Set<TextAnchor>([
+  'top',
+  'bottom',
+  'left',
+  'right',
+  'center',
+]);
+
+function parseAxisOption(
+  axes: unknown,
+  axis: 'x' | 'y',
+): AxisScaleType | undefined {
+  const opts = isObject(axes) ? axes[axis] : undefined;
+  return isObject(opts) ? parseAxisScaleType(opts.scaleType) : undefined;
+}
+
 function parseColumns(val: unknown): number[] | undefined {
   return Array.isArray(val) && val.length >= 2 && val.every(isIndex)
     ? val
@@ -90,6 +107,12 @@ function parseDomain(val: unknown): ViewHint['domain'] {
 }
 
 function parseContours(val: unknown): ViewHint['contours'] {
+  if (isObject(val)) {
+    // Object form: `{"levels": [...]}` or `{"count": 8}` (styles are read separately)
+    return val.levels === undefined
+      ? parseContours(val.count ?? true)
+      : parseContours(val.levels);
+  }
   if (val === true) {
     return 0; // automatic levels, stored count
   }
@@ -106,13 +129,9 @@ function optStr(obj: Json, key: string): string | undefined {
   return isStr(obj[key]) ? obj[key] : undefined;
 }
 
-/* An overlay is an object with one of `points`, `ellipse` or `curve` keys */
-export function parseOverlay(raw: unknown): OverlayHint | undefined {
-  if (!isObject(raw)) {
-    return undefined;
-  }
-
-  const common = {
+/* Keys shared by all overlays: columns and style */
+function parseOverlayStyle(raw: Json) {
+  return {
     columns: parseColumns(raw.columns),
     columnNames:
       Array.isArray(raw.columns) &&
@@ -120,16 +139,44 @@ export function parseOverlay(raw: unknown): OverlayHint | undefined {
       raw.columns.every(isStr)
         ? raw.columns
         : undefined,
+    color: optStr(raw, 'color'),
+    colorBy: optStr(raw, 'colorBy'),
+    width: isFiniteNum(raw.width) && raw.width > 0 ? raw.width : undefined,
+    label: optStr(raw, 'label'),
+    labelMode: raw.labelMode === 'inline' ? ('inline' as const) : undefined,
+    dash: raw.dash === true ? true : undefined,
     stroke: optStr(raw, 'stroke'),
   };
+}
+
+/* An overlay is an object with one of `points`, `ellipse` or `curve` keys */
+export function parseOverlay(raw: unknown): OverlayHint | undefined {
+  if (!isObject(raw)) {
+    return undefined;
+  }
+
+  const common = parseOverlayStyle(raw);
+
+  if (isStr(raw.text)) {
+    const at = parseNumbers(raw.at);
+    return at && at.length >= 2
+      ? {
+          kind: 'text',
+          text: raw.text,
+          at,
+          anchor: TEXT_ANCHORS.has(raw.anchor as TextAnchor)
+            ? (raw.anchor as TextAnchor)
+            : 'center',
+          ...common,
+        }
+      : undefined;
+  }
 
   if (isStr(raw.points)) {
     return {
       kind: 'points',
       points: raw.points,
-      color: optStr(raw, 'color'),
       z: optStr(raw, 'z'),
-      fill: optStr(raw, 'fill'),
       size: isFiniteNum(raw.size) && raw.size > 0 ? raw.size : undefined,
       ...common,
     };
@@ -206,15 +253,28 @@ export function parseViewHint(json: string): ViewHint {
     ),
     scaleType: check('scaleType', parseScaleType),
     height: check('height', parseScaleType),
-    xScaleType: check('xScaleType', parseAxisScaleType),
-    yScaleType: check('yScaleType', parseAxisScaleType),
+    // `axes`: per-axis options keyed by `x` or `y` (dimension names: not yet)
+    xScaleType:
+      check('xScaleType', parseAxisScaleType) ?? parseAxisOption(raw.axes, 'x'),
+    yScaleType:
+      check('yScaleType', parseAxisScaleType) ?? parseAxisOption(raw.axes, 'y'),
     colorMap: check('colorMap', (val) =>
-      typeof val === 'string' ? COLOR_MAPS.get(toKey(val)) : undefined,
+      typeof val === 'string'
+        ? val.toLowerCase() === 'auto'
+          ? 'auto'
+          : COLOR_MAPS.get(toKey(val))
+        : undefined,
     ),
     invertColorMap: check('invertColorMap', (val) =>
       typeof val === 'boolean' ? val : undefined,
     ),
-    domain: check('domain', parseDomain),
+    domain: check('domain', (val) =>
+      val === 'symmetric' ? val : parseDomain(val),
+    ),
+    center: check('center', (val) => (isFiniteNum(val) ? val : undefined)),
+    legend: check('legend', (val) =>
+      typeof val === 'boolean' ? val : undefined,
+    ),
     keepRatio: check('keepRatio', (val) =>
       typeof val === 'boolean' ? val : undefined,
     ),
@@ -228,7 +288,15 @@ export function parseViewHint(json: string): ViewHint {
     isoLevels: check('isoLevels', parseNumbers),
     xDim: check('xDim', (val) => (isIndex(val) ? val : undefined)),
     multiDim: check('multiDim', (val) => (isIndex(val) ? val : undefined)),
-    sliceBy: check('sliceBy', (val) => (isStr(val) ? val : undefined)),
+    title: check('title', (val) => (isStr(val) ? val : undefined)),
+    contourLabels:
+      isObject(raw.contours) && raw.contours.labels === true ? true : undefined,
+    contourColor: isObject(raw.contours)
+      ? optStr(raw.contours, 'color')
+      : undefined,
+    sliceBy:
+      check('sliceBy', (val) => (isStr(val) ? val : undefined)) ??
+      (isObject(raw.playback) ? optStr(raw.playback, 'dim') : undefined),
     overlays: parsedOverlays.filter((overlay) => overlay !== undefined),
     notes,
   };
@@ -281,8 +349,12 @@ const VIS_NAMES: Record<HintVis, string[]> = {
   [HintVis.Matrix]: ['Matrix'],
   [HintVis.Line]: ['Line', 'NX Line'],
   [HintVis.Heatmap]: ['Heatmap', 'NX Heatmap'],
-  [HintVis.Surface]: ['Surface', 'NX Surface', 'Heatmap', 'NX Heatmap'],
+  [HintVis.Surface]: ['Surface', 'NX Surface', 'Heatmap', 'NX Heatmap'], // parametric if `coordinates`
   [HintVis.ComplexSurface]: ['Heatmap', 'NX Heatmap'],
+  [HintVis.ParamSurface]: ['Surface', 'NX Surface'],
+  [HintVis.ComplexLine]: ['Line', 'NX Line'],
+  [HintVis.ComplexHeatmap]: ['Heatmap', 'NX Heatmap'],
+  [HintVis.ComplexCurve]: ['Complex Curve', 'NX Complex Curve'],
   [HintVis.Volume]: ['Volume', 'NX Volume'],
   [HintVis.Curve]: ['Curve', 'NX Curve', 'Complex Curve', 'NX Complex Curve'],
   [HintVis.RGB]: ['RGB', 'NX RGB'],
