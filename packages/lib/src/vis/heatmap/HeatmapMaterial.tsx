@@ -179,8 +179,11 @@ function HeatmapMaterial(props: Props) {
         float maskValue = texture2D(mask, coords).r;
 
         if (isnan(value) || !isSupported(value) || maskValue == 1.) {
-            gl_FragColor = badColor;
-        } else if (withBelow == 1 && value < domainMin) {
+          gl_FragColor = badColor;
+          return;
+        }
+
+        if (withBelow == 1 && value < domainMin) {
           gl_FragColor = belowColor;
         } else if (withAbove == 1 && value > domainMax) {
           gl_FragColor = aboveColor;
@@ -189,10 +192,10 @@ function HeatmapMaterial(props: Props) {
           float normalizedValue = clamp(oneOverRange * (scaledValue - min), 0., 1.);
 
           gl_FragColor = texture2D(colorMap, vec2(pow(normalizedValue, gammaExponent), 0.5));
+        }
 
-          if (withAlpha == 1) {
-            gl_FragColor.a = oneOverAlphaRange * (texture2D(alpha, coords).r - alphaMin);
-          }
+        if (withAlpha == 1) { // also for colours beyond the domain
+          gl_FragColor.a = oneOverAlphaRange * (texture2D(alpha, coords).r - alphaMin);
         }
       }
     `,
