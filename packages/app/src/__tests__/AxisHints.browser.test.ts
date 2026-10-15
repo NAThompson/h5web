@@ -238,6 +238,14 @@ test('label slices of the dimension named by the dataset', async () => {
       'ignored "H5WEB_slice_labels": "rho" is not a 1D dataset of strings',
     );
   expect(page.getByTestId('D0 slice label')).not.toBeInTheDocument();
+
+  // Too many to fetch
+  await selectExplorerNode('too_many_labels');
+  await expect
+    .element(getNotes())
+    .toHaveTextContent(
+      'ignored "H5WEB_slice_labels": "many_labels" has more than 10000 strings',
+    );
 });
 
 test('play the hinted dimension by default, past empty images', async () => {

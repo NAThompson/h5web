@@ -911,6 +911,21 @@ export function makeMockFile(): GroupWithChildren {
         dataset('bad_labels', arrayShape([4, 3, 5]), floatType(), indices(), {
           attributes: [scalarAttr('H5WEB_slice_labels', 'rho')],
         }),
+        dataset(
+          'many_labels',
+          arrayShape([10_001]),
+          strType(),
+          indices(10_001).map(String),
+        ),
+        dataset(
+          'too_many_labels',
+          arrayShape([10_001]),
+          floatType(),
+          indices(10_001),
+          {
+            attributes: [scalarAttr('H5WEB_slice_labels', 'many_labels')],
+          },
+        ),
         // `H5WEB_playback_dim` (path of its scale): empty images skipped along it on load
         dataset('step', arrayShape([4]), intType(), [0, 1, 2, 3], {
           attributes: [

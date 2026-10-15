@@ -15,6 +15,7 @@ import {
 } from '../core/geometry/utils';
 
 export const SLICE_LABELS_ATTR = 'H5WEB_slice_labels';
+const MAX_LABELS = 10_000; // longer labels are not fetched: they would hold up every vis
 
 type StrDataset = Dataset<ArrayShape, StringType>;
 
@@ -65,9 +66,12 @@ async function resolveLabelsAttr(
   }
   const labels = await resolveCoordinate(entity.path, path, ctx);
   const strings = length === undefined ? 'strings' : `${length} strings`;
-  return isLabelsDataset(labels, length)
-    ? labels
-    : `ignored "${SLICE_LABELS_ATTR}": "${path}" is not a 1D dataset of ${strings}`;
+  if (!isLabelsDataset(labels, length)) {
+    return `ignored "${SLICE_LABELS_ATTR}": "${path}" is not a 1D dataset of ${strings}`;
+  }
+  return labels.shape.dims[0] > MAX_LABELS
+    ? `ignored "${SLICE_LABELS_ATTR}": "${path}" has more than ${MAX_LABELS} strings`
+    : labels;
 }
 
 export interface SliceLabels {
@@ -101,10 +105,10 @@ export async function getScaleLabels(
   for (const path of scalePaths) {
     const entity = await ctx.getEntity(path);
     if (isLabelsDataset(entity, dimSize)) {
-      return {
-        labels: await getLabels(entity, dataContext),
-        name: (await ctx.getStrAttr(entity, 'NAME')) || entity.name,
-      };
+      const name = (await ctx.getStrAttr(entity, 'NAME')) || entity.name;
+      return dimSize > MAX_LABELS
+        ? { name, note: `${name}: more than ${MAX_LABELS} labels, not shown` }
+        : { labels: await getLabels(entity, dataContext), name };
     }
   }
   /* eslint-enable no-await-in-loop */
