@@ -1278,6 +1278,15 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_nan_color', '#d9d9d9'),
           ],
         }),
+        // Legend in the corner its box covers the least of the curves (not the bottom)
+        array('legend_spectrum', {
+          valueId: 'spectrum',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_scale', 'log'),
+            intAttr('H5WEB_multi_dim', 0),
+          ],
+        }),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

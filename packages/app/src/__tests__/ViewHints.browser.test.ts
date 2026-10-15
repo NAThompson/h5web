@@ -537,6 +537,14 @@ test('mark values that cannot be drawn in log scale on the bottom edge', async (
   expect(getUnplottableMarks()[0].fill).not.toBe(nanColor);
 });
 
+test('put the legend where its box covers the least of the curves', async () => {
+  await renderApp('/view_hints/legend_spectrum');
+
+  // Not in the bottom-left quadrant with the fewest points, across the curve along the bottom
+  const legend = page.getByRole('list');
+  await expect.element(legend).toHaveAttribute('data-corner', 'top-right');
+});
+
 function countContourLabels(text: string): number {
   // Contour labels are HTML spans, unlike axis tick labels (SVG text)
   return [...document.querySelectorAll('figure span')].filter(

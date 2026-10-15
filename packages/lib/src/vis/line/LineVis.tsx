@@ -12,6 +12,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
+  useCallback,
   useMemo,
 } from 'react';
 
@@ -48,7 +49,7 @@ import {
   type TooltipData,
 } from './models';
 import UnplottableMarks, { getMarkedCurves } from './UnplottableMarks';
-import { getLegendCorner } from './utils';
+import { getLegendCorner, type LegendBox } from './utils';
 
 const MAX_TOOLTIP_ROWS = 10; // split auxiliary values into columns beyond this
 
@@ -185,18 +186,12 @@ function LineVis(props: PropsWithChildren<Props>) {
     [visible, dataArray, curveColor, auxiliaries, auxColors, ignoreValue],
   );
 
-  const hasLegend = entries.length > 0;
-  const legendCorner = useMemo(
-    () =>
-      hasLegend &&
+  // Corner for a legend box of a given size: the one it covers the least of the curves in
+  const getCorner = useCallback(
+    (box: LegendBox) =>
       getLegendCorner(
         abscissas,
-        [
-          ...(visible ? [dataArray.data] : []),
-          ...auxiliaries
-            .filter((aux) => aux.visible)
-            .map((aux) => aux.array.data),
-        ],
+        markedCurves.map(({ ordinates }) => ordinates),
         createScale(abscissaScaleType ?? ScaleType.Linear, {
           domain: abscissaDomain,
           range: [0, 1],
@@ -205,12 +200,10 @@ function LineVis(props: PropsWithChildren<Props>) {
           domain: dataDomain,
           range: [0, 1],
         }),
+        box,
       ),
     [
-      hasLegend,
-      visible,
-      dataArray,
-      auxiliaries,
+      markedCurves,
       abscissas,
       abscissaScaleType,
       abscissaDomain,
@@ -361,10 +354,10 @@ function LineVis(props: PropsWithChildren<Props>) {
           />
         )}
 
-        {legendCorner && (
+        {entries.length > 0 && (
           <LineLegend
             entries={entries}
-            corner={legendCorner}
+            getCorner={getCorner}
             isVisible={showLegend}
           />
         )}

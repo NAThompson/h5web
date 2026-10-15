@@ -75,4 +75,40 @@ describe('getLegendCorner', () => {
       'bottom-right',
     );
   });
+
+  it('should count segments crossing the legend, not only points', () => {
+    // A point in each corner (e.g. on log axes), and a segment through the top-right corner
+    const abscissas = [0.1, 0.5, 0.9];
+    const NAN = Number.NaN;
+    const points = [
+      [0.1, NAN, 0.9],
+      [0.9, NAN, 0.1],
+    ];
+    const box = { width: 0.3, height: 0.3, marginX: 0.02, marginY: 0.02 };
+    expect(getLegendCorner(abscissas, points, identity, identity, box)).toBe(
+      'top-right',
+    );
+    expect(
+      getLegendCorner(
+        abscissas,
+        [...points, [0.5, 0.5, 1.2]],
+        identity,
+        identity,
+        box,
+      ),
+    ).toBe('top-left');
+  });
+
+  it('should test the region covered by the legend box', () => {
+    // A curve along the top: a wide legend covers it in either top corner
+    const curve = [0.7, 0.7, 0.7];
+    const narrow = { width: 0.2, height: 0.2, marginX: 0, marginY: 0 };
+    const tall = { ...narrow, height: 0.4 };
+    expect(
+      getLegendCorner([0, 0.5, 1], [curve], identity, identity, narrow),
+    ).toBe('top-right');
+    expect(
+      getLegendCorner([0, 0.5, 1], [curve], identity, identity, tall),
+    ).toBe('bottom-right');
+  });
 });

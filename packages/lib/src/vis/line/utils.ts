@@ -107,25 +107,96 @@ function getPchipEndSlope(
 }
 
 const LEGEND_CORNERS = ['top-right', 'top-left', 'bottom-right', 'bottom-left'];
-const CORNER_SIZE = 0.35; // fraction of each axis
+const CORNER_SIZE = 0.35; // fraction of each axis, without a legend size
 
-/* Corner of the plot with the fewest curve points, for the legend (top right if several) */
+/* Size of a legend and its margin from the edges, as fractions of the canvas */
+export interface LegendBox {
+  width: number;
+  height: number;
+  marginX: number;
+  marginY: number;
+}
+
+const CORNER_BOX = {
+  width: CORNER_SIZE,
+  height: CORNER_SIZE,
+  marginX: 0,
+  marginY: 0,
+};
+
+interface Rect {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+function getCornerRect(corner: string, box: LegendBox): Rect {
+  const { width, height, marginX, marginY } = box;
+  const isRight = corner.endsWith('right');
+  const isTop = corner.startsWith('top');
+  const x0 = isRight ? 1 - marginX - width : marginX;
+  const y0 = isTop ? 1 - marginY - height : marginY;
+  return { x0, x1: x0 + width, y0, y1: y0 + height };
+}
+
+/* Whether segment (x0, y0)-(x1, y1) crosses a rectangle (Liang–Barsky clipping) */
+function crossesRect(
+  [x0, y0]: [number, number],
+  [x1, y1]: [number, number],
+  rect: Rect,
+): boolean {
+  let [tMin, tMax] = [0, 1];
+  for (const [p, q] of [
+    [x0 - x1, x0 - rect.x0],
+    [x1 - x0, rect.x1 - x0],
+    [y0 - y1, y0 - rect.y0],
+    [y1 - y0, rect.y1 - y0],
+  ]) {
+    if (p === 0) {
+      if (q < 0) {
+        return false; // parallel to this edge, outside
+      }
+    } else if (p < 0) {
+      tMin = Math.max(tMin, q / p);
+    } else {
+      tMax = Math.min(tMax, q / p);
+    }
+  }
+  return tMin <= tMax;
+}
+
+/* Corner of the plot whose legend box covers the fewest curve points and segments (top right if
+ * several) */
 export function getLegendCorner(
   abscissas: NumArray,
   curves: NumArray[],
   toRelativeX: (val: number) => number, // to [0, 1]
   toRelativeY: (val: number) => number,
+  box: LegendBox = CORNER_BOX,
 ): string {
+  const rects = LEGEND_CORNERS.map((corner) => getCornerRect(corner, box));
   const counts = [0, 0, 0, 0];
+  const xs = Array.from(abscissas, toRelativeX);
+
   for (const ordinates of curves) {
+    let prev: [number, number] | undefined;
     for (const [i, val] of ordinates.entries()) {
-      const x = toRelativeX(abscissas[i]);
-      const y = toRelativeY(val);
-      const col = x > 1 - CORNER_SIZE ? 0 : x < CORNER_SIZE ? 1 : -1;
-      const row = y > 1 - CORNER_SIZE ? 0 : y < CORNER_SIZE ? 2 : -1;
-      if (col >= 0 && row >= 0) {
-        counts[row + col] += 1; // `NaN` coordinates are in no corner
+      const pt: [number, number] = [xs[i], toRelativeY(val)];
+      if (!Number.isFinite(pt[0]) || !Number.isFinite(pt[1])) {
+        prev = undefined; // gap in the curve
+        continue;
       }
+      for (const [k, rect] of rects.entries()) {
+        const isIn =
+          pt[0] >= rect.x0 &&
+          pt[0] <= rect.x1 &&
+          pt[1] >= rect.y0 &&
+          pt[1] <= rect.y1;
+        counts[k] +=
+          (isIn ? 1 : 0) + (prev && crossesRect(prev, pt, rect) ? 1 : 0);
+      }
+      prev = pt;
     }
   }
   return LEGEND_CORNERS[counts.indexOf(Math.min(...counts))];

@@ -676,6 +676,19 @@ export const mockValues = {
   // Residual with exact zeros, a negative value and a missing one (log scale)
   residual_zeros: () =>
     ndarray([1e-2, 1e-4, 0, 1e-8, Number.NaN, -1e-9, 1e-12, 0]),
+  // Spectra (as FockExpansion's at k = 2): a slow decay, and a spike over round-off along the
+  // bottom; every quadrant of the plot has points, only the top-right corner is clear
+  spectrum: () =>
+    ndarray(
+      range(0, 42).map((i) => {
+        const [p, j] = [Math.floor(i / 21), i % 21];
+        if (p === 1) {
+          return j === 1 ? 1 : 1e-16 * (1 + (j % 3));
+        }
+        return 10 ** (-j / 4) * (j % 2 === 0 ? 1 : 0.3);
+      }),
+      [2, 21],
+    ),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();

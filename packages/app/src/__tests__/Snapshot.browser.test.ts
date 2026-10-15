@@ -261,10 +261,15 @@ test('export line with legend for auxiliary signals', async () => {
   assertNonNull(canvas);
   const canvasRegion = getRegion(root, canvas);
 
-  // Legend is in the top-right corner of the plot area
+  // Legend is in a corner of the plot area (the one it covers the least of the curves in)
+  const corner = root.querySelector('ul')?.dataset.corner ?? '';
   const legendRegion = {
-    x: canvasRegion.x + canvasRegion.width - 250,
-    y: canvasRegion.y,
+    x:
+      canvasRegion.x +
+      (corner.endsWith('right') ? canvasRegion.width - 250 : 0),
+    y:
+      canvasRegion.y +
+      (corner.startsWith('top') ? 0 : canvasRegion.height - 110),
     width: 250,
     height: 110,
   };
