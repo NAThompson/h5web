@@ -7,7 +7,7 @@
 
 .colorBar:not([data-horizontal]) {
   grid-template-rows: min-content 1fr min-content;
-  grid-template-columns: 2.25rem 3.75rem;
+  grid-template-columns: 2.25rem var(--axis-width, 3.75rem);
   grid-template-areas:
     'max .'
     'gradient axis'
@@ -24,7 +24,7 @@
 }
 
 .colorBar[data-labelled]:not([data-horizontal]) {
-  grid-template-columns: 2.25rem 3.75rem 1.5rem;
+  grid-template-columns: 2.25rem var(--axis-width, 3.75rem) 1.5rem;
   grid-template-areas:
     'max . .'
     'gradient axis label'

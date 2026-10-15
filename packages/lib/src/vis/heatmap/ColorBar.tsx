@@ -2,7 +2,7 @@ import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { formatBound, formatTick } from '@h5web/shared/vis-utils';
 import { useMeasure } from '@react-hookz/web';
 import { AxisBottom, AxisRight } from '@visx/axis';
-import { type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 
 import { type VisScaleType } from '../models';
 import Tick from '../shared/Tick';
@@ -61,11 +61,29 @@ function ColorBar(props: Props) {
       : [Math.round(gradientLength + 0.5), 0],
   });
 
+  const numTicks = adaptedNumTicks(gradientLength);
+  const tickValues = getScaleTickValues(scaleType, domain, numTicks);
+  const ticks = tickValues ?? axisScale.ticks(numTicks);
+  const formatAxisTick: (val: number) => string =
+    scaleType === ScaleType.Log
+      ? // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
+        axisScale.tickFormat(numTicks, formatTick)
+      : (val) =>
+          formatTick(val, getTickPrecision(ticks.map((value) => ({ value }))));
+
+  // Vertical bar: room for the longest tick label (e.g. many digits on narrow domains)
+  const maxTickChars = Math.max(
+    0,
+    ...ticks.map((t) => formatAxisTick(t).length),
+  );
+  const axisWidth = `max(3.75rem, calc(${maxTickChars * 0.75}ch + 1.25rem))`;
+
   return (
     <div
       className={styles.colorBar}
       data-horizontal={horizontal || undefined}
       data-labelled={label ? true : undefined}
+      style={{ '--axis-width': axisWidth } as CSSProperties}
     >
       {withBounds && (
         <>
@@ -117,23 +135,11 @@ function ColorBar(props: Props) {
           <Axis
             scale={axisScale}
             hideAxisLine
-            numTicks={adaptedNumTicks(gradientLength)}
-            tickValues={getScaleTickValues(
-              scaleType,
-              domain,
-              adaptedNumTicks(gradientLength),
-            )}
+            numTicks={numTicks}
+            tickValues={tickValues}
             tickClassName={styles.tick}
             tickComponent={Tick}
-            tickFormat={
-              scaleType === ScaleType.Log
-                ? axisScale.tickFormat(
-                    adaptedNumTicks(gradientLength),
-                    // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
-                    formatTick,
-                  )
-                : (val, _, ticks) => formatTick(val, getTickPrecision(ticks))
-            }
+            tickFormat={(val) => formatAxisTick(val.valueOf())}
           />
         </svg>
       )}
