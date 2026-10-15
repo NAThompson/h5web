@@ -5,19 +5,23 @@ import { useState } from 'react';
 import { useDataContext } from '../providers/DataProvider';
 import { FetchConfirmationProvider } from '../vis-packs/fetch-confirmation';
 import { type VisDef } from '../vis-packs/models';
+import { EntityNotesContext } from '../vis-packs/view-hints/OverlayNotes';
 import { useActiveVis } from './hooks';
 import { VisAreaContext } from './vis-area';
 import VisSelector from './VisSelector';
 import styles from './Visualizer.module.css';
 
+const NO_NOTES: string[] = [];
+
 interface Props {
   entity: ProvidedEntity;
   supportedVis: VisDef[];
   primaryVis: VisDef | undefined;
+  notes?: string[]; // about the entity, shown by visualizations that show notes
 }
 
 function VisManager(props: Props) {
-  const { entity, supportedVis, primaryVis } = props;
+  const { entity, supportedVis, primaryVis, notes = NO_NOTES } = props;
   assertDefined(supportedVis[0], 'Expected supported visualization');
 
   if (!('ResizeObserver' in globalThis)) {
@@ -61,7 +65,9 @@ function VisManager(props: Props) {
       <div ref={setVisAreaElem} className={styles.visArea}>
         <VisAreaContext value={visAreaElem}>
           <FetchConfirmationProvider scope={activeVis.name}>
-            <Container entity={entity} toolbarContainer={visBarElem} />
+            <EntityNotesContext value={notes}>
+              <Container entity={entity} toolbarContainer={visBarElem} />
+            </EntityNotesContext>
           </FetchConfirmationProvider>
         </VisAreaContext>
       </div>

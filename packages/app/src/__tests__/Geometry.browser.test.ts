@@ -159,6 +159,9 @@ test(
       .element(page.getByRole('combobox', { name: 'SymLog' }))
       .toBeVisible();
     expect(page.getByText('RdBu', { exact: true })).toBeVisible(); // curvature changes sign
+    expect(
+      page.getByRole('figure', { name: 'Gaussian curvature' }),
+    ).toBeVisible(); // `H5WEB_title`
   },
   TEST_TIMEOUT,
 );

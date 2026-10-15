@@ -1,13 +1,18 @@
+import { DimensionMapper, getSliceSelection } from '@h5web/lib';
 import {
   assertArrayShape,
   assertDataset,
-  assertNumDims,
+  assertMinDims,
   assertNumericType,
 } from '@h5web/shared/guards';
+import { useMemo } from 'react';
 
+import { useDimMappingState } from '../../../dim-mapping-store';
+import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimUnits } from '../../dimscales/hooks';
+import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getVolumeSuggestions } from '../../view-hints/suggestions';
@@ -17,12 +22,21 @@ import ValueFetcher from '../ValueFetcher';
 import { useSuggestedIsoLevels, useVolumeConfig } from './config';
 import MappedVolumeVis from './MappedVolumeVis';
 
+/* The last three dimensions form the volume (`[z, y, x]`); leading dimensions, if any, are sliced */
 function VolumeVisContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
   assertDataset(entity);
   assertArrayShape(entity);
-  assertNumDims(entity, 3);
+  assertMinDims(entity, 3);
   assertNumericType(entity);
+
+  const { dims } = entity.shape;
+  const [dimMapping, setDimMapping] = useDimMappingState({
+    dims,
+    axesCount: 0,
+    lockedDimsCount: 3,
+  });
+  const selection = getSliceSelection(dimMapping);
 
   const hint = useViewHint(entity);
   const config = useSuggestedIsoLevels(
@@ -32,15 +46,40 @@ function VolumeVisContainer(props: VisContainerProps) {
 
   // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
   // as `keepRatio` does for heatmaps
-  const dimUnits = useDimUnits(entity);
+  const dimUnits = useDimUnits(entity).slice(-3);
   const withPhysicalAspect =
     dimUnits.length === 3 && dimUnits.every((unit) => unit === dimUnits[0]);
 
+  // Stable dimensions, so that presentation changes don't make a new data array (and drop cached isosurfaces)
+  const volumeDims = useMemo(() => dims.slice(-3), [dims]);
+
+  const dimHints = useDimHints(entity);
+  const { slicingProps, playbackRange } = useDatasetSlicingProps(
+    entity,
+    dimMapping,
+    { withPlaybackRange: true },
+  );
+
   return (
     <>
-      <VisBoundary>
+      {selection !== undefined && ( // only when there are dimensions to slice
+        <DimensionMapper
+          className={visualizerStyles.dimMapper}
+          dims={dims}
+          dimHints={dimHints}
+          dimMapping={dimMapping}
+          {...slicingProps}
+          onChange={setDimMapping}
+        />
+      )}
+      <VisBoundary
+        resetKey={dimMapping}
+        isSlice={selection !== undefined}
+        playbackRange={playbackRange}
+      >
         <ValueFetcher
           dataset={entity}
+          selection={selection}
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
@@ -48,9 +87,11 @@ function VolumeVisContainer(props: VisContainerProps) {
                 <MappedVolumeVis
                   dataset={entity}
                   value={value}
+                  dims={volumeDims}
+                  title={hint.title}
                   toolbarContainer={toolbarContainer}
                   config={config}
-                  axisValues={axisValues}
+                  axisValues={axisValues.slice(-3)}
                   withPhysicalAspect={withPhysicalAspect}
                   axisUnit={withPhysicalAspect ? dimUnits[0] : undefined}
                 />

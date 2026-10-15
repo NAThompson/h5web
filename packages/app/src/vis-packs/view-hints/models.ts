@@ -95,6 +95,7 @@ export interface ViewHint {
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
   title?: string; // title of the figure
+  valueLabel?: string; // colour bar / value axis: CF `units`, with `long_name` if not the title
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension
   sliceByAnchor?: string; // `sliceBy` is resolved relative to this path (default: `anchor`)
   overlayPaths: string[]; // objects drawn on top (their attributes say what and how)

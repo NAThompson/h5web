@@ -734,6 +734,7 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_vis', 'heatmap'),
             scalarAttr('H5WEB_scale', 'symlog'),
             scalarAttr('H5WEB_colormap', 'auto'),
+            scalarAttr('H5WEB_title', 'Gaussian curvature'),
           ],
         }),
         array('torus_waves', {
@@ -1054,6 +1055,70 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/phony_5'], [], []] },
         ),
+        // CF `long_name` and `units`: title, colour bar / value axis, axis labels
+        array('hyperangle', {
+          valueId: 'X',
+          attributes: [
+            scalarAttr('long_name', 'α_{h} (hyperangle)'),
+            scalarAttr('units', 'rad'),
+          ],
+        }),
+        withDimScales(
+          array('cf_heatmap', {
+            valueId: 'twoD',
+            attributes: [
+              scalarAttr('long_name', 'E_{k}'),
+              scalarAttr('units', 'hartree'),
+              scalarAttr('H5WEB_vis', 'heatmap'),
+            ],
+          }),
+          { scales: [[], ['/view_hints/hyperangle']] },
+        ),
+        withDimScales(
+          array('cf_line', {
+            valueId: 'oneD',
+            attributes: [
+              scalarAttr('H5WEB_title', 'growth'),
+              scalarAttr('long_name', 'norm'),
+              scalarAttr('units', 'bohr'),
+              scalarAttr('H5WEB_vis', 'line'),
+            ],
+          }),
+          { scales: [['/view_hints/hyperangle']] },
+        ),
+        // Overlay whose columns don't name the dimension on the y axis
+        array('stack_point', {
+          valueId: 'psi_point',
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'points'),
+            scalarAttr('H5WEB_columns', 'hyperangle generation'),
+          ],
+        }),
+        withDimScales(
+          array('stack_overlays', {
+            valueId: 'cma_landscapes',
+            attributes: [scalarAttr('H5WEB_overlays', 'stack_point')],
+          }),
+          {
+            scales: [
+              ['/view_hints/generation'],
+              [],
+              ['/view_hints/hyperangle'],
+            ],
+          },
+        ),
+        // Volume of a 4D dataset (leading dimension sliced), and of a 2D one (not available)
+        array('volume_stack', {
+          valueId: 'fourD',
+          attributes: [
+            scalarAttr('long_name', 'stack of volumes'),
+            scalarAttr('H5WEB_vis', 'volume'),
+          ],
+        }),
+        array('volume_flat', {
+          valueId: 'twoD',
+          attributes: [scalarAttr('H5WEB_vis', 'volume')],
+        }),
       ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),

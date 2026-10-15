@@ -90,7 +90,8 @@ function LineVisContainer(props: VisContainerProps) {
                   dimMapping={lineMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
-                  title={entity.name}
+                  title={hint.title ?? entity.name}
+                  valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}
                   config={config}
                 />

@@ -759,6 +759,27 @@ function getColumns(
   return cx === undefined || cy === undefined ? undefined : [cx, cy];
 }
 
+/* Notes about overlays not drawn because an axis shows a dimension that none of their columns
+ * holds (e.g. a sliced dimension mapped to an axis); `dimLabels` name the dimensions */
+export function getMissingAxisNotes(
+  overlays: ResolvedOverlay[],
+  axes: AxisDims,
+  dimLabels: (string | undefined)[],
+): string[] {
+  return overlays.flatMap(({ label, columnOf }) => {
+    const missing = (['x', 'y'] as const)
+      .filter((axis) => columnOf[axes[axis]] === undefined)
+      .map(
+        (axis) => `${axis} axis (${dimLabels[axes[axis]] ?? `D${axes[axis]}`})`,
+      );
+    return missing.length > 0
+      ? [
+          `${label}: not drawn, "H5WEB_columns" don't name the ${missing.join(' or ')}`,
+        ]
+      : [];
+  });
+}
+
 function getLineStyle(
   hint: OverlayHint,
 ): Pick<OverlayLine, 'stroke' | 'width' | 'dash' | 'halo' | 'label'> {

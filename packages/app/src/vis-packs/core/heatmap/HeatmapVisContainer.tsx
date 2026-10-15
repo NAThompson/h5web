@@ -105,6 +105,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   axisLabels={axisLabels}
                   axisValues={axisValues}
                   title={hint.title ?? entity.name}
+                  valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   overlays={overlays.shapes}

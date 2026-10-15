@@ -30,7 +30,11 @@ import {
   NxDataVis,
   type NxDataVisDef,
 } from '../vis-packs/nexus/visualizations';
-import { findHintVis, getHintSafely } from '../vis-packs/view-hints/utils';
+import {
+  findHintVis,
+  getHintSafely,
+  getHintVisNotes,
+} from '../vis-packs/view-hints/utils';
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function resolvePathQuery(path: string, dataContext: DataContextValue) {
@@ -47,6 +51,7 @@ async function resolvePath(
   entity: ProvidedEntity;
   supportedVis: VisDef[];
   primaryVis?: VisDef;
+  notes?: string[]; // e.g. hinted vis not available
 } | null> {
   const { queryClient, queries } = dataContext;
   const entity = await queryClient.query(queries.entity(path));
@@ -59,10 +64,12 @@ async function resolvePath(
 
     // `H5WEB_*` view hint takes precedence over heuristics
     const hint = await getHintSafely(entity, dataContext);
+    const primaryVis = findHintVis(hint, supportedVis);
     return {
       entity,
       supportedVis,
-      primaryVis: findHintVis(hint, supportedVis),
+      primaryVis,
+      notes: getHintVisNotes(hint, primaryVis),
     };
   }
 
@@ -106,12 +113,14 @@ async function resolvePath(
         : [];
       // `H5WEB_*` view hint takes precedence over NeXus `interpretation`
       const hint = await getHintSafely(entity, dataContext, signal);
+      const hintVis = findHintVis(hint, supportedVis);
       return {
         entity,
         supportedVis,
         primaryVis:
-          findHintVis(hint, supportedVis) ??
+          hintVis ??
           findPrimaryVis(supportedVis, interpretation, signal, axisDatasets),
+        notes: getHintVisNotes(hint, hintVis),
       };
     }
   }

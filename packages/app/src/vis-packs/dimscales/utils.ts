@@ -21,6 +21,7 @@ import {
   findScalarStrAttr,
   getAttributeValue,
 } from '../../utils';
+import { toUnicodeScripts } from '../view-hints/attrs';
 
 export interface DimScale {
   label?: string;
@@ -60,10 +61,14 @@ export async function getDimScales(
       }
 
       const { dataset: scaleDataset, value } = scale;
-      const { name, unit } = await getScaleMeta(scaleDataset, dataContext);
+      const { name, longName, unit } = await getScaleMeta(
+        scaleDataset,
+        dataContext,
+      );
 
-      // The dimension label wins over the scale's own name, as for NeXus `long_name`
-      const base = label || name || scaleDataset.name;
+      // CF `long_name` of the scale, else the dimension label, else the scale's own name
+      const base =
+        toUnicodeScripts(longName) || label || name || scaleDataset.name;
 
       return {
         label: unit ? `${base} (${unit})` : base,
@@ -74,17 +79,22 @@ export async function getDimScales(
   );
 }
 
-/* `NAME` is the name given to `make_scale`, empty if none was. Both attributes
+/* `NAME` is the name given to `make_scale`, empty if none was. All attributes
  * are optional, so failing to read them must not hide an otherwise usable scale. */
 async function getScaleMeta(
   scaleDataset: Dataset<ArrayShape, NumericType>,
   dataContext: DataContextValue,
-): Promise<{ name?: string; unit?: string }> {
+): Promise<{ name?: string; longName?: string; unit?: string }> {
   try {
-    const [name, unit] = await Promise.all([
+    const [name, longName, unit] = await Promise.all([
       getAttributeValue(
         scaleDataset,
         findScalarStrAttr(scaleDataset, 'NAME'),
+        dataContext,
+      ),
+      getAttributeValue(
+        scaleDataset,
+        findScalarStrAttr(scaleDataset, 'long_name'),
         dataContext,
       ),
       getAttributeValue(
@@ -93,7 +103,7 @@ async function getScaleMeta(
         dataContext,
       ),
     ]);
-    return { name, unit: unit || undefined };
+    return { name, longName: longName || undefined, unit: unit || undefined };
   } catch {
     return {};
   }

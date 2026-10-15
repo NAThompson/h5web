@@ -10,7 +10,7 @@ import { type DataContextValue } from '../../providers/DataProvider';
 import { isTransportError } from '../../providers/utils';
 import { createGeometryContext } from '../core/geometry/utils';
 import { type VisDef } from '../models';
-import { hasViewAttrs, parseViewHint } from './attrs';
+import { hasViewAttrs, parseViewHint, toUnicodeScripts } from './attrs';
 import { EMPTY_HINT, HintVis, type OverlayHint, type ViewHint } from './models';
 import { getDimNames, withoutPhonyScales } from './overlays';
 
@@ -117,11 +117,32 @@ export async function getViewHint(
     const owner = owners.get(name) ?? entity;
     return isGroup(owner) ? `${owner.path.replace(/\/$/u, '')}/.` : owner.path;
   }
+  const parsed = parseViewHint(merged, values, dimNames);
   return {
-    ...parseViewHint(merged, values, dimNames),
+    ...parsed,
+    valueLabel: getValueLabel(values, parsed.title),
     anchor: getAnchor('H5WEB_overlays'),
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
   };
+}
+
+/* Label of the values (colour bar, value axis) from CF `units` and `long_name`; the long name is
+ * left out when it is already the title */
+export function getValueLabel(
+  values: AttributeValues,
+  title: string | undefined,
+): string | undefined {
+  const { long_name: rawName, units: rawUnits } = values;
+  const longName =
+    typeof rawName === 'string' && rawName
+      ? toUnicodeScripts(rawName)
+      : undefined;
+  const units =
+    typeof rawUnits === 'string' && rawUnits
+      ? toUnicodeScripts(rawUnits)
+      : undefined;
+  const name = longName === title ? undefined : longName;
+  return name && units ? `${name} (${units})` : (name ?? units);
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
@@ -174,6 +195,16 @@ export function findHintVis<T extends VisDef>(
   return undefined;
 }
 
+/* Note if the visualization asked for by the hint is not available (e.g. volume of a 2D dataset) */
+export function getHintVisNotes(
+  hint: ViewHint,
+  hintVis: VisDef | undefined,
+): string[] {
+  return hint.vis && !hintVis
+    ? [`"H5WEB_vis" "${hint.vis}" is not available for this dataset`]
+    : [];
+}
+
 /* Whether the hint asks for a heatmap in 3D (`undefined` if it doesn't say) */
 export function isSurfaceHint(hint: ViewHint): boolean | undefined {
   if (!hint.vis) {
@@ -215,7 +246,6 @@ export function getNotesIn3D(overlays: OverlayHint[]): string[] {
   const unsupported = [
     overlays.some(({ kind }) => kind === 'text') && 'text',
     overlays.some(({ dash }) => dash) && 'dashes',
-    overlays.some(({ labelMode }) => labelMode === 'inline') && 'inline labels',
   ].filter((feature) => typeof feature === 'string');
 
   return unsupported.length > 0

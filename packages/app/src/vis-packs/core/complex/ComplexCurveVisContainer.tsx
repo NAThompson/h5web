@@ -11,6 +11,7 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useComplexCurveConfig } from './curve-config';
@@ -23,6 +24,7 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
   assertComplexType(entity);
 
   const { dims } = entity.shape;
+  const hint = useViewHint(entity);
   const [dimMapping, setDimMapping] = useDimMappingState({
     dims,
     axesCount: 1,
@@ -67,7 +69,7 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
                   dimMapping={dimMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
-                  title={entity.name}
+                  title={hint.title ?? entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
                 />

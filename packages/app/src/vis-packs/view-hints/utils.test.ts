@@ -18,7 +18,9 @@ import {
   findHintVis,
   formatLabel,
   getHintNotes,
+  getHintVisNotes,
   getNotesIn3D,
+  getValueLabel,
   isSurfaceHint,
 } from './utils';
 
@@ -359,6 +361,36 @@ describe('notes', () => {
       'not drawn in 3D: text, dashes',
     ]);
     expect(getNotesIn3D([curve])).toEqual([]);
+    // Inline labels are just left out
+    expect(
+      getNotesIn3D([{ ...curve, label: 'a', labelMode: 'inline' }]),
+    ).toEqual([]);
+  });
+
+  it('note a hinted visualization that is not available', () => {
+    const heatmap = vis('Heatmap');
+    const volume = hint({ H5WEB_vis: 'volume' });
+    expect(getHintVisNotes(volume, findHintVis(volume, [heatmap]))).toEqual([
+      '"H5WEB_vis" "volume" is not available for this dataset',
+    ]);
+    expect(getHintVisNotes(hint({ H5WEB_vis: 'heatmap' }), heatmap)).toEqual(
+      [],
+    );
+    expect(getHintVisNotes(hint({}), undefined)).toEqual([]);
+  });
+});
+
+describe('value label', () => {
+  it('label values with CF `units`, and `long_name` unless it is the title', () => {
+    expect(getValueLabel({ long_name: 'E_{k}', units: 'hartree' }, 'Eₖ')).toBe(
+      'hartree',
+    );
+    expect(getValueLabel({ long_name: 'E_{k}', units: 'm^{-1}' }, 'T')).toBe(
+      'Eₖ (m⁻¹)',
+    );
+    expect(getValueLabel({ long_name: 'E' }, 'E')).toBeUndefined();
+    expect(getValueLabel({ long_name: 'E' }, 'T')).toBe('E');
+    expect(getValueLabel({ units: 1 }, undefined)).toBeUndefined();
   });
 });
 
