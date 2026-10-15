@@ -17,6 +17,7 @@ interface Props {
   horizontal?: boolean;
   withBounds?: boolean;
   invertColorMap: boolean;
+  label?: string; // e.g. quantity and unit of the values
 }
 
 function ColorBar(props: Props) {
@@ -27,6 +28,7 @@ function ColorBar(props: Props) {
     horizontal,
     withBounds,
     invertColorMap,
+    label,
   } = props;
 
   const [barSize, barRef] = useMeasure<HTMLDivElement>();
@@ -49,7 +51,11 @@ function ColorBar(props: Props) {
   });
 
   return (
-    <div className={styles.colorBar} data-horizontal={horizontal || undefined}>
+    <div
+      className={styles.colorBar}
+      data-horizontal={horizontal || undefined}
+      data-labelled={label ? true : undefined}
+    >
       {withBounds && (
         <>
           <p className={styles.minBound} aria-label={`Min: ${minBound}`}>
@@ -101,6 +107,11 @@ function ColorBar(props: Props) {
             }
           />
         </svg>
+      )}
+      {label && (
+        <p className={styles.label} title={label}>
+          {label}
+        </p>
       )}
     </div>
   );

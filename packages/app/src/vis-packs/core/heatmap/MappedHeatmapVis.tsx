@@ -57,6 +57,7 @@ interface Props {
   axisTicks?: AxisMapping<AxisTicks>;
   dimMapping: DimensionMapping;
   title: string;
+  valueLabel?: string; // colour bar (and height of 3D surfaces)
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
   overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_*` view hint
@@ -76,6 +77,7 @@ function MappedHeatmapVis(props: Props) {
     axisValues = [],
     axisTicks = [],
     title,
+    valueLabel,
     toolbarContainer,
     config,
     overlays,
@@ -188,6 +190,7 @@ function MappedHeatmapVis(props: Props) {
           className={visualizerStyles.vis}
           dataArray={dataArray}
           title={title}
+          valueLabel={valueLabel}
           domain={safeDomain}
           colorMap={colorMap}
           scaleType={visScaleType}
@@ -209,6 +212,7 @@ function MappedHeatmapVis(props: Props) {
           className={visualizerStyles.vis}
           dataArray={dataArray}
           title={title}
+          colorBarLabel={valueLabel}
           dtype={formatDType(dataset.type, packing)}
           domain={safeDomain}
           colorMap={colorMap}

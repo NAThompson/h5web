@@ -46,17 +46,35 @@ export const AUTO_COLOR_MAPS = {
   sequential: 'Viridis',
 } as const;
 
+/* Whether the shown range spans `center` (`undefined` until known): `H5WEB_domain` where it is
+ * fixed, so that a stack keeps one colour map, else the data domain (of the whole sequence during
+ * playback, cf. `useStableDomain`); always with `H5WEB_symmetric` */
+function spansCenter(
+  { domain, center = 0 }: ViewHint,
+  dataDomain: Domain | undefined,
+): boolean | undefined {
+  if (domain === 'symmetric') {
+    return true;
+  }
+  const [min = dataDomain?.[0], max = dataDomain?.[1]] = (domain ?? []).map(
+    (end) => end ?? undefined,
+  );
+  return min === undefined || max === undefined
+    ? undefined
+    : min < center && max > center;
+}
+
 /* Colour map and domain, which may depend on the data: `H5WEB_colormap = "auto"` is a diverging
- * map centred on `H5WEB_center` (with a symmetric domain, unless one is given) if the data changes
- * sign around it, a sequential map otherwise; `H5WEB_symmetric` is ±max |v − center| */
+ * map centred on `H5WEB_center` (with a symmetric domain, unless one is given) if the shown range
+ * spans it (cf. `spansCenter`), a sequential map otherwise; `H5WEB_symmetric` is
+ * ±max |v − center| */
 export function getColorSuggestions(
   hint: ViewHint,
   dataDomain: Domain | undefined,
 ): Pick<HeatmapSuggestions, 'colorMap' | 'customDomain'> {
   const { colorMap, domain, center = 0 } = hint;
   const isAuto = colorMap === 'auto';
-  const crosses =
-    !!dataDomain && dataDomain[0] < center && dataDomain[1] > center;
+  const crosses = spansCenter(hint, dataDomain);
 
   const isSymmetric =
     domain === 'symmetric' || (isAuto && crosses && domain === undefined);
@@ -69,8 +87,11 @@ export function getColorSuggestions(
 
   return {
     colorMap: isAuto
-      ? dataDomain &&
-        (crosses ? AUTO_COLOR_MAPS.diverging : AUTO_COLOR_MAPS.sequential)
+      ? crosses === undefined
+        ? undefined
+        : crosses
+          ? AUTO_COLOR_MAPS.diverging
+          : AUTO_COLOR_MAPS.sequential
       : colorMap,
     customDomain: Array.isArray(domain)
       ? domain

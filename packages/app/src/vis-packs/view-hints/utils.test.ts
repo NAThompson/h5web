@@ -18,7 +18,9 @@ import {
   findHintVis,
   formatLabel,
   getHintNotes,
+  getHintVisNotes,
   getNotesIn3D,
+  getValueLabel,
   isSurfaceHint,
 } from './utils';
 
@@ -406,6 +408,36 @@ describe('notes', () => {
       'not drawn in 3D: text, dashes',
     ]);
     expect(getNotesIn3D([curve])).toEqual([]);
+    // Inline labels are just left out
+    expect(
+      getNotesIn3D([{ ...curve, label: 'a', labelMode: 'inline' }]),
+    ).toEqual([]);
+  });
+
+  it('note a hinted visualization that is not available', () => {
+    const heatmap = vis('Heatmap');
+    const volume = hint({ H5WEB_vis: 'volume' });
+    expect(getHintVisNotes(volume, findHintVis(volume, [heatmap]))).toEqual([
+      '"H5WEB_vis" "volume" is not available for this dataset',
+    ]);
+    expect(getHintVisNotes(hint({ H5WEB_vis: 'heatmap' }), heatmap)).toEqual(
+      [],
+    );
+    expect(getHintVisNotes(hint({}), undefined)).toEqual([]);
+  });
+});
+
+describe('value label', () => {
+  it('label values with CF `units`, and `long_name` unless it is the title', () => {
+    expect(getValueLabel({ long_name: 'E_{k}', units: 'hartree' }, 'Eₖ')).toBe(
+      'hartree',
+    );
+    expect(getValueLabel({ long_name: 'E_{k}', units: 'm^{-1}' }, 'T')).toBe(
+      'Eₖ (m⁻¹)',
+    );
+    expect(getValueLabel({ long_name: 'E' }, 'E')).toBeUndefined();
+    expect(getValueLabel({ long_name: 'E' }, 'T')).toBe('E');
+    expect(getValueLabel({ units: 1 }, undefined)).toBeUndefined();
   });
 });
 
@@ -448,6 +480,33 @@ describe('colour map and domain', () => {
         [-1, 3],
       ).customDomain,
     ).toEqual([-1, null]);
+  });
+
+  it('pick the auto colour map from a fixed domain, the same for every slice', () => {
+    const fixed = hint({ H5WEB_colormap: 'auto', H5WEB_domain: [-1, 1] });
+    expect(getColorSuggestions(fixed, [0.2, 0.9]).colorMap).toBe('RdBu');
+    expect(getColorSuggestions(fixed, undefined).colorMap).toBe('RdBu');
+    const positive = hint({ H5WEB_colormap: 'auto', H5WEB_domain: [0, 1] });
+    expect(getColorSuggestions(positive, [-1, 1]).colorMap).toBe('Viridis');
+
+    // Automatic end: from the data
+    const half = hint({
+      H5WEB_colormap: 'auto',
+      H5WEB_domain: [Number.NaN, 5],
+    });
+    expect(getColorSuggestions(half, [-1, 3]).colorMap).toBe('RdBu');
+    expect(getColorSuggestions(half, [1, 3]).colorMap).toBe('Viridis');
+    expect(getColorSuggestions(half, undefined).colorMap).toBeUndefined();
+
+    // Symmetric: diverging
+    const symmetric = hint({
+      H5WEB_colormap: 'auto',
+      H5WEB_symmetric: { int: 1 },
+    });
+    expect(getColorSuggestions(symmetric, [1, 3])).toEqual({
+      colorMap: 'RdBu',
+      customDomain: [-3, 3],
+    });
   });
 
   it('fall back to ±1 around `center` for symmetric domains of data all at `center`', () => {

@@ -28,13 +28,14 @@ function Visualizer(props: Props) {
     );
   }
 
-  const { entity, supportedVis, primaryVis } = resolution;
+  const { entity, supportedVis, primaryVis, notes } = resolution;
   return (
     <VisManager
       key={entity.path} // reset local states when changing entity (e.g. active vis)
       entity={entity}
       supportedVis={supportedVis}
       primaryVis={primaryVis}
+      notes={notes}
     />
   );
 }

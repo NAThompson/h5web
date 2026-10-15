@@ -91,7 +91,7 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
                   dimMapping={dimMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
-                  title={entity.name}
+                  title={hint.title ?? entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   onDataDomainChange={setDataDomain}

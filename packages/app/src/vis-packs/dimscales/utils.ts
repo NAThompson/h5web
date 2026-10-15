@@ -22,12 +22,13 @@ import {
   findScalarStrAttr,
   getAttributeValue,
 } from '../../utils';
+import { toUnicodeScripts } from '../view-hints/attrs';
 
 export interface DimScale {
   label?: string;
   value?: ArrayValue<NumericType>; // undefined if the dimension is labelled but has no usable scale
   unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
-  longName?: string; // scale's CF `long_name`, e.g. to label the axis of a probe
+  longName?: string; // scale's CF `long_name`, raw (`label` starts with it)
   ticks?: AxisTicks; // scale's `H5WEB_ticks` attribute
 }
 
@@ -68,8 +69,9 @@ export async function getDimScales(
         dataContext,
       );
 
-      // The dimension label wins over the scale's own name, as for NeXus `long_name`
-      const base = label || name || scaleDataset.name;
+      // CF `long_name` of the scale, else the dimension label, else the scale's own name
+      const base =
+        toUnicodeScripts(longName) || label || name || scaleDataset.name;
 
       return {
         label: unit ? `${base} (${unit})` : base,

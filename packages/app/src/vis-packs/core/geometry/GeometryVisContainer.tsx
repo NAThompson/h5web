@@ -12,6 +12,7 @@ import { useDimHints } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { type DefaultSlice } from '../../nexus/models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
 import VisBoundary from '../../VisBoundary';
 import GeometryFetcher, { type GeometryData } from './GeometryFetcher';
 import { useCachedGeometry } from './hooks';
@@ -53,6 +54,7 @@ function GeometryVisContainer(props: Props) {
   });
 
   const selection = getSliceSelection(dimMapping);
+  const hint = useViewHint(entity);
   const dimHints = useDimHints(entity);
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -81,7 +83,7 @@ function GeometryVisContainer(props: Props) {
           dataset={entity}
           kind={kind}
           selection={selection}
-          render={(data) => render(data, entity.name)}
+          render={(data) => render(data, hint.title ?? entity.name)}
         />
       </VisBoundary>
     </>

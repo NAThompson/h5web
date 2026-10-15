@@ -95,7 +95,7 @@ function NxVolumeContainer(props: VisContainerProps) {
                 value={signal}
                 dims={volumeDims}
                 axisValues={axisValues.slice(-3)}
-                title={title}
+                title={hint.title ?? title}
                 toolbarContainer={toolbarContainer}
                 config={config}
                 withPhysicalAspect={withPhysicalAspect}

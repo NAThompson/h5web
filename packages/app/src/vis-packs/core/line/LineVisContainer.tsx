@@ -91,7 +91,8 @@ function LineVisContainer(props: VisContainerProps) {
                   axisLabels={axisLabels}
                   axisValues={axisValues}
                   axisTicks={axisTicks}
-                  title={entity.name}
+                  title={hint.title ?? entity.name}
+                  valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   symlogThreshold={hint.symlogThreshold}

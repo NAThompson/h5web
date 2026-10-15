@@ -35,6 +35,7 @@ import {
   getEllipsePoints,
   getIndexFromSelection,
   getLinkedSelection,
+  getMissingAxisNotes,
   getOverlayRequests,
   getPixelCentreShift,
   type OverlayContext,
@@ -752,6 +753,19 @@ describe('shapes', () => {
       AXES,
     );
     expect(single.points[0]).toMatchObject({ x: [1], y: [2] });
+  });
+
+  it('note overlays whose columns do not name a dimension shown on an axis', () => {
+    const pts = overlay({ kind: 'points', points: 'pts' }, {}, { 2: 0, 3: 1 });
+    expect(getMissingAxisNotes([pts], { x: 3, y: 2 }, [])).toEqual([]);
+    expect(
+      getMissingAxisNotes([pts], { x: 3, y: 1 }, [undefined, 'R (bohr)']),
+    ).toEqual([
+      'overlay: not drawn, "H5WEB_columns" don\'t name the y axis (R (bohr))',
+    ]);
+    expect(getMissingAxisNotes([pts], { x: 0, y: 1 }, [])).toEqual([
+      'overlay: not drawn, "H5WEB_columns" don\'t name the x axis (D0) or y axis (D1)',
+    ]);
   });
 
   it('place texts and inline labels, in axis values', () => {

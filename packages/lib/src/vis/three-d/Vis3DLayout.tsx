@@ -26,6 +26,7 @@ interface Props extends ClassStyleAttrs {
   scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
+  colorBarLabel?: string;
   headlight?: boolean; // light follows camera, rather than lighting the box from above
 }
 
@@ -41,6 +42,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     scaleType,
     colorMap,
     invertColorMap,
+    colorBarLabel,
     headlight = false,
     children,
     className = '',
@@ -90,6 +92,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
         colorMap={colorMap}
         invertColorMap={invertColorMap}
         withBounds
+        label={colorBarLabel}
       />
     </figure>
   );

@@ -4,6 +4,7 @@ import { page, userEvent } from 'vitest/browser';
 
 import {
   advanceFakeTimers as advance,
+  getAxis,
   getSelectedVisTab,
   renderApp,
   waitForAllLoaders,
@@ -165,7 +166,7 @@ test('note overlay features not drawn in 3D', async () => {
   await user.click(page.getByRole('button', { name: 'Show as 3D surface' }));
   await expect
     .element(getNotes())
-    .toHaveTextContent('not drawn in 3D: text, dashes, inline labels');
+    .toHaveTextContent('not drawn in 3D: text, dashes');
 });
 
 test('ignore attributes of the wrong type', async () => {
@@ -513,4 +514,62 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
   expect(getProbe()).toHaveTextContent('generation'); // first sliced dimension
 
   await page.viewport(1920, 1080);
+});
+
+test('label figures, colour bars and axes from CF `long_name` and `units`', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/cf_heatmap');
+
+  // Title from the dataset's `long_name`, colour bar from its `units`, axis from the scale's
+  await expect.element(page.getByRole('figure', { name: 'Eₖ' })).toBeVisible();
+  expect(page.getByText('hartree', { exact: true })).toBeVisible();
+  const abscissa = await getAxis('abscissa');
+  expect(abscissa.getByText('αₕ (hyperangle) (rad)')).toBeVisible();
+
+  // Line: `H5WEB_title` as title, `long_name` and `units` on the value axis
+  await selectExplorerNode('cf_line');
+  await expect
+    .element(page.getByRole('figure', { name: 'growth' }))
+    .toBeVisible();
+  const ordinate = await getAxis('ordinate');
+  expect(ordinate.getByText('norm (bohr)')).toBeVisible();
+});
+
+test('note overlays not drawn when an axis is not named by their columns', async () => {
+  await renderApp('/view_hints/stack_overlays');
+
+  await expect
+    .element(getNotes())
+    .toHaveTextContent(
+      'overlay "stack_point": not drawn, "H5WEB_columns" don\'t name the y axis (D1)',
+    );
+});
+
+test('slice the leading dimensions of a volume', async () => {
+  const { user } = await renderApp('/view_hints/volume_stack');
+
+  expect(getSelectedVisTab()).toBe(Vis.Volume);
+  await expect
+    .element(page.getByRole('figure', { name: 'stack of volumes' }))
+    .toBeVisible();
+  const slider = page.getByRole('slider', { name: 'D0' });
+  await expect.element(slider).toHaveValue(0);
+  expect(page.getByRole('slider', { name: 'D1' })).not.toBeInTheDocument();
+
+  await user.click(slider);
+  await userEvent.keyboard('{ArrowUp}');
+  await expect.element(slider).toHaveValue(1);
+  await expect
+    .element(page.getByRole('figure', { name: 'stack of volumes' }))
+    .toBeVisible();
+});
+
+test('note a hinted visualization that is not available', async () => {
+  await renderApp('/view_hints/volume_flat');
+
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+  await expect
+    .element(getNotes())
+    .toHaveTextContent(
+      '"H5WEB_vis" "volume" is not available for this dataset',
+    );
 });

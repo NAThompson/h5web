@@ -124,7 +124,7 @@ function NxLineContainer(props: VisContainerProps) {
                 dimMapping={lineMapping}
                 axisLabels={axisLabels}
                 axisValues={axisValues}
-                title={title}
+                title={hint.title ?? title}
                 toolbarContainer={toolbarContainer}
                 config={config}
                 symlogThreshold={hint.symlogThreshold}

@@ -23,6 +23,39 @@
     '. axis .';
 }
 
+.colorBar[data-labelled]:not([data-horizontal]) {
+  grid-template-columns: 2.25rem 3.75rem 1.5rem;
+  grid-template-areas:
+    'max . .'
+    'gradient axis label'
+    'min . .';
+}
+
+.colorBar[data-labelled][data-horizontal] {
+  height: auto;
+  grid-template-rows: 2.25rem 3.5rem auto;
+  grid-template-areas:
+    'min gradient max'
+    '. axis .'
+    '. label .';
+}
+
+.label {
+  grid-area: label;
+  margin: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--h5w-colorBar-label--color, #333);
+  font-size: var(--h5w-colorBar-label--fontSize, 0.875em);
+}
+
+.colorBar:not([data-horizontal]) .label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg); /* reads bottom to top */
+}
+
 .gradientBar {
   grid-area: gradient;
   display: flex;

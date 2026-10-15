@@ -25,6 +25,7 @@ import {
   createGeometryContext,
   resolveCoordinate,
 } from '../core/geometry/utils';
+import { useDimHints } from '../dimscales/hooks';
 import { useSlicingProps } from '../slicing';
 import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
 import { toNumbers } from './attrs';
@@ -37,6 +38,7 @@ import {
   createOverlayContext,
   getIndexFromSelection,
   getInputRequest,
+  getMissingAxisNotes,
   getOverlayRequests,
   getRequestKey,
   type OverlayShapes,
@@ -216,6 +218,7 @@ export function useLinkedOverlays(
 
   const axes = { x: dimMapping.indexOf('x'), y: dimMapping.indexOf('y') };
   const { shapes, notes } = useOverlayShapes(resolved, index, axes);
+  const dimHints = useDimHints(base);
 
   // Extra slider: prefetch overlays of upcoming indices during playback, as slicing does
   const { slicingProps } = useSlicingProps(() => [], [extraIndex], {
@@ -246,7 +249,10 @@ export function useLinkedOverlays(
 
   return {
     shapes,
-    notes,
+    notes: [
+      ...notes,
+      ...getMissingAxisNotes(resolved?.overlays ?? [], axes, dimHints),
+    ],
     legend,
     notesIn3D: getNotesIn3D(
       resolved?.overlays.map(({ hint: overlay }) => overlay) ?? [],
