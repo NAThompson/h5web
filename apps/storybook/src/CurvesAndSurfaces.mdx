@@ -98,7 +98,7 @@ nxdata["K"] = f["torus/K"]  # has `coordinates = "x y z"`
 
 The space of visualizations is infinite, and a viewer with an option for everything becomes unusable. Instead, the **file declares how it is meant to be viewed**: a dataset (or an `NXdata` group) may carry a string attribute `H5WEB_view` holding a small JSON object. H5Web opens the declared visualization with the declared settings, so the toolbar can stay small. Files without hints are shown as before (heuristics). This section follows the `H5WEB_view` schema v0.2 agreed with writers; keys marked _Phase 2/3_ are reserved (ignored for now).
 
-- **Forgiving**: unknown keys are ignored; an invalid value drops only that key; invalid JSON drops the hint. Nothing is logged to the console: what was ignored is listed in a small note over the visualization (heatmaps).
+- **Forgiving**: unknown keys are ignored; an invalid value drops only that key; invalid JSON drops the hint, and so does an attribute that can't be read (the entity opens as without hint). Nothing is logged to the console: what was ignored is listed in a small note over the visualization.
 - **Suggestions, not locks**: hinted settings apply when the dataset is opened; any change by the user wins while the dataset stays open (like NeXus `SILX_style`). The hinted visualization is selected each time the dataset is opened (like NeXus `interpretation`).
 - **Precedence**: `H5WEB_view` > NeXus (`default`, `interpretation`, `SILX_style`) > heuristics. On an `NXdata` group, the group's hint is used, else its signal's.
 - **Where**: on the dataset itself (it travels with the data when copied), or on an `NXdata` group.
@@ -125,7 +125,7 @@ _Phase 2_: `symlogThreshold`, `outOfRange`, `nanColor`, `colorBar`, `axes` (labe
 
 ### Overlays
 
-`overlays` lists things to draw on top of the dataset (the **base**), in its **data coordinates** - values of its axes (dimension scales or NeXus axes), not indices - on the heatmap and on the 3D surface. Each overlay has exactly one geometry key:
+`overlays` lists things to draw on top of the dataset (the **base**), in its **data coordinates** - values of its axes (dimension scales or NeXus axes), not indices - on the heatmap and on the 3D surface (other visualizations note that overlays are not drawn). Each overlay has exactly one geometry key:
 
 | Geometry  | Value                                                                                                                                               | Draws                                                                                                                                                         |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -136,8 +136,10 @@ _Phase 2_: `symlogThreshold`, `outOfRange`, `nanColor`, `colorBar`, `axes` (labe
 
 - **Paths**: absolute (`/coalescence/edge`), relative to the base's group (`../run/mean`, `sub/x`), or a bare name also searched in ancestor groups (CF-style, §1). For a hint on an `NXdata` group, relative to that group.
 - **`columns`**: `["alpha", "theta"]` names the base dimension (by dimension-scale name: dataset name or `NAME`) held by each column, and by each component of `at`. Default: column 0 = last HDF5 dimension (x), column 1 = second-to-last (y). Writers should always give `columns`. H5Web also accepts column indices, `[i, j]` (`[i, j, k]`: third column = height on 3D surfaces), e.g. to project 8D points. Overlays follow the axes when the user swaps them.
-- **Style**: `"color"` (CSS colour: lines, and points without `colorBy`), `"size"` (point radius, px), `"width"` (line width, px), `"dash"` (dashed lines), `"label"`, `"labelMode"` (`"legend"` default, or `"inline"`: label drawn next to the last point), `"colorBy"` (path to an `(N,)` dataset colouring the points with the base colour map and domain), `"z"` (3D: `"value"` = points at the height of their `colorBy` value, a path to an `(N,)` dataset, or `"surface"` - default - on the surface). H5Web also reads `"stroke"` (outline of points).
-- **Robustness**: overlays are drawn above the image - NaN pixels never hide them - and are not clipped at the edges of the domain. An overlay that can't be resolved (missing dataset, wrong shape, unreadable values) is skipped with a small note; it never breaks the base view.
+- **Coordinates are sample positions**: a coordinate equal to an axis value is where that sample is drawn - at the centre of its pixel on heatmaps (which draw each of N axis values as the start of a pixel; with N + 1 bin edges, coordinates are used as is), at the vertex on 3D surfaces. So overlays line up in 2D and 3D, and a line at the first or last axis value runs along the middle of the edge pixels.
+- **Style**: `"color"` (CSS colour: lines, and points without `colorBy`), `"size"` (point radius, px), `"width"` (line width, px), `"dash"` (dashed lines), `"halo"` (contrasting halo around lines, points and text so they stay visible on any colour map; default `true`), `"label"`, `"labelMode"` (`"legend"` default, or `"inline"`: label drawn next to the last point), `"colorBy"` (path to an `(N,)` dataset colouring the points with the base colour map and domain), `"z"` (3D: `"value"` = points at the height of their `colorBy` value, a path to an `(N,)` dataset, or `"surface"` - default - on the surface). H5Web also reads `"stroke"` (outline of points).
+- **Robustness**: overlays are drawn above the image - NaN pixels never hide them - and are not clipped at the edges of the domain (on 3D surfaces, they lie on the floor over holes). An overlay that can't be resolved (missing dataset, wrong shape, unreadable values) is skipped with a small note; it never breaks the base view. Overlay values are fetched without confirmation, so values larger than the automatic fetch limit (500 MB) are skipped with a note; point sets of more than 5000 points are drawn as plain GL points (no halo, outline nor label).
+- **3D**: text overlays, dashes and inline labels are not drawn on 3D surfaces (a note says so).
 
 ### Linking: shared dimension scales
 
@@ -145,7 +147,8 @@ Datasets are **linked** - sliced and played together - when the **same HDF5 dime
 
 - if the base has a dimension with that scale (e.g. a landscape per generation `(G, ny, nx)`), its slider slices the overlays too, and playback prefetches their slices with the base's;
 - if it doesn't (e.g. a fixed landscape `f(x, y)`), H5Web adds a **linked slider** named after the scale below the dimension mapper, with the same playback controls. `"sliceBy": "<scale name or path>"` names the scale (else the scale on the first dimension of an overlay dataset that needs slicing is used).
-- `"trail": true` (curves): rows up to the current index only, e.g. the path of the mean so far.
+- scales of the base's axes (its last two dimensions) are never taken as links unless named by `sliceBy`: a curve along the x axis with the x scale attached is drawn whole.
+- `"trail": true` (curves): rows up to the current index only, e.g. the path of the mean so far; the linked dimension of a trail dataset may be its first (`(G, 2)`) or second (`(2, G)`).
 
 Overlay datasets with no linked dimension are drawn whole (static overlays). Only the current slice of each linked dataset is fetched; trails are fetched whole, once. A dataset with no dimension scale at all whose first dimension has the linked length is linked by that dimension (for providers that cannot read dimension scales).
 
