@@ -1,4 +1,4 @@
-import { type Domain, type ScaleType } from '@h5web/shared/vis-models';
+import { type Domain } from '@h5web/shared/vis-models';
 import { rgb, type RGBColor } from 'd3-color';
 import { type NdArray } from 'ndarray';
 import { memo, useMemo } from 'react';
@@ -16,6 +16,7 @@ import { useDataTexture, useDisposeOnChange } from './hooks';
 import { type ColorMap, type TextureSafeTypedArray } from './models';
 import {
   getColorMapTexture,
+  getShaderScale,
   GLSL_IS_SUPPORTED,
   GLSL_SCALE,
   scaleDomain,
@@ -66,11 +67,10 @@ function HeatmapMaterial(props: Props) {
   useDisposeOnChange(maskTexture);
   useDisposeOnChange(colorMapTexture);
 
-  const [scaleType, gammaExponent] = Array.isArray(visScaleType)
-    ? visScaleType
-    : [visScaleType as ScaleType, 1];
+  const [scaleType, gammaExponent, symlogConstant] =
+    getShaderScale(visScaleType);
 
-  const scaledDomain = scaleDomain(domain, scaleType);
+  const scaledDomain = scaleDomain(domain, scaleType, symlogConstant);
 
   const badColorAsRgb = typeof badColor === 'string' ? rgb(badColor) : badColor;
 
@@ -82,6 +82,7 @@ function HeatmapMaterial(props: Props) {
       min: scaledDomain[0],
       oneOverRange: 1 / (scaledDomain[1] - scaledDomain[0]),
       gammaExponent,
+      symlogConstant,
       normRevertFactor: values.dtype === 'uint8' ? 255 : 1, // revert WebGL's automatic normalization of UNSIGNED_BYTE with RED format
       alpha: alphaTexture,
       withAlpha: alphaValues ? 1 : 0,
@@ -102,6 +103,7 @@ function HeatmapMaterial(props: Props) {
       uniform float min;
       uniform float oneOverRange;
       uniform float gammaExponent;
+      uniform float symlogConstant;
       uniform float normRevertFactor;
 
       uniform sampler2D alpha;

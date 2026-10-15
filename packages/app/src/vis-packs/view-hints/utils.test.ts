@@ -58,7 +58,8 @@ describe('parseViewHint', () => {
         H5WEB_contour_count: { int: 12 },
         H5WEB_slice_by: 'generation',
         H5WEB_overlays: ' population  ellipse\tmean ',
-        H5WEB_ticks: 'pi', // unknown (Phase 2): ignored silently
+        H5WEB_ticks: 'pi', // read on dimension scales: ignored silently here
+        H5WEB_symlog_threshold: 1e-12, // 1-element array (netCDF-4)
       }),
     ).toMatchObject({
       vis: HintVis.Surface,
@@ -70,6 +71,7 @@ describe('parseViewHint', () => {
       contours: 12,
       sliceBy: 'generation',
       overlayPaths: ['population', 'ellipse', 'mean'],
+      symlogThreshold: 1e-12,
       notes: [],
     });
   });
@@ -127,6 +129,7 @@ describe('parseViewHint', () => {
       H5WEB_legend: 1, // float, not integer
       H5WEB_colormap: { int: 3 }, // integer, not string
       H5WEB_z_stretch: -1,
+      H5WEB_symlog_threshold: 0,
     });
 
     expect(invalid).toMatchObject({
@@ -137,11 +140,13 @@ describe('parseViewHint', () => {
       legend: undefined,
       colorMap: undefined,
       heightScale: undefined,
+      symlogThreshold: undefined,
     });
     expect(invalid.notes).toEqual([
       'ignored invalid "H5WEB_domain"',
       'ignored invalid "H5WEB_vis"',
       'ignored invalid "H5WEB_scale"',
+      'ignored invalid "H5WEB_symlog_threshold"',
       'ignored invalid "H5WEB_colormap"',
       'ignored invalid "H5WEB_legend"',
       'ignored invalid "H5WEB_keep_ratio"',

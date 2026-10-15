@@ -540,6 +540,12 @@ export const mockValues = {
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
   psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),
+  // 1 down to 1e-16, e.g. a wave function decaying over 16 decades
+  decades_twoD: () =>
+    ndarray(
+      range(0, 3 * 17).map((i) => 10 ** -(i % 17)),
+      [3, 17],
+    ),
   constant_twoD: () =>
     ndarray(
       Array.from({ length: 12 }, () => 1),

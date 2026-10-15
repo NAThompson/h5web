@@ -1,3 +1,4 @@
+import { type AxisTicks } from '@h5web/lib';
 import {
   assertValue,
   hasArrayShape,
@@ -26,6 +27,7 @@ export interface DimScale {
   label?: string;
   value?: ArrayValue<NumericType>; // undefined if the dimension is labelled but has no usable scale
   unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
+  ticks?: AxisTicks; // scale's `H5WEB_ticks` attribute
 }
 
 interface UsableScale {
@@ -60,7 +62,10 @@ export async function getDimScales(
       }
 
       const { dataset: scaleDataset, value } = scale;
-      const { name, unit } = await getScaleMeta(scaleDataset, dataContext);
+      const { name, unit, ticks } = await getScaleMeta(
+        scaleDataset,
+        dataContext,
+      );
 
       // The dimension label wins over the scale's own name, as for NeXus `long_name`
       const base = label || name || scaleDataset.name;
@@ -69,19 +74,20 @@ export async function getDimScales(
         label: unit ? `${base} (${unit})` : base,
         value,
         unit,
+        ticks,
       };
     }),
   );
 }
 
-/* `NAME` is the name given to `make_scale`, empty if none was. Both attributes
+/* `NAME` is the name given to `make_scale`, empty if none was. The attributes
  * are optional, so failing to read them must not hide an otherwise usable scale. */
 async function getScaleMeta(
   scaleDataset: Dataset<ArrayShape, NumericType>,
   dataContext: DataContextValue,
-): Promise<{ name?: string; unit?: string }> {
+): Promise<{ name?: string; unit?: string; ticks?: AxisTicks }> {
   try {
-    const [name, unit] = await Promise.all([
+    const [name, unit, ticks] = await Promise.all([
       getAttributeValue(
         scaleDataset,
         findScalarStrAttr(scaleDataset, 'NAME'),
@@ -92,10 +98,28 @@ async function getScaleMeta(
         findScalarStrAttr(scaleDataset, 'units'),
         dataContext,
       ),
+      getTicksHint(scaleDataset, dataContext),
     ]);
-    return { name, unit: unit || undefined };
+    return { name, unit: unit || undefined, ticks };
   } catch {
     return {};
+  }
+}
+
+/* `H5WEB_ticks` of a scale; failing to read it must not hide the scale's label */
+async function getTicksHint(
+  scaleDataset: Dataset<ArrayShape, NumericType>,
+  dataContext: DataContextValue,
+): Promise<AxisTicks | undefined> {
+  try {
+    const ticks = await getAttributeValue(
+      scaleDataset,
+      findScalarStrAttr(scaleDataset, 'H5WEB_ticks'),
+      dataContext,
+    );
+    return ticks?.trim().toLowerCase() === 'pi' ? 'pi' : undefined;
+  } catch {
+    return undefined;
   }
 }
 

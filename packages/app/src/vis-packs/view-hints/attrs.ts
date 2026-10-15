@@ -273,6 +273,10 @@ export function parseViewHint(
   return {
     vis: read.oneOf('H5WEB_vis', (val) => HINT_VIS.get(toKey(val) as HintVis)),
     scaleType: read.oneOf('H5WEB_scale', parseScaleType),
+    symlogThreshold: read.num(
+      'H5WEB_symlog_threshold',
+      (v) => Number.isFinite(v) && v > 0,
+    ),
     height: read.oneOf('H5WEB_z_scale', parseScaleType),
     colorMap: read.oneOf('H5WEB_colormap', (val) =>
       val.toLowerCase() === 'auto' ? 'auto' : COLOR_MAPS.get(toKey(val)),

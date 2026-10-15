@@ -97,17 +97,19 @@ function HeatmapVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisLabels, axisValues }) => (
+              render={({ axisLabels, axisValues, axisTicks }) => (
                 <MappedHeatmapVis
                   dataset={entity}
                   value={value}
                   dimMapping={dimMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
+                  axisTicks={axisTicks}
                   title={hint.title ?? entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   overlays={overlays.shapes}
+                  symlogThreshold={hint.symlogThreshold}
                   onDataDomainChange={setDataDomain}
                 />
               )}

@@ -1,4 +1,5 @@
 import {
+  type AxisTicks,
   ContourLines,
   type DimensionMapping,
   getContourLevels,
@@ -33,6 +34,7 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { useSymlogThreshold } from '../../view-hints/hooks';
 import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
 import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
 import { type OverlayShapes } from '../../view-hints/overlays';
@@ -52,11 +54,13 @@ interface Props {
   value: ArrayValue<NumericLikeType>;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  axisTicks?: AxisMapping<AxisTicks>;
   dimMapping: DimensionMapping;
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
   overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_*` view hint
+  symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
   onDataDomainChange?: (dataDomain: Domain) => void; // e.g. for hints that depend on the data
 }
 
@@ -67,10 +71,12 @@ function MappedHeatmapVis(props: Props) {
     dimMapping,
     axisLabels = [],
     axisValues = [],
+    axisTicks = [],
     title,
     toolbarContainer,
     config,
     overlays,
+    symlogThreshold,
     onDataDomainChange,
   } = props;
 
@@ -124,6 +130,8 @@ function MappedHeatmapVis(props: Props) {
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
+  const visScaleType = useSymlogThreshold(scaleType, symlogThreshold);
+
   const selection = getSliceSelection(dimMapping);
   const xDimIndex = dimMapping.indexOf('x');
   const yDimIndex = dimMapping.indexOf('y');
@@ -131,10 +139,12 @@ function MappedHeatmapVis(props: Props) {
   const abscissaParams = {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
+    ticks: axisTicks[xDimIndex],
   };
   const ordinateParams = {
     label: axisLabels[yDimIndex],
     value: numAxisArrays[yDimIndex],
+    ticks: axisTicks[yDimIndex],
   };
 
   // A surface needs at least two rows and two columns (e.g. not a 1 x N slice)
@@ -144,8 +154,8 @@ function MappedHeatmapVis(props: Props) {
 
   // Contour levels follow the colour scale: evenly spread in its space, within its domain
   const autoContourLevels = useMemo(
-    () => getContourLevels(safeDomain, scaleType, contourCount),
-    [safeDomain, scaleType, contourCount],
+    () => getContourLevels(safeDomain, visScaleType, contourCount),
+    [safeDomain, visScaleType, contourCount],
   );
   // Custom levels entered for another dataset don't apply: start again from automatic levels
   const customContourLevels =
@@ -163,7 +173,7 @@ function MappedHeatmapVis(props: Props) {
       ? getLevelColors(
           contourLevels,
           safeDomain,
-          scaleType,
+          visScaleType,
           colorMap,
           invertColorMap,
         )
@@ -195,7 +205,7 @@ function MappedHeatmapVis(props: Props) {
           title={title}
           domain={safeDomain}
           colorMap={colorMap}
-          scaleType={scaleType}
+          scaleType={visScaleType}
           invertColorMap={invertColorMap}
           abscissaParams={abscissaParams}
           ordinateParams={ordinateParams}
@@ -217,7 +227,7 @@ function MappedHeatmapVis(props: Props) {
           dtype={formatDType(dataset.type, packing)}
           domain={safeDomain}
           colorMap={colorMap}
-          scaleType={scaleType}
+          scaleType={visScaleType}
           aspect={keepRatio ? 'equal' : 'auto'}
           showGrid={showGrid}
           invertColorMap={invertColorMap}
@@ -232,7 +242,7 @@ function MappedHeatmapVis(props: Props) {
             <ContourLines
               dataArray={dataArray}
               levels={contourLevels}
-              scaleType={scaleType}
+              scaleType={visScaleType}
               ignoreValue={ignoreValue}
               color={contourColors}
               withHalo={contourColorMode === ContourColorMode.ColorMap}
@@ -249,7 +259,7 @@ function MappedHeatmapVis(props: Props) {
               shape={dataArray.shape}
               colorParams={{
                 domain: safeDomain,
-                scaleType,
+                scaleType: visScaleType,
                 colorMap,
                 invertColorMap,
               }}

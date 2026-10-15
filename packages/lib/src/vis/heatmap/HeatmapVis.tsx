@@ -83,8 +83,16 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     className = '',
     style,
   } = props;
-  const { label: abscissaLabel, value: abscissaValue } = abscissaParams;
-  const { label: ordinateLabel, value: ordinateValue } = ordinateParams;
+  const {
+    label: abscissaLabel,
+    value: abscissaValue,
+    ticks: abscissaTicks,
+  } = abscissaParams;
+  const {
+    label: ordinateLabel,
+    value: ordinateValue,
+    ticks: ordinateTicks,
+  } = ordinateParams;
   const [rows, cols] = dataArray.shape;
 
   const abscissas = usePixelEdgeValues(abscissaValue, cols);
@@ -118,6 +126,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           isIndexAxis: !abscissaValue,
           label: abscissaLabel,
           flip: flipXAxis,
+          ticks: abscissaTicks,
         }}
         ordinateConfig={{
           visDomain: ordinateDomain,
@@ -125,6 +134,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           isIndexAxis: !ordinateValue,
           label: ordinateLabel,
           flip: flipYAxis,
+          ticks: ordinateTicks,
         }}
       >
         <DefaultInteractions {...interactions} />

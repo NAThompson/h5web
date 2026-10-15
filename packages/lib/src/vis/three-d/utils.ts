@@ -15,8 +15,13 @@ import {
 
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
-import { type VisScaleType } from '../models';
-import { createScale, getIntegerTicks, SCALES_VALID_MINS } from '../utils';
+import { type AxisTicks, type VisScaleType } from '../models';
+import {
+  createScale,
+  getIntegerTicks,
+  getPiTicks,
+  SCALES_VALID_MINS,
+} from '../utils';
 
 const LUT_SIZE = 256;
 
@@ -28,7 +33,11 @@ export function getAxisTicks(
   domain: Domain,
   count: number,
   isIndexAxis: boolean,
+  ticks?: AxisTicks,
 ): number[] {
+  if (ticks === 'pi') {
+    return getPiTicks(domain, count);
+  }
   if (isIndexAxis) {
     return getIntegerTicks(domain, count);
   }

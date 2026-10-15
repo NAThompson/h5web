@@ -1,4 +1,5 @@
 import {
+  type AxisTicks,
   type DimensionMapping,
   getDomain,
   getSliceSelection,
@@ -66,9 +67,11 @@ interface Props {
   dimMapping: DimensionMapping;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  axisTicks?: AxisMapping<AxisTicks>;
   title: string;
   toolbarContainer?: HTMLDivElement | undefined;
   config: LineConfig;
+  symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
 }
 
 function MappedLineVis(props: Props) {
@@ -88,9 +91,11 @@ function MappedLineVis(props: Props) {
     dimMapping,
     axisLabels = [],
     axisValues = [],
+    axisTicks = [],
     title,
     toolbarContainer,
     config,
+    symlogThreshold,
   } = props;
 
   const {
@@ -217,6 +222,7 @@ function MappedLineVis(props: Props) {
   const abscissaParams = {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
+    ticks: axisTicks[xDimIndex],
     scaleType: xScaleType,
   };
 
@@ -284,6 +290,7 @@ function MappedLineVis(props: Props) {
         dataColor={isMultiPlot ? getSliceColor(0) : undefined}
         domain={safeDomain}
         scaleType={yScaleType}
+        symlogConstant={symlogThreshold}
         curveType={curveType}
         showGrid={showGrid}
         abscissaParams={abscissaParams}

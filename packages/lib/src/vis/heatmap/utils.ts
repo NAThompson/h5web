@@ -29,6 +29,7 @@ import {
   DomainError,
   type DomainErrors,
   type Size,
+  type VisScaleType,
 } from '../models';
 import { extendDomain, SCALES_VALID_MINS } from '../utils';
 import { INTERPOLATORS } from './interpolators';
@@ -48,20 +49,23 @@ export const GRADIENT_RANGE = range(
   GRADIENT_PRECISION,
 );
 
-const SCALE_FNS: Record<ScaleType, (val: number) => number> = {
-  [ScaleType.Linear]: (val) => val,
-  [ScaleType.Log]: Math.log10,
-  [ScaleType.SymLog]: (val) => Math.sign(val) * Math.log10(1 + Math.abs(val)),
-  [ScaleType.Sqrt]: Math.sqrt,
-  [ScaleType.Gamma]: (val) => val,
-};
+const SCALE_FNS: Record<ScaleType, (val: number, constant: number) => number> =
+  {
+    [ScaleType.Linear]: (val) => val,
+    [ScaleType.Log]: Math.log10,
+    [ScaleType.SymLog]: (val, constant) =>
+      Math.sign(val) * Math.log10(1 + Math.abs(val) / constant),
+    [ScaleType.Sqrt]: Math.sqrt,
+    [ScaleType.Gamma]: (val) => val,
+  };
 
 const CMAP_SIZE = 256;
 
 // GLSL implementations of scale functions, for use in shaders with a `float value` in scope
 export const GLSL_SCALE: Partial<Record<ScaleType, string>> = {
   [ScaleType.Log]: 'log(value) * oneOverLog10',
-  [ScaleType.SymLog]: 'sign(value) * log(1. + abs(value)) * oneOverLog10',
+  [ScaleType.SymLog]:
+    'sign(value) * log(1. + abs(value) / symlogConstant) * oneOverLog10', // `uniform float symlogConstant`
   [ScaleType.Sqrt]: 'sqrt(value)',
 };
 
@@ -229,12 +233,29 @@ export function getColorMapTexture(
   return texture;
 }
 
+/* Scale type, gamma exponent and symlog constant of a scale type for shaders */
+export function getShaderScale(
+  visScaleType: VisScaleType,
+): [scaleType: ScaleType, gammaExponent: number, symlogConstant: number] {
+  if (!Array.isArray(visScaleType)) {
+    return [visScaleType, 1, 1];
+  }
+  const [scaleType, param] = visScaleType;
+  return scaleType === ScaleType.SymLog
+    ? [scaleType, 1, param]
+    : [scaleType, param, 1];
+}
+
 export function scaleDomain(
   domain: Domain,
   scaleType = ScaleType.Linear,
+  symlogConstant = 1,
 ): Domain {
   const scaleFn = SCALE_FNS[scaleType];
-  return [scaleFn(domain[0]), scaleFn(domain[1])];
+  return [
+    scaleFn(domain[0], symlogConstant),
+    scaleFn(domain[1], symlogConstant),
+  ];
 }
 
 export function toTextureSafeNdArray(

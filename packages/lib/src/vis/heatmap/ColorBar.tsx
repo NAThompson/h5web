@@ -5,7 +5,7 @@ import { AxisBottom, AxisRight } from '@visx/axis';
 
 import { type VisScaleType } from '../models';
 import Tick from '../shared/Tick';
-import { adaptedNumTicks, createScale } from '../utils';
+import { adaptedNumTicks, createScale, getScaleTickValues } from '../utils';
 import styles from './ColorBar.module.css';
 import { type ColorMap } from './models';
 import { getInterpolator, getLinearGradient } from './utils';
@@ -83,6 +83,11 @@ function ColorBar(props: Props) {
             scale={axisScale}
             hideAxisLine
             numTicks={adaptedNumTicks(gradientLength)}
+            tickValues={getScaleTickValues(
+              scaleType,
+              domain,
+              adaptedNumTicks(gradientLength),
+            )}
             tickClassName={styles.tick}
             tickComponent={Tick}
             tickFormat={

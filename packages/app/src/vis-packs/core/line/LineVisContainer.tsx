@@ -83,16 +83,18 @@ function LineVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisLabels, axisValues }) => (
+              render={({ axisLabels, axisValues, axisTicks }) => (
                 <MappedLineVis
                   dataset={entity}
                   value={value}
                   dimMapping={lineMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
+                  axisTicks={axisTicks}
                   title={entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  symlogThreshold={hint.symlogThreshold}
                 />
               )}
             />

@@ -2,15 +2,22 @@ import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { tickStep } from 'd3-array';
 import { describe, expect, it } from 'vitest';
 
+import { getScaleTransform } from './geometry-worker/scale';
+import { scaleDomain } from './heatmap/utils';
 import {
   clampBound,
+  createScale,
   extendDomain,
+  formatPiTick,
   getAxisDomain,
   getCombinedDomain,
   getDomain,
   getDomains,
   getIntegerTicks,
+  getPiTicks,
+  getScaleTickValues,
   getSizeToFit,
+  getSymlogTicks,
   getValueToIndexScale,
   getVisRatio,
 } from './utils';
@@ -362,6 +369,81 @@ describe('getIntegerTicks', () => {
   });
 });
 
+function piLabels(domain: Domain, count: number): string[] {
+  return getPiTicks(domain, count).map(formatPiTick);
+}
+
+describe('getPiTicks', () => {
+  const { PI } = Math;
+
+  it('should pick a step of π/12, π/6, π/4, π/2, π, 2π... for about `count` ticks', () => {
+    expect(piLabels([0, PI], 4)).toEqual(['0', 'π/4', 'π/2', '3π/4', 'π']);
+    expect(piLabels([0, PI], 2)).toEqual(['0', 'π/2', 'π']);
+    expect(piLabels([0, 2 * PI], 3)).toEqual(['0', 'π/2', 'π', '3π/2', '2π']);
+    expect(piLabels([0, PI / 2], 3)).toEqual(['0', 'π/6', 'π/3', 'π/2']);
+    expect(piLabels([0, PI / 2], 6)).toEqual([
+      '0',
+      'π/12',
+      'π/6',
+      'π/4',
+      'π/3',
+      '5π/12',
+      'π/2',
+    ]);
+  });
+
+  it('should coarsen the step when zoomed out', () => {
+    expect(piLabels([0, 10 * PI], 5)).toEqual([
+      '0',
+      '2π',
+      '4π',
+      '6π',
+      '8π',
+      '10π',
+    ]);
+    expect(piLabels([0, 40 * PI], 5)).toEqual([
+      '0',
+      '8π',
+      '16π',
+      '24π',
+      '32π',
+      '40π',
+    ]);
+  });
+
+  it('should only include ticks within the domain, in either order', () => {
+    expect(piLabels([0.1, 3], 4)).toEqual(['π/4', 'π/2', '3π/4']);
+    expect(getPiTicks([3, 0.1], 4)).toEqual(getPiTicks([0.1, 3], 4));
+  });
+
+  it('should label negative multiples with a minus sign', () => {
+    expect(piLabels([-PI, PI], 4)).toEqual(['−π', '−π/2', '0', 'π/2', 'π']);
+    expect(piLabels([-2 * PI, 0], 4)).toEqual([
+      '−2π',
+      '−3π/2',
+      '−π',
+      '−π/2',
+      '0',
+    ]);
+  });
+
+  it('should fall back to nice ticks when zoomed in beyond π/12', () => {
+    const ticks = getPiTicks([1, 1.1], 5);
+    expect(ticks).toHaveLength(6);
+    expect(ticks[1]).toBeCloseTo(1.02);
+    expect(formatPiTick(1.02)).toBe('1.02');
+    expect(getPiTicks([0, 1e-7], 2).map(formatPiTick)).toEqual([
+      '0',
+      '5e-8',
+      '1e-7',
+    ]);
+  });
+
+  it('should return no ticks for an empty domain', () => {
+    expect(getPiTicks([1, 1], 5)).toEqual([]);
+  });
+});
+
 describe('getCombinedDomain', () => {
   it('should return the minimum of minima and the maximum of maxima', () => {
     const combinedDomain = getCombinedDomain([
@@ -459,5 +541,72 @@ describe('getVisRatio', () => {
     expect(getVisRatio(2, [0, 1], [0, 2])).toBe(0.25);
     expect(getVisRatio(2, [0, 2], [0, 1])).toBe(1);
     expect(getVisRatio(2, [100, 200], [10, 20])).toBe(5);
+  });
+});
+
+describe('symlog constant', () => {
+  const symlog = createScale([ScaleType.SymLog, 1e-12], {
+    domain: [0, 1],
+    range: [0, 1],
+  });
+
+  it('should set the width of the linear band around 0', () => {
+    expect(symlog.constant()).toBe(1e-12);
+    // With the default constant (1), 1e-10 is indistinguishable from 0
+    expect(
+      createScale(ScaleType.SymLog, { domain: [0, 1] })(1e-10),
+    ).toBeCloseTo(0, 9);
+    expect(symlog(1e-10)).toBeGreaterThan(0.15); // log(1 + 100) / log(1 + 1e12)
+    expect(symlog(1e-10)).toBeCloseTo(Math.log1p(100) / Math.log1p(1e12));
+  });
+
+  it('should agree with the scale functions of shaders and contours', () => {
+    const [lo, hi] = scaleDomain([0, 1], ScaleType.SymLog, 1e-12);
+    const { fn } = getScaleTransform([ScaleType.SymLog, 1e-12]);
+    for (const val of [1e-14, 1e-10, 0.5]) {
+      expect((fn(val) - fn(0)) / (fn(1) - fn(0))).toBeCloseTo(symlog(val));
+      const scaled = Math.log10(1 + val / 1e-12);
+      expect((scaled - lo) / (hi - lo)).toBeCloseTo(symlog(val));
+    }
+  });
+
+  it('should extend domains in the space of the scale', () => {
+    const [min, max] = extendDomain([1e-16, 1], 0.05, [
+      ScaleType.SymLog,
+      1e-12,
+    ]);
+    expect(min).toBeLessThan(0);
+    expect(min).toBeGreaterThan(-1e-10); // not -0.05 as with the default constant
+    expect(max).toBeGreaterThan(1);
+  });
+});
+
+describe('getSymlogTicks', () => {
+  it('should put ticks at 0 and powers of 10 beyond the linear band', () => {
+    expect(getSymlogTicks([0, 1], 1e-3, 5)).toEqual([0, 0.001, 0.01, 0.1, 1]);
+    expect(getSymlogTicks([1e-16, 1], 1e-12, 5)).toEqual([
+      1e-12, 1e-9, 1e-6, 1e-3, 1,
+    ]); // every third decade
+    expect(getSymlogTicks([-100, 10], 1, 10)).toEqual([
+      -100, -10, -1, 0, 1, 10,
+    ]);
+  });
+
+  it('should leave out powers of 10 too close to 0 on short axes', () => {
+    expect(getSymlogTicks([0, 1], 1e-12, 4)).toEqual([0, 1e-8, 1e-4, 1]);
+  });
+
+  it('should fall back to linear ticks within the linear band', () => {
+    expect(getSymlogTicks([0, 0.5], 1, 5)).toEqual([
+      0, 0.1, 0.2, 0.3, 0.4, 0.5,
+    ]);
+  });
+
+  it('should only apply to symlog scales with a constant', () => {
+    expect(getScaleTickValues(ScaleType.SymLog, [0, 1], 5)).toBeUndefined();
+    expect(getScaleTickValues([ScaleType.Gamma, 2], [0, 1], 5)).toBeUndefined();
+    expect(getScaleTickValues([ScaleType.SymLog, 0.1], [0, 1], 5)).toEqual([
+      0, 0.1, 1,
+    ]);
   });
 });

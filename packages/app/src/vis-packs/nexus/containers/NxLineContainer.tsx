@@ -127,6 +127,7 @@ function NxLineContainer(props: VisContainerProps) {
                 title={title}
                 toolbarContainer={toolbarContainer}
                 config={config}
+                symlogThreshold={hint.symlogThreshold}
               />
             );
           }}

@@ -1,5 +1,4 @@
 import {
-  type ColorScaleType,
   createScale,
   DataToHtml,
   type Domain,
@@ -9,6 +8,7 @@ import {
   INTERPOLATORS,
   ScatterPoints,
   useVisCanvasContext,
+  type VisScaleType,
 } from '@h5web/lib';
 import { type NumArray } from '@h5web/shared/vis-models';
 import { type SVGProps, useMemo } from 'react';
@@ -26,7 +26,7 @@ import styles from './ViewHints.module.css';
 
 interface ColorParams {
   domain: Domain;
-  scaleType: ColorScaleType;
+  scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
 }

@@ -141,6 +141,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
                 toolbarContainer={toolbarContainer}
                 config={config}
                 overlays={overlays.shapes}
+                symlogThreshold={hint.symlogThreshold}
                 onDataDomainChange={setDataDomain}
               />
             );

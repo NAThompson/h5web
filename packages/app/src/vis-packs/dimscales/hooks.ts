@@ -1,3 +1,4 @@
+import { type AxisTicks } from '@h5web/lib';
 import {
   type ArrayShape,
   type ArrayValue,
@@ -14,6 +15,7 @@ import { type DimScale, getDimScales } from './utils';
 export interface DimScaleAxes {
   axisLabels: AxisMapping<string>;
   axisValues: AxisMapping<ArrayValue<NumericType>>;
+  axisTicks: AxisMapping<AxisTicks>; // from the scales' `H5WEB_ticks`
 }
 
 function getQueryKey(filepath: string, dataset: Dataset<ArrayShape>) {
@@ -37,6 +39,7 @@ export function useDimScales(dataset: Dataset<ArrayShape>): DimScaleAxes {
   return {
     axisLabels: dimScales.map((scale) => scale?.label),
     axisValues: dimScales.map((scale) => scale?.value),
+    axisTicks: dimScales.map((scale) => scale?.ticks),
   };
 }
 

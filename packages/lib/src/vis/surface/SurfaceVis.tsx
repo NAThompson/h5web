@@ -104,8 +104,16 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
 
   assertSurfaceArrays(dataArray, colorArray);
 
-  const { label: abscissaLabel, value: abscissaValue } = abscissaParams;
-  const { label: ordinateLabel, value: ordinateValue } = ordinateParams;
+  const {
+    label: abscissaLabel,
+    value: abscissaValue,
+    ticks: abscissaTicks,
+  } = abscissaParams;
+  const {
+    label: ordinateLabel,
+    value: ordinateValue,
+    ticks: ordinateTicks,
+  } = ordinateParams;
   const [rows, cols] = dataArray.shape;
 
   const xCenters = useMemo(
@@ -173,8 +181,9 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       isIndexAxis: !abscissaValue,
       label: abscissaLabel,
       flip: flipXAxis,
+      ticks: abscissaTicks,
     }),
-    [xDomain, abscissaValue, abscissaLabel, flipXAxis],
+    [xDomain, abscissaValue, abscissaLabel, flipXAxis, abscissaTicks],
   );
 
   const ordinateConfig = useMemo<Axis3DConfig>(
@@ -183,8 +192,9 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       isIndexAxis: !ordinateValue,
       label: ordinateLabel,
       flip: flipYAxis,
+      ticks: ordinateTicks,
     }),
-    [yDomain, ordinateValue, ordinateLabel, flipYAxis],
+    [yDomain, ordinateValue, ordinateLabel, flipYAxis, ordinateTicks],
   );
 
   const colorField = useMemo(

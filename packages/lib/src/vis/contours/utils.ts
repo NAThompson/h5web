@@ -4,7 +4,7 @@ import { rgb } from 'd3-color';
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
 import { type VisScaleType } from '../models';
-import { createScale } from '../utils';
+import { createScale, getScaleTickValues } from '../utils';
 
 /* "Nice" contour levels strictly within the domain, evenly spread in the space of the scale */
 export function getContourLevels(
@@ -18,7 +18,9 @@ export function getContourLevels(
   }
 
   const scale = createScale(scaleType, { domain: [min, max], range: [0, 1] });
-  const ticks = scale.ticks(count).filter((val) => val > min && val < max);
+  const ticks = (
+    getScaleTickValues(scaleType, [min, max], count) ?? scale.ticks(count)
+  ).filter((val) => val > min && val < max);
 
   // Log ticks can be much denser than requested (e.g. 1, 2, ..., 9, 10, 20, ...): thin them out
   if (ticks.length > count * 1.5) {

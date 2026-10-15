@@ -8,7 +8,10 @@ import { type AxisConfig, type AxisScale, type Size } from '../models';
 import {
   adaptedNumTicks,
   createScale,
+  formatPiTick,
   getIntegerTicks,
+  getPiTicks,
+  getScaleTickValues,
   getTickFormatter,
 } from '../utils';
 import styles from './AxisSystem.module.css';
@@ -51,6 +54,7 @@ function Axis(props: Props) {
     label,
     nice = false,
     formatTick,
+    ticks,
   } = config;
   // Restrain ticks scales to visible domains
   const scale = createScale(scaleType, {
@@ -62,12 +66,25 @@ function Axis(props: Props) {
   const [AxisComponent, GridComponent] = COMPONENTS[type];
 
   const numTicks = adaptedNumTicks(axisLength);
-  const ticksProp = isIndexAxis
-    ? { tickValues: getIntegerTicks(domain, numTicks) }
-    : { numTicks };
+  const scaleTickValues = getScaleTickValues(scaleType, domain, numTicks);
+  const isPiAxis = ticks === 'pi' && scaleType === ScaleType.Linear;
+  const ticksProp = isPiAxis
+    ? { tickValues: getPiTicks(domain, numTicks) }
+    : isIndexAxis
+      ? { tickValues: getIntegerTicks(domain, numTicks) }
+      : scaleTickValues
+        ? { tickValues: scaleTickValues }
+        : { numTicks };
 
   const tickFormatter =
-    formatTick || getTickFormatter(domain, axisLength, scaleType);
+    formatTick ||
+    (isPiAxis
+      ? formatPiTick
+      : getTickFormatter(
+          domain,
+          axisLength,
+          Array.isArray(scaleType) ? scaleType[0] : scaleType,
+        ));
 
   return (
     <>

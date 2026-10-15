@@ -10,7 +10,12 @@ export interface ScaleTransform {
   isValid: (val: number) => boolean;
 }
 
-const SYMLOG_CONSTANT = 1; // d3's default, as used by `scaleSymlog`
+function symlogTransform(constant: number): ScaleTransform {
+  return {
+    fn: (val) => Math.sign(val) * Math.log1p(Math.abs(val) / constant),
+    isValid: Number.isFinite,
+  };
+}
 
 export const SCALE_TRANSFORMS: Record<ScaleTransformType, ScaleTransform> = {
   linear: { fn: (val) => val, isValid: Number.isFinite },
@@ -18,10 +23,7 @@ export const SCALE_TRANSFORMS: Record<ScaleTransformType, ScaleTransform> = {
     fn: Math.log10,
     isValid: (val) => Number.isFinite(val) && val > 0,
   },
-  symlog: {
-    fn: (val) => Math.sign(val) * Math.log1p(Math.abs(val) / SYMLOG_CONSTANT),
-    isValid: Number.isFinite,
-  },
+  symlog: symlogTransform(1), // d3's default constant, as used by `scaleSymlog`
   sqrt: {
     fn: Math.sqrt,
     isValid: (val) => Number.isFinite(val) && val >= 0,
@@ -31,6 +33,9 @@ export const SCALE_TRANSFORMS: Record<ScaleTransformType, ScaleTransform> = {
 export function getScaleTransform(
   scaleType: string | [string, number] | undefined,
 ): ScaleTransform {
+  if (Array.isArray(scaleType) && scaleType[0] === 'symlog') {
+    return symlogTransform(scaleType[1]);
+  }
   const type = Array.isArray(scaleType) ? 'linear' : scaleType; // gamma is applied after normalization
   return type && type in SCALE_TRANSFORMS
     ? SCALE_TRANSFORMS[type as ScaleTransformType]

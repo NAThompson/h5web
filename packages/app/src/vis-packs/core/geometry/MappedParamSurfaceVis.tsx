@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { useSymlogThreshold } from '../../view-hints/hooks';
 import { type ViewHint } from '../../view-hints/models';
 import {
   getColorSuggestions,
@@ -80,6 +81,7 @@ function MappedParamSurfaceVis(props: Props) {
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
+  const visScaleType = useSymlogThreshold(scaleType, hint.symlogThreshold);
 
   return (
     <>
@@ -94,7 +96,7 @@ function MappedParamSurfaceVis(props: Props) {
         {...arrays}
         domain={safeDomain}
         colorMap={colorMap}
-        scaleType={scaleType}
+        scaleType={visScaleType}
         invertColorMap={invertColorMap}
         title={title}
         xLabel={labels[0]}

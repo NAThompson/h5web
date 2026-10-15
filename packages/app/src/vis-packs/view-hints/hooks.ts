@@ -1,9 +1,10 @@
-import { type DimensionMapping } from '@h5web/lib';
+import { type DimensionMapping, type VisScaleType } from '@h5web/lib';
 import {
   type ArrayShape,
   type Dataset,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
+import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { type ComponentProps, useMemo, useRef, useState } from 'react';
 
@@ -250,4 +251,18 @@ export function useLinkedOverlays(
         ? { link, index: extraIndex, onChange: setExtraIndex, slicingProps }
         : undefined,
   };
+}
+
+/* Scale with the width of its linear band around 0 when symlog (`H5WEB_symlog_threshold`) */
+export function useSymlogThreshold(
+  scaleType: ColorScaleType,
+  threshold: number | undefined,
+): VisScaleType {
+  return useMemo(
+    () =>
+      scaleType === ScaleType.SymLog && threshold
+        ? [ScaleType.SymLog, threshold]
+        : scaleType,
+    [scaleType, threshold],
+  );
 }
