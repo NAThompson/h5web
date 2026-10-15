@@ -197,7 +197,6 @@ function SlicingSlider(props: Props) {
               rangeHint={playbackRangeHint}
               onTogglePlay={() => onPlayingChange?.(!isPlaying)}
               onSettingsChange={onPlaybackSettingsChange}
-              onStep={step}
             />
           )}
 

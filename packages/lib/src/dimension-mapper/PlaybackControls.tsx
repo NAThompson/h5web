@@ -9,14 +9,7 @@ import {
 } from '@floating-ui/react';
 import { useToggle } from '@react-hookz/web';
 import { useId } from 'react';
-import {
-  FiChevronLeft,
-  FiChevronRight,
-  FiLoader,
-  FiPause,
-  FiPlay,
-  FiSettings,
-} from 'react-icons/fi';
+import { FiLoader, FiPause, FiPlay, FiSettings } from 'react-icons/fi';
 
 import Btn from '../toolbar/controls/Btn';
 import {
@@ -29,7 +22,6 @@ import {
   type PlaybackMode,
   type PlaybackRange,
   type PlaybackSettings,
-  type PlaybackTiming,
 } from './playback';
 import styles from './PlaybackControls.module.css';
 
@@ -37,11 +29,6 @@ const MODE_LABELS: Record<PlaybackMode, string> = {
   loop: 'Loop',
   bounce: 'Bounce',
   once: 'Once',
-};
-
-const TIMING_LABELS: Record<PlaybackTiming, string> = {
-  wait: 'Wait for each slice',
-  realtime: 'Skip slices to keep up',
 };
 
 const RANGE_LABELS: Record<PlaybackRange, string> = {
@@ -62,7 +49,6 @@ interface Props {
   rangeHint?: string;
   onTogglePlay: () => void;
   onSettingsChange: (settings: PlaybackSettings) => void;
-  onStep: (direction: 1 | -1) => void;
 }
 
 function PlaybackControls(props: Props) {
@@ -74,7 +60,6 @@ function PlaybackControls(props: Props) {
     rangeHint,
     onTogglePlay,
     onSettingsChange,
-    onStep,
   } = props;
 
   // Open to the side of the slider, since the controls sit at the bottom of the mapper
@@ -172,22 +157,6 @@ function PlaybackControls(props: Props) {
           </fieldset>
 
           <fieldset className={styles.fieldset}>
-            <legend>When data is slow</legend>
-            {(Object.keys(TIMING_LABELS) as PlaybackTiming[]).map((timing) => (
-              <label key={timing} className={styles.option}>
-                <input
-                  type="radio"
-                  name={`${fieldId}-timing`}
-                  aria-label={TIMING_LABELS[timing]}
-                  checked={settings.timing === timing}
-                  onChange={() => onSettingsChange({ ...settings, timing })}
-                />
-                {TIMING_LABELS[timing]}
-              </label>
-            ))}
-          </fieldset>
-
-          <fieldset className={styles.fieldset}>
             <legend>Range</legend>
             {(Object.keys(RANGE_LABELS) as PlaybackRange[]).map((range) => (
               <label key={range} className={styles.option}>
@@ -207,23 +176,6 @@ function PlaybackControls(props: Props) {
               </p>
             )}
           </fieldset>
-
-          <div className={styles.steps}>
-            <Btn
-              label="Step back"
-              Icon={FiChevronLeft}
-              small
-              raised
-              onClick={() => onStep(-1)}
-            />
-            <Btn
-              label="Step forward"
-              Icon={FiChevronRight}
-              small
-              raised
-              onClick={() => onStep(1)}
-            />
-          </div>
         </div>
       )}
     </div>

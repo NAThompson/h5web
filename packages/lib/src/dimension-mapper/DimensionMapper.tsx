@@ -33,7 +33,7 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   // Playback: dimension being played (controlled when `onPlayingDimChange` is provided)
   playingDim?: number;
   onPlayingDimChange?: (dim: number | undefined) => void;
-  // Playback: speed, repeat mode and timing (controlled when `playbackSettings` is provided)
+  // Playback: speed, repeat mode and range (controlled when `playbackSettings` is provided)
   playbackSettings?: PlaybackSettings;
   onPlaybackSettingsChange?: (settings: PlaybackSettings) => void;
   // Playback: note about the value range in use (e.g. when the whole sequence's range is unknown)

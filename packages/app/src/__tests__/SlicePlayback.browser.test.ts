@@ -295,31 +295,6 @@ test('keep fetching slice picked by user during playback', async () => {
   expect(page.getByRole('figure')).toBeVisible();
 });
 
-test('skip slices to keep up when data is slow', async () => {
-  const resolveAll = mockDelay();
-  await renderApp({
-    initialPath: '/resilience/slow_slicing',
-    preferredVis: Vis.Heatmap,
-    waitForLoaders: false,
-  });
-
-  resolveAll(); // first slice
-  await expect.element(page.getByRole('figure')).toBeVisible();
-  await setSettings({ option: 'Skip slices to keep up', fps: 10 });
-  installFakeTimers();
-
-  await getPlayBtn().click();
-
-  // Slices take a while to load: by then, they're all late
-  await advance(800);
-  expect(getSliderValue()).toBe(0);
-
-  // Show latest slice that is due rather than the next one
-  resolveAll();
-  await advance(50);
-  expect(getSliderValue()).toBeGreaterThan(1);
-});
-
 test('keep playing when getting range of sequence is cancelled', async () => {
   const resolveAll = mockDelay();
   const { selectExplorerNode } = await renderApp({
@@ -484,13 +459,6 @@ test('pause when interacting with slider', async () => {
   expect(isPlaying()).toBe(false);
   await advance(1000);
   expect(getSliderValue()).toBe(0);
-
-  // Step buttons also pause
-  await userEvent.keyboard(' ');
-  expect(isPlaying()).toBe(true);
-  const dialog = await openSettings();
-  await dialog.getByRole('button', { name: 'Step back' }).click();
-  expect(isPlaying()).toBe(false);
 });
 
 test('stop when changing dataset', async () => {

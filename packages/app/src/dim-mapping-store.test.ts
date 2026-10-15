@@ -7,7 +7,6 @@ test('keep valid playback settings', () => {
   const settings = {
     fps: 25,
     mode: 'bounce',
-    timing: 'realtime',
     range: 'frame',
   } as const;
   expect(sanitizePlaybackSettings(settings)).toStrictEqual(settings);
@@ -26,4 +25,10 @@ test('clamp speed and replace invalid playback settings with defaults', () => {
   expect(sanitizePlaybackSettings('fast')).toStrictEqual(
     DEFAULT_PLAYBACK_SETTINGS,
   );
+});
+
+test('drop obsolete playback settings', () => {
+  expect(
+    sanitizePlaybackSettings({ fps: 25, timing: 'realtime' }),
+  ).toStrictEqual({ ...DEFAULT_PLAYBACK_SETTINGS, fps: 25 });
 });

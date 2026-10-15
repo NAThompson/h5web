@@ -214,7 +214,6 @@ export type {
   PlaybackMode,
   PlaybackRange,
   PlaybackSettings,
-  PlaybackTiming,
 } from './dimension-mapper/playback';
 
 // Geometries

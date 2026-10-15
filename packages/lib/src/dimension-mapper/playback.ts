@@ -3,12 +3,6 @@
 
 export type PlaybackMode = 'loop' | 'bounce' | 'once';
 
-/* - `wait`: show every frame, advancing only once the next frame's data is loaded
- *   (playback slows down when data arrives slower than the requested frame rate);
- * - `realtime`: keep to the requested frame rate by skipping frames that are not
- *   loaded in time (still never shows a frame before its data is loaded). */
-export type PlaybackTiming = 'wait' | 'realtime';
-
 /* Value range (axis or colour domain) to use while playing:
  * - `sequence`: range of the whole sequence of slices being played, so it stays fixed;
  * - `frame`: range of each slice (autoscale). */
@@ -17,14 +11,12 @@ export type PlaybackRange = 'sequence' | 'frame';
 export interface PlaybackSettings {
   fps: number;
   mode: PlaybackMode;
-  timing: PlaybackTiming;
   range: PlaybackRange;
 }
 
 export const DEFAULT_PLAYBACK_SETTINGS: PlaybackSettings = {
   fps: 10,
   mode: 'loop',
-  timing: 'wait',
   range: 'sequence',
 };
 
@@ -34,9 +26,6 @@ export const MAX_FPS = 60;
 const MAX_PREFETCH_COUNT = 8;
 const MIN_PREFETCH_COUNT = 2;
 const PREFETCH_SECONDS = 0.5; // how far ahead of the current frame to prefetch
-
-// Max number of frames skipped at once in real-time mode
-export const MAX_SKIPPED_FRAMES = 64;
 
 // Re-check readiness this often while waiting for data
 export const READY_POLL_INTERVAL = 25; // ms
@@ -55,7 +44,6 @@ export interface PlaybackCursor {
 export interface PlaybackClock {
   cursor: PlaybackCursor;
   frameTime: number; // time at which the current frame was due
-  window?: number[]; // real-time mode: frames being prefetched since the last advance
   restart?: boolean; // `once` mode started on last frame: go back to first frame
 }
 
@@ -154,122 +142,53 @@ function getSequenceParams(
   return clock.restart ? { ...params, mode: 'loop' } : params;
 }
 
-/* Advance the clock to `now`. `isReady` tells whether a frame can be shown without waiting
- * for data. Frames are never shown before they are ready, so requests can't pile up faster
- * than data arrives. */
+/* Advance the clock to `now`, showing every frame in turn. `isReady` tells whether a frame can
+ * be shown without waiting for data. Frames are never shown before they are ready, so requests
+ * can't pile up faster than data arrives. */
 export function tickPlayback(
   clock: PlaybackClock,
   now: number,
-  settings: Omit<PlaybackSettings, 'range'> & SequenceParams,
+  settings: Pick<PlaybackSettings, 'fps'> & SequenceParams,
   isReady: (value: number) => boolean,
 ): TickResult {
-  const { fps, timing } = settings;
-  const sequence = getSequenceParams(clock, settings);
+  const { fps, length } = settings;
   const interval = 1000 / clampFps(fps);
   const prefetchCount = getPrefetchCount(fps);
+  const elapsed = now - clock.frameTime;
 
-  // In real-time mode, don't lag further behind than a number of frames (e.g. after a long stall),
-  // to keep the number of frames to check for readiness bounded
-  const startTime =
-    timing === 'realtime'
-      ? Math.max(clock.frameTime, now - MAX_SKIPPED_FRAMES * interval)
-      : clock.frameTime;
+  // Next frame followed by frames to prefetch (when restarting, don't go round twice)
+  const candidates = getUpcomingFrames(
+    clock.cursor,
+    getSequenceParams(clock, settings),
+    clock.restart ? Math.min(prefetchCount + 1, length) : prefetchCount + 1,
+  );
+  const next = candidates.at(0);
 
-  const elapsed = now - startTime;
-  const dueSteps = Math.floor(elapsed / interval);
+  const isDue = elapsed >= interval;
 
-  if (dueSteps < 1) {
+  // Not due yet, or waiting for next frame to be ready
+  if (!isDue || (next && !isReady(next.value))) {
     return {
       clock,
       ended: false,
-      waiting: false,
-      upcoming:
-        clock.window ??
-        toValues(getUpcomingFrames(clock.cursor, sequence, prefetchCount)),
-      delay: Math.max(interval - elapsed, 1),
+      waiting: isDue,
+      upcoming: toValues(candidates.slice(0, prefetchCount)),
+      delay: isDue ? READY_POLL_INTERVAL : Math.max(interval - elapsed, 1),
     };
   }
 
-  // In real-time mode, consider all frames that are due (and at most one full cycle)
-  const maxSteps =
-    timing === 'realtime' ? Math.min(dueSteps, settings.length * 2) : 1;
-  const candidates = getUpcomingFrames(
-    clock.cursor,
-    sequence,
-    clock.restart // don't go round twice
-      ? Math.min(maxSteps + prefetchCount, settings.length)
-      : maxSteps + prefetchCount,
-  );
-
-  if (candidates.length === 0) {
+  if (!next) {
     return { clock, ended: true, waiting: false, upcoming: [], delay: 0 };
   }
 
-  // Show the furthest frame that is due and ready
-  const dueCandidates = candidates.slice(0, maxSteps);
-  let shownIndex = -1;
-  for (let i = dueCandidates.length - 1; i >= 0; i -= 1) {
-    if (isReady(dueCandidates[i].value)) {
-      shownIndex = i;
-      break;
-    }
-  }
-
-  const steps = shownIndex + 1; // 0 if nothing can be shown yet
-
-  // Prefetch the frames that will be due next (skipping, in real-time mode, those already late,
-  // but keeping at least the last frame in `once` mode)
-  const firstUpcoming =
-    timing === 'realtime'
-      ? Math.max(Math.min(maxSteps, candidates.length) - 1, steps)
-      : steps;
-  const upcoming = toValues(
-    candidates.slice(firstUpcoming, firstUpcoming + prefetchCount),
-  );
-
-  if (steps === 0) {
-    if (timing === 'wait') {
-      return {
-        clock,
-        ended: false,
-        waiting: true,
-        upcoming,
-        delay: READY_POLL_INTERVAL,
-      };
-    }
-
-    /* In real-time mode, the frames being prefetched may become late before they finish loading;
-     * keep prefetching them anyway (rather than cancelling them in favour of later frames, which
-     * may never finish loading either), until one of them can be shown. Only drop them if they
-     * are no longer part of the sequence (e.g. after changing the mode). */
-    const candidateValues = new Set(toValues(candidates));
-    const validWindow = clock.window?.filter((val) => candidateValues.has(val));
-    const window = validWindow?.length ? validWindow : upcoming;
-
-    return {
-      clock:
-        window.join(',') === clock.window?.join(',')
-          ? clock
-          : { ...clock, window },
-      ended: false,
-      waiting: true,
-      upcoming: window,
-      delay: READY_POLL_INTERVAL,
-    };
-  }
-
-  const isLate = timing === 'wait' && elapsed >= 2 * interval;
-  const frameTime = isLate ? now : startTime + steps * interval;
+  // When late, restart pace from when the frame is shown
+  const frameTime = elapsed >= 2 * interval ? now : clock.frameTime + interval;
 
   return {
-    clock: {
-      cursor: candidates[shownIndex],
-      frameTime,
-      window: timing === 'realtime' ? upcoming : undefined,
-    },
+    clock: { cursor: next, frameTime },
     ended: false,
     waiting: false,
-    upcoming,
+    upcoming: toValues(candidates.slice(1)),
     delay: Math.max(frameTime + interval - now, 1),
   };
 }
