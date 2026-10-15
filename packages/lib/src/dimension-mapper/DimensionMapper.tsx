@@ -10,6 +10,7 @@ import SlicingSlider from './SlicingSlider';
 interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   dims: number[];
   dimHints?: (string | undefined)[];
+  dimLabels?: (string | undefined)[]; // short names of the dimensions (default: D0, D1...)
   dimMapping: DimensionMapping;
   withSlicingControls?: boolean;
   canSliceFast?: (nextMapping: DimensionMapping) => boolean; // shortens debounce delay when slicing
@@ -45,6 +46,7 @@ function DimensionMapper(props: Props) {
     className,
     dims,
     dimHints,
+    dimLabels,
     dimMapping,
     withSlicingControls = false,
     canSliceFast,
@@ -119,12 +121,14 @@ function DimensionMapper(props: Props) {
         <AxisMapper
           axis="x"
           dimHints={dimHints}
+          dimLabels={dimLabels}
           dimMapping={dimMapping}
           onChange={handleAxisChange}
         />
         <AxisMapper
           axis="y"
           dimHints={dimHints}
+          dimLabels={dimLabels}
           dimMapping={dimMapping}
           onChange={handleAxisChange}
         />
@@ -145,6 +149,8 @@ function DimensionMapper(props: Props) {
             <SlicingSlider
               key={index} // eslint-disable-line react/no-array-index-key
               dimension={index}
+              label={dimLabels?.[index]}
+              hint={dimHints?.[index]}
               length={dims[index]}
               initialValue={val}
               withControls={withSlicingControls}

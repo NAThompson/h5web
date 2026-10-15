@@ -30,6 +30,8 @@ const SLIDER_KEYS = new Set([
 
 interface Props {
   dimension: number;
+  label?: string; // short name of the dimension (default: D<dimension>)
+  hint?: string; // full name, e.g. with units
   length: number;
   initialValue: number;
   withControls: boolean;
@@ -48,6 +50,8 @@ interface Props {
 function SlicingSlider(props: Props) {
   const {
     dimension,
+    label,
+    hint,
     length,
     initialValue,
     withControls,
@@ -135,8 +139,8 @@ function SlicingSlider(props: Props) {
 
   return (
     <div key={dimension} ref={containerRef} className={styles.container}>
-      <span id={sliderLabelId} className={styles.label}>
-        D{dimension}
+      <span id={sliderLabelId} className={styles.label} title={hint}>
+        {label ?? `D${dimension}`}
       </span>
       <span className={styles.sublabel}>0:{length - 1}</span>
       {length > 1 && (

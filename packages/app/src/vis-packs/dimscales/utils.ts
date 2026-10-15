@@ -26,6 +26,7 @@ import { toUnicodeScripts } from '../view-hints/attrs';
 
 export interface DimScale {
   label?: string;
+  name?: string; // short name of the dimension, e.g. for sliders: its label, else its scale's name
   value?: ArrayValue<NumericType>; // undefined if the dimension is labelled but has no usable scale
   unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
   longName?: string; // scale's CF `long_name`, raw (`label` starts with it)
@@ -60,7 +61,7 @@ export async function getDimScales(
 
       if (!scale) {
         // A label names the dimension even when no scale is attached
-        return label ? { label } : undefined;
+        return label ? { label, name: label } : undefined;
       }
 
       const { dataset: scaleDataset, value } = scale;
@@ -75,6 +76,7 @@ export async function getDimScales(
 
       return {
         label: unit ? `${base} (${unit})` : base,
+        name: label || name || scaleDataset.name,
         value,
         unit,
         longName,

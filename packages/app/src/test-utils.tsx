@@ -161,10 +161,14 @@ export async function dragHorizontally(
   ]);
 }
 
-export function getDimMappingBtn(axis: 'x' | 'y', dim: number): Locator {
+/* Button of a dimension, by index (`D<dim>`) or by name (e.g. of its scale) */
+export function getDimMappingBtn(
+  axis: 'x' | 'y',
+  dim: number | string,
+): Locator {
   return page
     .getByLabelText(`Dimension as ${axis} axis`)
-    .getByRole('radio', { name: `D${dim}` });
+    .getByRole('radio', { name: typeof dim === 'number' ? `D${dim}` : dim });
 }
 
 /* Scope queries to one axis, since the same text may appear elsewhere: the

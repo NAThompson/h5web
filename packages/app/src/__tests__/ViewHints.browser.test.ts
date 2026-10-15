@@ -229,7 +229,7 @@ test('slice overlays with the base dataset when it has the linked dimension', as
   await expect.poll(() => getPointsCx()).toHaveLength(3);
 
   const before = getPointsCx();
-  await user.click(page.getByRole('slider', { name: 'D0' }));
+  await user.click(page.getByRole('slider', { name: 'generation' }));
   await userEvent.keyboard('{ArrowUp}');
   await expect.poll(() => getPointsCx()).not.toEqual(before);
 });
@@ -251,7 +251,7 @@ test('play base slider with overlays prefetched along', async () => {
   await expect.poll(() => getPointsCx()).toHaveLength(3);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
 
-  const slider = page.getByRole('slider', { name: 'D0' });
+  const slider = page.getByRole('slider', { name: 'generation' });
   await page.getByRole('button', { name: 'Play D0' }).click();
   await advance(350); // 10 slices/s by default: overlays don't hold playback up
   expect(Number(slider.element().getAttribute('aria-valuenow'))).toBe(3);
@@ -484,7 +484,7 @@ test('probe a pixel of a stack along the hinted dimension', async () => {
   expect(document.querySelector('[data-testid="probe-slice"]')).not.toBeNull();
 
   // Current slice moves along the probed line
-  await user.click(page.getByRole('slider', { name: 'D0' }));
+  await user.click(page.getByRole('slider', { name: 'kappa' }));
   await userEvent.keyboard('{ArrowUp}{ArrowUp}');
   await expect
     .element(page.getByLabelText('Probed value'))

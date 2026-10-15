@@ -10,7 +10,7 @@ import { useMemo } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimHints, useDimUnits } from '../../dimscales/hooks';
+import { useDimHints, useDimNames, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
@@ -54,6 +54,7 @@ function VolumeVisContainer(props: VisContainerProps) {
   const volumeDims = useMemo(() => dims.slice(-3), [dims]);
 
   const dimHints = useDimHints(entity);
+  const dimNames = useDimNames(entity);
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
@@ -67,6 +68,7 @@ function VolumeVisContainer(props: VisContainerProps) {
           className={visualizerStyles.dimMapper}
           dims={dims}
           dimHints={dimHints}
+          dimLabels={dimNames}
           dimMapping={dimMapping}
           {...slicingProps}
           onChange={setDimMapping}

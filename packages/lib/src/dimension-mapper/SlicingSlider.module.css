@@ -12,7 +12,10 @@
 
 .label {
   margin-bottom: 0.25rem;
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.875em;
 }
 

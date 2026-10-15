@@ -32,8 +32,11 @@ test('fall back to the scale name when the dimension has no label', async () => 
 test('name the dimension even when no scale is attached', async () => {
   await renderApp('/dimension_scales/oneD_label_only');
 
-  // The label is shown as a hint on the axis mapper button...
-  expect(getDimMappingBtn('x', 0)).toHaveAttribute('title', 'position');
+  // The label names the axis mapper button...
+  expect(getDimMappingBtn('x', 'position')).toHaveAttribute(
+    'title',
+    'position',
+  );
 
   // ...but with no scale to plot against, the abscissa stays the index axis
   const abscissa = await getAxis('abscissa');
@@ -107,7 +110,7 @@ test('fill the canvas by default when the axes have different units', async () =
   await keepRatioBtn.click();
   expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
 
-  await getDimMappingBtn('x', 0).click();
+  await getDimMappingBtn('x', 'Y_s').click(); // named after its scale
   expect(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
 });
 

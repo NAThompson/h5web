@@ -7,12 +7,13 @@ import styles from './DimensionMapper.module.css';
 interface Props {
   axis: Axis;
   dimHints: AxisMapping<string> | undefined;
+  dimLabels: AxisMapping<string> | undefined;
   dimMapping: DimensionMapping;
   onChange: (mapperState: DimensionMapping) => void;
 }
 
 function AxisMapper(props: Props) {
-  const { axis, dimHints, dimMapping, onChange } = props;
+  const { axis, dimHints, dimLabels, dimMapping, onChange } = props;
   const selectedDim = dimMapping.indexOf(axis);
 
   if (selectedDim === -1) {
@@ -43,7 +44,7 @@ function AxisMapper(props: Props) {
         {dimMapping.map((val, i) => (
           <ToggleGroup.Btn
             key={i} // eslint-disable-line react/no-array-index-key
-            label={`D${i}`}
+            label={dimLabels?.[i] ?? `D${i}`}
             value={i.toString()}
             disabled={val === null} // locked dimension
             hint={dimHints?.[i]}

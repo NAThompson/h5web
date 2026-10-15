@@ -50,6 +50,12 @@ export function useDimHints(dataset: Dataset<ArrayShape>): AxisMapping<string> {
   return useCachedDimScales(dataset).map((scale) => scale?.label);
 }
 
+/* Short names of the dimensions (dimension labels or scale names) for the dimension mapper's
+ * sliders and buttons, as `useDimHints` */
+export function useDimNames(dataset: Dataset<ArrayShape>): AxisMapping<string> {
+  return useCachedDimScales(dataset).map((scale) => scale?.name);
+}
+
 /* Units of the dimension scales, to suggest whether to keep the ratio from
  * outside the `VisBoundary`. Empty until `useDimScales` has resolved. */
 export function useDimUnits(dataset: Dataset<ArrayShape>): AxisMapping<string> {

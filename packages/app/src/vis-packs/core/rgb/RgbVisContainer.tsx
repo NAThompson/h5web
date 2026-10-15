@@ -11,7 +11,7 @@ import { useAttrValue } from '../../../hooks';
 import { findScalarStrAttr } from '../../../utils';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimHints } from '../../dimscales/hooks';
+import { useDimHints, useDimNames } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import VisBoundary from '../../VisBoundary';
@@ -43,6 +43,7 @@ function RgbVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(dimMapping);
 
   const dimHints = useDimHints(entity);
+  const dimNames = useDimNames(entity);
 
   const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
 
@@ -52,6 +53,7 @@ function RgbVisContainer(props: VisContainerProps) {
         className={visualizerStyles.dimMapper}
         dims={dims}
         dimHints={dimHints}
+        dimLabels={dimNames}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}
