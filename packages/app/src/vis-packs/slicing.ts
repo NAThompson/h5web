@@ -226,6 +226,7 @@ export function useSlicingProps(
   const skipStart = useRef({
     isActive: true,
     expected: JSON.stringify(dimMapping),
+    next: 0, // slices before it known to be empty, even once evicted from the cache
   });
   const sliceDims =
     mainRequest && hasArrayShape(mainRequest.dataset)
@@ -256,8 +257,12 @@ export function useSlicingProps(
       return dimMapping.map((val, d) => (d === dim ? i : val));
     }
     const length = sliceDims?.[dim] ?? 0;
-    for (let i = index; i < length; i += 1) {
+    for (let i = Math.max(index, start.next); i < length; i += 1) {
       const isEmpty = emptiness(withIndex(i));
+      if (isEmpty) {
+        start.next = i + 1;
+        continue;
+      }
       if (isEmpty === undefined) {
         if (i > index) {
           const ahead = Array.from(
@@ -280,15 +285,14 @@ export function useSlicingProps(
         }
         return; // wait for values
       }
-      if (!isEmpty) {
-        if (i === index) {
-          start.isActive = false;
-        } else {
-          start.expected = JSON.stringify(withIndex(i));
-          skip(withIndex(i)); // straight past the empty slices
-        }
-        return;
+      // Not empty
+      if (i === index) {
+        start.isActive = false;
+      } else {
+        start.expected = JSON.stringify(withIndex(i));
+        skip(withIndex(i)); // straight past the empty slices
       }
+      return;
     }
     start.isActive = false; // all empty
   }, [
