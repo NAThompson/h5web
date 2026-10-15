@@ -1021,6 +1021,19 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_playback_range', 'frame'),
           ],
         }),
+        // Probe in log scale, values labelled by `long_name` (also the title) without `units`
+        withDimScales(
+          array('probe_log', {
+            valueId: 'probe_stack',
+            attributes: [
+              scalarAttr('H5WEB_probe_dim', 'kappa'),
+              scalarAttr('H5WEB_scale', 'log'),
+              scalarAttr('long_name', 'E_{K}'),
+              intAttr('H5WEB_keep_ratio', 0),
+            ],
+          }),
+          { scales: [['/view_hints/kappa'], [], []] },
+        ),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {
@@ -1106,6 +1119,24 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { labels: ['series', ''], scales: [[], ['/dimension_scales/X']] },
         ),
+        // Few curves along a dimension: legend of their scale values
+        array('angle', {
+          valueId: 'multi_angle',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'angle'),
+          ],
+        }),
+        withDimScales(
+          array('line_curves', {
+            valueId: 'multi_curves',
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              scalarAttr('H5WEB_multi_dim', 'angle'),
+            ],
+          }),
+          { scales: [['/view_hints/angle'], []] },
+        ),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],
@@ -1171,7 +1202,7 @@ export function makeMockFile(): GroupWithChildren {
           array('cf_heatmap', {
             valueId: 'twoD',
             attributes: [
-              scalarAttr('long_name', 'E_{k}'),
+              scalarAttr('long_name', 'E_{K}'), // no Unicode subscript K
               scalarAttr('units', 'hartree'),
               scalarAttr('H5WEB_vis', 'heatmap'),
             ],
@@ -1183,7 +1214,7 @@ export function makeMockFile(): GroupWithChildren {
             valueId: 'oneD',
             attributes: [
               scalarAttr('H5WEB_title', 'growth'),
-              scalarAttr('long_name', 'norm'),
+              scalarAttr('long_name', 'norm^{Green}'), // no Unicode superscript G
               scalarAttr('units', 'bohr'),
               scalarAttr('H5WEB_vis', 'line'),
             ],

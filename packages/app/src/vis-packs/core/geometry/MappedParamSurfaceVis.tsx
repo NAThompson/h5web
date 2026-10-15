@@ -14,6 +14,7 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { useSymlogThreshold } from '../../view-hints/hooks';
+import { renderMarkup } from '../../view-hints/markup';
 import { type ViewHint } from '../../view-hints/models';
 import {
   getColorSuggestions,
@@ -98,7 +99,7 @@ function MappedParamSurfaceVis(props: Props) {
         colorMap={colorMap}
         scaleType={visScaleType}
         invertColorMap={invertColorMap}
-        title={title}
+        title={renderMarkup(title)}
         xLabel={labels[0]}
         yLabel={labels[1]}
         zLabel={labels[2]}

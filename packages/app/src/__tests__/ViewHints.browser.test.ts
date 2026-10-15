@@ -313,8 +313,13 @@ test('apply title, auto colour map, legend, texts, inline labels', async () => {
   await expect.element(legend).toHaveTextContent('e–n'); // inline label not in legend
   expect(legend).not.toHaveTextContent('e–e');
 
-  const texts = [...document.querySelectorAll('[data-testid="overlays"] text')];
-  expect(texts.map((text) => text.textContent)).toEqual(['e–e', 'θ = 0']);
+  await expect // overlays drawn once the canvas is measured
+    .poll(() =>
+      [...document.querySelectorAll('[data-testid="overlays"] text')].map(
+        (text) => text.textContent,
+      ),
+    )
+    .toEqual(['e–e', 'θ = 0']);
 });
 
 test('share the style of an overlay between the datasets that list it', async () => {
@@ -474,7 +479,9 @@ test('probe a pixel of a stack along the hinted dimension', async () => {
   expect(page.getByLabelText('Probed value')).toHaveTextContent(
     'κ (1/m) = 0.5: 11.2',
   );
-  expect(getProbe().getByText('κ (1/m)', { exact: true })).toBeVisible(); // x axis
+  await expect // x axis, once the probe's canvas is measured
+    .element(getProbe().getByText('κ (1/m)', { exact: true }))
+    .toBeVisible();
   expect(getProbe().getByText('eV', { exact: true })).toBeVisible(); // y axis, from `units`
   const probeTicks = getProbe()
     .element()
@@ -502,12 +509,46 @@ test('probe a pixel of a stack along the hinted dimension', async () => {
   await page.viewport(1920, 1080);
 });
 
+test('probe in the scale of the heatmap, labelled by `long_name`', async () => {
+  await page.viewport(2560, 1080);
+  await renderApp('/view_hints/probe_log');
+
+  await clickPixel(1, 2, [3, 5]); // values 11.2, 21.2, 31.2, 41.2
+  await expect.element(getProbe()).toBeVisible();
+  const ordinate = getProbe()
+    .element()
+    .querySelector('svg[data-type="ordinate"]');
+  expect(ordinate?.querySelector('.visx-axis-label')).toHaveTextContent('EK');
+
+  // Log scale: ticks 20, 30, 40 get closer (1.41 times)
+  function getTickY(label: string): number {
+    const tick = [
+      ...(ordinate?.querySelectorAll('.visx-axis-tick') ?? []),
+    ].find((elem) => elem.textContent === label);
+    return tick?.querySelector('line')?.getBoundingClientRect().y ?? Number.NaN;
+  }
+  await expect
+    .poll(
+      () =>
+        (getTickY('20') - getTickY('30')) / (getTickY('30') - getTickY('40')),
+    )
+    .toBeGreaterThan(1.2);
+
+  await page.viewport(1920, 1080);
+});
+
 test('probe a stack with the toolbar toggle, without hint', async () => {
   await page.viewport(2560, 1080); // whole heatmap toolbar
   const { user } = await renderApp('/view_hints/landscapes');
 
   const probeBtn = page.getByRole('button', { name: 'Probe', exact: true });
   await expect.element(probeBtn).toHaveAttribute('aria-pressed', 'false');
+  const slider = page.getByRole('slider', { name: 'generation' });
+  const labelId = slider.element().getAttribute('aria-labelledby') ?? '';
+  expect(document.getElementById(labelId)).toHaveAttribute(
+    'title',
+    'generation',
+  ); // if cut short
   const canvas = document.querySelector<HTMLCanvasElement>('figure canvas');
   assertNonNull(canvas);
   await userEvent.click(page.elementLocator(canvas)); // probe off: nothing
@@ -517,15 +558,48 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
   await userEvent.click(page.elementLocator(canvas));
   await expect.element(getProbe()).toBeVisible();
   expect(getProbe()).toHaveTextContent('generation'); // first sliced dimension
+  await expect // integer generations: no fractional ticks
+    .poll(() =>
+      [
+        ...getProbe()
+          .element()
+          .querySelectorAll('svg[data-type="abscissa"] .visx-axis-tick'),
+      ].map((tick) => tick.textContent),
+    )
+    .toEqual(['0', '1', '2', '3', '4']);
 
   await page.viewport(1920, 1080);
+});
+
+test('show a legend of a few multi-plotted curves', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/line_curves');
+
+  const legend = page.getByRole('figure').getByRole('list');
+  await expect.element(legend).toBeVisible();
+  expect(
+    legend
+      .getByRole('listitem')
+      .elements()
+      .map((li) => li.textContent),
+  ).toEqual(['angle: 0.524', 'angle: 1.05', 'angle: 1.57']);
+
+  // Too many curves (20): legend left to snapshots
+  await selectExplorerNode('line');
+  await expect.element(page.getByTestId('y,x')).toBeVisible();
+  await expect
+    .element(page.getByRole('figure').getByRole('list'))
+    .not.toBeInTheDocument(); // hidden
 });
 
 test('label figures, colour bars and axes from CF `long_name` and `units`', async () => {
   const { selectExplorerNode } = await renderApp('/view_hints/cf_heatmap');
 
-  // Title from the dataset's `long_name`, colour bar from its `units`, axis from the scale's
-  await expect.element(page.getByRole('figure', { name: 'Eₖ' })).toBeVisible();
+  // Title from the dataset's `long_name` (`_{K}` as subscript), colour bar from its `units`,
+  // axis from the scale's
+  await expect.element(page.getByRole('figure', { name: 'EK' })).toBeVisible();
+  expect(document.querySelector('figure p')?.innerHTML).toBe(
+    '<span>E<sub>K</sub></span>',
+  );
   expect(page.getByText('hartree', { exact: true })).toBeVisible();
   const abscissa = await getAxis('abscissa');
   expect(abscissa.getByText('αₕ (hyperangle) (rad)')).toBeVisible();
@@ -536,14 +610,19 @@ test('label figures, colour bars and axes from CF `long_name` and `units`', asyn
     .element(page.getByRole('figure', { name: 'growth' }))
     .toBeVisible();
   const ordinate = await getAxis('ordinate');
-  expect(ordinate.getByText('norm (bohr)')).toBeVisible();
+  expect(ordinate.getByText('normGreen (bohr)')).toBeVisible();
+  const sup = ordinate
+    .element()
+    .querySelector('.visx-axis-label [baseline-shift]');
+  expect(sup).toHaveTextContent('Green');
+  expect(sup).toHaveAttribute('baseline-shift', 'super');
 
   // CF attributes alone: colour bar labelled, title left to the dataset name
   await selectExplorerNode('cf_plain');
   await expect
     .element(page.getByRole('figure', { name: 'cf_plain' }))
     .toBeVisible();
-  expect(page.getByText('Eₖ (hartree)', { exact: true })).toBeVisible();
+  expect(page.getByText('Ek (hartree)', { exact: true })).toBeVisible();
 });
 
 test('note overlays not drawn when an axis is not named by their columns', async () => {

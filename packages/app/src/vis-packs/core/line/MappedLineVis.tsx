@@ -33,6 +33,7 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import {
   useExportEntries,
   useMappedArray,
@@ -46,6 +47,7 @@ import LineToolbar from './LineToolbar';
 import { generateCsv, getMultiPlotSliceLabel, getRows } from './utils';
 
 const interpolateSliceColor = INTERPOLATORS.Viridis;
+const MAX_LEGEND_CURVES = 10; // multi-plots with a legend of their slices
 
 function ignoreNone(): boolean {
   return false;
@@ -294,8 +296,8 @@ function MappedLineVis(props: Props) {
         curveType={curveType}
         showGrid={showGrid}
         abscissaParams={abscissaParams}
-        ordinateLabel={valueLabel}
-        title={title}
+        ordinateLabel={renderSvgMarkup(valueLabel)}
+        title={renderMarkup(title)}
         dtype={formatDType(dataset.type, packing)}
         errorsArray={errorsArray}
         showErrors={showErrors}
@@ -303,6 +305,7 @@ function MappedLineVis(props: Props) {
         ignoreValue={ignoreValue}
         interpolation={interpolation}
         visible={valueVisible}
+        showLegend={isMultiPlot && sliceArrays.length < MAX_LEGEND_CURVES}
         testid={dimMapping.toString()}
       >
         <KeepZoom visKey="line" xOnly />

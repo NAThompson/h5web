@@ -23,6 +23,7 @@ import {
 } from '@visx/scale';
 import { range, tickStep } from 'd3-array';
 import { type ScaleLinear, type ScaleThreshold } from 'd3-scale';
+import { isValidElement, type ReactNode } from 'react';
 import { BufferAttribute, type IUniform, MathUtils } from 'three';
 
 import {
@@ -253,6 +254,19 @@ export function getValueToIndexScale(
  *
  * So we implement our own, simplified version of `d3.ticks` that always outputs integer values.
  */
+/* Whether an axis only needs integer ticks: index axis (no values), or linear axis of integers */
+export function isIntegerAxis(
+  values: NumArray | undefined,
+  scaleType: AxisScaleType = ScaleType.Linear,
+): boolean {
+  return (
+    !values ||
+    (scaleType === ScaleType.Linear &&
+      values.length > 0 &&
+      values.every(Number.isInteger))
+  );
+}
+
 export function getIntegerTicks(domain: Domain, count: number): number[] {
   const min = Math.min(...domain);
   const max = Math.max(...domain);
@@ -410,11 +424,33 @@ export function getScaleTickValues(
     : undefined;
 }
 
+function exponent(x: number): number {
+  return Math.floor(Math.log10(x) + 1e-9); // as in `toExponential`
+}
+
+/* Significant digits for adjacent ticks to differ once formatted, like d3's `tickFormat(count)`
+ * (at least 3, as by default: e.g. 0.9994, 0.9995, 0.9996 rather than 0.999, 1, 1) */
+export function getTickPrecision(
+  ticks: { value: { valueOf: () => number } }[],
+): number {
+  let precision = 3;
+  for (let i = 1; i < ticks.length; i += 1) {
+    const prev = ticks[i - 1].value.valueOf();
+    const val = ticks[i].value.valueOf();
+    const step = Number(Math.abs(val - prev).toPrecision(12)); // e.g. 0.9997 - 0.9996
+    if (step > 0 && Number.isFinite(step)) {
+      const max = Math.max(Math.abs(prev), Math.abs(val));
+      precision = Math.max(precision, exponent(max) - exponent(step) + 1);
+    }
+  }
+  return Math.min(precision, 21); // max of `toPrecision`
+}
+
 export function getTickFormatter(
   domain: Domain,
   availableSize: number,
   scaleType: ScaleType,
-): (val: number | { valueOf: () => number }) => string {
+): (val: number | { valueOf: () => number }, precision?: number) => string {
   if (scaleType !== ScaleType.Log) {
     return formatTick;
   }
@@ -429,14 +465,19 @@ export function getTickFormatter(
   absDomain.sort((a, b) => a - b);
 
   const [min, max] = absDomain;
-  if (max / min < 10 ** threshold) {
+  if (
+    max / min < 10 ** threshold ||
+    Math.ceil(Math.log10(min)) > Math.log10(max) // no power of 10 to keep (e.g. short axis)
+  ) {
     return formatTick;
   }
 
   // Otherwise, use formatter that hides non-exact powers of 10
-  return (val) => {
+  return (val, precision) => {
     const loggedVal = Math.log10(Math.abs(val.valueOf()));
-    return loggedVal === Math.floor(loggedVal) ? formatTick(val) : '';
+    return loggedVal === Math.floor(loggedVal)
+      ? formatTick(val, precision)
+      : '';
   };
 }
 
@@ -562,4 +603,17 @@ export function hasR3FEventHandlers(props: Record<string, unknown>): boolean {
   return Object.keys(props).some((prop) =>
     /^on(?:Click|ContextMenu|DoubleClick|Pointer|Wheel)/u.test(prop),
   );
+}
+
+/* Plain text of a title or label given as React node (e.g. with `<sub>`), for `aria-label` */
+export function getTextContent(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join('');
+  }
+  return isValidElement<{ children?: ReactNode }>(node)
+    ? getTextContent(node.props.children)
+    : '';
 }

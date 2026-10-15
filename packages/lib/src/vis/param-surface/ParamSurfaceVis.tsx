@@ -5,7 +5,7 @@ import {
   ScaleType,
 } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, useMemo } from 'react';
+import { type PropsWithChildren, type ReactNode, useMemo } from 'react';
 
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs, type VisScaleType } from '../models';
@@ -44,7 +44,7 @@ interface Props extends ClassStyleAttrs {
   colorMap?: ColorMap;
   scaleType?: VisScaleType;
   invertColorMap?: boolean;
-  title?: string;
+  title?: ReactNode;
   xLabel?: string;
   yLabel?: string;
   zLabel?: string;

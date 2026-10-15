@@ -99,8 +99,8 @@ const SUB = '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗ�
 const SUPER = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ᵃᵉʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛˣ';
 const PLAIN = '0123456789+-=()aehijklmnoprstuvx';
 
-/* `_{…}` and `^{…}` as Unicode sub/superscripts, for plain-text titles (characters with no such
- * form are kept as is, e.g. `ψ_{3,0}` → `ψ₃,₀`) */
+/* `_{…}` and `^{…}` as Unicode sub/superscripts, where plain text is needed (e.g. dimension
+ * labels; characters with no such form are kept as is, e.g. `ψ_{3,0}` → `ψ₃,₀`) */
 export function toUnicodeScripts(
   label: string | undefined,
 ): string | undefined {
@@ -357,7 +357,7 @@ export function parseViewHint(
     aboveColor: read.str('H5WEB_above_color', isCssColor),
     playbackSkipEmpty: read.bool('H5WEB_playback_skip_empty'),
     playback: readPlayback(read),
-    title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
+    title: read.str('H5WEB_title') ?? read.str('long_name'), // `_{…}` and `^{…}` markup kept
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),
     notes,

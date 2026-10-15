@@ -172,7 +172,9 @@ function HeatmapVisContainer(props: VisContainerProps) {
             dimMapping={dimMapping}
             probeDim={probeDim}
             point={probePoint}
-            valueLabel={hint.valueLabel}
+            valueLabel={hint.valueLabel || hint.longName} // else the dataset's name
+            scaleType={config.scaleType}
+            symlogThreshold={hint.symlogThreshold}
             onProbeDimChange={setChosenProbeDim}
             onClose={() => setProbePoint(undefined)}
           />

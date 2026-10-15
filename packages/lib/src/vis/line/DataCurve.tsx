@@ -75,7 +75,8 @@ function DataCurve(props: Props) {
         color={color}
         size={glyphSize}
         ignoreValue={ignoreValue}
-        visible={curveType !== CurveType.LineOnly && visible}
+        isolatedOnly={curveType === CurveType.LineOnly} // else invisible without segments
+        visible={visible}
         onClick={useEventHandler(onDataPointClick)}
         onPointerEnter={useEventHandler(onDataPointEnter)}
         onPointerLeave={useEventHandler(onDataPointLeave)}

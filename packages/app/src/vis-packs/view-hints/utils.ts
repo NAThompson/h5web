@@ -11,7 +11,7 @@ import { isTransportError } from '../../providers/utils';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
 import { createGeometryContext } from '../core/geometry/utils';
 import { type VisDef } from '../models';
-import { hasViewAttrs, parseViewHint, toUnicodeScripts } from './attrs';
+import { hasViewAttrs, parseViewHint } from './attrs';
 import { EMPTY_HINT, HintVis, type OverlayHint, type ViewHint } from './models';
 import { getDimNames, withoutPhonyScales } from './overlays';
 
@@ -126,6 +126,10 @@ export async function getViewHint(
   return {
     ...parsed,
     valueLabel: getValueLabel(values, parsed.title),
+    longName:
+      typeof values.long_name === 'string'
+        ? values.long_name || undefined
+        : undefined,
     anchor: getAnchor('H5WEB_overlays'),
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
     contourOfAnchor: getAnchor('H5WEB_contour_of'),
@@ -176,14 +180,8 @@ export function getValueLabel(
   title: string | undefined,
 ): string | undefined {
   const { long_name: rawName, units: rawUnits } = values;
-  const longName =
-    typeof rawName === 'string' && rawName
-      ? toUnicodeScripts(rawName)
-      : undefined;
-  const units =
-    typeof rawUnits === 'string' && rawUnits
-      ? toUnicodeScripts(rawUnits)
-      : undefined;
+  const longName = typeof rawName === 'string' && rawName ? rawName : undefined;
+  const units = typeof rawUnits === 'string' && rawUnits ? rawUnits : undefined;
   const name = longName === title ? undefined : longName;
   return name && units ? `${name} (${units})` : (name ?? units);
 }

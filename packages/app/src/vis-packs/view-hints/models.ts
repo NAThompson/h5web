@@ -109,6 +109,7 @@ export interface ViewHint {
   playback?: Partial<PlaybackSettings>; // initial speed, mode and range of playback
   title?: string; // title of the figure
   valueLabel?: string; // colour bar / value axis: CF `units`, with `long_name` if not the title
+  longName?: string; // CF `long_name`, e.g. to label values when `valueLabel` is left out
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension
   sliceByAnchor?: string; // `sliceBy` is resolved relative to this path (default: `anchor`)
   overlayPaths: string[]; // objects drawn on top (their attributes say what and how)

@@ -13,6 +13,7 @@ import {
   getPiTicks,
   getScaleTickValues,
   getTickFormatter,
+  getTickPrecision,
 } from '../utils';
 import styles from './AxisSystem.module.css';
 import Tick from './Tick';
@@ -23,6 +24,9 @@ const AXIS_PROPS = {
   tickClassName: styles.tick,
   tickComponent: Tick,
 } satisfies Partial<SharedAxisProps<AxisScale>>;
+
+const TICK_LENGTH = 8; // `visx` defaults, to place labels as `visx` does
+const TICK_LABEL_SIZE = 10;
 
 const COMPONENTS = {
   abscissa: [AxisBottom, GridColumns],
@@ -64,6 +68,7 @@ function Axis(props: Props) {
   });
 
   const [AxisComponent, GridComponent] = COMPONENTS[type];
+  const labelOffset = offset - (isAbscissa ? 32 : 36);
 
   const numTicks = adaptedNumTicks(axisLength);
   const scaleTickValues = getScaleTickValues(scaleType, domain, numTicks);
@@ -76,7 +81,7 @@ function Axis(props: Props) {
         ? { tickValues: scaleTickValues }
         : { numTicks };
 
-  const tickFormatter =
+  const tickFormatter: (val: number, precision: number) => string =
     formatTick ||
     (isPiAxis
       ? formatPiTick
@@ -98,15 +103,33 @@ function Axis(props: Props) {
         >
           <AxisComponent
             scale={scale}
-            tickFormat={(val: ScaleInput<AxisScale>) =>
-              tickFormatter(val.valueOf())
+            tickFormat={(val: ScaleInput<AxisScale>, _, allTicks) =>
+              tickFormatter(val.valueOf(), getTickPrecision(allTicks))
             }
-            label={label}
-            labelOffset={offset - (isAbscissa ? 32 : 36)}
+            label={typeof label === 'string' ? label : undefined}
+            labelOffset={labelOffset}
             hideAxisLine={showGrid}
             {...ticksProp}
             {...AXIS_PROPS}
           />
+          {label && typeof label !== 'string' && (
+            /* Same position as `visx`'s label, which only takes plain text */
+            <text
+              className={`visx-axis-label ${styles.label}`}
+              {...(isAbscissa
+                ? {
+                    x: axisLength / 2,
+                    y: TICK_LENGTH + labelOffset + TICK_LABEL_SIZE,
+                  }
+                : {
+                    x: -axisLength / 2,
+                    y: -(TICK_LENGTH + labelOffset),
+                    transform: 'rotate(-90)',
+                  })}
+            >
+              {label}
+            </text>
+          )}
         </svg>
       )}
       {showGrid && (

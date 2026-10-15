@@ -1,7 +1,10 @@
+import { type ReactNode } from 'react';
+
+import { getTextContent } from '../utils';
 import styles from './VolumeVis.module.css';
 
 interface Props {
-  title: string | undefined;
+  title: ReactNode;
   isoProgress: number | undefined;
   isoMessage: string | undefined;
 }
@@ -14,7 +17,7 @@ function CanvasOverlay(props: Props) {
   return (
     <>
       {title && (
-        <p className={styles.title} title={title}>
+        <p className={styles.title} title={getTextContent(title)}>
           {title}
         </p>
       )}

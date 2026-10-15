@@ -582,6 +582,10 @@ export const mockValues = {
       nodal().data.map((v) => Math.abs(v) + 0.1),
       [24, 32],
     ),
+  // Three curves along `angle`
+  multi_angle: () => ndarray([0.5236, 1.0472, 1.5708]),
+  multi_curves: () =>
+    ndarray([1, 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7], [3, 5]),
   // Stack (κ, row, column) of 4 × 3 × 5, with value 10 (k + 1) + row + column / 10
   probe_kappa: () => ndarray([0.5, 1, 2, 4]),
   probe_stack: () =>

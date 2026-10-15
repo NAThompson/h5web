@@ -1,5 +1,7 @@
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
+import { formatTick } from '@h5web/shared/vis-utils';
 import { tickStep } from 'd3-array';
+import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { getScaleTransform } from './geometry-worker/scale';
@@ -18,8 +20,12 @@ import {
   getScaleTickValues,
   getSizeToFit,
   getSymlogTicks,
+  getTextContent,
+  getTickFormatter,
+  getTickPrecision,
   getValueToIndexScale,
   getVisRatio,
+  isIntegerAxis,
 } from './utils';
 
 const MAX = Number.MAX_VALUE / 2;
@@ -621,5 +627,65 @@ describe('getSymlogTicks', () => {
     expect(getScaleTickValues([ScaleType.SymLog, 0.1], [0, 1], 5)).toEqual([
       0, 0.1, 1,
     ]);
+  });
+});
+
+describe('getTextContent()', () => {
+  it('should return plain text of a node', () => {
+    expect(getTextContent('Ψ')).toBe('Ψ');
+    expect(getTextContent(undefined)).toBe('');
+    expect(getTextContent(['Ψ', createElement('sub', { key: 1 }, 'K')])).toBe(
+      'ΨK',
+    );
+  });
+});
+
+function toTicks(vals: number[]) {
+  return vals.map((value) => ({ value }));
+}
+
+describe('getTickPrecision()', () => {
+  it('should keep 3 significant digits when they tell ticks apart', () => {
+    expect(getTickPrecision(toTicks([0, 0.2, 0.4, 0.6]))).toBe(3);
+    expect(getTickPrecision(toTicks([1e-17, 2e-17, 1e-16, 1e-15]))).toBe(3); // log
+    expect(getTickPrecision(toTicks([5]))).toBe(3);
+  });
+
+  it('should add digits on narrow domains', () => {
+    const ticks = toTicks([0.9994, 0.9995, 0.9996, 0.9997]);
+    const precision = getTickPrecision(ticks);
+    expect(precision).toBe(4);
+    expect(ticks.map(({ value }) => formatTick(value, precision))).toEqual([
+      '0.9994',
+      '0.9995',
+      '0.9996',
+      '0.9997',
+    ]);
+    expect(
+      formatTick(10_050, getTickPrecision(toTicks([10_000, 10_050]))),
+    ).toBe('1.005e+4');
+  });
+});
+
+describe('isIntegerAxis()', () => {
+  it('should tell if an axis only needs integer ticks', () => {
+    expect(isIntegerAxis(undefined)).toBe(true); // index axis
+    expect(isIntegerAxis([0, 1, 2, 8])).toBe(true);
+    expect(isIntegerAxis(Float32Array.from([2000, 2001]))).toBe(true);
+    expect(isIntegerAxis([0, 0.5])).toBe(false);
+    expect(isIntegerAxis([])).toBe(false);
+    expect(isIntegerAxis([1, 10, 100], ScaleType.Log)).toBe(false);
+  });
+});
+
+describe('getTickFormatter()', () => {
+  it('should hide log ticks other than powers of 10 on short axes', () => {
+    const format = getTickFormatter([1, 1000], 80, ScaleType.Log);
+    expect([10, 20].map((val) => format(val))).toEqual(['10', '']);
+  });
+
+  it('should not hide them all when there is no power of 10', () => {
+    const format = getTickFormatter([11, 41], 80, ScaleType.Log);
+    expect([20, 30].map((val) => format(val))).toEqual(['20', '30']);
   });
 });

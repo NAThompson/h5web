@@ -2,10 +2,17 @@ import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { formatBound, formatTick } from '@h5web/shared/vis-utils';
 import { useMeasure } from '@react-hookz/web';
 import { AxisBottom, AxisRight } from '@visx/axis';
+import { type ReactNode } from 'react';
 
 import { type VisScaleType } from '../models';
 import Tick from '../shared/Tick';
-import { adaptedNumTicks, createScale, getScaleTickValues } from '../utils';
+import {
+  adaptedNumTicks,
+  createScale,
+  getScaleTickValues,
+  getTextContent,
+  getTickPrecision,
+} from '../utils';
 import styles from './ColorBar.module.css';
 import { type ColorMap } from './models';
 import { getInterpolator, getLinearGradient } from './utils';
@@ -17,7 +24,7 @@ interface Props {
   horizontal?: boolean;
   withBounds?: boolean;
   invertColorMap: boolean;
-  label?: string; // e.g. quantity and unit of the values
+  label?: ReactNode; // e.g. quantity and unit of the values
   belowColor?: string; // shown as a triangle beyond the lower end (cf. matplotlib's `extend`)
   aboveColor?: string;
 }
@@ -125,13 +132,13 @@ function ColorBar(props: Props) {
                     // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
                     formatTick,
                   )
-                : formatTick
+                : (val, _, ticks) => formatTick(val, getTickPrecision(ticks))
             }
           />
         </svg>
       )}
       {label && (
-        <p className={styles.label} title={label}>
+        <p className={styles.label} title={getTextContent(label)}>
           {label}
         </p>
       )}

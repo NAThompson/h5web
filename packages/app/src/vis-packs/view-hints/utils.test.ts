@@ -97,14 +97,14 @@ describe('parseViewHint', () => {
       heightScale: 0.5,
       legend: true,
       keepRatio: true,
-      title: 'ψ₃,₀', // sub/superscripts as Unicode in plain-text titles
+      title: 'ψ_{3,0}', // sub/superscript markup, rendered by the vis
       notes: [],
     });
   });
 
   it('take the title from `H5WEB_title`, else `long_name`', () => {
     expect(hint({ long_name: 'ψ', H5WEB_title: 'Title' }).title).toBe('Title');
-    expect(hint({ long_name: 'ψ_{0}' }).title).toBe('ψ₀');
+    expect(hint({ long_name: 'ψ_{0}' }).title).toBe('ψ_{0}');
     expect(hint({ H5WEB_vis: 'heatmap' }).title).toBeUndefined(); // dataset name
   });
 
@@ -462,11 +462,11 @@ describe('notes', () => {
 
 describe('value label', () => {
   it('label values with CF `units`, and `long_name` unless it is the title', () => {
-    expect(getValueLabel({ long_name: 'E_{k}', units: 'hartree' }, 'Eₖ')).toBe(
-      'hartree',
-    );
+    expect(
+      getValueLabel({ long_name: 'E_{k}', units: 'hartree' }, 'E_{k}'),
+    ).toBe('hartree');
     expect(getValueLabel({ long_name: 'E_{k}', units: 'm^{-1}' }, 'T')).toBe(
-      'Eₖ (m⁻¹)',
+      'E_{k} (m^{-1})',
     );
     expect(getValueLabel({ long_name: 'E' }, 'E')).toBeUndefined();
     expect(getValueLabel({ long_name: 'E' }, 'T')).toBe('E');

@@ -8,7 +8,12 @@ import {
 } from '@h5web/shared/vis-models';
 import { formatTooltipErr, formatTooltipVal } from '@h5web/shared/vis-utils';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, type ReactElement, useMemo } from 'react';
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useMemo,
+} from 'react';
 
 import DefaultInteractions, {
   type DefaultInteractionsConfig,
@@ -23,7 +28,12 @@ import {
 import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
-import { DEFAULT_DOMAIN, extendDomain } from '../utils';
+import {
+  DEFAULT_DOMAIN,
+  extendDomain,
+  getTextContent,
+  isIntegerAxis,
+} from '../utils';
 import DataCurve from './DataCurve';
 import { useAxisValues } from './hooks';
 import styles from './LineVis.module.css';
@@ -46,8 +56,8 @@ interface Props extends ClassStyleAttrs {
   curveType?: CurveType;
   showGrid?: boolean;
   abscissaParams?: AxisParams;
-  ordinateLabel?: string;
-  title?: string;
+  ordinateLabel?: ReactNode; // if not a string, SVG text content (e.g. `<tspan>`)
+  title?: ReactNode;
   dtype?: string;
   errorsArray?: NdArray<NumArray>;
   showErrors?: boolean;
@@ -58,6 +68,7 @@ interface Props extends ClassStyleAttrs {
   ignoreValue?: IgnoreValue;
   interpolation?: Interpolation;
   visible?: boolean;
+  showLegend?: boolean; // legend of the curves, else only in snapshots
 }
 
 function LineVis(props: PropsWithChildren<Props>) {
@@ -84,6 +95,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     ignoreValue,
     interpolation = Interpolation.Linear,
     visible = true,
+    showLegend = false,
     className = '',
     style,
   } = props;
@@ -135,7 +147,7 @@ function LineVis(props: PropsWithChildren<Props>) {
       ref={rootRef}
       className={`${styles.root} ${className}`}
       style={style}
-      aria-label={title}
+      aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
       data-testid={testid}
     >
@@ -145,7 +157,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           visDomain: abscissaDomain,
           showGrid,
           scaleType: abscissaScaleType,
-          isIndexAxis: !abscissaValue,
+          isIndexAxis: isIntegerAxis(abscissaValue, abscissaScaleType),
           label: abscissaLabel,
           ticks: abscissaTicks,
         }}
@@ -263,9 +275,12 @@ function LineVis(props: PropsWithChildren<Props>) {
         )}
 
         {hasVisibleAux && (
-          /* Legend is only shown in snapshots (cf. `[data-snapshot]` in CSS) */
+          /* Legend shown in snapshots (cf. `[data-snapshot]` in CSS) unless `showLegend` */
           <Overlay>
-            <ul className={styles.legend}>
+            <ul
+              className={styles.legend}
+              data-visible={showLegend || undefined}
+            >
               {visible && (
                 <li className={styles.legendItem}>
                   <span
@@ -273,7 +288,7 @@ function LineVis(props: PropsWithChildren<Props>) {
                     data-keep-colors
                     style={{ color: curveColor }}
                   />
-                  {dataLabel || ordinateLabel || 'Signal'}
+                  {dataLabel || getTextContent(ordinateLabel) || 'Signal'}
                 </li>
               )}
               {auxiliaries.map(

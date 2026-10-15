@@ -10,6 +10,7 @@ import {
   type Dataset,
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
+import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import ndarray from 'ndarray';
@@ -23,6 +24,7 @@ import { type DimScale } from '../dimscales/utils';
 import { useIgnoreValue, usePacking } from '../netcdf/hooks';
 import { unpackNumArray } from '../netcdf/utils';
 import { isAffordable } from './hooks';
+import { renderSvgMarkup } from './markup';
 import { getProbeSelection, type ProbePoint } from './probe';
 import ProbeSliceMarker from './ProbeSliceMarker';
 import styles from './ViewHints.module.css';
@@ -44,6 +46,8 @@ interface Props {
   probeDim: number;
   point: ProbePoint;
   valueLabel?: string; // value axis, as on line views (CF `units` and `long_name`)
+  scaleType: ColorScaleType; // of the heatmap's colours
+  symlogThreshold?: number;
   onProbeDimChange: (dim: number) => void;
   onClose: () => void;
 }
@@ -52,6 +56,7 @@ interface Props {
  * their current index), with the current slice marked; only this 1D selection is fetched */
 function ProbePanel(props: Props) {
   const { dataset, dimMapping, probeDim, point, valueLabel } = props;
+  const { scaleType: colorScaleType, symlogThreshold } = props;
   const { onProbeDimChange, onClose } = props;
   const dataContext = useDataContext();
   const { queries } = dataContext;
@@ -77,7 +82,9 @@ function ProbePanel(props: Props) {
           ),
     [data, packing],
   );
-  const domain = useDomain(values ?? [], { ignoreValue });
+  const scaleType = // as the heatmap's colours (no square root scale on axes)
+    colorScaleType === ScaleType.Sqrt ? ScaleType.Linear : colorScaleType;
+  const domain = useDomain(values ?? [], { scaleType, ignoreValue });
 
   const scale = scales[probeDim];
   const xLabel = getDimLabel(scale, probeDim);
@@ -139,12 +146,14 @@ function ProbePanel(props: Props) {
             dataArray={ndarray(values)}
             curveType={CurveType.LineAndGlyphs} // stacks may have only a few slices
             domain={domain}
+            scaleType={scaleType}
+            symlogConstant={symlogThreshold}
             abscissaParams={{
               label: xLabel,
               value: scale?.value && toNumArray(scale.value),
               ticks: scale?.ticks,
             }}
-            ordinateLabel={valueLabel ?? dataset.name}
+            ordinateLabel={renderSvgMarkup(valueLabel || dataset.name)}
             ignoreValue={ignoreValue}
           >
             {current && <ProbeSliceMarker x={current.x} y={current.y} />}

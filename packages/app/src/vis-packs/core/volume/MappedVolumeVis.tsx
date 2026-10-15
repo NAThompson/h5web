@@ -29,6 +29,7 @@ import {
 } from '../../netcdf/hooks';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup } from '../../view-hints/markup';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type VolumeConfig } from './config';
@@ -170,7 +171,7 @@ function MappedVolumeVis(props: Props) {
 
       <VolumeVis
         className={visualizerStyles.vis}
-        title={title}
+        title={renderMarkup(title)}
         dataArray={dataArray}
         domain={safeDomain}
         colorMap={colorMap}

@@ -5,7 +5,7 @@ import {
   ScaleType,
 } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, useMemo } from 'react';
+import { type PropsWithChildren, type ReactNode, useMemo } from 'react';
 
 import { type ColorMap } from '../heatmap/models';
 import {
@@ -16,7 +16,12 @@ import {
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
 import { getSpecialColors } from '../three-d/utils';
 import Vis3DLayout from '../three-d/Vis3DLayout';
-import { createScale, DEFAULT_DOMAIN, SCALES_VALID_MINS } from '../utils';
+import {
+  createScale,
+  DEFAULT_DOMAIN,
+  isIntegerAxis,
+  SCALES_VALID_MINS,
+} from '../utils';
 import { SurfaceContext, type SurfaceContextValue } from './context';
 import SurfaceMesh from './SurfaceMesh';
 import {
@@ -52,7 +57,7 @@ interface Props extends ClassStyleAttrs {
   colorMap?: ColorMap;
   scaleType?: VisScaleType;
   invertColorMap?: boolean;
-  title?: string;
+  title?: ReactNode;
   abscissaParams?: AxisParams;
   ordinateParams?: AxisParams;
   valueLabel?: string;
@@ -188,7 +193,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const abscissaConfig = useMemo<Axis3DConfig>(
     () => ({
       domain: xDomain,
-      isIndexAxis: !abscissaValue,
+      isIndexAxis: isIntegerAxis(abscissaValue),
       label: abscissaLabel,
       flip: flipXAxis,
       ticks: abscissaTicks,
@@ -199,7 +204,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   const ordinateConfig = useMemo<Axis3DConfig>(
     () => ({
       domain: yDomain,
-      isIndexAxis: !ordinateValue,
+      isIndexAxis: isIntegerAxis(ordinateValue),
       label: ordinateLabel,
       flip: flipYAxis,
       ticks: ordinateTicks,

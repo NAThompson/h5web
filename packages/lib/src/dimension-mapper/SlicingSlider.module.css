@@ -11,16 +11,19 @@
 }
 
 .label {
+  display: -webkit-box; /* long names on up to two lines, in full in the title */
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   margin-bottom: 0.25rem;
   overflow: hidden;
+  overflow-wrap: anywhere;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 0.875em;
 }
 
 .sublabel {
   composes: label;
+  -webkit-line-clamp: 1;
   font-size: 0.75em;
   color: var(--h5w-slicingSlider-bounds--color, #333);
 }

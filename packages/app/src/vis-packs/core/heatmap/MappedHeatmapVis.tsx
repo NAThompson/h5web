@@ -32,7 +32,9 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { toUnicodeScripts } from '../../view-hints/attrs';
 import { type ContourSource, useSymlogThreshold } from '../../view-hints/hooks';
+import { renderMarkup } from '../../view-hints/markup';
 import { type SpecialColorsHint } from '../../view-hints/models';
 import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
 import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
@@ -192,8 +194,8 @@ function MappedHeatmapVis(props: Props) {
         <SurfaceVis
           className={visualizerStyles.vis}
           dataArray={dataArray}
-          title={title}
-          valueLabel={valueLabel}
+          title={renderMarkup(title)}
+          valueLabel={toUnicodeScripts(valueLabel)} // plain text in 3D
           domain={safeDomain}
           colorMap={colorMap}
           scaleType={visScaleType}
@@ -217,8 +219,8 @@ function MappedHeatmapVis(props: Props) {
         <HeatmapVis
           className={visualizerStyles.vis}
           dataArray={dataArray}
-          title={title}
-          colorBarLabel={valueLabel}
+          title={renderMarkup(title)}
+          colorBarLabel={renderMarkup(valueLabel)}
           dtype={formatDType(dataset.type, packing)}
           domain={safeDomain}
           colorMap={colorMap}
