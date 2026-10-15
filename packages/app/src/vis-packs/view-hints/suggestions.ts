@@ -46,9 +46,9 @@ export const AUTO_COLOR_MAPS = {
   sequential: 'Viridis',
 } as const;
 
-/* Colour map and domain, which may depend on the data: `"colorMap": "auto"` is a diverging map
- * centred on `center` (with a symmetric domain, unless one is given) if the data changes sign
- * around it, a sequential map otherwise; `"domain": "symmetric"` is ±max |v − center| */
+/* Colour map and domain, which may depend on the data: `H5WEB_colormap = "auto"` is a diverging
+ * map centred on `H5WEB_center` (with a symmetric domain, unless one is given) if the data changes
+ * sign around it, a sequential map otherwise; `H5WEB_symmetric` is ±max |v − center| */
 export function getColorSuggestions(
   hint: ViewHint,
   dataDomain: Domain | undefined,
@@ -75,7 +75,7 @@ export function getColorSuggestions(
     customDomain: Array.isArray(domain)
       ? domain
       : isSymmetric && halfWidth !== undefined && Number.isFinite(halfWidth)
-        ? [center - halfWidth, center + halfWidth]
+        ? [center - (halfWidth || 1), center + (halfWidth || 1)] // ±1 if data are all `center`
         : undefined,
   };
 }
@@ -85,7 +85,7 @@ export function getHeatmapSuggestions(
   hint: ViewHint,
   path: string,
   fallbacks: HeatmapSuggestions = {},
-  dataDomain?: Domain, // for `"colorMap": "auto"` and `"domain": "symmetric"`
+  dataDomain?: Domain, // for `H5WEB_colormap = "auto"` and `H5WEB_symmetric`
 ): HeatmapSuggestions {
   const isComplexSurface = hint.vis === HintVis.ComplexSurface;
   const colors = getColorSuggestions(hint, dataDomain);
@@ -121,8 +121,8 @@ export function getLineSuggestions(
     ? hint.scaleType
     : undefined; // e.g. not sqrt
   return {
-    xScaleType: hint.xScaleType ?? fallbacks.xScaleType,
-    yScaleType: hint.yScaleType ?? yFromScale ?? fallbacks.yScaleType,
+    xScaleType: fallbacks.xScaleType,
+    yScaleType: yFromScale ?? fallbacks.yScaleType,
   };
 }
 

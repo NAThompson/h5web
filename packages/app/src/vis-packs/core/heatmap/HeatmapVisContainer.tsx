@@ -18,7 +18,6 @@ import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
 import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
-import { getNotesIn3D } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { guessKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
@@ -119,7 +118,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
       <OverlayNotes
         notes={[
           ...overlays.notes,
-          ...(config.surface ? getNotesIn3D(hint) : []),
+          ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />
       <OverlayLegend items={overlays.legend} />

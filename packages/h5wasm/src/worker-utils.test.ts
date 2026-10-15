@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { type LazyFile } from './lazy-file';
 import {
   createLazyFileNode,
+  fixAsciiStrings,
   pairComplexComponents,
   parseComplexValue,
   parseDType,
@@ -131,6 +132,62 @@ function createFailingRead(cause: Error): () => void {
   createLazyFileNode(fakeFS as never, {}, 'file', lazyFile);
   return () => node.stream_ops.read({}, new Int8Array(1), 0, 1, 0);
 }
+
+describe('fixAsciiStrings', () => {
+  const ascii = meta({ type: H5T_CLASS.STRING, cset: 0 });
+
+  it('decode ASCII-tagged UTF-8 strings, as decoded byte by byte by h5wasm', () => {
+    const bytes = new TextEncoder().encode('ψ₃₀ (α, θ) r₁₂ ≤ 4');
+    const cp1252 = new TextDecoder('windows-1252').decode(bytes); // h5wasm's "ascii"
+    const latin1 = String.fromCodePoint(...bytes); // variable-length strings
+    expect(fixAsciiStrings(cp1252, ascii, true)).toBe('ψ₃₀ (α, θ) r₁₂ ≤ 4');
+    expect(fixAsciiStrings([latin1, 'a'], ascii, false)).toEqual([
+      'ψ₃₀ (α, θ) r₁₂ ≤ 4',
+      'a',
+    ]);
+  });
+
+  it('leave genuine single-byte text and other types alone', () => {
+    expect(fixAsciiStrings('café', ascii, true)).toBe('café');
+    expect(
+      fixAsciiStrings('Ïˆ', meta({ type: H5T_CLASS.STRING, cset: 1 }), true),
+    ).toBe('Ïˆ');
+    expect(fixAsciiStrings(1, meta({ type: H5T_CLASS.INTEGER }), true)).toBe(1);
+  });
+
+  it('decode string members of compound, array and vlen types', () => {
+    const cp1252 = new TextDecoder('windows-1252').decode(
+      new TextEncoder().encode('α'),
+    );
+    const utf8 = meta({ type: H5T_CLASS.STRING, cset: 1 });
+    const compound = meta({
+      type: H5T_CLASS.COMPOUND,
+      compound_type: {
+        members: [meta({ type: H5T_CLASS.INTEGER }), ascii, utf8],
+      } as unknown as Metadata['compound_type'],
+    });
+    // Only the ASCII-tagged member is re-decoded; the UTF-8 one is left alone
+    expect(fixAsciiStrings([[1, cp1252, cp1252]], compound, false)).toEqual([
+      [1, 'α', cp1252],
+    ]);
+    expect(fixAsciiStrings([1, cp1252, 'b'], compound, true)).toEqual([
+      1,
+      'α',
+      'b',
+    ]); // scalar
+    const vlen = meta({ type: H5T_CLASS.VLEN, vlen_type: ascii });
+    expect(fixAsciiStrings([[cp1252, 'a']], vlen, false)).toEqual([['α', 'a']]);
+    const array = meta({
+      type: H5T_CLASS.ARRAY,
+      array_type: meta({ type: H5T_CLASS.STRING, cset: 0, shape: [2] }),
+    });
+    expect(fixAsciiStrings([cp1252, 'a'], array, true)).toEqual(['α', 'a']);
+    // nD dataset of an array type: nested by the dataset's dimensions too
+    expect(fixAsciiStrings([[[cp1252, 'a']]], array, false)).toEqual([
+      [['α', 'a']],
+    ]);
+  });
+});
 
 describe('throwIfReadError', () => {
   it('should rethrow the cause of a failed read of a lazy file', () => {

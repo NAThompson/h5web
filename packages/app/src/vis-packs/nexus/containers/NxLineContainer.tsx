@@ -54,7 +54,7 @@ function NxLineContainer(props: VisContainerProps) {
   const [isSignalVisible, setSignalVisible] = useState(true);
   const [auxVisible, setAuxVisible] = useState(auxDefs.map(() => true));
 
-  // `H5WEB_view` hint > NeXus `SILX_style`
+  // `H5WEB_*` view hint > NeXus `SILX_style`
   const hint = useViewHint(entity, signalDef.dataset);
   const config = useLineConfig(
     getLineSuggestions(hint, {

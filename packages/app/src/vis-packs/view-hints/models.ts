@@ -1,14 +1,13 @@
 import {
-  type AxisScaleType,
   type ColorScaleType,
   type ComplexVisType,
 } from '@h5web/shared/vis-models';
 
 import { type ColorMap } from '../core/heatmap/models';
 
-export const VIEW_HINT_ATTR = 'H5WEB_view';
+export const HINT_ATTR_PREFIX = 'H5WEB_'; // prefix of view attributes
 
-/* Stable ids of the visualizations a file can ask for (case, spaces, `-` and `_` ignored) */
+/* Values of `H5WEB_vis` (case, spaces, `-` and `_` ignored) */
 export enum HintVis {
   Scalar = 'scalar',
   Matrix = 'matrix',
@@ -28,10 +27,8 @@ export enum HintVis {
 }
 
 interface OverlayBase {
-  /* Columns of the last dimension holding coordinates along the base dataset's last and
-   * second-to-last dimensions (and z); default [0, 1] */
-  columns?: number[];
-  /* Or: names of the base dataset's dimensions (dimension scales) held by each column */
+  /* Names of the base dataset's dimensions (dimension scales) held by each column; default:
+   * columns 0 and 1 hold the base dataset's last and second-to-last dimensions */
   columnNames?: string[];
   color?: string; // CSS colour of lines, and of points without `colorBy`
   colorBy?: string; // path of an (N,) dataset colouring points with the base colour map and domain
@@ -41,6 +38,7 @@ interface OverlayBase {
   dash?: boolean; // dashed lines
   halo?: boolean; // contrasting halo around lines, points and text (default: true)
   stroke?: string; // CSS colour of point outlines
+  sliceBy?: string; // dimension scale linking the overlay's leading dimension
 }
 
 export interface PointsOverlay extends OverlayBase {
@@ -82,8 +80,6 @@ export interface ViewHint {
   vis?: HintVis;
   scaleType?: ColorScaleType; // colour scale (and height of real surfaces)
   height?: ColorScaleType; // height scale of 3D surfaces (complex surfaces)
-  xScaleType?: AxisScaleType;
-  yScaleType?: AxisScaleType;
   colorMap?: ColorMap | 'auto'; // auto: diverging, centred on `center`, if data changes sign
   invertColorMap?: boolean;
   domain?: [number | null, number | null] | 'symmetric'; // symmetric: ±max |v − center|
@@ -100,9 +96,10 @@ export interface ViewHint {
   multiDim?: number; // line: dimension whose slices are all plotted
   title?: string; // title of the figure
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension
-  overlays: OverlayHint[];
+  sliceByAnchor?: string; // `sliceBy` is resolved relative to this path (default: `anchor`)
+  overlayPaths: string[]; // objects drawn on top (their attributes say what and how)
   anchor?: string; // overlay paths are resolved relative to this path (dataset with the hint, or `<group>/.`)
   notes: string[]; // why parts of the hint were ignored
 }
 
-export const EMPTY_HINT: ViewHint = { overlays: [], notes: [] };
+export const EMPTY_HINT: ViewHint = { overlayPaths: [], notes: [] };

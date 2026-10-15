@@ -99,6 +99,21 @@ async function getScaleMeta(
   }
 }
 
+/* `NAME` of the scales netCDF-4 creates for dimensions without coordinate variable: not axes */
+const PHONY_SCALE_NAME = 'This is a netCDF dimension but not a netCDF variable';
+
+export function isPhonyScaleName(name: string | undefined): boolean {
+  return !!name?.startsWith(PHONY_SCALE_NAME);
+}
+
+async function isPhonyScale(
+  scaleDataset: Dataset<ArrayShape, NumericType>,
+  dataContext: DataContextValue,
+): Promise<boolean> {
+  const { name } = await getScaleMeta(scaleDataset, dataContext);
+  return isPhonyScaleName(name);
+}
+
 export function isUsableScale(
   entity: Entity | undefined,
   dimSize: number,
@@ -131,7 +146,10 @@ async function findUsableScale(
     try {
       const entity = await queryClient.query(queries.entity(path));
 
-      if (isUsableScale(entity, dimSize)) {
+      if (
+        isUsableScale(entity, dimSize) &&
+        !(await isPhonyScale(entity, dataContext))
+      ) {
         const value = await queryClient.query(queries.value(entity));
         assertValue(value, entity);
         return { dataset: entity, value };

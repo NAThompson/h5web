@@ -44,7 +44,9 @@ export class MockApi extends DataProviderApi {
     }
 
     const entity = findMockEntity(this.mockFile, path);
-    assertDefined(entity, `No entity found at ${path}`);
+    if (!entity) {
+      throw new Error(`No entity found at ${path}`); // HDF5 error, not a transport error
+    }
     return entity;
   }
 

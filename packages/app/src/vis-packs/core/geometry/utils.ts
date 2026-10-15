@@ -10,6 +10,7 @@ import {
   type Attribute,
   type Dataset,
   type Entity,
+  EntityKind,
   type NumericType,
   type ProvidedEntity,
   type ScalarShape,
@@ -190,7 +191,8 @@ export async function resolveCoordinate(
   /* eslint-disable no-await-in-loop -- stop at nearest match */
   for (const path of getCoordinatePaths(fieldPath, name)) {
     const entity = await ctx.getEntity(path);
-    if (entity) {
+    // h5wasm gives an unresolved entity without link for a path that doesn't exist
+    if (entity && (entity.kind !== EntityKind.Unresolved || entity.link)) {
       return entity;
     }
   }

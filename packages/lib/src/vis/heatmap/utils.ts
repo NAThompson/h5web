@@ -30,7 +30,7 @@ import {
   type DomainErrors,
   type Size,
 } from '../models';
-import { SCALES_VALID_MINS } from '../utils';
+import { extendDomain, SCALES_VALID_MINS } from '../utils';
 import { INTERPOLATORS } from './interpolators';
 import {
   type ChunkBounds,
@@ -84,6 +84,31 @@ export function getVisDomain(
   return [customDomain[0] ?? dataDomain[0], customDomain[1] ?? dataDomain[1]];
 }
 
+/* Non-empty domain around a constant value (bounds that would overflow or underflow the scale
+ * stay at the value) */
+function getConstantDomain(
+  value: number,
+  scaleType: ScaleType,
+  validMin: number,
+): Domain {
+  let lo: number;
+  let hi: number;
+  if (scaleType === ScaleType.SymLog && value !== 0) {
+    const abs = Math.abs(value);
+    const [absLo, absHi] = extendDomain([abs, abs], 0.5, ScaleType.Log);
+    [lo, hi] = value < 0 ? [-absHi, -absLo] : [absLo, absHi];
+  } else {
+    const factor = scaleType === ScaleType.Log ? 0.5 : 0.05;
+    const type = scaleType === ScaleType.Gamma ? ScaleType.Linear : scaleType;
+    [lo, hi] = extendDomain([value, value], factor, type);
+  }
+
+  return [
+    Number.isFinite(lo) && lo >= validMin ? lo : value,
+    Number.isFinite(hi) ? hi : value,
+  ];
+}
+
 export function getSafeDomain(
   domain: Domain,
   fallbackDomain: Domain,
@@ -95,6 +120,18 @@ export function getSafeDomain(
 
   const [min, max] = domain;
   const validMin = SCALES_VALID_MINS[scaleType];
+
+  // Constant data (flat data domain): finite, non-empty domain - one decade on log and symlog
+  // scales, ±5% otherwise (a custom domain `[v, v]` on varying data stays a threshold)
+  if (
+    min === max &&
+    fallbackDomain[0] === min &&
+    fallbackDomain[1] === min &&
+    Number.isFinite(min) &&
+    min >= validMin
+  ) {
+    return [getConstantDomain(min, scaleType, validMin), {}];
+  }
 
   const isMinSupported = min >= validMin;
   const isMaxSupported = max >= validMin;

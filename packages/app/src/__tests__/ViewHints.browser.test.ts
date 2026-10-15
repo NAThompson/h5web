@@ -21,12 +21,16 @@ function getNotes() {
   return page.getByRole('note', { name: 'View hint notes' });
 }
 
-function getPointsCx(): string[] {
+function getPointsAttr(name: string): string[] {
   // Disc of each point, drawn over its halo
   const points = document.querySelector('[data-testid="overlay-points"]');
   return [...(points?.querySelectorAll('g > circle:last-child') ?? [])].map(
-    (circle) => circle.getAttribute('cx') ?? '',
+    (circle) => circle.getAttribute(name) ?? '',
   );
+}
+
+function getPointsCx(): string[] {
+  return getPointsAttr('cx');
 }
 
 test('open the vis declared by the hint, with its settings', async () => {
@@ -67,6 +71,15 @@ test('take hint over NeXus metadata', async () => {
   expect(getSelectedVisTab()).toBe(NxDataVis.NxLine); // NX Heatmap otherwise
   await expect
     .element(page.getByRole('combobox', { name: 'Y SymLog' })) // not `SILX_style`'s log
+    .toBeVisible();
+});
+
+test('merge hints of an NXdata group and its signal', async () => {
+  await renderApp('/view_hints/nx_merged');
+
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxLine); // signal's `H5WEB_vis`
+  await expect
+    .element(page.getByRole('combobox', { name: 'Y SymLog' })) // group's `H5WEB_scale`
     .toBeVisible();
 });
 
@@ -138,7 +151,7 @@ test('show notes in visualizations without overlays', async () => {
   expect(getSelectedVisTab()).toBe(Vis.Line);
   await expect
     .element(getNotes())
-    .toHaveTextContent('ignored invalid "scaleType"');
+    .toHaveTextContent('ignored invalid "H5WEB_scale"');
   expect(getNotes()).toHaveTextContent('overlays are drawn on heatmaps only');
 });
 
@@ -153,11 +166,14 @@ test('note overlay features not drawn in 3D', async () => {
     .toHaveTextContent('not drawn in 3D: text, dashes, inline labels');
 });
 
-test('ignore malformed hint', async () => {
-  await renderApp('/view_hints/bad_json');
+test('ignore attributes of the wrong type', async () => {
+  await renderApp('/view_hints/bad_attrs');
 
   expect(getSelectedVisTab()).toBe(Vis.Heatmap); // heuristics
-  await expect.element(getNotes()).toHaveTextContent('not valid JSON');
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('ignored invalid "H5WEB_vis"');
+  expect(getNotes()).toHaveTextContent('ignored invalid "H5WEB_keep_ratio"');
 });
 
 test('draw overlays and slice them with an extra linked slider', async () => {
@@ -246,9 +262,9 @@ test('skip broken overlays without breaking the base vis', async () => {
     .toBeVisible();
   await expect
     .element(getNotes())
-    .toHaveTextContent('overlay 1 (points): "missing" not found');
+    .toHaveTextContent('overlay "missing": not found');
   expect(getNotes()).toHaveTextContent(
-    'overlay 2 (ellipse): "sigma" has unexpected shape [5]',
+    'overlay "ellipse_broken": "sigma" has unexpected shape [5]',
   );
 
   // The valid overlay is drawn, with an extra slider found from its scale
@@ -282,7 +298,7 @@ test('draw static overlays in axis values, unclipped on the edges of the domain'
   expect(svg && getComputedStyle(svg).overflow).toBe('visible');
 });
 
-test('apply v0.2 keys: title, auto colour map, legend, texts, inline labels', async () => {
+test('apply title, auto colour map, legend, texts, inline labels', async () => {
   await renderApp('/view_hints/psi');
 
   await expect
@@ -296,4 +312,43 @@ test('apply v0.2 keys: title, auto colour map, legend, texts, inline labels', as
 
   const texts = [...document.querySelectorAll('[data-testid="overlays"] text')];
   expect(texts.map((text) => text.textContent)).toEqual(['e–e', 'θ = 0']);
+});
+
+test('share the style of an overlay between the datasets that list it', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/landscape');
+  await expect.poll(() => getPointsAttr('r')).toEqual(['6', '6', '6']);
+
+  await selectExplorerNode('landscapes');
+  await expect
+    .element(page.getByRole('figure', { name: 'landscapes' }))
+    .toBeVisible();
+  await expect.poll(() => getPointsAttr('r')).toEqual(['6', '6', '6']);
+});
+
+test('draw static overlays on every slice, never offering netCDF-4 phony dimensions', async () => {
+  const { user } = await renderApp('/view_hints/phony_stack');
+
+  await expect.poll(() => getPointsCx()).toHaveLength(5); // whole dataset, not sliced
+  expect(getLinkedMapper()).not.toBeInTheDocument();
+  expect(page.getByText(/netCDF dimension/u)).not.toBeInTheDocument();
+
+  const before = getPointsCx();
+  await user.click(page.getByRole('slider', { name: 'D0' }));
+  await userEvent.keyboard('{ArrowUp}');
+  await expect.element(page.getByRole('slider', { name: 'D0' })).toHaveValue(1);
+  expect(getPointsCx()).toEqual(before);
+  expect(getNotes()).not.toBeInTheDocument();
+});
+
+test('give constant data a finite colour domain', async () => {
+  await renderApp('/view_hints/constant');
+
+  // One decade around the value (symlog), not `−∞`/`+∞`
+  await expect.element(page.getByLabelText('Min: 3.162e-1')).toBeVisible();
+  expect(page.getByLabelText('Max: 3.162e+0')).toBeVisible();
+  const ticks = [
+    ...document.querySelectorAll('[class*="colorBar"] svg text'),
+  ].map((tick) => tick.textContent);
+  expect(ticks.length).toBeGreaterThan(0);
+  expect(ticks.join(' ')).not.toMatch(/∞|NaN/u);
 });

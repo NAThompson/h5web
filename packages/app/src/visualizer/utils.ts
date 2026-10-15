@@ -57,7 +57,7 @@ async function resolvePath(
       return null;
     }
 
-    // `H5WEB_view` hint takes precedence over heuristics
+    // `H5WEB_*` view hint takes precedence over heuristics
     const hint = await getHintSafely(entity, dataContext);
     return {
       entity,
@@ -104,7 +104,7 @@ async function resolvePath(
       )
         ? await findAxesForPrimaryVis(entity, signal, dataContext)
         : [];
-      // `H5WEB_view` hint takes precedence over NeXus `interpretation`
+      // `H5WEB_*` view hint takes precedence over NeXus `interpretation`
       const hint = await getHintSafely(entity, dataContext, signal);
       return {
         entity,

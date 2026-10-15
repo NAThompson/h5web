@@ -4,7 +4,7 @@ interface Props {
   notes: string[];
 }
 
-/* What parts of a `H5WEB_view` hint can't be applied (e.g. overlays that failed to resolve) */
+/* What parts of a `H5WEB_*` view hint can't be applied (e.g. overlays that failed to resolve) */
 function OverlayNotes(props: Props) {
   const { notes } = props;
   if (notes.length === 0) {

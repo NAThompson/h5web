@@ -1,22 +1,33 @@
 import { assertDefined } from '@h5web/shared/guards';
 import {
   type ArrayShape,
+  type Attribute,
   type Dataset,
+  EntityKind,
   type GroupWithChildren,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
-import { arrayShape, floatType, strType } from '@h5web/shared/hdf5-utils';
 import {
+  arrayShape,
+  floatType,
+  intType,
+  strType,
+} from '@h5web/shared/hdf5-utils';
+import {
+  arrayAttr,
   assertMockAttribute,
   dataset,
   group,
+  scalar,
   scalarAttr,
   withDimScales,
 } from '@h5web/shared/mock-utils';
 import { describe, expect, it } from 'vitest';
 
 import { findMockEntity } from '../../providers/mock/utils';
-import { findStrAttr, type GeometryContext } from '../core/geometry/utils';
+import { findStrAttr } from '../core/geometry/utils';
+import { parseViewHint } from './attrs';
+import { type OverlayHint } from './models';
 import {
   buildOverlayShapes,
   findLinkedDim,
@@ -26,13 +37,22 @@ import {
   getLinkedSelection,
   getOverlayRequests,
   getPixelCentreShift,
+  type OverlayContext,
   type OverlayInput,
   type ResolvedOverlay,
   resolveOverlays,
 } from './overlays';
-import { parseViewHint } from './utils';
 
-function createMockContext(root: GroupWithChildren): GeometryContext {
+function getMockValues(entity: { attributes: Attribute[] }) {
+  return Object.fromEntries(
+    entity.attributes.map((attr) => {
+      assertMockAttribute(attr);
+      return [attr.name, attr.value];
+    }),
+  );
+}
+
+function createMockContext(root: GroupWithChildren): OverlayContext {
   return {
     getEntity: async (path) => {
       try {
@@ -51,18 +71,40 @@ function createMockContext(root: GroupWithChildren): GeometryContext {
     },
     getDimensionScales: async (dset) =>
       (dset as { dimScales?: string[][] }).dimScales ?? [],
+    getAttrValues: async (entity) => getMockValues(entity),
+    getValue: async (dset) => (dset as { value?: unknown }).value,
   };
 }
 
-function arr(name: string, dims: number[], scales?: string[][]) {
-  const dset = dataset(name, arrayShape(dims), floatType(), null);
+/* Attributes from plain values: strings, integers as `Int8` 1-element arrays (netCDF-4) */
+function attrs(obj: Record<string, string | number>) {
+  return Object.entries(obj).map(([name, value]) =>
+    typeof value === 'string'
+      ? scalarAttr(name, value)
+      : arrayAttr(name, [value], { type: intType(true, 8) }),
+  );
+}
+
+function arr(
+  name: string,
+  dims: number[],
+  scales?: string[][],
+  attributes: Record<string, string | number> = {},
+) {
+  const dset = dataset(name, arrayShape(dims), floatType(), null, {
+    attributes: attrs(attributes),
+  });
   return scales ? withDimScales(dset, { scales }) : dset;
 }
 
 const G = '/run/generation';
 
-/* CMA-ES-like file: landscape `f` (no generation dimension) and per-generation datasets */
-function setup(hint: unknown, extra: ProvidedEntity[] = []) {
+/* CMA-ES-like file: landscape `f` (no generation dimension), per-generation datasets, and
+ * overlay objects (`H5WEB_geometry` and style on the overlay itself) */
+function setup(
+  baseAttrs: Record<string, string | number>,
+  extra: ProvidedEntity[] = [],
+) {
   const root = group(
     'root.h5',
     [
@@ -70,16 +112,34 @@ function setup(hint: unknown, extra: ProvidedEntity[] = []) {
         dataset('generation', arrayShape([10]), floatType(), null, {
           attributes: [scalarAttr('NAME', 'generation')],
         }),
-        dataset('f', arrayShape([50, 40]), floatType(), null, {
-          attributes: [scalarAttr('H5WEB_view', JSON.stringify(hint))],
+        arr('f', [50, 40], undefined, baseAttrs),
+        arr('population', [10, 6, 2], [[G], [], []], {
+          H5WEB_geometry: 'points',
+          H5WEB_color_by: 'fitness',
         }),
-        arr('population', [10, 6, 2], [[G], [], []]),
         arr('fitness', [10, 6], [[G], []]),
-        arr('mean', [10, 2], [[G], []]),
+        arr('mean', [10, 2], [[G], []], {
+          H5WEB_geometry: 'curve',
+          H5WEB_trail: 1,
+        }),
         arr('C', [10, 2, 2], [[G], [], []]),
-        arr('sigma', [10], [[G]]),
-        arr('static_points', [4, 2]),
-        dataset('labels', arrayShape([10]), strType(), null),
+        arr('sigma', [10], [[G]], { H5WEB_geometry: 'points' }),
+        group('ellipse', [], {
+          attributes: attrs({
+            H5WEB_geometry: 'ellipse',
+            H5WEB_mean: 'mean',
+            H5WEB_cov: 'C',
+            H5WEB_sigma: 'sigma',
+          }),
+        }),
+        arr('static_points', [4, 2], undefined, { H5WEB_geometry: 'points' }),
+        arr('static_trail', [4, 2], undefined, {
+          H5WEB_geometry: 'curve',
+          H5WEB_trail: 1,
+        }),
+        dataset('labels', arrayShape([10]), strType(), null, {
+          attributes: attrs({ H5WEB_geometry: 'points' }),
+        }),
         ...extra,
       ]),
     ],
@@ -89,21 +149,30 @@ function setup(hint: unknown, extra: ProvidedEntity[] = []) {
   const base = findMockEntity(root, '/run/f');
   assertDefined(base);
   return {
+    root,
     base: base as Dataset<ArrayShape>,
     ctx: createMockContext(root),
-    hint: { ...parseViewHint(JSON.stringify(hint)), anchor: '/run/f' },
+    hint: { ...parseViewHint(base, getMockValues(base)), anchor: '/run/f' },
   };
+}
+
+/* netCDF-4 dimension without coordinate variable */
+function phony(name: string, n: number) {
+  return dataset(name, arrayShape([n]), floatType(), null, {
+    attributes: [
+      scalarAttr(
+        'NAME',
+        `This is a netCDF dimension but not a netCDF variable. ${n}`,
+      ),
+    ],
+  });
 }
 
 describe('resolveOverlays', () => {
   it('link overlays by the generation scale, with an extra slider', async () => {
     const { base, ctx, hint } = setup({
-      sliceBy: 'generation',
-      overlays: [
-        { points: 'population', colorBy: 'fitness' },
-        { ellipse: { mean: 'mean', cov: 'C', scale: 'sigma' } },
-        { curve: 'mean', trail: true },
-      ],
+      H5WEB_slice_by: 'generation',
+      H5WEB_overlays: 'population ellipse mean',
     });
 
     const resolved = await resolveOverlays(hint, base, ctx);
@@ -116,20 +185,27 @@ describe('resolveOverlays', () => {
     });
 
     const [points, ellipse, curve] = resolved.overlays;
+    expect(points.hint).toMatchObject({
+      kind: 'points',
+      points: '/run/population',
+      colorBy: 'fitness',
+    });
     expect(points.inputs.points?.linkedDim).toBe(0);
     expect(points.inputs.colorBy?.linkedDim).toBe(0);
+    expect(ellipse.hint).toMatchObject({ kind: 'ellipse', nsigma: [1, 2] });
     expect(ellipse.inputs.scale?.linkedDim).toBe(0);
+    expect(curve.hint).toMatchObject({ kind: 'curve', trail: true });
     expect(curve.inputs.curve?.linkedDim).toBe(0);
   });
 
-  it('find the link without `sliceBy` from the scale of leading dimensions', async () => {
-    const { base, ctx, hint } = setup({ overlays: [{ points: 'population' }] });
+  it('find the link without `H5WEB_slice_by` from the scale of leading dimensions', async () => {
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'population' });
     const resolved = await resolveOverlays(hint, base, ctx);
     expect(resolved.link?.scalePath).toBe(G);
   });
 
   it('link to a dimension of the base dataset with the same scale', async () => {
-    const { ctx, hint } = setup({ overlays: [{ points: 'population' }] });
+    const { ctx, hint } = setup({ H5WEB_overlays: 'population' });
     const landscapes = arr('landscapes', [10, 50, 40], [[G], [], []]);
     const resolved = await resolveOverlays(
       hint,
@@ -141,9 +217,9 @@ describe('resolveOverlays', () => {
 
   it('draw a curve along an axis of the base whole, not linked by that axis', async () => {
     // Ridge (X, 2) with the base's own x scale attached to its first dimension
-    const { ctx, hint } = setup({ overlays: [{ curve: 'ridge' }] }, [
+    const { ctx, hint } = setup({ H5WEB_overlays: 'ridge' }, [
       arr('x', [40]),
-      arr('ridge', [40, 2], [['/run/x'], []]),
+      arr('ridge', [40, 2], [['/run/x'], []], { H5WEB_geometry: 'curve' }),
     ]);
     const base = arr('f', [50, 40], [[], ['/run/x']]) as Dataset<ArrayShape>;
     const resolved = await resolveOverlays(
@@ -165,14 +241,12 @@ describe('resolveOverlays', () => {
 
   it('resolve absolute, relative and ancestor paths', async () => {
     const { base, ctx, hint } = setup(
-      {
-        overlays: [
-          { points: '/run/population' },
-          { points: './sub/pts' },
-          { points: 'static_points' },
-        ],
-      },
-      [group('sub', [arr('pts', [3, 2])])],
+      { H5WEB_overlays: '/run/population ./sub/pts static_points' },
+      [
+        group('sub', [
+          arr('pts', [3, 2], undefined, { H5WEB_geometry: 'points' }),
+        ]),
+      ],
     );
     const resolved = await resolveOverlays(hint, base, ctx);
     expect(resolved.notes).toEqual([]);
@@ -180,64 +254,245 @@ describe('resolveOverlays', () => {
     expect(resolved.overlays[2].inputs.points?.linkedDim).toBeUndefined(); // whole dataset
   });
 
-  it('skip broken overlays with a note, keep the others', async () => {
-    const { base, ctx, hint } = setup({
-      overlays: [
-        { points: 'missing' },
-        { points: 'labels' },
-        { points: 'sigma' }, // 1D
-        { points: 'population', colorBy: 'nope' },
-        { curve: 'static_points', trail: true }, // nothing to trail along
-        { ellipse: { mean: 'mean', cov: 'C' } },
-      ],
+  it('search bare names past paths that h5wasm gives as unresolved entities', async () => {
+    // Paths on an overlay object are relative to its group: `fitness` is searched in `/run/sub`
+    // first, then in `/run`
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'sub/pts' }, [
+      group('sub', [
+        arr('pts', [10, 6, 2], [[G], [], []], {
+          H5WEB_geometry: 'points',
+          H5WEB_color_by: 'fitness',
+        }),
+      ]),
+    ]);
+    const resolved = await resolveOverlays(hint, base, {
+      ...ctx,
+      getEntity: async (path) =>
+        (await ctx.getEntity(path)) ?? {
+          name: path.slice(path.lastIndexOf('/') + 1),
+          path,
+          kind: EntityKind.Unresolved,
+          attributes: [],
+        },
     });
+    expect(resolved.notes).toEqual([]);
+    expect(resolved.overlays[0].inputs.colorBy?.dataset.path).toBe(
+      '/run/fitness',
+    );
+  });
+
+  it('share the geometry and style of an overlay between base datasets', async () => {
+    const { root, ctx } = setup({}, [
+      group('maps', [
+        arr('a', [50, 40], undefined, { H5WEB_overlays: '/run/styled' }),
+        arr('b', [50, 40], undefined, { H5WEB_overlays: '../styled' }),
+      ]),
+      arr('styled', [4, 2], undefined, {
+        H5WEB_geometry: 'curve',
+        H5WEB_color: '#ff2fd6',
+        H5WEB_label: 'r_{1} = 0',
+        H5WEB_label_mode: 'INLINE',
+        H5WEB_dash: 1,
+      }),
+    ]);
+
+    for (const path of ['/run/maps/a', '/run/maps/b']) {
+      const base = findMockEntity(root, path) as Dataset<ArrayShape>;
+      const hint = parseViewHint(base, getMockValues(base));
+      // eslint-disable-next-line no-await-in-loop -- one base after the other
+      const resolved = await resolveOverlays(
+        { ...hint, anchor: path },
+        base,
+        ctx,
+      );
+      expect(resolved.notes).toEqual([]);
+      expect(resolved.overlays[0].hint).toEqual({
+        kind: 'curve',
+        curve: '/run/styled',
+        trail: false,
+        color: '#ff2fd6',
+        label: 'r_{1} = 0',
+        labelMode: 'inline',
+        dash: true,
+        columnNames: undefined,
+        colorBy: undefined,
+        width: undefined,
+        halo: undefined,
+        stroke: undefined,
+      });
+    }
+  });
+
+  it('read texts from scalar string datasets', async () => {
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'label' }, [
+      scalar('label', 'r₁₂ = 0', {
+        attributes: [
+          ...attrs({ H5WEB_geometry: 'text', H5WEB_anchor: 'Top' }),
+          arrayAttr('H5WEB_at', [1.5, 0], { type: floatType(64) }),
+        ],
+      }),
+    ]);
+    const resolved = await resolveOverlays(hint, base, ctx);
+    expect(resolved.overlays[0].hint).toMatchObject({
+      kind: 'text',
+      text: 'r₁₂ = 0',
+      at: [1.5, 0],
+      anchor: 'top',
+    });
+  });
+
+  it('skip broken overlays with a note, keep the others', async () => {
+    const { base, ctx, hint } = setup(
+      {
+        H5WEB_overlays:
+          'missing labels sigma colored static_trail ellipse no_geometry band bad_ellipse',
+      },
+      [
+        arr('colored', [10, 6, 2], [[G], [], []], {
+          H5WEB_geometry: 'points',
+          H5WEB_color_by: 'nope',
+          H5WEB_width: 'wide', // wrong type: ignored
+        }),
+        arr('no_geometry', [4, 2]),
+        arr('band', [2], undefined, { H5WEB_geometry: 'band' }), // Phase 2
+        group('bad_ellipse', [], {
+          attributes: attrs({ H5WEB_geometry: 'ellipse', H5WEB_mean: 'mean' }),
+        }),
+      ],
+    );
 
     const resolved = await resolveOverlays(hint, base, ctx);
     expect(resolved.overlays.map(({ label }) => label)).toEqual([
-      'overlay 4 (points)',
-      'overlay 6 (ellipse)',
+      'overlay "colored"',
+      'overlay "ellipse"',
     ]);
     expect(resolved.notes).toEqual([
-      'overlay 1 (points): "missing" not found',
-      'overlay 2 (points): "labels" is not a numeric dataset',
-      'overlay 3 (points): "sigma" has unexpected shape [10]',
-      'overlay 4 (points): ignored "nope" not found',
-      'overlay 5 (curve): "static_points" has no dimension linked to slicing, needed for a trail',
+      'overlay "missing": not found',
+      'overlay "colored": ignored invalid "H5WEB_width"',
+      'overlay "no_geometry": no valid "H5WEB_geometry"',
+      'overlay "band": "H5WEB_geometry" "band" is not supported yet',
+      'overlay "bad_ellipse": needs "H5WEB_mean" and "H5WEB_cov"',
+      'overlay "labels": "/run/labels" is not a numeric dataset',
+      'overlay "sigma": "/run/sigma" has unexpected shape [10]',
+      'overlay "colored": ignored "nope" not found',
+      'overlay "static_trail": "/run/static_trail" has no dimension linked to slicing, needed for a trail',
     ]);
   });
 
-  it('note an unknown `sliceBy` scale', async () => {
+  it('link the leading dimension of an overlay by its own `H5WEB_slice_by`', async () => {
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'gen_pts' }, [
+      phony('gen_n', 10), // netCDF-4: no scale shared with `generation`
+      arr('gen_pts', [10, 3, 2], [['/run/gen_n'], [], []], {
+        H5WEB_geometry: 'points',
+        H5WEB_slice_by: 'generation',
+        H5WEB_z: 'Surface',
+      }),
+    ]);
+    const resolved = await resolveOverlays(hint, base, ctx);
+    expect(resolved.notes).toEqual([]);
+    expect(resolved.link?.scalePath).toBe(G);
+    expect(resolved.overlays[0].inputs.points?.linkedDim).toBe(0);
+    expect(resolved.overlays[0].hint).toMatchObject({ z: 'surface' }); // case-insensitive
+  });
+
+  it('resolve `H5WEB_slice_by` relative to the object that holds it', async () => {
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'static_points' }, [
+      group('sub', [arr('gen2', [10]), arr('signal', [50, 40])]),
+    ]);
+    const resolved = await resolveOverlays(
+      { ...hint, sliceBy: 'gen2', sliceByAnchor: '/run/sub/signal' }, // e.g. NXdata signal
+      base,
+      ctx,
+    );
+    expect(resolved.link?.scalePath).toBe('/run/sub/gen2');
+  });
+
+  it('note an unknown `H5WEB_slice_by` scale', async () => {
     const { base, ctx, hint } = setup({
-      sliceBy: 'epoch',
-      overlays: [{ points: 'static_points' }],
+      H5WEB_slice_by: 'epoch',
+      H5WEB_overlays: 'static_points',
     });
     const resolved = await resolveOverlays(hint, base, ctx);
     expect(resolved.notes).toEqual([
-      '"sliceBy" dimension scale "epoch" not found',
+      '"H5WEB_slice_by" dimension scale "epoch" not found',
     ]);
     expect(resolved.overlays).toHaveLength(1);
   });
+
+  it('never link nor name dimensions by netCDF-4 phony scales', async () => {
+    const { root, ctx } = setup({}, [
+      phony('k', 10),
+      phony('pair', 2),
+      // Static (N, 2) overlay sharing a phony scale with a sliced dimension of the base
+      arr('pts', [10, 2], [['/run/k'], ['/run/pair']], {
+        H5WEB_geometry: 'points',
+      }),
+      arr('named', [10, 2], [['/run/k'], ['/run/pair']], {
+        H5WEB_geometry: 'points',
+        H5WEB_columns: 'k pair',
+      }),
+      arr('stack', [10, 50, 40], [['/run/k'], [], []], {
+        H5WEB_overlays: 'pts named',
+      }),
+      arr('stack_sliced', [10, 50, 40], [['/run/k'], [], []], {
+        H5WEB_overlays: 'pts',
+        H5WEB_slice_by: 'k',
+      }),
+    ]);
+
+    const stack = findMockEntity(root, '/run/stack') as Dataset<ArrayShape>;
+    const resolved = await resolveOverlays(
+      { ...parseViewHint(stack, getMockValues(stack)), anchor: stack.path },
+      stack,
+      ctx,
+    );
+    expect(resolved.link).toBeUndefined();
+    expect(resolved.overlays).toHaveLength(1);
+    expect(resolved.overlays[0].inputs.points?.linkedDim).toBeUndefined(); // drawn on every slice
+    expect(resolved.notes).toEqual([
+      'overlay "named": "H5WEB_columns" "k pair" don\'t name dimensions of "stack"',
+    ]);
+
+    const sliced = findMockEntity(
+      root,
+      '/run/stack_sliced',
+    ) as Dataset<ArrayShape>;
+    const resolvedSliced = await resolveOverlays(
+      { ...parseViewHint(sliced, getMockValues(sliced)), anchor: sliced.path },
+      sliced,
+      ctx,
+    );
+    expect(resolvedSliced.link).toBeUndefined();
+    expect(resolvedSliced.notes).toEqual([
+      '"H5WEB_slice_by" dimension scale "k" not found',
+    ]);
+  });
 });
+
+function curveHint(columnNames?: string[]): OverlayHint {
+  return { kind: 'curve', curve: 'c', trail: false, columnNames };
+}
 
 describe('getColumnOf', () => {
   const base = arr('psi', [21, 30]) as Dataset<ArrayShape>; // (theta, alpha)
   const dimNames = [['theta'], ['alpha', 'α']];
 
   it('map columns 0 and 1 to last and second-to-last dimensions by default', () => {
-    const [hint] = parseViewHint('{"overlays": [{"curve": "c"}]}').overlays;
-    expect(getColumnOf(hint, base, dimNames)).toEqual({ 1: 0, 0: 1 });
+    expect(getColumnOf(curveHint(), base, dimNames)).toEqual({ 1: 0, 0: 1 });
   });
 
   it('map named columns to dimensions with these scale names', () => {
-    const [hint] = parseViewHint(
-      '{"overlays": [{"curve": "c", "columns": ["alpha", "theta"]}]}',
-    ).overlays;
-    expect(getColumnOf(hint, base, dimNames)).toEqual({ 1: 0, 0: 1 });
-
-    const [unknown] = parseViewHint(
-      '{"overlays": [{"curve": "c", "columns": ["x", "theta"]}]}',
-    ).overlays;
-    expect(getColumnOf(unknown, base, dimNames)).toBeUndefined();
+    expect(getColumnOf(curveHint(['alpha', 'theta']), base, dimNames)).toEqual({
+      1: 0,
+      0: 1,
+    });
+    // Columns that don't name a dimension are not drawn (e.g. third coordinate)
+    expect(
+      getColumnOf(curveHint(['α', 'energy', 'theta']), base, dimNames),
+    ).toEqual({ 1: 0, 0: 2 });
+    expect(
+      getColumnOf(curveHint(['x', 'theta']), base, dimNames),
+    ).toBeUndefined();
   });
 });
 
@@ -273,11 +528,7 @@ describe('linked slicing', () => {
 
   it('fetch slices at the linked index and trails whole', async () => {
     const { base, ctx, hint } = setup({
-      overlays: [
-        { points: 'population', colorBy: 'fitness' },
-        { curve: 'mean', trail: true },
-        { points: 'static_points' },
-      ],
+      H5WEB_overlays: 'population mean static_points',
     });
     const resolved = await resolveOverlays(hint, base, ctx);
 
@@ -301,12 +552,12 @@ const AXES = { x: 1, y: 0 };
 const DEFAULT_COLUMN_OF = { 1: 0, 0: 1 };
 
 function overlay(
-  hint: unknown,
+  hint: OverlayHint,
   inputs: ResolvedOverlay['inputs'],
   columnOf: ResolvedOverlay['columnOf'] = DEFAULT_COLUMN_OF,
 ) {
   return {
-    hint: parseViewHint(JSON.stringify({ overlays: [hint] })).overlays[0],
+    hint,
     label: 'overlay',
     inputs,
     columnOf,
@@ -364,7 +615,7 @@ describe('shapes', () => {
 
   it('draw trail up to the linked index', () => {
     const shapes = buildOverlayShapes(
-      [overlay({ curve: 'mean', trail: true }, { curve: mean })],
+      [overlay({ kind: 'curve', curve: 'mean', trail: true }, { curve: mean })],
       () => meanValues,
       3,
       AXES,
@@ -391,7 +642,12 @@ describe('shapes', () => {
       ...Array.from({ length: 10 }, (_, g) => 10 * g),
     ];
     const shapes = buildOverlayShapes(
-      [overlay({ curve: 'meanT', trail: true }, { curve: meanT })],
+      [
+        overlay(
+          { kind: 'curve', curve: 'meanT', trail: true },
+          { curve: meanT },
+        ),
+      ],
       () => values,
       2,
       AXES,
@@ -401,7 +657,12 @@ describe('shapes', () => {
 
   it('draw whole curve when not a trail, swapping columns if transposed', () => {
     const shapes = buildOverlayShapes(
-      [overlay({ curve: 'mean' }, { curve: mean })],
+      [
+        overlay(
+          { kind: 'curve', curve: 'mean', trail: false },
+          { curve: mean },
+        ),
+      ],
       () => meanValues.slice(0, 4),
       undefined,
       { x: 0, y: 1 }, // transposed
@@ -413,7 +674,12 @@ describe('shapes', () => {
     const pts = { dataset: arr('pts', [2, 3]) };
     const colorBy = { dataset: arr('c', [2]) };
     const shapes = buildOverlayShapes(
-      [overlay({ points: 'pts', colorBy: 'c' }, { points: pts, colorBy })],
+      [
+        overlay(
+          { kind: 'points', points: 'pts', colorBy: 'c' },
+          { points: pts, colorBy },
+        ),
+      ],
       (_, input) => (input === pts ? [1, 2, 3, 4, 5, 6] : [7, 8]),
       undefined,
       AXES,
@@ -424,6 +690,20 @@ describe('shapes', () => {
       z: [3, 6],
       values: [7, 8],
     });
+
+    // Named columns: points sit on the surface unless `H5WEB_z` says otherwise
+    const named = buildOverlayShapes(
+      [
+        overlay(
+          { kind: 'points', points: 'pts', columnNames: ['a', 'b', 'c'] },
+          { points: pts },
+        ),
+      ],
+      () => [1, 2, 3, 4, 5, 6],
+      undefined,
+      AXES,
+    );
+    expect(named.points[0].z).toBeUndefined();
   });
 
   it('project ellipses on chosen columns of higher-dimensional Gaussians', () => {
@@ -432,7 +712,7 @@ describe('shapes', () => {
     const shapes = buildOverlayShapes(
       [
         overlay(
-          { ellipse: { mean: 'm', cov: 'C' }, columns: [0, 2] },
+          { kind: 'ellipse', mean: 'm', cov: 'C', nsigma: [1] },
           { mean: m, cov: c },
           { 1: 0, 0: 2 },
         ),
@@ -450,7 +730,13 @@ describe('shapes', () => {
     // Rows are [theta, alpha] for a field (theta, alpha): theta on y, alpha on x
     const pts = { dataset: arr('pts', [1, 2]) };
     const shapes = buildOverlayShapes(
-      [overlay({ points: 'pts' }, { points: pts }, { 0: 0, 1: 1 })],
+      [
+        overlay(
+          { kind: 'points', points: 'pts' },
+          { points: pts },
+          { 0: 0, 1: 1 },
+        ),
+      ],
       () => [0.5, 2],
       undefined,
       AXES,
@@ -460,7 +746,7 @@ describe('shapes', () => {
     // Single point stored as `(2,)`
     const point = { dataset: arr('point', [2]) };
     const single = buildOverlayShapes(
-      [overlay({ points: 'point' }, { points: point })],
+      [overlay({ kind: 'points', points: 'point' }, { points: point })],
       () => [1, 2],
       undefined,
       AXES,
@@ -472,10 +758,15 @@ describe('shapes', () => {
     const edge = { dataset: arr('edge', [2, 2]) };
     const shapes = buildOverlayShapes(
       [
-        overlay({ text: 'r₁₂ = 0', at: [1.5, 0], anchor: 'top' }, {}),
+        overlay(
+          { kind: 'text', text: 'r₁₂ = 0', at: [1.5, 0], anchor: 'top' },
+          {},
+        ),
         overlay(
           {
+            kind: 'curve',
             curve: 'edge',
+            trail: false,
             label: 'e–n',
             labelMode: 'inline',
             color: '#000',
@@ -513,7 +804,7 @@ describe('shapes', () => {
   it('count columns once sliced, when the linked dimension is last', () => {
     const pts = { dataset: arr('pts', [3, 2, 10]), linkedDim: 2 }; // (N, d, G)
     const shapes = buildOverlayShapes(
-      [overlay({ points: 'pts' }, { points: pts })],
+      [overlay({ kind: 'points', points: 'pts' }, { points: pts })],
       () => [1, 2, 3, 4, 5, 6], // slice (3, 2)
       4,
       AXES,
@@ -525,8 +816,11 @@ describe('shapes', () => {
     const edge = { dataset: arr('edge', [2, 2]) };
     const shapes = buildOverlayShapes(
       [
-        overlay({ curve: 'edge', halo: false }, { curve: edge }),
-        overlay({ points: 'edge' }, { points: edge }),
+        overlay(
+          { kind: 'curve', curve: 'edge', trail: false, halo: false },
+          { curve: edge },
+        ),
+        overlay({ kind: 'points', points: 'edge' }, { points: edge }),
       ],
       () => [0, 0, 0, 3],
       undefined,
@@ -538,7 +832,7 @@ describe('shapes', () => {
 
   it('skip overlays whose values are not available yet', () => {
     const shapes = buildOverlayShapes(
-      [overlay({ curve: 'mean', trail: true }, { curve: mean })],
+      [overlay({ kind: 'curve', curve: 'mean', trail: true }, { curve: mean })],
       () => undefined,
       3,
       AXES,
