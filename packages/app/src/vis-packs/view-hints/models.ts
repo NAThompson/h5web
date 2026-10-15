@@ -102,6 +102,7 @@ export interface ViewHint {
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
+  playbackDim?: number; // dimension played by default (e.g. walked past empty slices on load)
   nanColor?: string; // CSS colour of NaN / ignored values (3D: drawn on the floor, not as holes)
   belowColor?: string; // CSS colour of values below the colour domain (default: saturate)
   aboveColor?: string;

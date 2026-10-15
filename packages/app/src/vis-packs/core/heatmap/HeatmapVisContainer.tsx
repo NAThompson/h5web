@@ -102,6 +102,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
       getExtraRequests: overlays.getSliceRequests,
       skipEmpty: hint.playbackSkipEmpty,
       playbackDefaults: hint.playback,
+      playbackDim: hint.playbackDim,
       onSkipEmptyStart: setDimMapping,
     },
   );

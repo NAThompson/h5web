@@ -59,6 +59,11 @@
   display: contents;
 }
 
+.playBtn[data-default] svg {
+  color: var(--h5w-slicingSlider-defaultPlay--color, #0d7d6c);
+  stroke-width: 2.5;
+}
+
 .playBtn[data-waiting] svg {
   animation: spin 1.5s linear infinite;
 }

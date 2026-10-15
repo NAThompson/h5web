@@ -64,7 +64,7 @@ function VolumeVisContainer(props: VisContainerProps) {
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
-    { withPlaybackRange: true },
+    { withPlaybackRange: true, playbackDim: hint.playbackDim },
   );
 
   return (

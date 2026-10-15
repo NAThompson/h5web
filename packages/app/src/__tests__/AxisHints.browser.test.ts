@@ -7,7 +7,7 @@ import { expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
 
-import { getSelectedVisTab, renderApp } from '../test-utils';
+import { getDimMappingBtn, getSelectedVisTab, renderApp } from '../test-utils';
 import { Vis } from '../vis-packs/core/visualizations';
 import OverlayLayer2D from '../vis-packs/view-hints/OverlayLayer2D';
 
@@ -238,4 +238,29 @@ test('label slices of the dimension named by the dataset', async () => {
       'ignored "H5WEB_slice_labels": "rho" is not a 1D dataset of strings',
     );
   expect(page.getByTestId('D0 slice label')).not.toBeInTheDocument();
+});
+
+test('play the hinted dimension by default, past empty images', async () => {
+  const { user } = await renderApp('/axis_hints/playback_dim');
+
+  // Opened past the empty images along `step`, not along D0 (all empty at step 0)
+  await expect
+    .element(page.getByRole('slider', { name: 'step' }))
+    .toHaveValue(2);
+  expect(page.getByRole('slider', { name: 'D0' })).toHaveValue(0);
+
+  const play = page.getByRole('button', { name: 'Play D1' });
+  expect(play).toHaveAttribute('title', 'Default playback dimension');
+  expect(page.getByRole('button', { name: 'Play D0' })).not.toHaveAttribute(
+    'title',
+  );
+
+  // Hint ignored while the dimension is on an axis
+  await user.click(getDimMappingBtn('y', 'step'));
+  await expect
+    .element(page.getByRole('slider', { name: 'step' }))
+    .not.toBeInTheDocument();
+  expect(page.getByRole('button', { name: 'Play D0' })).not.toHaveAttribute(
+    'title',
+  );
 });

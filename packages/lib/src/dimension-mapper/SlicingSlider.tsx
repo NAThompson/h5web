@@ -54,6 +54,7 @@ interface Props {
   onChange: (value: number) => void;
   withPlayback?: boolean;
   isPlaying?: boolean;
+  isDefaultPlayback?: boolean; // dimension played by default: its play button is marked
   onPlayingChange?: (isPlaying: boolean) => void;
   isReady?: (value: number) => boolean;
   emptySlices?: Pick<ReadonlySet<number>, 'has'>; // skipped by playback and steps; hollow marks
@@ -80,6 +81,7 @@ function SlicingSlider(props: Props) {
     onChange,
     withPlayback = false,
     isPlaying = false,
+    isDefaultPlayback,
     onPlayingChange,
     isReady,
     emptySlices,
@@ -285,6 +287,7 @@ function SlicingSlider(props: Props) {
             <PlaybackControls
               dimension={dimension}
               isPlaying={isPlaying}
+              isDefault={isDefaultPlayback}
               waiting={waiting}
               settings={playbackSettings}
               rangeHint={playbackRangeHint}

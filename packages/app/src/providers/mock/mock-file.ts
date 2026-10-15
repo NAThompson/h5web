@@ -895,6 +895,28 @@ export function makeMockFile(): GroupWithChildren {
         dataset('bad_labels', arrayShape([4, 3, 5]), floatType(), range60(), {
           attributes: [scalarAttr('H5WEB_slice_labels', 'rho')],
         }),
+        // `H5WEB_playback_dim` (path of its scale): empty images skipped along it on load
+        dataset('step', arrayShape([4]), intType(), [0, 1, 2, 3], {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'step'),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'playback_dim',
+            arrayShape([3, 4, 2, 3]),
+            floatType(),
+            range60(72).map((i) => (i % 24 < 12 ? Number.NaN : i)), // step < 2
+            {
+              attributes: [
+                intAttr('H5WEB_playback_skip_empty', 1),
+                scalarAttr('H5WEB_playback_dim', '/axis_hints/step'),
+              ],
+            },
+          ),
+          { scales: [[], ['/axis_hints/step'], [], []] },
+        ),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects

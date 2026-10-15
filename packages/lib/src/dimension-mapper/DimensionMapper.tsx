@@ -38,6 +38,8 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
    * Called for every slice of each sliced dimension when it changes identity (or the mapping
    * does), so it should only change when emptiness may have (e.g. new values in a cache). */
   isSliceEmpty?: (mapping: DimensionMapping) => boolean;
+  // Playback: dimension played by default (e.g. from a file's hint), whose play button is marked
+  defaultPlayingDim?: number;
   // Playback: dimension being played (controlled when `onPlayingDimChange` is provided)
   playingDim?: number;
   onPlayingDimChange?: (dim: number | undefined) => void;
@@ -66,6 +68,7 @@ function DimensionMapper(props: Props) {
     isSliceReady = canSliceFast,
     isSliceEmpty,
     prefetchSlices,
+    defaultPlayingDim,
     playingDim: controlledPlayingDim,
     onPlayingDimChange,
     playbackSettings: controlledSettings,
@@ -196,6 +199,7 @@ function DimensionMapper(props: Props) {
               onChange={(newVal) => onChange(withMapping(newVal))}
               withPlayback={withPlaybackControls}
               isPlaying={playingDim === index && multiDim !== index}
+              isDefaultPlayback={defaultPlayingDim === index}
               onPlayingChange={(isPlaying) => {
                 setPlayingDim(isPlaying ? index : undefined);
               }}

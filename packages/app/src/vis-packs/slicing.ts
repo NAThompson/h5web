@@ -53,7 +53,7 @@ export type SlicingProps = Required<
 > &
   Pick<
     DimensionMapperProps,
-    'playingDim' | 'playbackRangeHint' | 'isSliceEmpty'
+    'playingDim' | 'playbackRangeHint' | 'isSliceEmpty' | 'defaultPlayingDim'
   >;
 
 export interface Slicing {
@@ -83,6 +83,9 @@ export interface SlicingOpts {
   /* With `skipEmpty`: on first load, until the user changes the mapping, called to move the first
    * sliced dimension past empty slices (e.g. all `NaN` at k = 0) */
   onSkipEmptyStart?: (mapping: DimensionMapping) => void;
+  /* Dimension played by default (e.g. from a view hint), if sliced: walked past empty slices
+   * instead of the first sliced dimension, and its play button marked */
+  playbackDim?: number;
 }
 
 const SKIP_START_PREFETCH = 4; // slices fetched ahead at once to find a non-empty one
@@ -143,6 +146,7 @@ export function useSlicingProps(
     skipEmpty = false,
     playbackDefaults,
     onSkipEmptyStart,
+    playbackDim,
   } = opts;
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
@@ -215,6 +219,7 @@ export function useSlicingProps(
     requestsFor,
     onSkipEmptyStart,
     maxAutoFetchSize,
+    playbackDim,
   });
   const isSliceEmpty = useCallback(
     (mapping: DimensionMapping) =>
@@ -239,10 +244,10 @@ export function useSlicingProps(
       return;
     }
 
-    // First sliced dimension, not multi-plotted (as mapped for the vis)
-    const visMapping = latest.current.mapMapping(dimMapping);
-    const dim = dimMapping.findIndex(
-      (val, d) => typeof val === 'number' && typeof visMapping[d] === 'number',
+    const dim = getPlaybackDim(
+      dimMapping,
+      latest.current.mapMapping,
+      latest.current.playbackDim,
     );
     const index = dimMapping[dim];
     if (
@@ -356,9 +361,31 @@ export function useSlicingProps(
     },
     playbackRangeHint: rangeHint,
     isSliceEmpty: skipEmpty ? isSliceEmpty : undefined,
+    defaultPlayingDim:
+      getPlaybackDim(dimMapping, mapMapping, playbackDim) === playbackDim
+        ? playbackDim
+        : undefined, // e.g. on an axis
   };
 
   return { slicingProps, playbackRange };
+}
+
+/* Dimension played by default: the given one if sliced and not multi-plotted (as mapped for the
+ * vis), else the first such dimension (-1 if none) */
+function getPlaybackDim(
+  dimMapping: DimensionMapping,
+  mapMapping: MapMapping,
+  preferred: number | undefined,
+): number {
+  const visMapping = mapMapping(dimMapping);
+  function isPlayable(d: number): boolean {
+    return (
+      typeof dimMapping[d] === 'number' && typeof visMapping[d] === 'number'
+    );
+  }
+  return preferred !== undefined && isPlayable(preferred)
+    ? preferred
+    : dimMapping.findIndex((_, d) => isPlayable(d));
 }
 
 /* Whether all values are `NaN` or ignored (not numbers, e.g. strings: never) */

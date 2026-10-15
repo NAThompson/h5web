@@ -69,6 +69,7 @@ function LineVisContainer(props: VisContainerProps) {
       withPlaybackRange: true,
       skipEmpty: hint.playbackSkipEmpty,
       playbackDefaults: hint.playback,
+      playbackDim: hint.playbackDim,
       onSkipEmptyStart: setDimMapping,
     },
   );

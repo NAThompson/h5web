@@ -37,7 +37,12 @@ async function getDimLabels(
   }
 }
 
-const DIM_ATTRS = ['H5WEB_x_dim', 'H5WEB_multi_dim', 'H5WEB_probe_dim'];
+const DIM_ATTRS = [
+  'H5WEB_x_dim',
+  'H5WEB_multi_dim',
+  'H5WEB_probe_dim',
+  'H5WEB_playback_dim',
+];
 
 /* Hint of a dataset, or of an NXdata group (falling back to its signal's), from their `H5WEB_*`
  * attributes. Data errors give no hint (with a note); transport errors are thrown (cf.
@@ -86,7 +91,8 @@ export async function getViewHint(
   });
   const merged = { ...entity, attributes: [...attributes.values()] };
 
-  // Dimensions named by `H5WEB_x_dim`, `_multi_dim`, `_probe_dim`: scale names or dimension labels
+  // Dimensions named by `H5WEB_x_dim`, `_multi_dim`, `_probe_dim`, `_playback_dim`: scale names
+  // (or paths, absolute or relative to the dataset's group) or dimension labels
   const dataset = isDataset(entity) ? entity : signal;
   let dimNames: string[][] = [];
   if (
@@ -108,10 +114,14 @@ export async function getViewHint(
         sourceValues[sources.indexOf(dataset)],
       ),
     ]);
+    const group = dataset.path.slice(0, dataset.path.lastIndexOf('/') + 1);
     dimNames = dataset.shape.dims.map((_, i) => {
       const label = labels[i];
       return [
         ...(scaleNames[i] ?? []),
+        ...(scales?.[i] ?? []).flatMap((path) =>
+          path.startsWith(group) ? [path, path.slice(group.length)] : [path],
+        ),
         ...(typeof label === 'string' && label ? [label] : []),
       ];
     });
