@@ -8,6 +8,7 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { isTransportError } from '../../providers/utils';
+import { findScalarStrAttr, getAttributeValue } from '../../utils';
 import { createGeometryContext } from '../core/geometry/utils';
 import { type VisDef } from '../models';
 import { hasViewAttrs, parseViewHint, toUnicodeScripts } from './attrs';
@@ -53,7 +54,9 @@ export async function getViewHint(
     signal && signal !== entity ? [signal, entity] : [entity]
   ).filter(hasViewAttrs);
   if (sources.length === 0) {
-    return getCfHint(isDataset(entity) ? entity : signal, dataContext);
+    return isDataset(entity)
+      ? getCfHint(entity, dataContext, false)
+      : getCfHint(signal, dataContext, true);
   }
 
   let sourceValues: AttributeValues[];
@@ -129,27 +132,34 @@ export async function getViewHint(
   };
 }
 
-const CF_LABEL_ATTRS = new Set(['units', 'long_name']);
-
 /* Hint of a dataset without `H5WEB_*` attributes: only the value label from its CF `units` and
- * `long_name` (not a title from `long_name`, which would override e.g. NeXus titles); none if
- * they can't be read (transport errors are thrown) */
+ * `long_name` (not a title from `long_name`, which would override e.g. NeXus titles). The long
+ * name is left out for signals of NXdata groups, which NeXus already labels by it. None if the
+ * attributes can't be read (transport errors are thrown). */
 async function getCfHint(
   dataset: ProvidedEntity | undefined,
   dataContext: DataContextValue,
+  isNxSignal: boolean,
 ): Promise<ViewHint> {
-  if (
-    !dataset ||
-    !isDataset(dataset) ||
-    !dataset.attributes.some(({ name }) => CF_LABEL_ATTRS.has(name))
-  ) {
+  if (!dataset || !isDataset(dataset)) {
     return EMPTY_HINT;
   }
   try {
-    const values = await dataContext.queryClient.query(
-      dataContext.queries.attrValues(dataset),
-    );
-    const valueLabel = getValueLabel(values, undefined);
+    const [longName, units] = await Promise.all([
+      isNxSignal
+        ? undefined
+        : getAttributeValue(
+            dataset,
+            findScalarStrAttr(dataset, 'long_name'),
+            dataContext,
+          ),
+      getAttributeValue(
+        dataset,
+        findScalarStrAttr(dataset, 'units'),
+        dataContext,
+      ),
+    ]);
+    const valueLabel = getValueLabel({ long_name: longName, units }, undefined);
     return valueLabel ? { ...EMPTY_HINT, valueLabel } : EMPTY_HINT;
   } catch (error) {
     if (isTransportError(error)) {
