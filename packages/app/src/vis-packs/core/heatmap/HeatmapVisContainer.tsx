@@ -5,7 +5,7 @@ import {
   assertMinDims,
   assertNumericLikeType,
 } from '@h5web/shared/guards';
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -53,12 +53,18 @@ function HeatmapVisContainer(props: VisContainerProps) {
 
   const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
   const dimScales = useCachedDimScales(entity);
-  const dimScaleNotes = [
-    ...getDimScaleNotes(dimScales),
-    ...(['x', 'y'] as const).flatMap(
-      (axis) => getAxisScaleHint(dimScales, dimMapping, dims, axis, true).notes,
-    ),
-  ];
+  const xDim = dimMapping.indexOf('x');
+  const yDim = dimMapping.indexOf('y');
+  const dimScaleNotes = useMemo(
+    () => [
+      ...getDimScaleNotes(dimScales),
+      ...(['x', 'y'] as const).flatMap(
+        (axis) =>
+          getAxisScaleHint(dimScales, dimMapping, dims, axis, true).notes,
+      ),
+    ],
+    [dimScales, dims, xDim, yDim], // eslint-disable-line react-hooks/exhaustive-deps -- not on slicing indices
+  );
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);

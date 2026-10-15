@@ -398,7 +398,6 @@ export interface HeatmapAxis {
   /* In the scale's space, where the heatmap is drawn as on a linear axis: axis values, and pixel
    * edges and centres if non-uniform there */
   scaledValues?: NumArray;
-  scaledEdges: NumArray;
   meshEdges?: NumArray;
   meshCentres?: NumArray;
   transform?: AxisTransform;
@@ -432,7 +431,6 @@ export function getHeatmapAxis(
       : scaledEdges,
     centres: scaledCentres && rawValues,
     scaledValues: values,
-    scaledEdges,
     meshEdges: isNonUniformAxis(values, pixelCount) ? scaledEdges : undefined,
     meshCentres: scaledCentres,
     transform,
