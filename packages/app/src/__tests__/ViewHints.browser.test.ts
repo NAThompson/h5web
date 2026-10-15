@@ -451,14 +451,37 @@ function getLegend(): string[] {
 test('draw the running envelope of a line over it, or instead of it', async () => {
   const { selectExplorerNode } = await renderApp('/view_hints/envelope_add');
 
-  await expect.poll(getLegend).toEqual(['Signal', 'running min']);
+  await expect.poll(getLegend).toEqual(['envelope_add', 'running min']);
   // Index 5 is NaN: the envelope is carried over it
-  await expect(getLineTooltip(5, 16)).resolves.toMatch(/NaN.*running min = 0\.11555/u);
+  await expect(getLineTooltip(5, 16)).resolves.toMatch(
+    /NaN.*running min = 0\.11555/u,
+  );
 
   // Suffix running max of each curve, instead of the data
   await selectExplorerNode('envelope_replace');
   await expect.poll(getLegend).toEqual(['D0[0]', 'D0[1]']);
   await expect(getLineTooltip(10, 12)).resolves.not.toMatch(/NaN/u); // carried back from k = 11
+});
+
+test('draw series of a hint on the same axes, sliced along with the dataset', async () => {
+  await renderApp('/view_hints/series_data');
+
+  await expect.poll(getLegend).toEqual(['data', 'fit e⁻ˣ/⁶', 'bound']);
+  await expect(getLineTooltip(0, 10)).resolves.toMatch(
+    /fit.* = 1(?!\d).*bound = 4/u,
+  ); // k = 1
+  await expect
+    .element(getNotes())
+    .toHaveTextContent(
+      'series "sigma": shape [5] doesn\'t match "series_data"series "missing_series": not found',
+    );
+
+  // Next slice of `k`: the fit follows, the bound stays
+  await userEvent.click(page.getByRole('slider', { name: 'k' }));
+  await userEvent.keyboard('{ArrowUp}');
+  await expect
+    .poll(async () => getLineTooltip(0, 10))
+    .toMatch(/fit.* = 2(?!\d).*bound = 4/u);
 });
 
 function countContourLabels(text: string): number {

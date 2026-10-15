@@ -12,8 +12,10 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
+import { useLineSeries } from '../../view-hints/series';
 import {
   getLineDimSuggestions,
   getLineSuggestions,
@@ -50,6 +52,11 @@ function LineVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(lineMapping);
 
   const { dimHints, dimLabels } = useDimInfo(entity);
+
+  // Extra curves of the hint, sliced along with the dataset
+  const series = useLineSeries(entity, hint, lineMapping);
+  const hasExtraCurves =
+    hint.envelope?.mode === 'add' || series.curves.length > 0;
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -102,13 +109,20 @@ function LineVisContainer(props: VisContainerProps) {
                   symlogThreshold={hint.symlogThreshold}
                   valueTransform={hint.valueTransform}
                   envelope={hint.envelope}
+                  series={series.curves}
+                  dataLabel={
+                    hasExtraCurves
+                      ? (toUnicodeScripts(hint.longName) ?? entity.name)
+                      : undefined
+                  }
+                  legend={hint.legend}
                 />
               )}
             />
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={getHintNotes(hint)} />
+      <OverlayNotes notes={[...getHintNotes(hint), ...series.notes]} />
     </>
   );
 }

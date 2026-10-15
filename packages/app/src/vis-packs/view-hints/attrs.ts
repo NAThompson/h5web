@@ -31,6 +31,7 @@ import {
   HINT_ATTR_PREFIX,
   HintVis,
   type OverlayHint,
+  type SeriesStyle,
   type TextAnchor,
   type ViewHint,
 } from './models';
@@ -402,7 +403,23 @@ export function parseViewHint(
     title: read.str('H5WEB_title') ?? read.str('long_name'), // `_{…}` and `^{…}` markup kept
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),
+    seriesPaths: splitNames(read.str('H5WEB_series') ?? ''),
     notes,
+  };
+}
+
+/* Style of a line series (`H5WEB_series`) from its attributes, as of overlays */
+export function parseSeriesStyle(
+  entity: Entity,
+  values: AttributeValues,
+  notes: string[],
+  prefix: string,
+): SeriesStyle {
+  const read = createAttrReader(entity, values, notes, prefix);
+  return {
+    label: read.str('H5WEB_label') ?? read.str('long_name'),
+    color: toRgbaColor(read.str('H5WEB_color', isCssColor)),
+    width: read.num('H5WEB_width', isPos),
   };
 }
 

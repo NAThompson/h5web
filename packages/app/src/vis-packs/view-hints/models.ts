@@ -108,6 +108,8 @@ export interface ViewHint {
   isoLevels?: number[];
   valueTransform?: ValueTransform; // values are log10 / log2: shown as powers
   envelope?: Envelope; // line: running min / max
+  seriesPaths?: string[]; // line: extra datasets on the same axes (their attributes say how)
+  seriesAnchor?: string; // series paths are resolved relative to this path
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
@@ -124,6 +126,13 @@ export interface ViewHint {
   overlayPaths: string[]; // objects drawn on top (their attributes say what and how)
   anchor?: string; // overlay paths are resolved relative to this path (dataset with the hint, or `<group>/.`)
   notes: string[]; // why parts of the hint were ignored
+}
+
+/* Style of a series (`H5WEB_series`), from its attributes */
+export interface SeriesStyle {
+  label?: string; // legend entry (default: CF `long_name`, else the dataset name)
+  color?: string;
+  width?: number; // line width in CSS pixels
 }
 
 /* Colours of special values (from a hint) */

@@ -649,6 +649,26 @@ export const mockValues = {
       }),
       [2, 12],
     ),
+  // Decays in k (3) × x (10), with a model fitted to them and a bound along x
+  series_k: () => ndarray([1, 2, 3]),
+  series_x: () => ndarray(range(0, 10).map((i) => i / 2)),
+  series_data: () =>
+    ndarray(
+      range(0, 30).map(
+        (i) =>
+          (Math.floor(i / 10) + 1) * Math.exp(-(i % 10) / 6) +
+          0.1 * Math.sin(5 * i),
+      ),
+      [3, 10],
+    ),
+  series_fit: () =>
+    ndarray(
+      range(0, 30).map(
+        (i) => (Math.floor(i / 10) + 1) * Math.exp(-(i % 10) / 6),
+      ),
+      [3, 10],
+    ),
+  series_bound: () => ndarray(range(0, 10).map((i) => 4 * Math.exp(-i / 6))),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();

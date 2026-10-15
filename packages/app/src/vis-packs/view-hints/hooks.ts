@@ -85,7 +85,7 @@ export function isAffordable(
 }
 
 /* Same array as on previous render if its elements haven't changed */
-function useStableArray<T>(arr: T[]): T[] {
+export function useStableArray<T>(arr: T[]): T[] {
   const ref = useRef(arr);
   const prev = ref.current;
   if (

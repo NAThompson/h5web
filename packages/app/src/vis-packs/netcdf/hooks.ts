@@ -19,7 +19,8 @@ import {
 export const useUnpackedArray = createMemo(unpackArray);
 export const useUnpackedNumArray = createMemo(unpackNumArray);
 
-function packingQuery(
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
+export function packingQuery(
   dataset: Dataset | undefined,
   dataContext: DataContextValue,
 ) {
@@ -31,7 +32,8 @@ function packingQuery(
   };
 }
 
-function ignoreValueQuery(
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
+export function ignoreValueQuery(
   dataset: Dataset | undefined,
   dataContext: DataContextValue,
 ) {

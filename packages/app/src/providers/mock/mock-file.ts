@@ -1187,6 +1187,41 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_envelope_direction', 'reverse'),
           ],
         }),
+        // `H5WEB_series`: extra curves on the same axes, sliced along with the base dataset
+        ...(['series_k', 'series_x'] as const).map((name) =>
+          array(name, {
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr('NAME', name.slice(7)),
+            ],
+          }),
+        ),
+        withDimScales(
+          array('series_fit', {
+            attributes: [
+              scalarAttr('H5WEB_label', 'fit e^{-x/6}'),
+              scalarAttr('H5WEB_color', 'hsl(0 80% 45%)'),
+              floatAttr('H5WEB_width', 2),
+            ],
+          }),
+          { scales: [['/view_hints/series_k'], ['/view_hints/series_x']] },
+        ),
+        array('series_bound', {
+          attributes: [scalarAttr('long_name', 'bound')], // no scale: along x
+        }),
+        withDimScales(
+          array('series_data', {
+            attributes: [
+              scalarAttr('long_name', 'data'),
+              scalarAttr('H5WEB_vis', 'line'),
+              scalarAttr(
+                'H5WEB_series',
+                'series_fit series_bound sigma missing_series',
+              ),
+            ],
+          }),
+          { scales: [['/view_hints/series_k'], ['/view_hints/series_x']] },
+        ),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

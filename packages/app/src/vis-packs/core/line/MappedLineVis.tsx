@@ -40,6 +40,7 @@ import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useEnvelopes } from '../../view-hints/envelope';
 import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import { type Envelope } from '../../view-hints/models';
+import { type SeriesCurve } from '../../view-hints/series';
 import {
   useExportEntries,
   useMappedArray,
@@ -87,6 +88,24 @@ interface Props {
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
   valueTransform?: ValueTransform; // values are logarithms (`H5WEB_value_transform`)
   envelope?: Envelope; // running min / max, over the data or instead of it
+  series?: SeriesCurve[]; // extra curves on the same axes (`H5WEB_series`)
+  dataLabel?: string; // of the curve, in the legend and tooltip (not in multi-plots)
+  legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
+}
+
+/* Legend: curves of a multi-plot (unless too many), or extra curves of a hint */
+function isLegendShown(
+  legend: boolean | undefined,
+  isMultiPlot: boolean,
+  visibleSliceCount: number,
+  extraCount: number,
+): boolean {
+  if (legend === false) {
+    return false;
+  }
+  return isMultiPlot
+    ? visibleSliceCount > 1 && visibleSliceCount <= MAX_LEGEND_CURVES
+    : extraCount > 0;
 }
 
 function MappedLineVis(props: Props) {
@@ -113,6 +132,9 @@ function MappedLineVis(props: Props) {
     symlogThreshold,
     valueTransform,
     envelope,
+    series = [],
+    dataLabel,
+    legend,
   } = props;
 
   const {
@@ -220,11 +242,20 @@ function MappedLineVis(props: Props) {
     [auxArrays, auxErrorsArrays, showErrors, yScaleType, ...auxIgnoreValues], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const seriesDomains = useMemo(
+    () =>
+      series.map(({ array, ignoreValue: ignore }) =>
+        getDomain(array, { scaleType: yScaleType, ignoreValue: ignore }),
+      ),
+    [series, yScaleType],
+  );
+
   const combinedDomain =
     useStableDomain(
       useCombinedDomain([
         valueVisible ? dataDomain : undefined,
         ...auxDomains.filter((_, i) => auxVisible[i]),
+        ...seriesDomains,
       ]),
       `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}`,
       (sequenceValue) =>
@@ -288,9 +319,8 @@ function MappedLineVis(props: Props) {
         ignoreValue: auxIgnoreValues[i] ?? ignoreNone, // don't fall back to signal's `ignoreValue`
       }));
 
-  // Envelopes (`add` mode) of the curves: thicker, in their colours in multi-plots
-  const auxiliaries = [
-    ...curveAuxiliaries,
+  // Envelopes (`add` mode) of the curves: thicker, in their colours in multi-plots; series
+  const extraCurves = [
     ...envelopes.map((array, i) => ({
       label: isMultiPlot
         ? `${getSliceLabel(i)}, ${envelopeLabel}`
@@ -300,7 +330,13 @@ function MappedLineVis(props: Props) {
       width: 2,
       visible: slicesVisible[i],
     })),
+    ...series.map((curve) => ({
+      ...curve,
+      visible: true,
+      ignoreValue: curve.ignoreValue ?? ignoreNone, // not the signal's
+    })),
   ];
+  const auxiliaries = [...curveAuxiliaries, ...extraCurves];
 
   const exportEntries = useExportEntries(['npy', 'csv'], dataset, selection, {
     csv: () =>
@@ -332,7 +368,7 @@ function MappedLineVis(props: Props) {
       <LineVis
         className={visualizerStyles.vis}
         dataArray={dataArray}
-        dataLabel={isMultiPlot ? getSliceLabel(0) : undefined}
+        dataLabel={isMultiPlot ? getSliceLabel(0) : dataLabel}
         dataColor={isMultiPlot ? getSliceColor(0) : undefined}
         domain={safeDomain}
         scaleType={yScaleType}
@@ -349,11 +385,12 @@ function MappedLineVis(props: Props) {
         ignoreValue={ignoreValue}
         interpolation={interpolation}
         visible={valueVisible && slicesVisible[0]}
-        showLegend={
-          isMultiPlot
-            ? visibleSliceCount > 1 && visibleSliceCount <= MAX_LEGEND_CURVES
-            : envelopes.length > 0
-        }
+        showLegend={isLegendShown(
+          legend,
+          isMultiPlot,
+          visibleSliceCount,
+          extraCurves.length,
+        )}
         testid={dimMapping.toString()}
         valueTransform={valueTransform}
       >
