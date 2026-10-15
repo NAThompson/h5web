@@ -144,6 +144,15 @@ const twoD_contours = () => {
   );
 };
 
+// Sign-changing field: its zero contours are nodal lines
+const nodal = () =>
+  ndarray(
+    range(0, 24 * 32).map(
+      (i) => Math.sin((i % 32) / 5) * Math.cos(Math.floor(i / 32) / 4),
+    ),
+    [24, 32],
+  );
+
 const threeD_rgb = () =>
   ndarray(
     [
@@ -540,6 +549,12 @@ export const mockValues = {
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
   psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),
+  nodal,
+  nodal_amplitude: () =>
+    ndarray(
+      nodal().data.map((v) => Math.abs(v) + 0.1),
+      [24, 32],
+    ),
   constant_twoD: () =>
     ndarray(
       Array.from({ length: 12 }, () => 1),

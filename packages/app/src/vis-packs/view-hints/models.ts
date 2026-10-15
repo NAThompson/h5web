@@ -90,6 +90,11 @@ export interface ViewHint {
   contours?: number | number[]; // number of levels (0: automatic), or explicit levels
   contourLabels?: boolean;
   contourColor?: string;
+  contourEmphasize?: number[]; // levels drawn emphasized, even if not among the regular levels
+  contourEmphasizeWidth?: number; // CSS pixels (default: twice the regular width)
+  contourEmphasizeColor?: string;
+  contourOf?: string; // path of another dataset on the same grid, contoured instead of this one
+  contourOfAnchor?: string; // `contourOf` is resolved relative to this path
   complex?: ComplexVisType;
   isoLevels?: number[];
   xDim?: number; // line: dimension on the x axis

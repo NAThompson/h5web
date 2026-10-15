@@ -101,6 +101,10 @@ export interface HeatmapConfig {
 
   contourLabels: boolean;
   setContourLabels: (contourLabels: boolean) => void;
+
+  /* Levels drawn emphasized (e.g. 0: nodal lines), whatever the contour mode */
+  contourEmphasis: number[];
+  setContourEmphasis: (contourEmphasis: number[]) => void;
 }
 
 function createHeatmapConfigStore() {
@@ -182,6 +186,9 @@ function createHeatmapConfigStore() {
 
         contourLabels: false,
         setContourLabels: (contourLabels) => set({ contourLabels }),
+
+        contourEmphasis: [],
+        setContourEmphasis: (contourEmphasis) => set({ contourEmphasis }),
       }),
       {
         name: 'h5web:heatmap',
@@ -195,11 +202,12 @@ function createHeatmapConfigStore() {
           return state as never;
         },
         // 3D mode is opt-in for the session: don't open datasets in 3D after a reload
-        // Custom contour levels are dataset-specific: don't restore them after a reload either
+        // Custom and emphasized contour levels are dataset-specific: don't restore them either
         // Custom domain of complex surfaces is dataset-specific
         partialize: ({
           surface,
           contourLevels,
+          contourEmphasis,
           surfaceCustomDomain,
           ...state
         }) => state,

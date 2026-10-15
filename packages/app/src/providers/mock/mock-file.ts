@@ -916,6 +916,29 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/theta'], ['/view_hints/alpha']] },
         ),
+        // Emphasized zero contour (nodal lines), alone, and of another dataset on the same grid
+        array('nodal', {
+          attributes: [
+            floatAttr('H5WEB_contour_emphasize', 0),
+            intAttr('H5WEB_contour_labels', 1),
+          ],
+        }),
+        array('nodal_amplitude', {
+          attributes: [
+            scalarAttr('H5WEB_contour_of', 'nodal'),
+            floatAttr('H5WEB_contour_emphasize', 0),
+            floatAttr('H5WEB_contour_emphasize_width', 4),
+            scalarAttr('H5WEB_contour_emphasize_color', 'black'),
+            intAttr('H5WEB_contour_labels', 1),
+          ],
+        }),
+        array('contour_of_mismatch', {
+          valueId: 'nodal_amplitude',
+          attributes: [
+            scalarAttr('H5WEB_contour_of', 'psi'),
+            floatAttr('H5WEB_contour_emphasize', 0),
+          ],
+        }),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

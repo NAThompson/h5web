@@ -121,6 +121,7 @@ export async function getViewHint(
     ...parseViewHint(merged, values, dimNames),
     anchor: getAnchor('H5WEB_overlays'),
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
+    contourOfAnchor: getAnchor('H5WEB_contour_of'),
   };
 }
 

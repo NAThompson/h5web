@@ -235,6 +235,8 @@ function HeatmapToolbar(props: Props) {
             onColorModeChange={config.setContourColorMode}
             onColorChange={config.setContourColor}
             onShowLabelsChange={config.setContourLabels}
+            emphasis={config.contourEmphasis}
+            onEmphasisChange={config.setContourEmphasis}
           />
           <Separator />
         </>

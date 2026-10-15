@@ -352,3 +352,43 @@ test('give constant data a finite colour domain', async () => {
   expect(ticks.length).toBeGreaterThan(0);
   expect(ticks.join(' ')).not.toMatch(/∞|NaN/u);
 });
+
+function countContourLabels(text: string): number {
+  // Contour labels are HTML spans, unlike axis tick labels (SVG text)
+  return [...document.querySelectorAll('figure span')].filter(
+    (el) => el.textContent === text,
+  ).length;
+}
+
+test('draw emphasized zero contour alone, and edit emphasized levels', async () => {
+  const { user } = await renderApp('/view_hints/nodal');
+  await page.viewport(2560, 1080); // whole heatmap toolbar
+
+  await expect.poll(() => countContourLabels('0')).toBeGreaterThan(0);
+
+  await user.click(page.getByRole('button', { name: 'Contours', exact: true }));
+  expect(page.getByRole('radio', { name: 'Off' })).toBeChecked(); // no regular contours
+  const input = page.getByRole('textbox', { name: 'Emphasized levels' });
+  expect(input).toHaveValue('0');
+
+  await user.fill(input, '0.5');
+  await user.keyboard('{Enter}');
+  await expect.poll(() => countContourLabels('0.5')).toBeGreaterThan(0);
+  expect(countContourLabels('0')).toBe(0);
+
+  await page.viewport(1920, 1080);
+});
+
+test('contour another dataset on the same grid', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/nodal_amplitude');
+
+  // Amplitude is positive everywhere: zero contours are those of `nodal`
+  await expect.poll(() => countContourLabels('0')).toBeGreaterThan(0);
+  expect(getNotes()).not.toBeInTheDocument();
+
+  await selectExplorerNode('contour_of_mismatch');
+  await expect
+    .element(getNotes())
+    .toHaveTextContent(/"psi" is not on the same grid/u);
+  expect(countContourLabels('0')).toBe(0);
+});

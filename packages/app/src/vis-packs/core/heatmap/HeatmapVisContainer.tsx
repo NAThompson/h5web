@@ -13,7 +13,11 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
-import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
+import {
+  useContourSource,
+  useLinkedOverlays,
+  useViewHint,
+} from '../../view-hints/hooks';
 import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
 import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
@@ -60,6 +64,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
 
   // Overlays declared by the hint, sliced along a linked dimension (e.g. `generation`)
   const overlays = useLinkedOverlays(entity, hint, dimMapping);
+  const contourOf = useContourSource(entity, hint, dimMapping);
   const { extraSlider } = overlays;
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
@@ -109,6 +114,11 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   config={config}
                   overlays={overlays.shapes}
                   onDataDomainChange={setDataDomain}
+                  contourSource={contourOf.source}
+                  emphasisStyle={{
+                    width: hint.contourEmphasizeWidth,
+                    color: hint.contourEmphasizeColor,
+                  }}
                 />
               )}
             />
@@ -118,6 +128,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
       <OverlayNotes
         notes={[
           ...overlays.notes,
+          ...contourOf.notes,
           ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />

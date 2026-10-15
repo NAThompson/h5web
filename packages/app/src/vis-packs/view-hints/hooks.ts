@@ -1,7 +1,14 @@
 import { type DimensionMapping } from '@h5web/lib';
 import {
+  hasArrayShape,
+  hasNumericLikeType,
+  isDataset,
+} from '@h5web/shared/guards';
+import {
   type ArrayShape,
+  type ArrayValue,
   type Dataset,
+  type NumericLikeType,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
@@ -13,9 +20,14 @@ import {
 } from '../../providers/DataProvider';
 import { type ValueQueryParams } from '../../providers/models';
 import { isValueInCache } from '../../utils';
+import {
+  createGeometryContext,
+  resolveCoordinate,
+} from '../core/geometry/utils';
 import { useSlicingProps } from '../slicing';
 import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
 import { toNumbers } from './attrs';
+import { getContourOfSlicing } from './contours';
 import type LinkedDimMapper from './LinkedDimMapper';
 import { EMPTY_HINT, type ViewHint } from './models';
 import {
@@ -249,5 +261,104 @@ export function useLinkedOverlays(
       link && baseDim === undefined
         ? { link, index: extraIndex, onChange: setExtraIndex, slicingProps }
         : undefined,
+  };
+}
+
+export interface ContourSource {
+  dataset: Dataset<ArrayShape, NumericLikeType>;
+  value: ArrayValue<NumericLikeType> | undefined; // `undefined` while loading
+  mapping: DimensionMapping; // of the dataset's dimensions
+}
+
+function getContourOfNote(
+  path: string,
+  status: Record<
+    'isFound' | 'isDataset' | 'isOnGrid' | 'isTooLarge' | 'isError',
+    boolean
+  >,
+): string | undefined {
+  const problem = !status.isDataset
+    ? status.isFound
+      ? 'is not a numeric dataset'
+      : 'was not found'
+    : !status.isOnGrid
+      ? 'is not on the same grid'
+      : status.isTooLarge
+        ? 'is too large to fetch'
+        : status.isError
+          ? 'could not be loaded'
+          : undefined;
+  return problem && `"H5WEB_contour_of" "${path}" ${problem}: not contoured`;
+}
+
+/* Dataset contoured instead of the base (`H5WEB_contour_of`), on the same grid, sliced along with
+ * the base; `undefined` without one; `null` while resolving, or if it can't be used (with a note):
+ * no contours then, rather than contours of the base */
+export function useContourSource(
+  base: Dataset<ArrayShape>,
+  hint: ViewHint,
+  dimMapping: DimensionMapping,
+): { source?: ContourSource | null; notes: string[] } {
+  const dataContext = useDataContext();
+  const { contourOf, contourOfAnchor = base.path } = hint;
+
+  const { data: entity, isPending } = useQuery({
+    queryKey: [dataContext.filepath, 'contourOf', contourOfAnchor, contourOf],
+    queryFn: async () =>
+      (await resolveCoordinate(
+        contourOfAnchor,
+        contourOf ?? '',
+        createGeometryContext(dataContext),
+      )) ?? null,
+    enabled: !!contourOf,
+  });
+  const dataset =
+    entity &&
+    isDataset(entity) &&
+    hasArrayShape(entity) &&
+    hasNumericLikeType(entity)
+      ? entity
+      : undefined;
+
+  const { dims } = base.shape;
+  const slicing = useMemo(
+    () => dataset && getContourOfSlicing(dims, dataset.shape.dims, dimMapping),
+    [dataset, dims, dimMapping],
+  );
+  const request = dataset &&
+    slicing && { dataset, selection: slicing.selection };
+  const isTooLarge = !!request && !isAffordable(dataContext, request);
+  const requests = request && !isTooLarge ? [request] : [];
+  const results = useQueries({
+    queries: requests.map((req) => ({
+      ...dataContext.queries.value(req.dataset, req.selection),
+      placeholderData: keepPreviousData,
+    })),
+  });
+
+  if (!contourOf) {
+    return { notes: [] };
+  }
+  if (isPending) {
+    return { source: null, notes: [] };
+  }
+  const note = getContourOfNote(contourOf, {
+    isFound: !!entity,
+    isDataset: !!dataset,
+    isOnGrid: !!slicing,
+    isTooLarge,
+    isError: !!results.at(0)?.error,
+  });
+  if (note || !dataset || !slicing) {
+    return { source: null, notes: note ? [note] : [] };
+  }
+
+  return {
+    source: {
+      dataset,
+      value: results.at(0)?.data as ArrayValue<NumericLikeType> | undefined,
+      mapping: slicing.mapping,
+    },
+    notes: [],
   };
 }

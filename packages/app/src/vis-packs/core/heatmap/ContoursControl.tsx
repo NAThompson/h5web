@@ -16,12 +16,14 @@ interface Props {
   colorMode: ContourColorMode;
   color: string;
   showLabels: boolean;
+  emphasis: number[];
   onModeChange: (mode: ContourMode) => void;
   onCountChange: (count: number) => void;
   onCustomLevelsChange: (levels: number[]) => void;
   onColorModeChange: (colorMode: ContourColorMode) => void;
   onColorChange: (color: string) => void;
   onShowLabelsChange: (showLabels: boolean) => void;
+  onEmphasisChange: (levels: number[]) => void;
 }
 
 function parseCount(text: string): number | undefined {
@@ -47,22 +49,32 @@ function ContoursControl(props: Props) {
     colorMode,
     color,
     showLabels,
+    emphasis,
     onModeChange,
     onCountChange,
     onCustomLevelsChange,
     onColorModeChange,
     onColorChange,
     onShowLabelsChange,
+    onEmphasisChange,
   } = props;
 
   const [draft, setDraft] = useState<string>();
   const [countDraft, setCountDraft] = useState<string>();
+  const [emphasisDraft, setEmphasisDraft] = useState<string>();
   const levelsText = draft ?? formatLevels(customLevels);
 
   function commitDraft() {
     if (draft !== undefined) {
       onCustomLevelsChange(parseLevels(draft));
       setDraft(undefined);
+    }
+  }
+
+  function commitEmphasis() {
+    if (emphasisDraft !== undefined) {
+      onEmphasisChange(parseLevels(emphasisDraft));
+      setEmphasisDraft(undefined);
     }
   }
 
@@ -196,6 +208,25 @@ function ContoursControl(props: Props) {
           />
         </>
       )}
+
+      {/* Drawn whatever the mode, e.g. only the zero contour */}
+      <label className={styles.field}>
+        <span className={styles.label}>Emphasize</span>
+        <input
+          className={styles.textInput}
+          type="text"
+          aria-label="Emphasized levels"
+          placeholder="e.g. 0"
+          value={emphasisDraft ?? formatLevels(emphasis)}
+          onChange={(evt) => setEmphasisDraft(evt.currentTarget.value)}
+          onBlur={commitEmphasis}
+          onKeyDown={(evt) => {
+            if (evt.key === 'Enter') {
+              commitEmphasis();
+            }
+          }}
+        />
+      </label>
     </Popover>
   );
 }

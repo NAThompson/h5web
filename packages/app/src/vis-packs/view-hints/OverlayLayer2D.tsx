@@ -96,7 +96,7 @@ function getPathData(pts: Vector3[]): string {
 }
 
 /* Halo contrasting with a colour, so lines and text stand out on any background */
-function getHaloColor(color: string): string {
+export function getHaloColor(color: string): string {
   const hsl = { h: 0, s: 0, l: 0 };
   new Color(color).getHSL(hsl);
   return hsl.l < 0.4 ? 'white' : 'black';

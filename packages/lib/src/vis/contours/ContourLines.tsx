@@ -34,6 +34,8 @@ interface Props {
   lineWidth?: number;
   /* Outline lines with a darker shade to make them stand out (e.g. when coloured with the colour map) */
   withHalo?: boolean;
+  /* Colour of the halo (default: darker shade of each line's colour) */
+  haloColor?: string;
   formatLabel?: (level: number) => string;
 }
 
@@ -59,6 +61,7 @@ function ContourLines(props: Props) {
     showLabels = false,
     lineWidth = 1.5,
     withHalo = false,
+    haloColor,
     formatLabel = formatTooltipVal,
   } = props;
 
@@ -173,7 +176,9 @@ function ContourLines(props: Props) {
                 <LineSegments2 geometry={geometry} renderOrder={1}>
                   {/* Opaque, so overlapping segment ends don't look dotted */}
                   <LineMaterial
-                    color={rgb(colorOf(level)).darker(2).formatHex()}
+                    color={
+                      haloColor ?? rgb(colorOf(level)).darker(2).formatHex()
+                    }
                     linewidth={lineWidth + 1.5}
                     transparent={opacity < 1}
                     opacity={opacity}
