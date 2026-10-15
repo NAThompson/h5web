@@ -7,7 +7,7 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type NumArray } from '@h5web/shared/vis-models';
-import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
+import { type QueryKey, useQueries, useQuery } from '@tanstack/react-query';
 import ndarray, { type NdArray } from 'ndarray';
 import { useMemo } from 'react';
 
@@ -196,6 +196,24 @@ export function getSeriesSelection(
   };
 }
 
+/* Dimension of a series along the x axis in its selection (-1: whole 1D series) */
+function getXIndex(selection: unknown): number {
+  return typeof selection === 'string' ? selection.split(',').indexOf(':') : -1;
+}
+
+/* Placeholder while fetching a series at other slicing indices: its previous values if they
+ * were along the same dimension of the same dataset (else values of another x axis) */
+export function keepSeriesValues<T>(
+  path: string,
+  selection: string | undefined,
+  prevValues: T | undefined,
+  prevKey: readonly unknown[] | undefined,
+): T | undefined {
+  return prevKey?.[2] === path && getXIndex(prevKey[3]) === getXIndex(selection)
+    ? prevValues
+    : undefined;
+}
+
 /* Curves of the series of a line hint at the base's slicing indices: none until resolved and
  * fetched, so that they never hold up the base dataset's line */
 export function useLineSeries(
@@ -233,7 +251,13 @@ export function useLineSeries(
   const results = useQueries({
     queries: drawn.map(({ request }) => ({
       ...dataContext.queries.value(request.dataset, request.selection),
-      placeholderData: keepPreviousData,
+      placeholderData: (prev: unknown, prevQuery?: { queryKey: QueryKey }) =>
+        keepSeriesValues(
+          request.dataset.path,
+          request.selection,
+          prev,
+          prevQuery?.queryKey,
+        ),
     })),
   });
   results.forEach(({ error: valueError }, i) => {
@@ -248,7 +272,6 @@ export function useLineSeries(
     () =>
       drawn.flatMap(({ series }, i) => {
         const value = values[i] as ArrayValue<NumericType> | undefined;
-        // Values of another slicing may be shown while loading, not of another x axis
         if (value?.length !== length) {
           return [];
         }
