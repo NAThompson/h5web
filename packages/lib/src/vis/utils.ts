@@ -28,6 +28,7 @@ import { BufferAttribute, type IUniform, MathUtils } from 'three';
 
 import {
   type Aspect,
+  type AxisConfig,
   type AxisOffsets,
   type ExtractScaleType,
   type GetDomainOpts,
@@ -255,6 +256,16 @@ export function getValueToIndexScale(
  * So we implement our own, simplified version of `d3.ticks` that always outputs integer values.
  */
 /* Whether an axis only needs integer ticks: index axis (no values), or linear axis of integers */
+/* Axis scale type with the symlog constant, if given */
+export function withSymlogConstant(
+  scaleType: AxisScaleType | undefined,
+  symlogConstant: number | undefined,
+): AxisConfig['scaleType'] {
+  return scaleType === ScaleType.SymLog && symlogConstant
+    ? [ScaleType.SymLog, symlogConstant]
+    : scaleType;
+}
+
 export function isIntegerAxis(
   values: NumArray | undefined,
   scaleType: AxisScaleType = ScaleType.Linear,

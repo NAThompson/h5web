@@ -9,9 +9,10 @@ import { useMemo } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimInfo } from '../../dimscales/hooks';
+import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { getAxisScaleHint } from '../../view-hints/axis-scales';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import {
@@ -46,7 +47,18 @@ function LineVisContainer(props: VisContainerProps) {
     [dimMapping, multiDim],
   );
 
-  const config = useLineConfig(getLineSuggestions(hint));
+  // `H5WEB_axis_scale` of the scale on the x axis, once dimension scales are resolved
+  const xAxisScale = getAxisScaleHint(
+    useCachedDimScales(entity),
+    lineMapping,
+    dims,
+    'x',
+    false,
+  );
+  const config = useLineConfig({
+    ...getLineSuggestions(hint),
+    xScaleType: xAxisScale.scaleType,
+  });
   const selection = getSliceSelection(lineMapping);
 
   const { dimHints, dimLabels } = useDimInfo(entity);
@@ -87,7 +99,7 @@ function LineVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisLabels, axisValues, axisTicks }) => (
+              render={({ axisLabels, axisValues, axisTicks, axisScales }) => (
                 <MappedLineVis
                   dataset={entity}
                   value={value}
@@ -95,6 +107,9 @@ function LineVisContainer(props: VisContainerProps) {
                   axisLabels={axisLabels}
                   axisValues={axisValues}
                   axisTicks={axisTicks}
+                  xSymlogConstant={
+                    axisScales[lineMapping.indexOf('x')]?.symlogConstant
+                  }
                   title={hint.title ?? entity.name}
                   valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}
@@ -106,7 +121,7 @@ function LineVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={getHintNotes(hint)} />
+      <OverlayNotes notes={[...getHintNotes(hint), ...xAxisScale.notes]} />
     </>
   );
 }

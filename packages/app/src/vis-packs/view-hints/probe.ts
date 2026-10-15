@@ -1,6 +1,8 @@
 import {
+  type AxisConfig,
   type DimensionMapping,
-  getCellEdges,
+  getAxisTransform,
+  getHeatmapAxis,
   getValueToIndexScale,
 } from '@h5web/lib';
 import { type NumArray } from '@h5web/shared/vis-models';
@@ -35,12 +37,26 @@ export function getProbeSelection(
   return parts.includes(undefined) ? undefined : parts.join(',');
 }
 
-/* Values at the edges of the pixels of a heatmap axis (as `HeatmapVis`) */
+/* Values at the edges of the pixels of a heatmap axis (as `HeatmapVis`, on the axis' scale) */
 export function getPixelEdges(
   values: NumArray | undefined,
   count: number,
+  scaleType?: AxisConfig['scaleType'],
 ): number[] {
-  return [...getCellEdges(values, count)];
+  return [...getHeatmapAxis(values, count, scaleType).edges];
+}
+
+/* Value in the middle of a pixel on screen (e.g. geometric mean of its edges on a log axis) */
+export function getPixelMiddle(
+  edges: number[],
+  index: number,
+  scaleType?: AxisConfig['scaleType'],
+): number {
+  const { forward, inverse } = getAxisTransform(scaleType) ?? {
+    forward: (val: number) => val,
+    inverse: (val: number) => val,
+  };
+  return inverse((forward(edges[index]) + forward(edges[index + 1])) / 2);
 }
 
 /* Index of the pixel at a coordinate along a heatmap axis; `undefined` outside the image */

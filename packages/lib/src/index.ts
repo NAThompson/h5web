@@ -190,10 +190,13 @@ export {
   getLinearGradient,
   getVisDomain,
   getSafeDomain,
+  getAxisTransform,
   getCellEdges,
+  getHeatmapAxis,
   isNonUniform,
   isNonUniformAxis,
 } from './vis/heatmap/utils';
+export type { AxisTransform, HeatmapAxis } from './vis/heatmap/utils';
 
 export { useVisDomain, useSafeDomain } from './vis/heatmap/hooks';
 

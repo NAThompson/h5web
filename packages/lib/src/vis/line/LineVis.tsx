@@ -34,6 +34,7 @@ import {
   extendDomain,
   getTextContent,
   isIntegerAxis,
+  withSymlogConstant,
 } from '../utils';
 import DataCurve from './DataCurve';
 import { useAxisValues } from './hooks';
@@ -106,6 +107,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     label: abscissaLabel,
     value: abscissaValue,
     scaleType: abscissaScaleType,
+    symlogConstant: abscissaSymlogConstant,
     ticks: abscissaTicks,
   } = abscissaParams;
 
@@ -191,7 +193,10 @@ function LineVis(props: PropsWithChildren<Props>) {
         abscissaConfig={{
           visDomain: abscissaDomain,
           showGrid,
-          scaleType: abscissaScaleType,
+          scaleType: withSymlogConstant(
+            abscissaScaleType,
+            abscissaSymlogConstant,
+          ),
           isIndexAxis: isIntegerAxis(abscissaValue, abscissaScaleType),
           label: abscissaLabel,
           ticks: abscissaTicks,

@@ -54,6 +54,13 @@ function floatAttr(name: string, ...values: number[]) {
   return arrayAttr(name, values, { type: floatType(64) });
 }
 
+// Axis values of `axis_hints`: log-spaced ρ from 1e-3 to 1e2, χ from -1000 to 1000
+const RHO = Array.from({ length: 12 }, (_, i) => 10 ** (-3 + (5 * i) / 11));
+const CHI = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
+function range12() {
+  return Array.from({ length: 12 }, (_, i) => i);
+}
+
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
     isRoot: true,
@@ -785,6 +792,62 @@ export function makeMockFile(): GroupWithChildren {
             }),
           ],
         }),
+      ]),
+      // `H5WEB_*` axis settings on dimension scales, slicing and volumes
+      group('axis_hints', [
+        // `H5WEB_axis_scale`: log-spaced ρ on a log axis, χ on a symlog axis
+        dataset('rho', arrayShape([12]), floatType(), RHO, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'rho'),
+            scalarAttr('H5WEB_axis_scale', 'Log'),
+          ],
+        }),
+        dataset('chi', arrayShape([9]), floatType(), CHI, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'chi'),
+            scalarAttr('H5WEB_axis_scale', 'symlog'),
+            floatAttr('H5WEB_symlog_threshold', 10),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'log_heatmap',
+            arrayShape([9, 12]),
+            floatType(),
+            CHI.flatMap((chi) => RHO.map((rho) => Math.log10(rho) + chi / 100)),
+            { attributes: [intAttr('H5WEB_keep_ratio', 0)] },
+          ),
+          { scales: [['/axis_hints/chi'], ['/axis_hints/rho']] },
+        ),
+        withDimScales(
+          dataset(
+            'log_line',
+            arrayShape([12]),
+            floatType(),
+            RHO.map((rho) => Math.exp(-rho)),
+            { attributes: [scalarAttr('H5WEB_vis', 'line')] },
+          ),
+          { scales: [['/axis_hints/rho']] },
+        ),
+        // Non-positive values can't be on a log axis; invalid value
+        dataset('zero_based', arrayShape([12]), floatType(), range12(), {
+          attributes: [scalarAttr('H5WEB_axis_scale', 'log')],
+        }),
+        dataset('bad_scale', arrayShape([9]), floatType(), CHI, {
+          attributes: [scalarAttr('H5WEB_axis_scale', 'decibel')],
+        }),
+        withDimScales(
+          dataset(
+            'log_fallback',
+            arrayShape([9, 12]),
+            floatType(),
+            CHI.flatMap((chi) => RHO.map((rho) => rho + chi)),
+            { attributes: [intAttr('H5WEB_keep_ratio', 0)] },
+          ),
+          { scales: [['/axis_hints/bad_scale'], ['/axis_hints/zero_based']] },
+        ),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects

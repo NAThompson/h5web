@@ -25,6 +25,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { type AxisScaleHint } from '../../dimscales/hooks';
 import {
   useIgnoreValue,
   usePacking,
@@ -58,6 +59,7 @@ interface Props {
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
   axisTicks?: AxisMapping<AxisTicks>;
+  axisScales?: AxisMapping<AxisScaleHint>; // `H5WEB_axis_scale` of the scales
   dimMapping: DimensionMapping;
   title: string;
   valueLabel?: string; // colour bar (and height of 3D surfaces)
@@ -80,6 +82,7 @@ function MappedHeatmapVis(props: Props) {
     axisLabels = [],
     axisValues = [],
     axisTicks = [],
+    axisScales = [],
     title,
     valueLabel,
     toolbarContainer,
@@ -147,11 +150,13 @@ function MappedHeatmapVis(props: Props) {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
     ticks: axisTicks[xDimIndex],
+    ...axisScales[xDimIndex],
   };
   const ordinateParams = {
     label: axisLabels[yDimIndex],
     value: numAxisArrays[yDimIndex],
     ticks: axisTicks[yDimIndex],
+    ...axisScales[yDimIndex],
   };
 
   const contourAxes = {

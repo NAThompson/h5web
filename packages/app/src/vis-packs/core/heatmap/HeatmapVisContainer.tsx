@@ -10,9 +10,10 @@ import { Suspense, useState } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimInfo } from '../../dimscales/hooks';
+import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { getAxisScaleHint } from '../../view-hints/axis-scales';
 import {
   useContourSource,
   useLinkedOverlays,
@@ -48,6 +49,10 @@ function HeatmapVisContainer(props: VisContainerProps) {
   });
 
   const { dimHints, dimLabels, dimUnits } = useDimInfo(entity);
+  const dimScales = useCachedDimScales(entity);
+  const axisScaleNotes = (['x', 'y'] as const).flatMap(
+    (axis) => getAxisScaleHint(dimScales, dimMapping, dims, axis, true).notes,
+  );
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
@@ -125,7 +130,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisLabels, axisValues, axisTicks }) => (
+              render={({ axisLabels, axisValues, axisTicks, axisScales }) => (
                 <MappedHeatmapVis
                   dataset={entity}
                   value={value}
@@ -133,6 +138,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   axisLabels={axisLabels}
                   axisValues={axisValues}
                   axisTicks={axisTicks}
+                  axisScales={config.surface ? undefined : axisScales}
                   title={hint.title ?? entity.name}
                   valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}
@@ -161,6 +167,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
         notes={[
           ...overlays.notes,
           ...contourOf.notes,
+          ...(config.surface ? [] : axisScaleNotes),
           ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />

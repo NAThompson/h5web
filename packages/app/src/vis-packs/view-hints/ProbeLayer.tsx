@@ -9,7 +9,12 @@ import { useThree } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 
-import { getPixelEdges, getPixelIndex, type ProbePoint } from './probe';
+import {
+  getPixelEdges,
+  getPixelIndex,
+  getPixelMiddle,
+  type ProbePoint,
+} from './probe';
 import styles from './ViewHints.module.css';
 
 const MAX_CLICK_MOVE = 4; // px: a longer move is a pan, not a click
@@ -28,18 +33,22 @@ function ProbeLayer(props: Props) {
   const { abscissas, ordinates, shape, axisDims, point, onProbe } = props;
   const [rows, cols] = shape;
 
+  // Pixels on the axes' scales (e.g. log axes, cf. `getHeatmapAxis`)
+  const { canvasArea, htmlToData, abscissaConfig, ordinateConfig } =
+    useVisCanvasContext();
+  const { scaleType: xScaleType } = abscissaConfig;
+  const { scaleType: yScaleType } = ordinateConfig;
   const xEdges = useMemo(
-    () => getPixelEdges(abscissas, cols),
-    [abscissas, cols],
+    () => getPixelEdges(abscissas, cols, xScaleType),
+    [abscissas, cols, xScaleType],
   );
   const yEdges = useMemo(
-    () => getPixelEdges(ordinates, rows),
-    [ordinates, rows],
+    () => getPixelEdges(ordinates, rows, yScaleType),
+    [ordinates, rows, yScaleType],
   );
 
   // Position in the canvas area from client coordinates: `offsetX` is relative to the element
   // under the pointer, which may not be the canvas (e.g. tooltip)
-  const { canvasArea, htmlToData } = useVisCanvasContext();
   const camera = useThree((state) => state.camera);
   function toHtml(evt: PointerEvent): Vector3 {
     const { left, top } = canvasArea.getBoundingClientRect();
@@ -76,10 +85,10 @@ function ProbeLayer(props: Props) {
     if (xi === undefined || yi === undefined) {
       return undefined;
     }
-    const x = (xEdges[xi] + xEdges[xi + 1]) / 2;
-    const y = (yEdges[yi] + yEdges[yi + 1]) / 2;
+    const x = getPixelMiddle(xEdges, xi, xScaleType);
+    const y = getPixelMiddle(yEdges, yi, yScaleType);
     return [new Vector3(x, y)];
-  }, [xi, yi, xEdges, yEdges]);
+  }, [xi, yi, xEdges, yEdges, xScaleType, yScaleType]);
 
   if (!points) {
     return null;

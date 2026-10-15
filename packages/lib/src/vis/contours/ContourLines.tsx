@@ -10,6 +10,7 @@ import { LineSegments2 as ThreeLineSegments2 } from 'three/addons/lines/LineSegm
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import { useIndexToPosition } from '../heatmap/hooks';
+import { getHeatmapAxis } from '../heatmap/utils';
 import { useCameraState } from '../hooks';
 import { type VisScaleType } from '../models';
 import Html from '../shared/Html';
@@ -72,9 +73,22 @@ function ContourLines(props: Props) {
   } = props;
 
   const [rows, cols] = dataArray.shape;
-  const toX = useIndexToPosition(abscissas, cols);
-  const toY = useIndexToPosition(ordinates, rows);
-  const { visSize, worldToHtml } = useVisCanvasContext();
+  const { visSize, worldToHtml, abscissaConfig, ordinateConfig } =
+    useVisCanvasContext();
+
+  // Log and symlog axes: pixels as laid out in the scale's space (cf. `getHeatmapAxis`)
+  const xValues = useMemo(
+    () =>
+      getHeatmapAxis(abscissas, cols, abscissaConfig.scaleType).scaledValues,
+    [abscissas, cols, abscissaConfig.scaleType],
+  );
+  const yValues = useMemo(
+    () =>
+      getHeatmapAxis(ordinates, rows, ordinateConfig.scaleType).scaledValues,
+    [ordinates, rows, ordinateConfig.scaleType],
+  );
+  const toX = useIndexToPosition(xValues, cols);
+  const toY = useIndexToPosition(yValues, rows);
 
   const { contours, error } = useContours(dataArray, levels, {
     scaleType,
