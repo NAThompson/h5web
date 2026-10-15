@@ -13,6 +13,7 @@ import {
 } from './suggestions';
 import {
   findHintVis,
+  formatLabel,
   getHintNotes,
   getNotesIn3D,
   isSurfaceHint,
@@ -283,6 +284,21 @@ describe('suggestions', () => {
       getLineDimSuggestions(parseViewHint('{"multiDim": 1}'), [8, 100])
         .defaultMultiDim,
     ).toBeUndefined();
+  });
+});
+
+describe('formatLabel', () => {
+  it('split subscripts and superscripts', () => {
+    expect(formatLabel('r_{12} = 0')).toEqual([
+      { str: 'r' },
+      { str: '12', shift: 'sub' },
+      { str: ' = 0' },
+    ]);
+    expect(formatLabel('x^{2}')).toEqual([
+      { str: 'x' },
+      { str: '2', shift: 'super' },
+    ]);
+    expect(formatLabel('plain')).toEqual([{ str: 'plain' }]);
   });
 });
 

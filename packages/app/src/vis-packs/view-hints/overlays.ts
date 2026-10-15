@@ -541,6 +541,7 @@ export interface OverlayText {
   anchor: TextAnchor; // side of the position where the text goes
   color: string;
   halo: boolean;
+  isInline?: boolean; // label of an overlay: moved to stay inside the canvas
 }
 
 export interface OverlayShapes {
@@ -612,21 +613,27 @@ function getInlineLabel(
   if (!hint.label || hint.labelMode !== 'inline') {
     return [];
   }
-  const i = x.findLastIndex(
-    (v, j) => Number.isFinite(v) && Number.isFinite(y[j]),
+
+  // Middle of the finite points (e.g. of a line along an edge of the domain)
+  const finite = x.flatMap((v, j) =>
+    Number.isFinite(v) && Number.isFinite(y[j]) ? [[v, y[j]]] : [],
   );
-  return i === -1
-    ? []
-    : [
-        {
-          x: x[i],
-          y: y[i],
-          text: hint.label,
-          anchor: 'right',
-          color,
-          halo: hint.halo ?? true,
-        },
-      ];
+  if (finite.length === 0) {
+    return [];
+  }
+  const [x0, y0] = finite[Math.floor((finite.length - 1) / 2)];
+  const [x1, y1] = finite[Math.ceil((finite.length - 1) / 2)];
+  return [
+    {
+      x: (x0 + x1) / 2,
+      y: (y0 + y1) / 2,
+      text: hint.label,
+      anchor: 'right',
+      color,
+      halo: hint.halo ?? true,
+      isInline: true,
+    },
+  ];
 }
 
 /* Column `col` of a row-major (rows x cols) array */

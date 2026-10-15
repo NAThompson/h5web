@@ -497,7 +497,15 @@ describe('shapes', () => {
         color: 'white',
         halo: true,
       },
-      { x: 0, y: 3, text: 'e–n', anchor: 'right', color: '#000', halo: true },
+      {
+        x: 0,
+        y: 1.5, // middle of the curve
+        text: 'e–n',
+        anchor: 'right',
+        color: '#000',
+        halo: true,
+        isInline: true,
+      },
     ]);
     expect(shapes.lines[0]).toMatchObject({ stroke: '#000', dash: true });
   });

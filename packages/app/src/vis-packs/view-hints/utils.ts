@@ -445,3 +445,20 @@ export function getNotesIn3D(hint: ViewHint): string[] {
     ? [`not drawn in 3D: ${unsupported.join(', ')}`]
     : [];
 }
+
+/* Parts of a label, with `_{...}` and `^{...}` as subscripts and superscripts (e.g. `r_{12} = 0`) */
+export function formatLabel(
+  label: string,
+): { str: string; shift?: 'sub' | 'super' }[] {
+  return label
+    .split(/([\^_]\{[^}]*\})/u)
+    .filter((part) => part.length > 0)
+    .map((part) =>
+      /^[\^_]\{.*\}$/u.test(part)
+        ? {
+            str: part.slice(2, -1),
+            shift: part.startsWith('_') ? 'sub' : 'super',
+          }
+        : { str: part },
+    );
+}

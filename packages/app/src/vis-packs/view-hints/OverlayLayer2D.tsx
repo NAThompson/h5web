@@ -8,6 +8,7 @@ import {
   Html,
   INTERPOLATORS,
   ScatterPoints,
+  useVisCanvasContext,
 } from '@h5web/lib';
 import { type NumArray } from '@h5web/shared/vis-models';
 import { type SVGProps, useMemo } from 'react';
@@ -20,6 +21,7 @@ import {
   type OverlayShapes,
   toPixelCentres,
 } from './overlays';
+import { formatLabel } from './utils';
 import styles from './ViewHints.module.css';
 
 interface ColorParams {
@@ -58,6 +60,9 @@ function useFillColors(
 const DASH = '6 4';
 const HALO_WIDTH = 3; // px added around lines (1.5 px on each side)
 const HALO_OPACITY = 0.7;
+const TEXT_HALO_OPACITY = 0.9;
+const TEXT_HALO_WIDTH = 2.5; // px
+const INLINE_LABEL_ROOM = 100; // px needed on the right of an inline label
 export const MAX_SVG_POINTS = 5000; // per point set; larger sets are drawn as GL points
 const TEXT_GAP = 8; // px between a position and the text placed next to it
 
@@ -139,6 +144,7 @@ function OverlayLayer2D(props: Props) {
     [allShapes],
   );
   const fills = useFillColors(shapes, colorParams);
+  const { canvasSize } = useVisCanvasContext();
 
   // All points to convert to HTML coordinates, followed by their offsets per shape
   const { vectors, lineOffsets, pointOffsets, textOffset } = useMemo(() => {
@@ -290,6 +296,11 @@ function OverlayLayer2D(props: Props) {
                   if (!isFinitePoint(pt)) {
                     return null;
                   }
+                  // Inline labels near the right edge of the canvas go to the left
+                  const anchor =
+                    text.isInline && pt.x > canvasSize.width - INLINE_LABEL_ROOM
+                      ? 'left'
+                      : text.anchor;
                   return (
                     <text
                       // eslint-disable-next-line react/no-array-index-key
@@ -298,13 +309,24 @@ function OverlayLayer2D(props: Props) {
                       y={pt.y}
                       fill={text.color}
                       stroke={text.halo ? getHaloColor(text.color) : undefined}
-                      strokeOpacity={HALO_OPACITY}
-                      strokeWidth={HALO_WIDTH}
+                      strokeOpacity={TEXT_HALO_OPACITY}
+                      strokeWidth={TEXT_HALO_WIDTH}
+                      strokeLinejoin="round"
                       paintOrder="stroke"
                       fontSize={13}
-                      {...TEXT_PLACEMENT[text.anchor]}
+                      fontWeight={600}
+                      {...TEXT_PLACEMENT[anchor]}
                     >
-                      {text.text}
+                      {formatLabel(text.text).map(({ str, shift }, k) => (
+                        <tspan
+                          // eslint-disable-next-line react/no-array-index-key
+                          key={k}
+                          baselineShift={shift}
+                          fontSize={shift ? '75%' : undefined}
+                        >
+                          {str}
+                        </tspan>
+                      ))}
                     </text>
                   );
                 })}

@@ -68,9 +68,9 @@
 .legend {
   grid-area: vis;
   align-self: start;
-  justify-self: end;
+  justify-self: start;
   z-index: 1;
-  margin: 2.5rem 6rem 0 0; /* below the title, left of the colour bar */
+  margin: 2.5rem 0 0 4.5rem; /* below the title, right of the y axis (3D: clear of "Reset view") */
   padding: 0.25rem 0.5rem;
   list-style: none;
   background-color: rgb(128 128 128 / 75%);
