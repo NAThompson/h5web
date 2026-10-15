@@ -10,7 +10,8 @@ import {
   type ScalarShape,
 } from '@h5web/shared/hdf5-models';
 import { useUnmountEffect } from '@react-hookz/web';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 
 import { usePlaybackSettingsState } from '../dim-mapping-store';
 import { useDataContext } from '../providers/DataProvider';
@@ -200,6 +201,49 @@ function isAllInvalid(
           !!isInvalid?.(val)),
     )
   );
+}
+
+/* On first load, step the first sliced dimension past empty slices (e.g. all `NaN` at k = 0, as
+ * known from `isSliceEmpty` once each slice's values arrive), until a slice isn't empty or the
+ * user changes the mapping */
+export function useSkipEmptyStart(
+  dataset: Dataset<ScalarShape | ArrayShape>,
+  dims: number[],
+  dimMapping: DimensionMapping,
+  setDimMapping: (mapping: DimensionMapping) => void,
+  isSliceEmpty: SlicingProps['isSliceEmpty'],
+): void {
+  const { queries } = useDataContext();
+  const selection = getSliceSelection(dimMapping);
+  const { data } = useQuery({
+    ...queries.value(dataset, selection),
+    enabled: false, // fetched by the vis: only observed
+  });
+
+  const expected = useRef(JSON.stringify(dimMapping)); // initial mapping, then the ones set here
+  const isActive = useRef(true);
+
+  useEffect(() => {
+    if (!isActive.current || !isSliceEmpty || data === undefined) {
+      return; // e.g. `skipEmpty` hint not loaded yet, or values not fetched yet
+    }
+    const dim = dimMapping.findIndex((val) => typeof val === 'number');
+    const index = dimMapping[dim];
+    if (
+      JSON.stringify(dimMapping) !== expected.current || // changed by the user
+      !isSliceEmpty(dimMapping) ||
+      typeof index !== 'number' ||
+      index + 1 >= dims[dim]
+    ) {
+      isActive.current = false;
+      return;
+    }
+
+    const next = [...dimMapping];
+    next[dim] = index + 1;
+    expected.current = JSON.stringify(next);
+    setDimMapping(next);
+  }, [data, dimMapping, dims, isSliceEmpty, setDimMapping]);
 }
 
 export function useDatasetSlicingProps(

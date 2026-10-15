@@ -706,6 +706,11 @@ test('colour values beyond the domain with `H5WEB_below_color` / `H5WEB_above_co
   expect(page.getByTitle('Above the domain')).toBeVisible();
 });
 
+test('open a stack on its first image that is not empty with `H5WEB_playback_skip_empty`', async () => {
+  await renderApp('/view_hints/skip_blank_start'); // k < 2 empty
+  await expect.element(page.getByRole('slider', { name: 'D0' })).toHaveValue(2);
+});
+
 test('skip empty images during playback and steps with `H5WEB_playback_skip_empty`', async () => {
   // (k, p) stack, empty where p > k / 2
   await renderApp('/view_hints/skip_blank');

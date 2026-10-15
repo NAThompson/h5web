@@ -85,6 +85,16 @@ function SlicingSlider(props: Props) {
 
   const [value, setValue] = useState(initialValue);
 
+  // Follow values set from outside (e.g. past an empty first slice), not the slider's own ones
+  const [propValue, setPropValue] = useState(initialValue);
+  const [emittedValue, setEmittedValue] = useState(initialValue);
+  if (initialValue !== propValue) {
+    setPropValue(initialValue);
+    if (initialValue !== emittedValue) {
+      setValue(initialValue);
+    }
+  }
+
   /* During playback, frames are only shown once ready, so there is no need to debounce.
    * Ref is updated on render, and as soon as user interaction pauses playback (so the slice
    * picked by the user is debounced as usual). */
@@ -93,7 +103,10 @@ function SlicingSlider(props: Props) {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
   const onDebouncedChange = useDynamicDebouncedCallback(
-    onChange,
+    (val: number) => {
+      setEmittedValue(val);
+      onChange(val);
+    },
     [onChange],
     (val) => {
       if (isPlayingRef.current) {

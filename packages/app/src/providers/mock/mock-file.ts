@@ -1012,6 +1012,10 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_vis', 'heatmap'),
           ],
         }),
+        array('skip_blank_start', {
+          valueId: 'blank_start_stack',
+          attributes: [intAttr('H5WEB_playback_skip_empty', 1)],
+        }),
         // Initial playback settings
         array('playback_settings', {
           valueId: 'triangle_stack',

@@ -567,6 +567,12 @@ export const mockValues = {
       }),
       [6, 3, 2, 3],
     ),
+  // (k, p) stack whose first images are empty (k < 2): opened on k = 2
+  blank_start_stack: () =>
+    ndarray(
+      range(0, 4 * 2 * 3).map((i) => (i < 12 ? Number.NaN : i / 10)),
+      [4, 2, 3],
+    ),
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
   psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),
