@@ -1,4 +1,8 @@
-import { type DimensionMapping, getValueToIndexScale } from '@h5web/lib';
+import {
+  type DimensionMapping,
+  getCellEdges,
+  getValueToIndexScale,
+} from '@h5web/lib';
 import { type NumArray } from '@h5web/shared/vis-models';
 
 /* Probed pixel: index along each dimension on the axes when it was clicked */
@@ -36,14 +40,7 @@ export function getPixelEdges(
   values: NumArray | undefined,
   count: number,
 ): number[] {
-  if (!values) {
-    return Array.from({ length: count + 1 }, (_, i) => i);
-  }
-  const edges = [...values].slice(0, count + 1);
-  if (edges.length === count) {
-    edges.push(edges[count - 1] + (edges[1] - edges[0])); // regularly spaced
-  }
-  return edges;
+  return [...getCellEdges(values, count)];
 }
 
 /* Index of the pixel at a coordinate along a heatmap axis; `undefined` outside the image */

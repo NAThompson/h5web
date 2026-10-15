@@ -5,13 +5,24 @@ import { describe, expect, it } from 'vitest';
 
 import { DomainError } from '../models';
 import {
+  getCellEdges,
   getChunkBounds,
+  getGlslPixels,
+  getIndexToPosition,
   getLinearGradient,
+  getRelativePixels,
   getSafeDomain,
   getTextureChunks,
+  isNonUniform,
+  sliceRelativePixels,
   sliceTextureChunk,
   toTextureSafeNdArray,
 } from './utils';
+
+// Chebyshev nodes of the first kind, descending from 1 to -1 (like `cos` of increasing angles)
+const CHEBYSHEV = Array.from({ length: 8 }, (_, k) =>
+  Math.cos(((2 * k + 1) * Math.PI) / 16),
+);
 
 const white = 'rgb(255, 255, 255)';
 const black = 'rgb(0, 0, 0)';
@@ -260,5 +271,136 @@ describe('getChunkBounds', () => {
     expect(b00.y[1]).toBe(b10.y[0]);
     expect(b00.x[0]).toBe(-0.5);
     expect(b00.y[0]).toBe(-0.15);
+  });
+
+  it('should place chunks of non-uniform axes at their edges', () => {
+    const [, chunk] = getTextureChunks([5, 3], 4); // rows 2-3 (texture rows 1-4)
+    const relY = getRelativePixels([0, 0.1, 0.2, 0.4, 0.7, 1]);
+    const bounds = getChunkBounds(
+      chunk,
+      [5, 3],
+      { width: 30, height: 10 },
+      undefined,
+      relY,
+    );
+
+    expect(bounds.x).toEqual([-15, 15]); // uniform axis unchanged
+    expect(bounds.y[0]).toBeCloseTo(-3); // edge 2 at 0.2
+    expect(bounds.y[1]).toBeCloseTo(2); // edge 4 at 0.7
+    // Relative positions within texture rows 1-4 (0.1 to 1), remapped to texels in the shader
+    expect(bounds.v[0]).toBeCloseTo(0.1 / 0.9);
+    expect(bounds.v[1]).toBeCloseTo(0.6 / 0.9);
+  });
+});
+
+describe('isNonUniform', () => {
+  it('should detect unevenly spaced monotonic values', () => {
+    expect(isNonUniform(CHEBYSHEV)).toBe(true);
+    expect(isNonUniform([1, 10, 100, 1000])).toBe(true);
+    expect(isNonUniform([1000, 100, 10, 1])).toBe(true);
+  });
+
+  it('should consider evenly spaced values uniform, within tolerance', () => {
+    expect(isNonUniform([0, 1, 2, 3, 4])).toBe(false);
+    expect(isNonUniform([4, 3, 2, 1, 0])).toBe(false);
+    expect(isNonUniform([0, 0.1, 0.2, 0.3])).toBe(false); // rounding errors
+    expect(isNonUniform([0, 1.0005, 2, 3])).toBe(false);
+    expect(isNonUniform([0, 1.01, 2, 3])).toBe(true);
+  });
+
+  it('should ignore values that cannot be remapped', () => {
+    expect(isNonUniform([0, 1])).toBe(false);
+    expect(isNonUniform([0, 2, 1, 3])).toBe(false); // not monotonic
+    expect(isNonUniform([0, 0, 1, 3])).toBe(false); // repeated value
+    expect(isNonUniform([0, 1, Number.NaN, 3])).toBe(false);
+    expect(isNonUniform([2, 2, 2])).toBe(false);
+  });
+});
+
+describe('getCellEdges', () => {
+  it('should keep edges of uniform pixel values as before (values at pixel starts)', () => {
+    expect(getCellEdges([10, 20, 30], 3)).toEqual([10, 20, 30, 40]);
+    expect(getCellEdges(undefined, 2)).toEqual([0, 1, 2]);
+  });
+
+  it('should keep edges given as is, uniform or not', () => {
+    expect(getCellEdges([0, 1, 3, 7], 3)).toEqual([0, 1, 3, 7]);
+  });
+
+  it('should centre pixels on non-uniform values', () => {
+    expect(getCellEdges([1, 2, 4, 8], 4)).toEqual([0.5, 1.5, 3, 6, 10]);
+    expect(getCellEdges([8, 4, 2, 1], 4)).toEqual([10, 6, 3, 1.5, 0.5]);
+
+    const edges = getCellEdges(CHEBYSHEV, 8);
+    expect(edges).toHaveLength(9);
+    CHEBYSHEV.forEach((val, i) => {
+      expect(val).toBeLessThan(edges[i]); // descending
+      expect(val).toBeGreaterThan(edges[i + 1]);
+    });
+  });
+});
+
+describe('getRelativePixels', () => {
+  it('should interleave relative edges and centres of pixels', () => {
+    expect([...getRelativePixels([2, 6, 10])]).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    expect([...getRelativePixels([2, 6, 10], [3, 9])]).toEqual([
+      0, 0.125, 0.5, 0.875, 1,
+    ]);
+  });
+
+  it('should slice pixels and rescale them from 0 to 1', () => {
+    const relPixels = getRelativePixels([0, 1, 3, 7]);
+    expect([...sliceRelativePixels(relPixels, 1, 3)]).toEqual([
+      0,
+      expect.closeTo(1 / 6),
+      expect.closeTo(1 / 3),
+      expect.closeTo(2 / 3),
+      1,
+    ]);
+  });
+});
+
+describe('getIndexToPosition', () => {
+  it('should be undefined for evenly spaced pixels', () => {
+    expect(getIndexToPosition(undefined, 3)).toBeUndefined();
+    expect(getIndexToPosition([1, 2, 3], 3)).toBeUndefined();
+  });
+
+  it('should map pixel centres to non-uniform pixel values', () => {
+    const toPos = getIndexToPosition([1, 2, 4, 8], 4); // edges 0.5 to 10
+    expect(toPos).toBeDefined();
+    function toVal(u: number): number {
+      return 0.5 + (toPos?.(u) ?? Number.NaN) * 9.5;
+    }
+
+    expect(toVal(0)).toBeCloseTo(0.5);
+    expect(toVal(0.5)).toBeCloseTo(1);
+    expect(toVal(2.5)).toBeCloseTo(4);
+    expect(toVal(3)).toBeCloseTo(6); // between centres: between values
+    expect(toVal(4)).toBeCloseTo(10);
+  });
+
+  it('should interpolate between bin centres of non-uniform bin edges', () => {
+    const toPos = getIndexToPosition([0, 1, 3, 7], 3); // centres at 0.5, 2, 5
+    expect(toPos?.(0)).toBeCloseTo(0);
+    expect(toPos?.(0.5)).toBeCloseTo(0.5 / 7);
+    expect(toPos?.(1)).toBeCloseTo(1.25 / 7); // halfway between centres, not at edge 1
+    expect(toPos?.(2.5)).toBeCloseTo(5 / 7);
+    expect(toPos?.(3)).toBeCloseTo(1);
+  });
+});
+
+describe('getGlslPixels', () => {
+  it('should only remap coordinates of non-uniform axes', () => {
+    expect(getGlslPixels(false, false)).toEqual({
+      declarations: '',
+      remapping: '',
+    });
+    expect(getGlslPixels(true, false).remapping).toContain(
+      'vec2(toTexCoord(xPixels, coords.x), coords.y)',
+    );
+    expect(getGlslPixels(false, true).remapping).toContain(
+      'vec2(coords.x, toTexCoord(yPixels, coords.y))',
+    );
   });
 });

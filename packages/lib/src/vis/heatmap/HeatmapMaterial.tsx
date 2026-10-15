@@ -4,6 +4,7 @@ import { type NdArray } from 'ndarray';
 import { memo, useMemo } from 'react';
 import {
   DoubleSide,
+  LinearFilter,
   type MagnificationTextureFilter,
   type MinificationTextureFilter,
   Vector4,
@@ -12,10 +13,11 @@ import {
 import { type VisScaleType } from '../models';
 import { type VisMeshProps } from '../shared/VisMesh';
 import { DEFAULT_DOMAIN, getUniforms, VERTEX_SHADER } from '../utils';
-import { useDataTexture, useDisposeOnChange } from './hooks';
+import { useDataTexture, useDisposeOnChange, usePixelsTexture } from './hooks';
 import { type ColorMap, type TextureSafeTypedArray } from './models';
 import {
   getColorMapTexture,
+  getGlslPixels,
   getShaderScale,
   GLSL_IS_SUPPORTED,
   GLSL_SCALE,
@@ -36,6 +38,8 @@ interface Props extends VisMeshProps {
   magFilter?: MagnificationTextureFilter;
   minFilter?: MinificationTextureFilter;
   mask?: NdArray<Uint8Array>;
+  xPixels?: Float32Array; // relative pixels of non-uniform axes (cf. `getRelativePixels`)
+  yPixels?: Float32Array;
 }
 
 const DEFAULT_BAD_COLOR = rgb(255, 255, 255, 0);
@@ -70,11 +74,20 @@ function HeatmapMaterial(props: Props) {
     magFilter,
     minFilter,
     mask,
+    xPixels,
+    yPixels,
   } = props;
 
   const dataTexture = useDataTexture(values, magFilter, minFilter);
   const alphaTexture = useDataTexture(alphaValues);
   const maskTexture = useDataTexture(mask);
+  const xPixelsTexture = usePixelsTexture(xPixels);
+  const yPixelsTexture = usePixelsTexture(yPixels);
+  const glslPixels = getGlslPixels(
+    !!xPixels,
+    !!yPixels,
+    magFilter === LinearFilter || minFilter === LinearFilter, // interpolate between centres
+  );
 
   const colorMapTexture = useMemo(
     () => getColorMapTexture(colorMap, invertColorMap),
@@ -84,6 +97,8 @@ function HeatmapMaterial(props: Props) {
   useDisposeOnChange(dataTexture);
   useDisposeOnChange(alphaTexture);
   useDisposeOnChange(maskTexture);
+  useDisposeOnChange(xPixelsTexture);
+  useDisposeOnChange(yPixelsTexture);
   useDisposeOnChange(colorMapTexture);
 
   const [scaleType, gammaExponent, symlogConstant] =
@@ -99,6 +114,8 @@ function HeatmapMaterial(props: Props) {
     uniforms: getUniforms({
       data: dataTexture,
       mask: maskTexture,
+      xPixels: xPixelsTexture,
+      yPixels: yPixelsTexture,
       colorMap: colorMapTexture,
       min: scaledDomain[0],
       oneOverRange: 1 / (scaledDomain[1] - scaledDomain[0]),
@@ -146,6 +163,7 @@ function HeatmapMaterial(props: Props) {
       const float oneOverLog10 = 0.43429448190325176;
 
       varying vec2 coords;
+      ${glslPixels.declarations}
 
       bool isSupported(float value) {
         return ${GLSL_IS_SUPPORTED[scaleType] || 'true'};
@@ -156,6 +174,7 @@ function HeatmapMaterial(props: Props) {
       }
 
       void main() {
+        ${glslPixels.remapping}
         float value = texture2D(data, coords).r * normRevertFactor;
         float maskValue = texture2D(mask, coords).r;
 

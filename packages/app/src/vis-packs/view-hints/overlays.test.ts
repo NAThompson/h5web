@@ -566,13 +566,16 @@ function overlay(
 }
 
 describe('getPixelCentreShift', () => {
-  it('shift by half a pixel when an axis has one value per pixel', () => {
-    const shift = getPixelCentreShift([0, 1, 2, 4], 4);
-    expect(shift(0)).toBe(0.5);
-    expect(shift(2)).toBe(3); // pixel [2, 4]
-    expect(shift(4)).toBe(5); // last pixel: width of the previous one
-    expect(shift(-1)).toBe(-0.5); // before the first value
+  it('shift by half a pixel when an axis has one evenly spaced value per pixel', () => {
+    const shift = getPixelCentreShift([0, 2, 4, 6], 4);
+    expect(shift(0)).toBe(1);
+    expect(shift(3)).toBe(4);
+    expect(shift(-1)).toBe(0); // before the first value
     expect(getPixelCentreShift([3, 2, 1], 3)(2)).toBe(1.5); // descending
+  });
+
+  it('leave non-uniform pixel values as is (pixel centres)', () => {
+    expect(getPixelCentreShift([0, 1, 2, 4], 4)(2)).toBe(2);
   });
 
   it('leave bin edges as is and shift indices by half a pixel', () => {

@@ -154,6 +154,11 @@ function MappedHeatmapVis(props: Props) {
     ticks: axisTicks[yDimIndex],
   };
 
+  const contourAxes = {
+    abscissas: abscissaParams.value,
+    ordinates: ordinateParams.value,
+  };
+
   // A surface needs at least two rows and two columns (e.g. not a 1 x N slice)
   const canShowSurface = dataArray.shape.every((size) => size >= 2);
 
@@ -238,8 +243,12 @@ function MappedHeatmapVis(props: Props) {
           aboveColor={specialColors.aboveColor}
         >
           <KeepZoom visKey="heatmap" />
-          {contours.regular && <ContourLines {...contours.regular} />}
-          {contours.emphasized && <ContourLines {...contours.emphasized} />}
+          {contours.regular && (
+            <ContourLines {...contours.regular} {...contourAxes} />
+          )}
+          {contours.emphasized && (
+            <ContourLines {...contours.emphasized} {...contourAxes} />
+          )}
           {probe && config.probe && (
             <ProbeLayer
               abscissas={abscissaParams.value}
