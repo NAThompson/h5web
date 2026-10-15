@@ -2,7 +2,7 @@ import { type IgnoreValue } from '@h5web/lib';
 import { createMemo } from '@h5web/shared/createMemo';
 import { hasArrayShape, hasNumericType } from '@h5web/shared/guards';
 import { type Dataset } from '@h5web/shared/hdf5-models';
-import { useSuspenseQueries } from '@tanstack/react-query';
+import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
 
 import {
   type DataContextValue,
@@ -52,23 +52,44 @@ function ignoreValueQuery(
   };
 }
 
-/* Invalid raw values (packed values of packed datasets), without fetching: `undefined` until
- * known (or if there is none) */
+/* Invalid raw values (packed values of packed datasets), without fetching: `isInvalid` is
+ * `undefined` if there is none; `undefined` until known */
 export function getCachedIsInvalid(
   dataset: Dataset,
   dataContext: DataContextValue,
-): ((val: number | bigint) => boolean) | undefined {
+): { isInvalid?: (val: number | bigint) => boolean } | undefined {
   const { queryClient } = dataContext;
   const packing = queryClient.getQueryData<Packing | null>(
     packingQuery(dataset, dataContext).queryKey,
   );
   if (packing) {
-    return packing.isInvalid;
+    return { isInvalid: packing.isInvalid };
   }
   const ignoreValue = queryClient.getQueryData<IgnoreValue | null>(
     ignoreValueQuery(dataset, dataContext).queryKey,
   );
-  return ignoreValue ? (val) => ignoreValue(Number(val)) : undefined;
+  if (packing === undefined || ignoreValue === undefined) {
+    return undefined; // not fetched yet
+  }
+  return {
+    isInvalid: ignoreValue ? (val) => ignoreValue(Number(val)) : undefined,
+  };
+}
+
+/* Whether the invalid raw values of a dataset are known (cf. `getCachedIsInvalid`), without
+ * fetching; re-renders once they are */
+export function useIsInvalidKnown(dataset: Dataset): boolean {
+  const dataContext = useDataContext();
+  const observe = { enabled: false }; // fetched by the vis
+  const { data: packing } = useQuery({
+    ...packingQuery(dataset, dataContext),
+    ...observe,
+  });
+  const { data: ignoreValue } = useQuery({
+    ...ignoreValueQuery(dataset, dataContext),
+    ...observe,
+  });
+  return !!packing || (packing !== undefined && ignoreValue !== undefined);
 }
 
 export function usePackings(

@@ -19,7 +19,7 @@ import { type ValueQueryParams } from '../providers/models';
 import { getCachedValue, hasValueFailed, isValueInCache } from '../utils';
 import { useConfirmedSize } from './fetch-confirmation';
 import { getGuardKey, getMaxAutoFetchSize } from './LargeValueGuard';
-import { getCachedIsInvalid } from './netcdf/hooks';
+import { getCachedIsInvalid, useIsInvalidKnown } from './netcdf/hooks';
 import { type NxData } from './nexus/models';
 import { getNxValueRequests } from './nexus/NxValuesFetcher';
 import { type PlaybackRangeValue } from './playback-range';
@@ -129,8 +129,11 @@ export function useSlicingProps(
 
     let isEmpty = emptyValues.get(value);
     if (isEmpty === undefined) {
-      const isInvalid = getCachedIsInvalid(request.dataset, dataContext);
-      isEmpty = isAllInvalid(value, isInvalid);
+      const invalid = getCachedIsInvalid(request.dataset, dataContext);
+      isEmpty = isAllInvalid(value, invalid?.isInvalid);
+      if (!invalid && !isEmpty) {
+        return false; // unknown until invalid values are (e.g. all `_FillValue`)
+      }
       emptyValues.set(value, isEmpty);
     }
     return isEmpty;
@@ -219,13 +222,19 @@ export function useSkipEmptyStart(
     ...queries.value(dataset, selection),
     enabled: false, // fetched by the vis: only observed
   });
+  const isInvalidKnown = useIsInvalidKnown(dataset); // to tell empty slices apart
 
   const expected = useRef(JSON.stringify(dimMapping)); // initial mapping, then the ones set here
   const isActive = useRef(true);
 
   useEffect(() => {
-    if (!isActive.current || !isSliceEmpty || data === undefined) {
-      return; // e.g. `skipEmpty` hint not loaded yet, or values not fetched yet
+    if (
+      !isActive.current ||
+      !isSliceEmpty ||
+      data === undefined ||
+      !isInvalidKnown
+    ) {
+      return; // e.g. `skipEmpty` hint, values or invalid values not loaded yet
     }
     const dim = dimMapping.findIndex((val) => typeof val === 'number');
     const index = dimMapping[dim];
@@ -243,7 +252,7 @@ export function useSkipEmptyStart(
     next[dim] = index + 1;
     expected.current = JSON.stringify(next);
     setDimMapping(next);
-  }, [data, dimMapping, dims, isSliceEmpty, setDimMapping]);
+  }, [data, dimMapping, dims, isInvalidKnown, isSliceEmpty, setDimMapping]);
 }
 
 export function useDatasetSlicingProps(
