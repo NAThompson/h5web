@@ -29,6 +29,7 @@ import {
 } from '../../netcdf/hooks';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { useSymlogThreshold } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
@@ -48,6 +49,7 @@ interface Props {
   /* Whether axis values can be used to size the volume and for gradients (i.e. they share a unit) */
   withPhysicalAspect?: boolean;
   axisUnit?: string;
+  symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
 }
 
 function MappedVolumeVis(props: Props) {
@@ -61,6 +63,7 @@ function MappedVolumeVis(props: Props) {
     withPhysicalAspect = false,
     axisUnit,
     title,
+    symlogThreshold,
   } = props;
   const {
     customDomain,
@@ -94,6 +97,7 @@ function MappedVolumeVis(props: Props) {
     ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
+  const visScaleType = useSymlogThreshold(scaleType, symlogThreshold);
 
   // Axis values are mapped to dimensions `[z, y, x]`; isosurfaces expect them along x, y, z
   const [zValues, yValues, xValues] = useToNumArrays([
@@ -128,7 +132,7 @@ function MappedVolumeVis(props: Props) {
   const { geometries, progress, step, error, workerError } = useIsosurfaces(
     dataArray,
     visibleLevels.map((level) => level.value),
-    { scaleType, ignoreValue, axisValues: isoAxisValues },
+    { scaleType: visScaleType, ignoreValue, axisValues: isoAxisValues },
   );
 
   const message = error
@@ -175,7 +179,7 @@ function MappedVolumeVis(props: Props) {
         dataArray={dataArray}
         domain={safeDomain}
         colorMap={colorMap}
-        scaleType={scaleType}
+        scaleType={visScaleType}
         invertColorMap={invertColorMap}
         mode={mode}
         opacity={opacity}
@@ -189,6 +193,7 @@ function MappedVolumeVis(props: Props) {
         isoMessage={message}
         gradientLabel={gradientLabel}
         boxSize={boxSize}
+        axisValues={axisCoords}
       />
     </>
   );

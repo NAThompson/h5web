@@ -1,4 +1,5 @@
 import {
+  type AxisScaleType,
   type Domain,
   type IgnoreValue,
   type NumArray,
@@ -26,6 +27,7 @@ import {
 } from 'three';
 
 import {
+  type AxisConfig,
   type CustomDomain,
   DomainError,
   type DomainErrors,
@@ -356,6 +358,85 @@ export function getPixelCentres(
     isNonUniformAxis(rawValues, rawValues.length)
     ? rawValues
     : undefined;
+}
+
+export interface AxisTransform {
+  forward: (val: number) => number; // axis value to the scale's (linear) space
+  inverse: (val: number) => number;
+}
+
+/* Log and symlog axis scales as transforms (`undefined` for linear axes) */
+export function getAxisTransform(
+  scaleType: AxisConfig['scaleType'],
+): AxisTransform | undefined {
+  const [type, constant = 1] = Array.isArray(scaleType)
+    ? scaleType
+    : [scaleType];
+  if (type === ScaleType.Log) {
+    return { forward: Math.log10, inverse: (val) => 10 ** val };
+  }
+  if (type === ScaleType.SymLog) {
+    return {
+      forward: (val) => Math.sign(val) * Math.log1p(Math.abs(val) / constant),
+      inverse: (val) => Math.sign(val) * Math.expm1(Math.abs(val)) * constant,
+    };
+  }
+  return undefined;
+}
+
+/* Type of a heatmap axis' scale, without symlog constant */
+export function getAxisType({ scaleType }: HeatmapAxis): AxisScaleType {
+  return (
+    (Array.isArray(scaleType) ? scaleType[0] : scaleType) ?? ScaleType.Linear
+  );
+}
+
+export interface HeatmapAxis {
+  scaleType: AxisConfig['scaleType']; // linear if the axis' scale can't show its values
+  edges: NumArray; // pixel edges, in axis values
+  centres?: NumArray; // non-uniform pixel centres, in axis values
+  /* In the scale's space, where the heatmap is drawn as on a linear axis: axis values, and pixel
+   * edges and centres if non-uniform there */
+  scaledValues?: NumArray;
+  scaledEdges: NumArray;
+  meshEdges?: NumArray;
+  meshCentres?: NumArray;
+  transform?: AxisTransform;
+}
+
+/*
+ * Pixels of a heatmap axis on a log or symlog scale: a (non-uniform) axis in the scale's space,
+ * e.g. log-spaced values are evenly spaced pixels on a log axis. Axes without values, or with
+ * values the scale can't show (e.g. non-positive pixel edges on a log scale), stay linear.
+ */
+export function getHeatmapAxis(
+  rawValues: NumArray | undefined,
+  pixelCount: number,
+  scaleType?: AxisConfig['scaleType'],
+): HeatmapAxis {
+  const transform = rawValues && getAxisTransform(scaleType);
+  const values = transform
+    ? Array.from(rawValues, (val) => transform.forward(val))
+    : rawValues;
+  const scaledEdges = getCellEdges(values, pixelCount);
+
+  if (transform && !scaledEdges.every(Number.isFinite)) {
+    return getHeatmapAxis(rawValues, pixelCount); // e.g. log of non-positive values
+  }
+
+  const scaledCentres = getPixelCentres(values, scaledEdges);
+  return {
+    scaleType: transform ? scaleType : ScaleType.Linear,
+    edges: transform
+      ? Array.from(scaledEdges, (val) => transform.inverse(val))
+      : scaledEdges,
+    centres: scaledCentres && rawValues,
+    scaledValues: values,
+    scaledEdges,
+    meshEdges: isNonUniformAxis(values, pixelCount) ? scaledEdges : undefined,
+    meshCentres: scaledCentres,
+    transform,
+  };
 }
 
 /* Texture of the relative start and centre of each pixel along a non-uniform axis */

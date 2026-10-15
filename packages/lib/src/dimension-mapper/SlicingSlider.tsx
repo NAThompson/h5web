@@ -15,6 +15,7 @@ import {
   type PlaybackSettings,
 } from './playback';
 import PlaybackControls from './PlaybackControls';
+import SliceValueLabel from './SliceValueLabel';
 import styles from './SlicingSlider.module.css';
 
 const ID = 'h5w-slider';
@@ -45,6 +46,7 @@ interface Props {
   dimension: number;
   label?: string; // short name of the dimension (default: D<dimension>)
   hint?: string; // full name, e.g. with units
+  valueLabels?: string[]; // label of each index (e.g. names of the slices)
   length: number;
   initialValue: number;
   withControls: boolean;
@@ -52,6 +54,7 @@ interface Props {
   onChange: (value: number) => void;
   withPlayback?: boolean;
   isPlaying?: boolean;
+  isDefaultPlayback?: boolean; // dimension played by default: its play button is marked
   onPlayingChange?: (isPlaying: boolean) => void;
   isReady?: (value: number) => boolean;
   emptySlices?: Pick<ReadonlySet<number>, 'has'>; // skipped by playback and steps; hollow marks
@@ -61,11 +64,16 @@ interface Props {
   playbackRangeHint?: string;
 }
 
+function getValueText(labels: string[] | undefined, value: number) {
+  return labels?.[value];
+}
+
 function SlicingSlider(props: Props) {
   const {
     dimension,
     label,
     hint,
+    valueLabels,
     length,
     initialValue,
     withControls,
@@ -73,6 +81,7 @@ function SlicingSlider(props: Props) {
     onChange,
     withPlayback = false,
     isPlaying = false,
+    isDefaultPlayback,
     onPlayingChange,
     isReady,
     emptySlices,
@@ -205,6 +214,11 @@ function SlicingSlider(props: Props) {
         {label ?? `D${dimension}`}
       </span>
       <span className={styles.sublabel}>0:{length - 1}</span>
+      <SliceValueLabel
+        labels={valueLabels}
+        value={value}
+        dimension={dimension}
+      />
       {length > 1 && (
         <>
           <SliderRoot
@@ -244,6 +258,7 @@ function SlicingSlider(props: Props) {
               ref={setThumb}
               className={styles.thumb}
               aria-labelledby={sliderLabelId}
+              aria-valuetext={getValueText(valueLabels, value)}
               aria-keyshortcuts={withPlayback ? 'Space' : undefined}
               onKeyDown={(evt) => {
                 if (withPlayback && evt.key === ' ') {
@@ -272,6 +287,7 @@ function SlicingSlider(props: Props) {
             <PlaybackControls
               dimension={dimension}
               isPlaying={isPlaying}
+              isDefault={isDefaultPlayback}
               waiting={waiting}
               settings={playbackSettings}
               rangeHint={playbackRangeHint}

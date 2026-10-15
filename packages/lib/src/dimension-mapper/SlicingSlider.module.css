@@ -28,6 +28,12 @@
   color: var(--h5w-slicingSlider-bounds--color, #333);
 }
 
+.valueLabel {
+  composes: label;
+  font-size: 0.75em;
+  font-weight: 600;
+}
+
 .slider {
   position: relative;
   flex: 1 1 calc(3rem - var(--thumb-size));

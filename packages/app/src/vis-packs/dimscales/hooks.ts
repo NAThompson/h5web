@@ -1,4 +1,4 @@
-import { type AxisTicks } from '@h5web/lib';
+import { type AxisParams, type AxisTicks } from '@h5web/lib';
 import {
   type ArrayShape,
   type ArrayValue,
@@ -16,7 +16,10 @@ export interface DimScaleAxes {
   axisLabels: AxisMapping<string>;
   axisValues: AxisMapping<ArrayValue<NumericType>>;
   axisTicks: AxisMapping<AxisTicks>; // from the scales' `H5WEB_ticks`
+  axisScales: AxisMapping<AxisScaleHint>; // from the scales' `H5WEB_axis_scale`
 }
+
+export type AxisScaleHint = Pick<AxisParams, 'scaleType' | 'symlogConstant'>;
 
 function getQueryKey(filepath: string, dataset: Dataset) {
   return [filepath, 'dimScales', dataset.path];
@@ -40,6 +43,13 @@ export function useDimScales(dataset: Dataset<ArrayShape>): DimScaleAxes {
     axisLabels: dimScales.map((scale) => scale?.label),
     axisValues: dimScales.map((scale) => scale?.value),
     axisTicks: dimScales.map((scale) => scale?.ticks),
+    axisScales: dimScales.map(
+      (scale) =>
+        scale?.scaleType && {
+          scaleType: scale.scaleType,
+          symlogConstant: scale.symlogConstant,
+        },
+    ),
   };
 }
 
@@ -47,6 +57,7 @@ export interface DimInfo {
   dimHints: AxisMapping<string>; // full labels (with units), e.g. as hints of the dimension mapper
   dimLabels: AxisMapping<string>; // unique short names, for the dimension mapper's buttons and sliders
   dimUnits: AxisMapping<string>; // e.g. to suggest whether to keep the ratio
+  sliceLabels: AxisMapping<string[]>; // labels of the indices, for sliders
 }
 
 /* Labels and units of the dimensions for the dimension mapper and suggestions, which sit outside
@@ -59,6 +70,7 @@ export function useDimInfo(dataset: Dataset): DimInfo {
       dimHints: dimScales.map((scale) => scale?.label),
       dimLabels: getUniqueLabels(dimScales.map((scale) => scale?.name)),
       dimUnits: dimScales.map((scale) => scale?.unit),
+      sliceLabels: dimScales.map((scale) => scale?.sliceLabels),
     }),
     [dimScales],
   );

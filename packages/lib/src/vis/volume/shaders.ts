@@ -29,16 +29,27 @@ const MODE_DEFINES: Record<VolumeRenderMode, string> = {
 export function getVolumeFragmentShader(
   mode: VolumeRenderMode,
   scaleType: ScaleType,
+  lookups: [x: boolean, y: boolean, z: boolean] = [false, false, false],
 ): string {
   return /* glsl */ `
     precision highp float;
     precision highp sampler3D;
 
     #define ${MODE_DEFINES[mode]}
+    ${['X', 'Y', 'Z']
+      .filter((_, i) => lookups[i])
+      .map((axis) => `#define LOOKUP_${axis}`)
+      .join('\n')}
 
     uniform sampler3D volume;
     uniform sampler2D colorMap;
+
+    // Non-uniform axes: relative positions of voxel edges and centres (cf. \`getAxisLookup\`)
+    uniform sampler2D xLookup;
+    uniform sampler2D yLookup;
+    uniform sampler2D zLookup;
     uniform vec3 dims;
+    uniform vec3 stepDims; // voxels per side for the step size: more along non-uniform axes
 
     uniform float domainMin;
     uniform float oneOverRange;
@@ -74,9 +85,39 @@ export function getVolumeFragmentShader(
       return ${GLSL_SCALE[scaleType] || 'value'};
     }
 
+    // Texture coordinate at a relative position, between the knots around it (binary search)
+    float lookUp(sampler2D knots, float pos) {
+      int count = textureSize(knots, 0).x;
+      int lo = 0;
+      int hi = count - 2;
+      for (int k = 0; k < 24; k++) {
+        if (lo >= hi) break;
+        int mid = (lo + hi + 1) / 2;
+        if (texelFetch(knots, ivec2(mid, 0), 0).r <= pos) { lo = mid; } else { hi = mid - 1; }
+      }
+      float start = texelFetch(knots, ivec2(lo, 0), 0).r;
+      float end = texelFetch(knots, ivec2(lo + 1, 0), 0).r;
+      float t = clamp((pos - start) / max(end - start, 1e-30), 0., 1.);
+      return (float(lo) + t) / float(count - 1);
+    }
+
+    // Texture coordinates of a position in the box (voxels at their coordinates on non-uniform axes)
+    vec3 toTexCoords(vec3 p) {
+      #ifdef LOOKUP_X
+        p.x = lookUp(xLookup, p.x);
+      #endif
+      #ifdef LOOKUP_Y
+        p.y = lookUp(yLookup, p.y);
+      #endif
+      #ifdef LOOKUP_Z
+        p.z = lookUp(zLookup, p.z);
+      #endif
+      return p;
+    }
+
     // Normalized value in [0, 1], or -1 for NaN and values unsupported by the scale
     float sampleVolume(vec3 p) {
-      float value = texture(volume, p).r * normRevertFactor + valueOffset;
+      float value = texture(volume, toTexCoords(p)).r * normRevertFactor + valueOffset;
       if (isnan(value) || !isSupported(value)) {
         return -1.;
       }
@@ -144,7 +185,7 @@ export function getVolumeFragmentShader(
       vec3 voxelDir = dir * dims;
       vec3 viewDir = -normalize(voxelDir);
       float rayLength = bounds.y - bounds.x;
-      float dt = 1. / (length(voxelDir) * samplesPerVoxel);
+      float dt = 1. / (length(dir * stepDims) * samplesPerVoxel); // finer across narrow voxels
       int steps = int(ceil(rayLength / dt));
       if (steps > MAX_STEPS) {
         // Stretch steps so the samples still span the whole ray

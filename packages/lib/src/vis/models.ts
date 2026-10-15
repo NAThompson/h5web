@@ -95,6 +95,7 @@ export interface AxisParams {
   label?: string;
   value?: NumArray;
   scaleType?: AxisScaleType;
+  symlogConstant?: number; // width of the linear band around 0 of a symlog axis (default 1)
   ticks?: AxisTicks;
 }
 

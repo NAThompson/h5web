@@ -397,6 +397,7 @@ export function parseViewHint(
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
+    playbackDim: readDim(read, 'H5WEB_playback_dim', entity, dimNames),
     nanColor: toRgbaColor(read.str('H5WEB_nan_color', isCssColor)),
     belowColor: toRgbaColor(read.str('H5WEB_below_color', isCssColor)),
     aboveColor: toRgbaColor(read.str('H5WEB_above_color', isCssColor)),

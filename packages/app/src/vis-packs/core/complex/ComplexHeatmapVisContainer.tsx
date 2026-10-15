@@ -36,7 +36,7 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
     axesCount: 2,
   });
 
-  const { dimHints, dimLabels, dimUnits } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
@@ -69,6 +69,7 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimLabels={dimLabels}
+        sliceLabels={sliceLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

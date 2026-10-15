@@ -13,6 +13,7 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   dims: number[];
   dimHints?: (string | undefined)[];
   dimLabels?: (string | undefined)[]; // short names of the dimensions (default: D0, D1...)
+  sliceLabels?: (string[] | undefined)[]; // labels of the indices of each dimension
   dimMapping: DimensionMapping;
   withSlicingControls?: boolean;
   canSliceFast?: (nextMapping: DimensionMapping) => boolean; // shortens debounce delay when slicing
@@ -37,6 +38,8 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
    * Called for every slice of each sliced dimension when it changes identity (or the mapping
    * does), so it should only change when emptiness may have (e.g. new values in a cache). */
   isSliceEmpty?: (mapping: DimensionMapping) => boolean;
+  // Playback: dimension played by default (e.g. from a file's hint), whose play button is marked
+  defaultPlayingDim?: number;
   // Playback: dimension being played (controlled when `onPlayingDimChange` is provided)
   playingDim?: number;
   onPlayingDimChange?: (dim: number | undefined) => void;
@@ -53,6 +56,7 @@ function DimensionMapper(props: Props) {
     dims,
     dimHints,
     dimLabels,
+    sliceLabels,
     dimMapping,
     withSlicingControls = false,
     canSliceFast,
@@ -64,6 +68,7 @@ function DimensionMapper(props: Props) {
     isSliceReady = canSliceFast,
     isSliceEmpty,
     prefetchSlices,
+    defaultPlayingDim,
     playingDim: controlledPlayingDim,
     onPlayingDimChange,
     playbackSettings: controlledSettings,
@@ -184,6 +189,7 @@ function DimensionMapper(props: Props) {
               dimension={index}
               label={dimLabels?.[index]}
               hint={dimHints?.[index]}
+              valueLabels={sliceLabels?.[index]}
               length={dims[index]}
               initialValue={val}
               withControls={withSlicingControls}
@@ -193,6 +199,7 @@ function DimensionMapper(props: Props) {
               onChange={(newVal) => onChange(withMapping(newVal))}
               withPlayback={withPlaybackControls}
               isPlaying={playingDim === index && multiDim !== index}
+              isDefaultPlayback={defaultPlayingDim === index}
               onPlayingChange={(isPlaying) => {
                 setPlayingDim(isPlaying ? index : undefined);
               }}

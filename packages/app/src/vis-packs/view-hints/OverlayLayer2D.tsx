@@ -1,7 +1,9 @@
 import {
+  type AxisConfig,
   createScale,
   DataToHtml,
   type Domain,
+  getHeatmapAxis,
   Glyphs,
   GlyphType,
   Html,
@@ -102,6 +104,19 @@ export function getHaloColor(color: string): string {
   return hsl.l < 0.4 ? 'white' : 'black';
 }
 
+/* `getPixelCentreShift` on the axis' scale: in the scale's space on log and symlog axes */
+function getScaledCentreShift(
+  values: NumArray | undefined,
+  count: number,
+  scaleType: AxisConfig['scaleType'],
+): (value: number) => number {
+  const { scaledValues, transform } = getHeatmapAxis(values, count, scaleType);
+  const shift = getPixelCentreShift(scaledValues, count);
+  return transform
+    ? (value) => transform.inverse(shift(transform.forward(value)))
+    : shift;
+}
+
 interface Props {
   shapes: OverlayShapes;
   colorParams: ColorParams;
@@ -121,15 +136,18 @@ function OverlayLayer2D(props: Props) {
     shape,
   } = props;
   const [rows, cols] = shape;
+  const { abscissaConfig, ordinateConfig, canvasSize } = useVisCanvasContext();
+  const { scaleType: xScaleType } = abscissaConfig;
+  const { scaleType: yScaleType } = ordinateConfig;
 
   const allShapes = useMemo(
     () =>
       toPixelCentres(
         dataShapes,
-        getPixelCentreShift(abscissas, cols),
-        getPixelCentreShift(ordinates, rows),
+        getScaledCentreShift(abscissas, cols, xScaleType),
+        getScaledCentreShift(ordinates, rows, yScaleType),
       ),
-    [dataShapes, abscissas, ordinates, rows, cols],
+    [dataShapes, abscissas, ordinates, rows, cols, xScaleType, yScaleType],
   );
 
   // Large point sets as GL points: SVG elements are re-rendered on every pan and zoom
@@ -144,7 +162,6 @@ function OverlayLayer2D(props: Props) {
     [allShapes],
   );
   const fills = useFillColors(shapes, colorParams);
-  const { canvasSize } = useVisCanvasContext();
 
   // All points to convert to HTML coordinates, followed by their offsets per shape
   const { vectors, lineOffsets, pointOffsets, textOffset } = useMemo(() => {

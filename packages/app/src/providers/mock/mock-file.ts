@@ -54,6 +54,29 @@ function floatAttr(name: string, ...values: number[]) {
   return arrayAttr(name, values, { type: floatType(64) });
 }
 
+// Axis values of `axis_hints`: log-spaced ρ from 1e-3 to 1e2, χ from -1000 to 1000
+const RHO = Array.from({ length: 12 }, (_, i) => 10 ** (-3 + (5 * i) / 11));
+const CHI = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
+// Log-spaced from 0.01 to 100, and a volume that is 1 where x < 1 (first half of the voxels)
+const RHO_VOLUME = Array.from(
+  { length: 16 },
+  (_, i) => 10 ** (-2 + (4 * i) / 15),
+);
+const NEAR_ORIGIN = Array.from({ length: 12 * 12 * 16 }, (_, i) =>
+  RHO_VOLUME[i % 16] < 1 ? 1 : 0,
+);
+
+function indices(length = 60) {
+  return Array.from({ length }, (_, i) => i);
+}
+
+// 1 at the centre of a 12³ volume down to 1e-12 in its corners
+const DECADES = indices(12 ** 3).map((i) => {
+  const [z, y, x] = [Math.floor(i / 144), Math.floor(i / 12) % 12, i % 12];
+  const r2 = (x - 5.5) ** 2 + (y - 5.5) ** 2 + (z - 5.5) ** 2;
+  return 10 ** ((-12 * r2) / (3 * 5.5 ** 2));
+});
+
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
     isRoot: true,
@@ -785,6 +808,177 @@ export function makeMockFile(): GroupWithChildren {
             }),
           ],
         }),
+      ]),
+      // `H5WEB_*` axis settings on dimension scales, slicing and volumes
+      group('axis_hints', [
+        // `H5WEB_axis_scale`: log-spaced ρ on a log axis, χ on a symlog axis
+        dataset('rho', arrayShape([12]), floatType(), RHO, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'rho'),
+            scalarAttr('H5WEB_axis_scale', 'Log'),
+          ],
+        }),
+        dataset('chi', arrayShape([9]), floatType(), CHI, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'chi'),
+            scalarAttr('H5WEB_axis_scale', 'symlog'),
+            floatAttr('H5WEB_symlog_threshold', 10),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'log_heatmap',
+            arrayShape([9, 12]),
+            floatType(),
+            CHI.flatMap((chi) => RHO.map((rho) => Math.log10(rho) + chi / 100)),
+            { attributes: [intAttr('H5WEB_keep_ratio', 0)] },
+          ),
+          { scales: [['/axis_hints/chi'], ['/axis_hints/rho']] },
+        ),
+        withDimScales(
+          dataset(
+            'log_line',
+            arrayShape([12]),
+            floatType(),
+            RHO.map((rho) => Math.exp(-rho)),
+            { attributes: [scalarAttr('H5WEB_vis', 'line')] },
+          ),
+          { scales: [['/axis_hints/rho']] },
+        ),
+        // Non-positive values can't be on a log axis; invalid value
+        dataset('zero_based', arrayShape([12]), floatType(), indices(12), {
+          attributes: [scalarAttr('H5WEB_axis_scale', 'log')],
+        }),
+        dataset('bad_scale', arrayShape([9]), floatType(), CHI, {
+          attributes: [scalarAttr('H5WEB_axis_scale', 'decibel')],
+        }),
+        withDimScales(
+          dataset(
+            'log_fallback',
+            arrayShape([9, 12]),
+            floatType(),
+            CHI.flatMap((chi) => RHO.map((rho) => rho + chi)),
+            { attributes: [intAttr('H5WEB_keep_ratio', 0)] },
+          ),
+          { scales: [['/axis_hints/bad_scale'], ['/axis_hints/zero_based']] },
+        ),
+        // `H5WEB_slice_labels`: names of the slices, as variable-length strings (netCDF-4
+        // `NC_STRING`) on a numeric scale, or as the values of a fixed-length string scale
+        dataset('package_label', arrayShape([4]), strType(H5T_CSET.UTF8), [
+          'ψ10',
+          'ψ20',
+          'ψ21',
+          'ψ30',
+        ]),
+        dataset('package_index', arrayShape([4]), intType(), [1, 2, 3, 4], {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'package_index'),
+            scalarAttr('H5WEB_slice_labels', 'package_label'),
+          ],
+        }),
+        withDimScales(
+          dataset('packages', arrayShape([4, 3, 5]), floatType(), indices()),
+          { scales: [['/axis_hints/package_index'], [], []] },
+        ),
+        dataset(
+          'blend_angle',
+          arrayShape([3]),
+          strType(H5T_CSET.ASCII, H5T_STR.NULLPAD, 8),
+          ['0 deg', '30 deg', '60 deg'],
+          {
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr('NAME', 'angle'),
+            ],
+          },
+        ),
+        withDimScales(
+          dataset('blend', arrayShape([3, 5]), floatType(), indices(15), {
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              intAttr('H5WEB_multi_dim', 0),
+            ],
+          }),
+          { scales: [['/axis_hints/blend_angle'], []] },
+        ),
+        // On the dataset: labels the only dimension of their length
+        dataset('own_labels', arrayShape([4, 3, 5]), floatType(), indices(), {
+          attributes: [scalarAttr('H5WEB_slice_labels', 'package_label')],
+        }),
+        dataset('bad_labels', arrayShape([4, 3, 5]), floatType(), indices(), {
+          attributes: [scalarAttr('H5WEB_slice_labels', 'rho')],
+        }),
+        // `H5WEB_playback_dim` (path of its scale): empty images skipped along it on load
+        dataset('step', arrayShape([4]), intType(), [0, 1, 2, 3], {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'step'),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'playback_dim',
+            arrayShape([3, 4, 2, 3]),
+            floatType(),
+            indices(72).map((i) => (i % 24 < 12 ? Number.NaN : i)), // step < 2
+            {
+              attributes: [
+                intAttr('H5WEB_playback_skip_empty', 1),
+                scalarAttr('H5WEB_playback_dim', '/axis_hints/step'),
+              ],
+            },
+          ),
+          { scales: [[], ['/axis_hints/step'], [], []] },
+        ),
+        // `H5WEB_scale` of volumes: density over 12 decades; signed, symlog with its threshold
+        dataset('volume_log', arrayShape([12, 12, 12]), floatType(), DECADES, {
+          attributes: [
+            scalarAttr('H5WEB_vis', 'volume'),
+            scalarAttr('H5WEB_scale', 'log'),
+          ],
+        }),
+        dataset(
+          'volume_symlog',
+          arrayShape([12, 12, 12]),
+          floatType(),
+          DECADES.map((val, i) => (i < 6 * 144 ? -val : val)), // negative below z = 6
+          {
+            attributes: [
+              scalarAttr('H5WEB_vis', 'volume'),
+              scalarAttr('H5WEB_scale', 'symlog'),
+              floatAttr('H5WEB_symlog_threshold', 1e-9),
+            ],
+          },
+        ),
+        // Volume on a log-spaced x axis: voxels at their coordinates, x < 1 (half the voxels) thin
+        dataset('rho_volume', arrayShape([16]), floatType(), RHO_VOLUME, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'rho'),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'volume_nonuniform',
+            arrayShape([12, 12, 16]),
+            floatType(),
+            NEAR_ORIGIN,
+            { attributes: [scalarAttr('H5WEB_vis', 'volume')] },
+          ),
+          { scales: [[], [], ['/axis_hints/rho_volume']] },
+        ),
+        dataset(
+          'volume_uniform',
+          arrayShape([12, 12, 16]),
+          floatType(),
+          NEAR_ORIGIN,
+          {
+            attributes: [scalarAttr('H5WEB_vis', 'volume')],
+          },
+        ),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects

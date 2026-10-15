@@ -4,6 +4,7 @@ import {
   hasArrayShape,
   hasNumericType,
   hasStringType,
+  isAxisScaleType,
   isDataset,
 } from '@h5web/shared/guards';
 import {
@@ -14,6 +15,7 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
+import { type AxisScaleType } from '@h5web/shared/vis-models';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { isTransportError } from '../../providers/utils';
@@ -22,7 +24,8 @@ import {
   findScalarStrAttr,
   getAttributeValue,
 } from '../../utils';
-import { toUnicodeScripts } from '../view-hints/attrs';
+import { createAttrReader, toUnicodeScripts } from '../view-hints/attrs';
+import { getDatasetLabels, getScaleLabels } from './slice-labels';
 
 export interface DimScale {
   label?: string;
@@ -31,6 +34,10 @@ export interface DimScale {
   unit?: string; // scale's `units` attribute, to guess whether to keep the ratio
   longName?: string; // scale's CF `long_name`, raw (`label` starts with it)
   ticks?: AxisTicks; // scale's `H5WEB_ticks` attribute
+  scaleType?: AxisScaleType; // scale's `H5WEB_axis_scale`
+  symlogConstant?: number; // scale's `H5WEB_symlog_threshold`
+  notes?: string[]; // invalid `H5WEB_*` attributes of the scale
+  sliceLabels?: string[]; // labels of the indices (`H5WEB_slice_labels`, string-valued scale)
 }
 
 interface UsableScale {
@@ -61,25 +68,27 @@ export async function getDimScales(
     queryClient.query(queries.dimensionScales(dataset)), // shared with curve detection
   ]);
 
-  return Promise.all(
-    dims.map(async (dimSize, index) => {
+  const dimScales = await Promise.all(
+    dims.map(async (dimSize, index): Promise<DimScale | undefined> => {
       const label = labels[index];
-      const scale = await findUsableScale(
-        scales?.[index] || [], // providers that can't dereference `DIMENSION_LIST` plot against indices
-        dimSize,
-        dataContext,
+      const scalePaths = scales?.[index] || []; // providers that can't dereference `DIMENSION_LIST` plot against indices
+      const scale = await findUsableScale(scalePaths, dimSize, dataContext);
+      const slice = await withoutDataErrors(
+        getScaleLabels(scalePaths, scale?.dataset, dimSize, dataContext),
       );
+      const sliceNotes = slice?.note ? [slice.note] : [];
 
       if (!scale) {
-        // A label names the dimension even when no scale is attached
-        return label ? { label, name: label } : undefined;
+        // A label (or a string-valued scale) names the dimension even when no scale is attached
+        const name = label || slice?.name;
+        return name || sliceNotes.length > 0
+          ? { label: name, name, sliceLabels: slice?.labels, notes: sliceNotes }
+          : undefined;
       }
 
       const { dataset: scaleDataset, value } = scale;
-      const { name, longName, unit, ticks } = await getScaleMeta(
-        scaleDataset,
-        dataContext,
-      );
+      const { name, longName, unit, ticks, notes, ...hints } =
+        await getScaleMeta(scaleDataset, dataContext);
 
       // CF `long_name` of the scale, else the dimension label, else the scale's own name
       const base =
@@ -92,9 +101,39 @@ export async function getDimScales(
         unit,
         longName,
         ticks,
+        ...hints,
+        sliceLabels: slice?.labels,
+        notes: [...(notes ?? []), ...sliceNotes],
       };
     }),
   );
+
+  // `H5WEB_slice_labels` of the dataset itself, over its scales' (notes on the first dimension)
+  const own = await withoutDataErrors(
+    getDatasetLabels(dataset, scales, dataContext),
+  );
+  if (own?.dim !== undefined) {
+    dimScales[own.dim] = { ...dimScales[own.dim], sliceLabels: own.labels };
+  }
+  if (own?.note) {
+    const [first] = dimScales;
+    dimScales[0] = { ...first, notes: [...(first?.notes ?? []), own.note] };
+  }
+  return dimScales;
+}
+
+/* Errors that are not HDF5's own (e.g. network errors) are rethrown */
+async function withoutDataErrors<T>(
+  promise: Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (isTransportError(error)) {
+      throw error;
+    }
+    return undefined;
+  }
 }
 
 /* `NAME` is the name given to `make_scale`, empty if none was. The attributes
@@ -102,14 +141,16 @@ export async function getDimScales(
 async function getScaleMeta(
   scaleDataset: Dataset<ArrayShape, NumericType>,
   dataContext: DataContextValue,
-): Promise<{
-  name?: string;
-  longName?: string;
-  unit?: string;
-  ticks?: AxisTicks;
-}> {
+): Promise<
+  {
+    name?: string;
+    longName?: string;
+    unit?: string;
+    ticks?: AxisTicks;
+  } & AxisHints
+> {
   try {
-    const [name, longName, unit, ticks] = await Promise.all([
+    const [name, longName, unit, ticks, hints] = await Promise.all([
       getAttributeValue(
         scaleDataset,
         findScalarStrAttr(scaleDataset, 'NAME'),
@@ -126,12 +167,14 @@ async function getScaleMeta(
         dataContext,
       ),
       getTicksHint(scaleDataset, dataContext),
+      getAxisHints(scaleDataset, dataContext),
     ]);
     return {
       name,
       longName: longName || undefined,
       unit: unit || undefined,
       ticks,
+      ...hints,
     };
   } catch {
     return {};
@@ -152,6 +195,43 @@ async function getTicksHint(
     return ticks?.trim().toLowerCase() === 'pi' ? 'pi' : undefined;
   } catch {
     return undefined;
+  }
+}
+
+type AxisHints = Pick<DimScale, 'scaleType' | 'symlogConstant' | 'notes'>;
+
+const AXIS_HINT_ATTRS = ['H5WEB_axis_scale', 'H5WEB_symlog_threshold'];
+
+/* `H5WEB_axis_scale` and `H5WEB_symlog_threshold` of a scale (invalid ones with a note); failing
+ * to read them must not hide the scale */
+async function getAxisHints(
+  scaleDataset: Dataset<ArrayShape, NumericType>,
+  dataContext: DataContextValue,
+): Promise<AxisHints> {
+  if (!AXIS_HINT_ATTRS.some((name) => findAttribute(scaleDataset, name))) {
+    return {};
+  }
+  try {
+    const { queryClient, queries } = dataContext;
+    const values = await queryClient.query(queries.attrValues(scaleDataset));
+    const notes: string[] = [];
+    const read = createAttrReader(
+      scaleDataset,
+      values,
+      notes,
+      `${scaleDataset.name}: `,
+    );
+    const scaleType = read.oneOf('H5WEB_axis_scale', (val) => {
+      const type = val.toLowerCase();
+      return isAxisScaleType(type) ? type : undefined;
+    });
+    const symlogConstant = read.num(
+      'H5WEB_symlog_threshold',
+      (v) => Number.isFinite(v) && v > 0,
+    );
+    return { scaleType, symlogConstant, notes };
+  } catch {
+    return {};
   }
 }
 

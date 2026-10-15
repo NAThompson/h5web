@@ -14,13 +14,15 @@ import {
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
 import { type IsosurfaceGeometry } from './marchingCubes';
-import { IsoColorMode } from './models';
+import { type AxisValues, IsoColorMode } from './models';
 import { SURFACE_DEPTH_LAYER } from './SurfaceDepthPass';
+import { remapIsosurface } from './utils';
 
 interface Props {
   geometry: IsosurfaceGeometry;
   shape: number[];
   boxSize: [number, number, number];
+  axisValues: AxisValues; // voxels of non-uniform axes at their coordinates
   color: string;
   opacity: number;
   colorMode: IsoColorMode;
@@ -71,6 +73,7 @@ function IsosurfaceMesh(props: Props) {
     geometry,
     shape,
     boxSize,
+    axisValues,
     color,
     opacity,
     colorMode,
@@ -81,12 +84,19 @@ function IsosurfaceMesh(props: Props) {
   } = props;
 
   const bufferGeometry = useMemo(() => {
+    const { positions, normals } =
+      remapIsosurface(
+        geometry.positions,
+        geometry.normals,
+        shape,
+        axisValues,
+      ) ?? geometry;
     const geom = new BufferGeometry();
-    geom.setAttribute('position', new BufferAttribute(geometry.positions, 3));
-    geom.setAttribute('normal', new BufferAttribute(geometry.normals, 3));
+    geom.setAttribute('position', new BufferAttribute(positions, 3));
+    geom.setAttribute('normal', new BufferAttribute(normals, 3));
     geom.setIndex(new BufferAttribute(geometry.indices, 1));
     return geom;
-  }, [geometry]);
+  }, [geometry, shape, axisValues]);
 
   useEffect(() => () => bufferGeometry.dispose(), [bufferGeometry]);
 

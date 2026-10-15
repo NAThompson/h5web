@@ -44,6 +44,7 @@ const WAITING_TITLES: Record<PlaybackWaiting, string> = {
 interface Props {
   dimension: number;
   isPlaying: boolean;
+  isDefault?: boolean; // dimension played by default (e.g. from a file's hint): marked
   waiting?: PlaybackWaiting;
   settings: PlaybackSettings;
   rangeHint?: string;
@@ -55,6 +56,7 @@ function PlaybackControls(props: Props) {
   const {
     dimension,
     isPlaying,
+    isDefault,
     waiting,
     settings,
     rangeHint,
@@ -85,7 +87,11 @@ function PlaybackControls(props: Props) {
 
   return (
     <div className={styles.controls}>
-      <span className={styles.playBtn} data-waiting={waiting}>
+      <span
+        className={styles.playBtn}
+        data-waiting={waiting}
+        data-default={isDefault || undefined}
+      >
         <Btn
           label={`Play D${dimension}`}
           Icon={waiting ? FiLoader : isPlaying ? FiPause : FiPlay}
@@ -94,7 +100,13 @@ function PlaybackControls(props: Props) {
           aria-pressed={isPlaying}
           aria-busy={!!waiting}
           aria-describedby={waiting && `${fieldId}-waiting`}
-          title={waiting && `${WAITING_TITLES[waiting]} (click to pause)`}
+          title={
+            waiting
+              ? `${WAITING_TITLES[waiting]} (click to pause)`
+              : isDefault
+                ? 'Default playback dimension'
+                : undefined
+          }
           onClick={onTogglePlay}
         />
         {waiting && (

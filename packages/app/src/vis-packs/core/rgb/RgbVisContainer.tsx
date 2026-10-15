@@ -42,7 +42,7 @@ function RgbVisContainer(props: VisContainerProps) {
   const config = useRgbConfig();
   const selection = getSliceSelection(dimMapping);
 
-  const { dimHints, dimLabels } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
 
   const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
 
@@ -53,6 +53,7 @@ function RgbVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimLabels={dimLabels}
+        sliceLabels={sliceLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

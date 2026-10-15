@@ -41,9 +41,9 @@ import {
 import ColorBar from './ColorBar';
 import HeatmapMesh from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
-import { useCellEdges, useMask, useTextureSafeNdArray } from './hooks';
+import { useHeatmapAxis, useMask, useTextureSafeNdArray } from './hooks';
 import { type ColorMap, type TooltipData } from './models';
-import { getPixelCentres, isNonUniformAxis } from './utils';
+import { getAxisType } from './utils';
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -114,11 +114,15 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
   } = ordinateParams;
   const [rows, cols] = dataArray.shape;
 
-  const abscissas = useCellEdges(abscissaValue, cols);
+  // Log and symlog axes are non-uniform axes in the scale's space (cf. `getHeatmapAxis`)
+  const xAxis = useHeatmapAxis(abscissaValue, cols, abscissaParams);
+  const yAxis = useHeatmapAxis(ordinateValue, rows, ordinateParams);
+
+  const abscissas = xAxis.edges;
   const abscissaDomain = useAxisDomain(abscissas);
   assertDefined(abscissaDomain, 'Abscissas have undefined domain');
 
-  const ordinates = useCellEdges(ordinateValue, rows);
+  const ordinates = yAxis.edges;
   const ordinateDomain = useAxisDomain(ordinates);
   assertDefined(ordinateDomain, 'Ordinates have undefined domain');
 
@@ -126,10 +130,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
   const ordinateToIndex = useValueToIndexScale(ordinates);
 
   // Non-uniform pixels: mesh remapped to the edges; pixel values (if given) are pixel centres
-  const xEdges = isNonUniformAxis(abscissaValue, cols) ? abscissas : undefined;
-  const yEdges = isNonUniformAxis(ordinateValue, rows) ? ordinates : undefined;
-  const xCentres = getPixelCentres(abscissaValue, abscissas);
-  const yCentres = getPixelCentres(ordinateValue, ordinates);
+  const xCentres = xAxis.centres;
+  const yCentres = yAxis.centres;
 
   const safeDataArray = useTextureSafeNdArray(dataArray);
   const safeAlphaArray = useTextureSafeNdArray(alpha?.array);
@@ -148,7 +150,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         abscissaConfig={{
           visDomain: abscissaDomain,
           showGrid,
-          isIndexAxis: isIntegerAxis(abscissaValue),
+          scaleType: xAxis.scaleType,
+          isIndexAxis: isIntegerAxis(abscissaValue, getAxisType(xAxis)),
           label: abscissaLabel,
           flip: flipXAxis,
           ticks: abscissaTicks,
@@ -156,7 +159,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         ordinateConfig={{
           visDomain: ordinateDomain,
           showGrid,
-          isIndexAxis: isIntegerAxis(ordinateValue),
+          scaleType: yAxis.scaleType,
+          isIndexAxis: isIntegerAxis(ordinateValue, getAxisType(yAxis)),
           label: ordinateLabel,
           flip: flipYAxis,
           ticks: ordinateTicks,
@@ -212,10 +216,10 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           badColor={ignoredColor}
           belowColor={belowColor}
           aboveColor={aboveColor}
-          xEdges={xEdges}
-          yEdges={yEdges}
-          xCentres={xCentres}
-          yCentres={yCentres}
+          xEdges={xAxis.meshEdges}
+          yEdges={yAxis.meshEdges}
+          xCentres={xAxis.meshCentres}
+          yCentres={yAxis.meshCentres}
         />
 
         {children}

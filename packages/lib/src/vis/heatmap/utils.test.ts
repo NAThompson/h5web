@@ -8,6 +8,7 @@ import {
   getCellEdges,
   getChunkBounds,
   getGlslPixels,
+  getHeatmapAxis,
   getIndexToPosition,
   getLinearGradient,
   getRelativePixels,
@@ -415,5 +416,30 @@ describe('getGlslPixels', () => {
     expect(getGlslPixels(false, true).remapping).toContain(
       'vec2(coords.x, toTexCoord(yPixels, coords.y))',
     );
+  });
+});
+
+describe('getHeatmapAxis', () => {
+  it('should lay out log axes as non-uniform axes in log space', () => {
+    const axis = getHeatmapAxis([1, 10, 100, 1000], 4, ScaleType.Log);
+    expect(axis.scaleType).toBe(ScaleType.Log);
+    expect(axis.meshEdges).toBeUndefined(); // evenly spaced in log space
+    expect(axis.edges[4]).toBeCloseTo(10_000); // pixel starts, last one a decade wide
+
+    const uneven = getHeatmapAxis([1, 2, 5, 10], 4, ScaleType.Log);
+    expect(uneven.meshEdges).toHaveLength(5);
+    expect(uneven.edges[1]).toBeCloseTo(Math.SQRT2); // geometric mid-point
+    expect(uneven.centres).toEqual([1, 2, 5, 10]);
+  });
+
+  it('should keep linear axes that the scale cannot show', () => {
+    expect(getHeatmapAxis([0, 1, 2], 3, ScaleType.Log).scaleType).toBe(
+      ScaleType.Linear,
+    );
+    expect(getHeatmapAxis(undefined, 3, ScaleType.Log).edges).toEqual([
+      0, 1, 2, 3,
+    ]);
+    const symlog = getHeatmapAxis([-10, 0, 10], 3, [ScaleType.SymLog, 1]);
+    expect(symlog.scaleType).toEqual([ScaleType.SymLog, 1]);
   });
 });

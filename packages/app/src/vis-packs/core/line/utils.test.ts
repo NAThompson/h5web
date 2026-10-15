@@ -14,4 +14,10 @@ describe('getMultiPlotSliceLabel', () => {
     );
     expect(getMultiPlotSliceLabel(1, 0, undefined, [0.5, 1.5])).toBe('D1: 0.5');
   });
+
+  it('label slice with its slice label alone', () => {
+    expect(getMultiPlotSliceLabel(0, 1, 'angle', [0, 30], ['a', 'b'])).toBe(
+      'b',
+    );
+  });
 });

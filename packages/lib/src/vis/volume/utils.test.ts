@@ -10,9 +10,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   canAllocateVolumeTexture,
+  getAxisLookup,
   getBoxSize,
   getBoxSizeFromAxes,
+  getStepCount,
   getVolumeTexture,
+  remapIsosurface,
   toContiguousArray,
   toNormalizedHalfFloats,
 } from './utils';
@@ -177,5 +180,67 @@ describe('canAllocateVolumeTexture', () => {
       false,
     );
     expect(calls.at(-1)).toStrictEqual(['deleteTexture']);
+  });
+});
+
+describe('getAxisLookup', () => {
+  it('should give relative positions of voxel edges and centres of non-uniform axes', () => {
+    expect(getAxisLookup([0, 1, 2, 3], 4)).toBeUndefined();
+
+    // Voxel centres at 0, 1 and 10000: edges at -0.5, 0.5, 5000.5 and 15000
+    const knots = getAxisLookup([0, 1, 10_000], 3);
+    const span = 15_000.5;
+    expect(knots).toHaveLength(7);
+    expect(knots?.[2]).toBeCloseTo(1 / span); // edge 0.5
+    expect(knots?.[3]).toBeCloseTo(1.5 / span); // centre 1, at texture coordinate 3 / 6
+
+    // Rays step finer across the narrow voxels, up to 4 times
+    expect(getStepCount(undefined, 3)).toBe(3);
+    expect(getStepCount(knots, 3)).toBe(12);
+    expect(getStepCount(getAxisLookup([0, 1, 3], 3), 3)).toBeCloseTo(4.5);
+  });
+});
+
+describe('remapIsosurface', () => {
+  it('should move vertices along non-uniform axes and tilt normals with them', () => {
+    const positions = Float32Array.from([1, 1, 1]);
+    const normals = Float32Array.from([Math.SQRT1_2, Math.SQRT1_2, 0]);
+    expect(
+      remapIsosurface(
+        positions,
+        normals,
+        [3, 3, 3],
+        [undefined, undefined, undefined],
+      ),
+    ).toBeUndefined();
+
+    // x: voxel centres at 0, 1 and 3 (twice as stretched beyond the middle voxel)
+    const remapped = remapIsosurface(
+      Float32Array.from([1.5, 1, 1]),
+      normals,
+      [3, 3, 3],
+      [[0, 1, 3], undefined, undefined],
+    );
+    // Halfway between the centres at 1 and 3 in value, in index-equivalent units of a 4.5-wide box
+    expect(remapped?.positions[0]).toBeCloseTo((2.5 / 4.5) * 3 - 0.5);
+    expect(remapped?.positions[1]).toBe(1);
+    const [nx, ny] = remapped?.normals ?? [];
+    expect(nx).toBeLessThan(ny); // stretched along x: normal turns towards y
+    expect(Math.hypot(nx, ny)).toBeCloseTo(1);
+  });
+});
+
+describe('getBoxSizeFromAxes (non-uniform)', () => {
+  it('should size boxes of non-uniform axes from their first to last voxel edge', () => {
+    expect(
+      getBoxSizeFromAxes(
+        [2, 2, 3],
+        [
+          [0, 1, 3],
+          [0, 1],
+          [0, 1],
+        ],
+      ),
+    ).toEqual([4.5, 2, 2]);
   });
 });

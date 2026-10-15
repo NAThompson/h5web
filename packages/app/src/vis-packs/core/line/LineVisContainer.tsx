@@ -9,10 +9,14 @@ import { useMemo } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimInfo } from '../../dimscales/hooks';
+import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { toUnicodeScripts } from '../../view-hints/attrs';
+import {
+  getAxisScaleHint,
+  getDimScaleNotes,
+} from '../../view-hints/axis-scales';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { useLineOverlays } from '../../view-hints/references';
@@ -48,10 +52,16 @@ function LineVisContainer(props: VisContainerProps) {
     [dimMapping, multiDim],
   );
 
-  const config = useLineConfig(getLineSuggestions(hint));
+  // `H5WEB_axis_scale` of the scale on the x axis, once dimension scales are resolved
+  const dimScales = useCachedDimScales(entity);
+  const xAxisScale = getAxisScaleHint(dimScales, lineMapping, dims, 'x', false);
+  const config = useLineConfig({
+    ...getLineSuggestions(hint),
+    xScaleType: xAxisScale.scaleType,
+  });
   const selection = getSliceSelection(lineMapping);
 
-  const { dimHints, dimLabels } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
 
   // Extra curves of the hint, sliced along with the dataset
   const series = useLineSeries(entity, hint, lineMapping);
@@ -77,6 +87,7 @@ function LineVisContainer(props: VisContainerProps) {
       withPlaybackRange: true,
       skipEmpty: hint.playbackSkipEmpty,
       playbackDefaults: hint.playback,
+      playbackDim: hint.playbackDim,
       onSkipEmptyStart: setDimMapping,
     },
   );
@@ -88,6 +99,7 @@ function LineVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimLabels={dimLabels}
+        sliceLabels={sliceLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}
@@ -105,7 +117,7 @@ function LineVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisLabels, axisValues, axisTicks }) => (
+              render={({ axisLabels, axisValues, axisTicks, axisScales }) => (
                 <MappedLineVis
                   dataset={entity}
                   value={value}
@@ -113,6 +125,12 @@ function LineVisContainer(props: VisContainerProps) {
                   axisLabels={axisLabels}
                   axisValues={axisValues}
                   axisTicks={axisTicks}
+                  multiSliceLabels={
+                    multiDim === undefined ? undefined : sliceLabels[multiDim]
+                  }
+                  xSymlogConstant={
+                    axisScales[lineMapping.indexOf('x')]?.symlogConstant
+                  }
                   title={hint.title ?? entity.name}
                   valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}
@@ -134,7 +152,14 @@ function LineVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={[...references.notes, ...series.notes]} />
+      <OverlayNotes
+        notes={[
+          ...references.notes,
+          ...series.notes,
+          ...getDimScaleNotes(dimScales),
+          ...xAxisScale.notes,
+        ]}
+      />
     </>
   );
 }
