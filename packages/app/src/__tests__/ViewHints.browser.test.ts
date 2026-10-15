@@ -747,10 +747,18 @@ test('skip empty images during playback and steps with `H5WEB_playback_skip_empt
   await expect.element(kSlider).toHaveValue(4);
   await userEvent.keyboard('{ArrowDown}');
   await expect.element(kSlider).toHaveValue(4);
+
+  // `Home` and `PageDown` land on the first image that isn't empty
+  await userEvent.keyboard('{End}{Home}');
+  await expect.element(kSlider).toHaveValue(4);
+  await userEvent.keyboard('{End}{PageDown}');
+  await expect.element(kSlider).toHaveValue(4);
 });
 
 test('start with the hinted playback settings, until the user changes them', async () => {
-  await renderApp('/view_hints/playback_settings');
+  const { selectExplorerNode } = await renderApp(
+    '/view_hints/playback_settings',
+  );
 
   await page.getByRole('button', { name: 'D0 playback settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'D0 playback settings' });
@@ -758,7 +766,14 @@ test('start with the hinted playback settings, until the user changes them', asy
   expect(dialog.getByLabelText('Bounce')).toBeChecked();
   expect(dialog.getByLabelText('Range: Each slice')).toBeChecked();
 
-  await dialog.getByLabelText('Loop').click();
-  await expect.element(dialog.getByLabelText('Loop')).toBeChecked();
+  await dialog.getByLabelText('Once').click();
+  await expect.element(dialog.getByLabelText('Once')).toBeChecked();
   expect(dialog.getByLabelText('Speed')).toHaveValue(4);
+
+  // Only the edited setting is remembered for other datasets, not the hinted ones
+  await selectExplorerNode('skip_blank');
+  await page.getByRole('button', { name: 'D0 playback settings' }).click();
+  await expect.element(dialog.getByLabelText('Once')).toBeChecked();
+  expect(dialog.getByLabelText('Speed')).toHaveValue(10);
+  expect(dialog.getByLabelText('Range: Whole sequence')).toBeChecked();
 });

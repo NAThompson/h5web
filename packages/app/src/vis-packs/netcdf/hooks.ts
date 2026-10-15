@@ -2,7 +2,7 @@ import { type IgnoreValue } from '@h5web/lib';
 import { createMemo } from '@h5web/shared/createMemo';
 import { hasArrayShape, hasNumericType } from '@h5web/shared/guards';
 import { type Dataset } from '@h5web/shared/hdf5-models';
-import { useQuery, useSuspenseQueries } from '@tanstack/react-query';
+import { useSuspenseQueries } from '@tanstack/react-query';
 
 import {
   type DataContextValue,
@@ -74,22 +74,6 @@ export function getCachedIsInvalid(
   return {
     isInvalid: ignoreValue ? (val) => ignoreValue(Number(val)) : undefined,
   };
-}
-
-/* Whether the invalid raw values of a dataset are known (cf. `getCachedIsInvalid`), without
- * fetching; re-renders once they are */
-export function useIsInvalidKnown(dataset: Dataset): boolean {
-  const dataContext = useDataContext();
-  const observe = { enabled: false }; // fetched by the vis
-  const { data: packing } = useQuery({
-    ...packingQuery(dataset, dataContext),
-    ...observe,
-  });
-  const { data: ignoreValue } = useQuery({
-    ...ignoreValueQuery(dataset, dataContext),
-    ...observe,
-  });
-  return !!packing || (packing !== undefined && ignoreValue !== undefined);
 }
 
 export function usePackings(

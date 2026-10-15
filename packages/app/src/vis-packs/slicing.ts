@@ -4,22 +4,31 @@ import {
   getSliceSelection,
   type PlaybackSettings,
 } from '@h5web/lib';
+import { hasArrayShape } from '@h5web/shared/guards';
 import {
   type ArrayShape,
   type Dataset,
   type ScalarShape,
 } from '@h5web/shared/hdf5-models';
-import { useUnmountEffect } from '@react-hookz/web';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useSyncedRef, useUnmountEffect } from '@react-hookz/web';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { usePlaybackSettingsState } from '../dim-mapping-store';
-import { useDataContext } from '../providers/DataProvider';
+import {
+  type DataContextValue,
+  useDataContext,
+} from '../providers/DataProvider';
 import { type ValueQueryParams } from '../providers/models';
 import { getCachedValue, hasValueFailed, isValueInCache } from '../utils';
 import { useConfirmedSize } from './fetch-confirmation';
 import { getGuardKey, getMaxAutoFetchSize } from './LargeValueGuard';
-import { getCachedIsInvalid, useIsInvalidKnown } from './netcdf/hooks';
+import { getCachedIsInvalid } from './netcdf/hooks';
 import { type NxData } from './nexus/models';
 import { getNxValueRequests } from './nexus/NxValuesFetcher';
 import { type PlaybackRangeValue } from './playback-range';
@@ -71,7 +80,56 @@ export interface SlicingOpts {
   /* Initial playback settings (e.g. from a view hint), over the remembered ones until the user
    * changes them */
   playbackDefaults?: Partial<PlaybackSettings>;
+  /* With `skipEmpty`: on first load, until the user changes the mapping, called to move the first
+   * sliced dimension past empty slices (e.g. all `NaN` at k = 0) */
+  onSkipEmptyStart?: (mapping: DimensionMapping) => void;
 }
+
+const SKIP_START_PREFETCH = 4; // slices fetched ahead at once to find a non-empty one
+
+/* Keys of the edited settings, and the defaults they override */
+function withoutEdited(
+  defaults: Partial<PlaybackSettings> | undefined,
+  edited: string[],
+): Partial<PlaybackSettings> {
+  return Object.fromEntries(
+    Object.entries(defaults ?? {}).filter(([key]) => !edited.includes(key)),
+  );
+}
+
+/* Version of the values (and invalid values) of a dataset in cache, bumped as they arrive */
+function useCacheVersion(
+  dataContext: DataContextValue,
+  datasetPath: string | undefined,
+  enabled: boolean,
+): number {
+  const { filepath, queryClient } = dataContext;
+  const version = useRef(0);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!enabled) {
+        return () => undefined;
+      }
+      return queryClient.getQueryCache().subscribe((event) => {
+        const [file, type, path] = event.query.queryKey;
+        if (
+          file === filepath &&
+          path === datasetPath &&
+          CACHED_TYPES.has(type) &&
+          (event.type === 'removed' ||
+            (event.type === 'updated' && event.action.type === 'success'))
+        ) {
+          version.current += 1;
+          onChange();
+        }
+      });
+    },
+    [datasetPath, enabled, filepath, queryClient],
+  );
+  return useSyncExternalStore(subscribe, () => version.current);
+}
+
+const CACHED_TYPES = new Set<unknown>(['value', 'packing', 'ignoreValue']);
 
 export function useSlicingProps(
   getRequests: GetRequests,
@@ -84,15 +142,24 @@ export function useSlicingProps(
     getExtraRequests = () => [],
     skipEmpty = false,
     playbackDefaults,
+    onSkipEmptyStart,
   } = opts;
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
   const [emptyValues] = useState(() => new WeakMap<object, boolean>());
+  const mainRequest = getRequests(undefined).at(0); // values whose slices may be empty
+  const datasetPath = mainRequest?.dataset.path;
+
+  // Playback settings: hint defaults over the remembered ones, except those edited for this dataset
   const [storedSettings, setPlaybackSettings] = usePlaybackSettingsState();
-  const [isSettingsEdited, setSettingsEdited] = useState(false);
-  const playbackSettings = isSettingsEdited
-    ? storedSettings
-    : { ...storedSettings, ...playbackDefaults };
+  const [edited, setEdited] = useState<{ path?: string; keys: string[] }>({
+    keys: [],
+  });
+  const editedKeys = edited.path === datasetPath ? edited.keys : [];
+  const playbackSettings = {
+    ...storedSettings,
+    ...withoutEdited(playbackDefaults, editedKeys),
+  };
   const [playingDim, setPlayingDim] = useState<number>();
 
   // Prefetch only what `LargeValueGuard` would let through in this vis
@@ -120,11 +187,12 @@ export function useSlicingProps(
     return [...getRequests(selection), ...getExtraRequests(selection)];
   }
 
-  function isSliceEmpty(mapping: DimensionMapping): boolean {
+  /* Whether a slice is empty: `undefined` until its values (and invalid values) are in cache */
+  function getEmptiness(mapping: DimensionMapping): boolean | undefined {
     const [request] = getRequests(getSliceSelection(mapMapping(mapping)));
     const value = getCachedValue(dataContext, request);
     if (!value || typeof value !== 'object') {
-      return false; // unknown
+      return undefined;
     }
 
     let isEmpty = emptyValues.get(value);
@@ -132,12 +200,106 @@ export function useSlicingProps(
       const invalid = getCachedIsInvalid(request.dataset, dataContext);
       isEmpty = isAllInvalid(value, invalid?.isInvalid);
       if (!invalid && !isEmpty) {
-        return false; // unknown until invalid values are (e.g. all `_FillValue`)
+        return undefined; // until invalid values are known (e.g. all `_FillValue`)
       }
       emptyValues.set(value, isEmpty);
     }
     return isEmpty;
   }
+
+  // Same function until values of the dataset arrive, so that slices aren't all looked up again
+  const cacheVersion = useCacheVersion(dataContext, datasetPath, skipEmpty);
+  const latest = useSyncedRef({
+    getEmptiness,
+    mapMapping,
+    requestsFor,
+    onSkipEmptyStart,
+    maxAutoFetchSize,
+  });
+  const isSliceEmpty = useCallback(
+    (mapping: DimensionMapping) =>
+      latest.current.getEmptiness(mapping) === true,
+    [cacheVersion], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // First load: move past empty slices, fetching a few slices ahead to find a non-empty one
+  const skipStart = useRef({
+    isActive: true,
+    expected: JSON.stringify(dimMapping),
+  });
+  const sliceDims =
+    mainRequest && hasArrayShape(mainRequest.dataset)
+      ? mainRequest.dataset.shape.dims
+      : undefined;
+  useEffect(() => {
+    const start = skipStart.current;
+    const { getEmptiness: emptiness, onSkipEmptyStart: skip } = latest.current;
+    if (!skipEmpty || !skip || !start.isActive) {
+      return;
+    }
+
+    // First sliced dimension, not multi-plotted (as mapped for the vis)
+    const visMapping = latest.current.mapMapping(dimMapping);
+    const dim = dimMapping.findIndex(
+      (val, d) => typeof val === 'number' && typeof visMapping[d] === 'number',
+    );
+    const index = dimMapping[dim];
+    if (
+      JSON.stringify(dimMapping) !== start.expected ||
+      typeof index !== 'number'
+    ) {
+      start.isActive = false; // changed by the user, or nothing to slice
+      return;
+    }
+
+    function withIndex(i: number): DimensionMapping {
+      return dimMapping.map((val, d) => (d === dim ? i : val));
+    }
+    const length = sliceDims?.[dim] ?? 0;
+    for (let i = index; i < length; i += 1) {
+      const isEmpty = emptiness(withIndex(i));
+      if (isEmpty === undefined) {
+        if (i > index) {
+          const ahead = Array.from(
+            { length: Math.min(SKIP_START_PREFETCH, length - i) },
+            (_, k) => withIndex(i + k),
+          );
+          const { requestsFor: forMapping, maxAutoFetchSize: maxSize } =
+            latest.current;
+          if (
+            !prefetchSlices(
+              dataContext,
+              state,
+              ahead.map(forMapping),
+              forMapping(dimMapping),
+              maxSize,
+            )
+          ) {
+            start.isActive = false; // too large to fetch automatically
+          }
+        }
+        return; // wait for values
+      }
+      if (!isEmpty) {
+        if (i === index) {
+          start.isActive = false;
+        } else {
+          start.expected = JSON.stringify(withIndex(i));
+          skip(withIndex(i)); // straight past the empty slices
+        }
+        return;
+      }
+    }
+    start.isActive = false; // all empty
+  }, [
+    cacheVersion,
+    dataContext,
+    dimMapping,
+    latest,
+    skipEmpty,
+    sliceDims,
+    state,
+  ]);
 
   const slicingProps: SlicingProps = {
     // Sliced values in cache: no need to wait for debounce
@@ -168,8 +330,18 @@ export function useSlicingProps(
       ),
     playbackSettings,
     onPlaybackSettingsChange: (settings) => {
-      setSettingsEdited(true);
-      setPlaybackSettings(settings);
+      // Remember only the edited settings, not the hint's defaults
+      const changed = Object.entries(settings).filter(
+        ([key, val]) => playbackSettings[key as keyof PlaybackSettings] !== val,
+      );
+      setPlaybackSettings({
+        ...storedSettings,
+        ...Object.fromEntries(changed),
+      });
+      setEdited({
+        path: datasetPath,
+        keys: [...new Set([...editedKeys, ...changed.map(([key]) => key)])],
+      });
     },
     playingDim,
     onPlayingDimChange: (dim) => {
@@ -204,55 +376,6 @@ function isAllInvalid(
           !!isInvalid?.(val)),
     )
   );
-}
-
-/* On first load, step the first sliced dimension past empty slices (e.g. all `NaN` at k = 0, as
- * known from `isSliceEmpty` once each slice's values arrive), until a slice isn't empty or the
- * user changes the mapping */
-export function useSkipEmptyStart(
-  dataset: Dataset<ScalarShape | ArrayShape>,
-  dims: number[],
-  dimMapping: DimensionMapping,
-  setDimMapping: (mapping: DimensionMapping) => void,
-  isSliceEmpty: SlicingProps['isSliceEmpty'],
-): void {
-  const { queries } = useDataContext();
-  const selection = getSliceSelection(dimMapping);
-  const { data } = useQuery({
-    ...queries.value(dataset, selection),
-    enabled: false, // fetched by the vis: only observed
-  });
-  const isInvalidKnown = useIsInvalidKnown(dataset); // to tell empty slices apart
-
-  const expected = useRef(JSON.stringify(dimMapping)); // initial mapping, then the ones set here
-  const isActive = useRef(true);
-
-  useEffect(() => {
-    if (
-      !isActive.current ||
-      !isSliceEmpty ||
-      data === undefined ||
-      !isInvalidKnown
-    ) {
-      return; // e.g. `skipEmpty` hint, values or invalid values not loaded yet
-    }
-    const dim = dimMapping.findIndex((val) => typeof val === 'number');
-    const index = dimMapping[dim];
-    if (
-      JSON.stringify(dimMapping) !== expected.current || // changed by the user
-      !isSliceEmpty(dimMapping) ||
-      typeof index !== 'number' ||
-      index + 1 >= dims[dim]
-    ) {
-      isActive.current = false;
-      return;
-    }
-
-    const next = [...dimMapping];
-    next[dim] = index + 1;
-    expected.current = JSON.stringify(next);
-    setDimMapping(next);
-  }, [data, dimMapping, dims, isInvalidKnown, isSliceEmpty, setDimMapping]);
 }
 
 export function useDatasetSlicingProps(

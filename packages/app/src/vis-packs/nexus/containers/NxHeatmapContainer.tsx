@@ -83,6 +83,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
       getExtraRequests: overlays.getSliceRequests,
       skipEmpty: hint.playbackSkipEmpty,
       playbackDefaults: hint.playback,
+      onSkipEmptyStart: setDimMapping,
     },
   );
 

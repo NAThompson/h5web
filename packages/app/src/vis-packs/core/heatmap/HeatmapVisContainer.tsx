@@ -12,7 +12,7 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
-import { useDatasetSlicingProps, useSkipEmptyStart } from '../../slicing';
+import { useDatasetSlicingProps } from '../../slicing';
 import {
   useContourSource,
   useLinkedOverlays,
@@ -91,14 +91,8 @@ function HeatmapVisContainer(props: VisContainerProps) {
       getExtraRequests: overlays.getSliceRequests,
       skipEmpty: hint.playbackSkipEmpty,
       playbackDefaults: hint.playback,
+      onSkipEmptyStart: setDimMapping,
     },
-  );
-  useSkipEmptyStart(
-    entity,
-    dims,
-    dimMapping,
-    setDimMapping,
-    slicingProps.isSliceEmpty,
   );
 
   const dimMapper = (
