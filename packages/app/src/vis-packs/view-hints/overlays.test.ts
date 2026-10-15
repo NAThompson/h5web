@@ -365,6 +365,22 @@ describe('shapes', () => {
     ]);
   });
 
+  it('draw trail along a linked second dimension', () => {
+    // Mean stored as (2, G): row 0 holds x, row 1 holds y
+    const meanT = { dataset: arr('meanT', [2, 10]), linkedDim: 1 };
+    const values = [
+      ...Array.from({ length: 10 }, (_, g) => g),
+      ...Array.from({ length: 10 }, (_, g) => 10 * g),
+    ];
+    const shapes = buildOverlayShapes(
+      [overlay({ curve: 'meanT', trail: true }, { curve: meanT })],
+      () => values,
+      2,
+      AXES,
+    );
+    expect(shapes.lines[0]).toMatchObject({ x: [0, 1, 2], y: [0, 10, 20] });
+  });
+
   it('draw whole curve when not a trail, swapping columns if transposed', () => {
     const shapes = buildOverlayShapes(
       [overlay({ curve: 'mean' }, { curve: mean })],

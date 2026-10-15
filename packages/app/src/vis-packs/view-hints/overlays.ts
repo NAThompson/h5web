@@ -720,17 +720,32 @@ function buildCurve(
     return undefined;
   }
 
-  // Trail: rows up to the linked index
-  const rows =
-    hint.trail && index !== undefined
-      ? Math.min(index + 1, Math.floor(values.length / cols))
-      : undefined;
+  if (!hint.trail || index === undefined) {
+    return {
+      x: column(values, cols, cx),
+      y: column(values, cols, cy),
+      ...getLineStyle(hint),
+      head: false,
+    };
+  }
+
+  // Trail: whole dataset, one row per index of the linked dimension (first or second), up to
+  // the current index
+  const steps = getDims(curve.dataset)[curve.linkedDim ?? 0];
+  const isTransposed = curve.linkedDim === 1; // (c, G) rather than (G, c)
+  const rows = Math.min(index + 1, steps);
+  const trailValues = values;
+  function get(row: number, col: number): number {
+    return isTransposed
+      ? trailValues[col * steps + row]
+      : trailValues[row * cols + col];
+  }
 
   return {
-    x: column(values, cols, cx, rows),
-    y: column(values, cols, cy, rows),
+    x: Array.from({ length: rows }, (_, row) => get(row, cx)),
+    y: Array.from({ length: rows }, (_, row) => get(row, cy)),
     ...getLineStyle(hint),
-    head: hint.trail,
+    head: true,
   };
 }
 
