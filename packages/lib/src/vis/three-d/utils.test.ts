@@ -162,7 +162,16 @@ describe('getColorParams', () => {
       [0, 10],
       ScaleType.Linear,
     );
-    expect([...params]).toEqual([0, 0.5, 1, 2, -0.5]);
+    expect([...params]).toEqual([0, 0.5, 1, 2, -1]); // beyond: 2 above, -1 below
+  });
+
+  it('should tell values below the domain apart before scaling them', () => {
+    const params = getColorParams([0, 3, 1.5], [1, 2], [ScaleType.Gamma, 0.5]);
+    expect([...params].slice(0, 2)).toEqual([-1, 2]); // not `NaN` from `(-1) ** 0.5`
+    expect(params[2]).toBeCloseTo(Math.SQRT1_2);
+
+    const descending = getColorParams([12, -2, 5], [10, 0], ScaleType.Linear);
+    expect([...descending]).toEqual([-1, 2, 0.5]); // as clamped colour map ends
   });
 
   it('should return NaN for values that cannot be coloured', () => {

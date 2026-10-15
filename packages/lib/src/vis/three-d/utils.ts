@@ -190,6 +190,9 @@ export function getWorldTransform(
   return (x, y, z) => [toX(x), toY(y), toZ(z)];
 }
 
+const BELOW_PARAM = -1; // colour map positions of values beyond the ends of the domain
+const ABOVE_PARAM = 2;
+
 /**
  * Position of each value on the colour map, in [0, 1] within the domain (below 0 or above 1
  * beyond it), or `NaN` for values that cannot be coloured: `NaN`, ignored values and values not
@@ -205,12 +208,20 @@ export function getColorParams(
   const validMin =
     SCALES_VALID_MINS[Array.isArray(scaleType) ? scaleType[0] : scaleType];
 
+  // Values beyond the domain are classified before scaling (e.g. gamma of a negative offset),
+  // by side of the colour map (the domain may be descending)
+  const [start, end] = domain;
+  const sign = start <= end ? 1 : -1;
   const params = new Float32Array(values.length);
   for (const [i, val] of values.entries()) {
     const param =
       !Number.isFinite(val) || val < validMin || ignoreValue?.(val)
         ? Number.NaN
-        : scale(val);
+        : sign * (val - start) < 0
+          ? BELOW_PARAM
+          : sign * (val - end) > 0
+            ? ABOVE_PARAM
+            : scale(val);
     params[i] = Number.isFinite(param) ? param : Number.NaN;
   }
 
