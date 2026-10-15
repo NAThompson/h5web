@@ -14,9 +14,10 @@ import { useState } from 'react';
 import { usePlaybackSettingsState } from '../dim-mapping-store';
 import { useDataContext } from '../providers/DataProvider';
 import { type ValueQueryParams } from '../providers/models';
-import { hasValueFailed, isValueInCache } from '../utils';
+import { getCachedValue, hasValueFailed, isValueInCache } from '../utils';
 import { useConfirmedSize } from './fetch-confirmation';
 import { getGuardKey, getMaxAutoFetchSize } from './LargeValueGuard';
+import { getCachedIsInvalid } from './netcdf/hooks';
 import { type NxData } from './nexus/models';
 import { getNxValueRequests } from './nexus/NxValuesFetcher';
 import { type PlaybackRangeValue } from './playback-range';
@@ -39,7 +40,10 @@ export type SlicingProps = Required<
     | 'onPlayingDimChange'
   >
 > &
-  Pick<DimensionMapperProps, 'playingDim' | 'playbackRangeHint'>;
+  Pick<
+    DimensionMapperProps,
+    'playingDim' | 'playbackRangeHint' | 'isSliceEmpty'
+  >;
 
 export interface Slicing {
   slicingProps: SlicingProps; // to pass to `DimensionMapper`
@@ -59,6 +63,9 @@ export interface SlicingOpts {
   /* Other values shown with each slice (e.g. overlays), prefetched for playback but not guarded
    * by `LargeValueGuard` nor part of the sequence's range */
   getExtraRequests?: GetRequests;
+  /* Skip slices whose values (the first request) are all `NaN` or ignored, once in cache (e.g.
+   * prefetched during playback): no value is fetched to find out */
+  skipEmpty?: boolean;
 }
 
 export function useSlicingProps(
@@ -70,9 +77,11 @@ export function useSlicingProps(
     mapMapping = (m) => m,
     withPlaybackRange = false,
     getExtraRequests = () => [],
+    skipEmpty = false,
   } = opts;
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
+  const [emptyValues] = useState(() => new WeakMap<object, boolean>());
   const [playbackSettings, setPlaybackSettings] = usePlaybackSettingsState();
   const [playingDim, setPlayingDim] = useState<number>();
 
@@ -99,6 +108,22 @@ export function useSlicingProps(
   function requestsFor(mapping: DimensionMapping): ValueQueryParams[] {
     const selection = getSliceSelection(mapMapping(mapping));
     return [...getRequests(selection), ...getExtraRequests(selection)];
+  }
+
+  function isSliceEmpty(mapping: DimensionMapping): boolean {
+    const [request] = getRequests(getSliceSelection(mapMapping(mapping)));
+    const value = getCachedValue(dataContext, request);
+    if (!value || typeof value !== 'object') {
+      return false; // unknown
+    }
+
+    let isEmpty = emptyValues.get(value);
+    if (isEmpty === undefined) {
+      const isInvalid = getCachedIsInvalid(request.dataset, dataContext);
+      isEmpty = isAllInvalid(value, isInvalid);
+      emptyValues.set(value, isEmpty);
+    }
+    return isEmpty;
   }
 
   const slicingProps: SlicingProps = {
@@ -138,9 +163,31 @@ export function useSlicingProps(
       }
     },
     playbackRangeHint: rangeHint,
+    isSliceEmpty: skipEmpty ? isSliceEmpty : undefined,
   };
 
   return { slicingProps, playbackRange };
+}
+
+/* Whether all values are `NaN` or ignored (not numbers, e.g. strings: never) */
+function isAllInvalid(
+  value: object,
+  isInvalid?: (val: number | bigint) => boolean,
+): boolean {
+  if (!ArrayBuffer.isView(value) && !Array.isArray(value)) {
+    return false;
+  }
+  const values = value as ArrayLike<unknown>; // array or typed array
+  return (
+    values.length > 0 &&
+    Array.prototype.every.call(
+      values,
+      (val) =>
+        (typeof val === 'number' && Number.isNaN(val)) ||
+        ((typeof val === 'number' || typeof val === 'bigint') &&
+          !!isInvalid?.(val)),
+    )
+  );
 }
 
 export function useDatasetSlicingProps(

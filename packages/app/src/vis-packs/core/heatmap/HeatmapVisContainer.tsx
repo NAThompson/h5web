@@ -86,7 +86,11 @@ function HeatmapVisContainer(props: VisContainerProps) {
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
-    { withPlaybackRange: true, getExtraRequests: overlays.getSliceRequests },
+    {
+      withPlaybackRange: true,
+      getExtraRequests: overlays.getSliceRequests,
+      skipEmpty: hint.playbackSkipEmpty,
+    },
   );
 
   const dimMapper = (

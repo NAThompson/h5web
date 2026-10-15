@@ -31,6 +31,8 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
     nextMappings: DimensionMapping[],
     currentMapping: DimensionMapping,
   ) => boolean;
+  // Slices known to be empty (e.g. all `NaN`): skipped by playback, step buttons and arrow keys
+  isSliceEmpty?: (mapping: DimensionMapping) => boolean;
   // Playback: dimension being played (controlled when `onPlayingDimChange` is provided)
   playingDim?: number;
   onPlayingDimChange?: (dim: number | undefined) => void;
@@ -56,6 +58,7 @@ function DimensionMapper(props: Props) {
     onMultiDimChange,
     withPlaybackControls = false,
     isSliceReady = canSliceFast,
+    isSliceEmpty,
     prefetchSlices,
     playingDim: controlledPlayingDim,
     onPlayingDimChange,
@@ -165,6 +168,9 @@ function DimensionMapper(props: Props) {
               }}
               isReady={
                 isSliceReady && ((newVal) => isSliceReady(withMapping(newVal)))
+              }
+              isEmpty={
+                isSliceEmpty && ((newVal) => isSliceEmpty(withMapping(newVal)))
               }
               onPrefetch={
                 prefetchSlices &&

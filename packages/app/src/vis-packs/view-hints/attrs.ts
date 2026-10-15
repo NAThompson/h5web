@@ -322,6 +322,7 @@ export function parseViewHint(
     nanColor: read.str('H5WEB_nan_color', isCssColor),
     belowColor: read.str('H5WEB_below_color', isCssColor),
     aboveColor: read.str('H5WEB_above_color', isCssColor),
+    playbackSkipEmpty: read.bool('H5WEB_playback_skip_empty'),
     title: toUnicodeScripts(read.str('H5WEB_title') ?? read.str('long_name')),
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),

@@ -223,6 +223,12 @@ describe('parseViewHint', () => {
     expect(invalid.notes).toEqual(['ignored invalid "H5WEB_nan_color"']);
   });
 
+  it('parse playback hints', () => {
+    expect(
+      hint({ H5WEB_playback_skip_empty: { int: 1 } }).playbackSkipEmpty,
+    ).toBe(true);
+  });
+
   it('map dimensions to scale names or indices', () => {
     const dimNames = [['generation'], ['x', 'abscissa']];
     expect(

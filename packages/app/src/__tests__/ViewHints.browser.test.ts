@@ -626,3 +626,41 @@ test('colour values beyond the domain with `H5WEB_below_color` / `H5WEB_above_co
   expect(page.getByTitle('Below the domain')).toBeVisible();
   expect(page.getByTitle('Above the domain')).toBeVisible();
 });
+
+test('skip empty images during playback and steps with `H5WEB_playback_skip_empty`', async () => {
+  // (k, p) stack, empty where p > k / 2
+  await renderApp('/view_hints/skip_blank');
+  const kSlider = page.getByRole('slider', { name: 'D0' });
+  const pSlider = page.getByRole('slider', { name: 'D1' });
+
+  await userEvent.click(pSlider);
+  await userEvent.keyboard('{ArrowUp}{ArrowUp}'); // p = 2: k < 4 empty
+  await expect.element(pSlider).toHaveValue(2);
+  await new Promise((resolve) => {
+    setTimeout(resolve, 300); // slicing is debounced
+  });
+  await waitForAllLoaders();
+
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  const seen: number[] = [];
+  for (let i = 0; i < 30; i += 1) {
+    await advance(100); // eslint-disable-line no-await-in-loop -- 10 slices/s by default
+    seen.push(Number(kSlider.element().getAttribute('aria-valuenow')));
+  }
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  vi.useRealTimers();
+
+  // k = 1 to 3 never shown; k = 0 only before it is known to be empty
+  expect(new Set(seen)).toEqual(new Set([4, 5]));
+  expect(document.querySelectorAll('[data-empty]').length).toBeGreaterThan(0);
+
+  // Steps skip known-empty images too: 5 → 4 → (3, 2, 1, 0 empty) stays at 4
+  await userEvent.click(kSlider);
+  await userEvent.keyboard('{End}');
+  await expect.element(kSlider).toHaveValue(5);
+  await userEvent.keyboard('{ArrowDown}');
+  await expect.element(kSlider).toHaveValue(4);
+  await userEvent.keyboard('{ArrowDown}');
+  await expect.element(kSlider).toHaveValue(4);
+});

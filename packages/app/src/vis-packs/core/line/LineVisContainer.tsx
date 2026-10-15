@@ -57,6 +57,7 @@ function LineVisContainer(props: VisContainerProps) {
     {
       mapMapping: (m) => getMultiPlotMapping(m, multiDim),
       withPlaybackRange: true,
+      skipEmpty: hint.playbackSkipEmpty,
     },
   );
 

@@ -1004,6 +1004,14 @@ export function makeMockFile(): GroupWithChildren {
             intAttr('H5WEB_keep_ratio', 0),
           ],
         }),
+        // Playback skips empty images (e.g. k < 4 at p = 2)
+        array('skip_blank', {
+          valueId: 'triangle_stack',
+          attributes: [
+            intAttr('H5WEB_playback_skip_empty', 1),
+            scalarAttr('H5WEB_vis', 'heatmap'),
+          ],
+        }),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

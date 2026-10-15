@@ -558,6 +558,15 @@ export const mockValues = {
       }),
       [5, 4, 6],
     ),
+  /* Triangular stack (k, p, 2, 3), as FockExpansion's: `NaN` images where p > k / 2 */
+  triangle_stack: () =>
+    ndarray(
+      range(0, 6 * 3 * 6).map((i) => {
+        const [k, p] = [Math.floor(i / 18), Math.floor(i / 6) % 3];
+        return p > k / 2 ? Number.NaN : k + p + (i % 6) / 10;
+      }),
+      [6, 3, 2, 3],
+    ),
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
   psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),

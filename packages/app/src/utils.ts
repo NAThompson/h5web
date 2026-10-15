@@ -17,6 +17,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 
 import { type DataContextValue } from './providers/DataProvider';
+import { type ValueQueryParams } from './providers/models';
 
 export function hasAttribute(entity: Entity, attributeName: string): boolean {
   return entity.attributes.some((attr) => attr.name === attributeName);
@@ -120,6 +121,14 @@ export function isValueInCache(
   const { queries, queryClient } = dataContext;
   const { queryKey } = queries.value(dataset, selection);
   return queryClient.getQueryData(queryKey) !== undefined;
+}
+
+export function getCachedValue(
+  dataContext: DataContextValue,
+  { dataset, selection }: ValueQueryParams,
+): unknown {
+  const { queries, queryClient } = dataContext;
+  return queryClient.getQueryData(queries.value(dataset, selection).queryKey);
 }
 
 export function hasValueFailed(

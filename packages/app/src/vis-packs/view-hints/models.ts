@@ -104,6 +104,7 @@ export interface ViewHint {
   nanColor?: string; // CSS colour of NaN / ignored values (3D: drawn on the floor, not as holes)
   belowColor?: string; // CSS colour of values below the colour domain (default: saturate)
   aboveColor?: string;
+  playbackSkipEmpty?: boolean; // playback and steps skip slices that are all NaN / ignored
   title?: string; // title of the figure
   valueLabel?: string; // colour bar / value axis: CF `units`, with `long_name` if not the title
   sliceBy?: string; // dimension scale linking overlays, when the dataset has no such dimension

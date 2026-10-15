@@ -84,6 +84,12 @@
   transform: translateY(50%);
 }
 
+/* Empty slice (skipped by playback): hollow, dim mark */
+.mark[data-empty] {
+  background-color: transparent;
+  opacity: 0.5;
+}
+
 .slicingControls {
   display: flex;
   flex-direction: column;
