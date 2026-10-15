@@ -27,21 +27,42 @@ export function renderMarkup(label: string | undefined): ReactNode {
   );
 }
 
-/* Same, as SVG text content (shifted `<tspan>`) */
-export function renderSvgMarkup(label: string | undefined): ReactNode {
+/* Same, as SVG text content (shifted `<tspan>`), cut short with an ellipsis beyond `maxChars`
+ * characters (then in full in a tooltip) */
+export function renderSvgMarkup(
+  label: string | undefined,
+  maxChars = Infinity,
+): ReactNode {
   const parts = formatLabel(label ?? '');
-  if (parts.every(({ shift }) => !shift)) {
+  const text = parts.map(({ str }) => str).join('');
+  const isCut = text.length > maxChars;
+  if (!isCut && parts.every(({ shift }) => !shift)) {
     return label;
   }
 
-  return parts.map(({ str, shift }, k) => (
-    <tspan
-      // eslint-disable-next-line react/no-array-index-key
-      key={k}
-      baselineShift={shift}
-      fontSize={shift ? '75%' : undefined}
-    >
-      {str}
-    </tspan>
-  ));
+  let budget = Math.max(maxChars - 1, 1); // room for the ellipsis
+  const kept = isCut
+    ? parts.flatMap((part) => {
+        const str = part.str.slice(0, Math.max(budget, 0));
+        budget -= str.length;
+        return str ? [{ ...part, str }] : [];
+      })
+    : parts;
+
+  return (
+    <>
+      {isCut && <title>{text}</title>}
+      {kept.map(({ str, shift }, k) => (
+        <tspan
+          // eslint-disable-next-line react/no-array-index-key
+          key={k}
+          baselineShift={shift}
+          fontSize={shift ? '75%' : undefined}
+        >
+          {str}
+        </tspan>
+      ))}
+      {isCut && '…'}
+    </>
+  );
 }

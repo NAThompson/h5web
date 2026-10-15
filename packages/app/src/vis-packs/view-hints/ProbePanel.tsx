@@ -12,6 +12,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
+import { useMeasure } from '@react-hookz/web';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import ndarray from 'ndarray';
 import { useMemo } from 'react';
@@ -33,6 +34,9 @@ import styles from './ViewHints.module.css';
 function getDimLabel(scale: DimScale | undefined, dim: number): string {
   return scale?.label ?? `D${dim}`;
 }
+
+const LABEL_CHAR_WIDTH = 10; // px, of bold axis labels on average
+const AXES_HEIGHT = 90; // px: header and x axis, not along the value axis
 
 /* Value of a dimension's scale at an index (the index without scale) */
 function getDimValue(scale: DimScale | undefined, index: number): number {
@@ -58,6 +62,7 @@ function ProbePanel(props: Props) {
   const { dataset, dimMapping, probeDim, point, valueLabel } = props;
   const { scaleType: colorScaleType, symlogThreshold } = props;
   const { onProbeDimChange, onClose } = props;
+  const [size, sectionRef] = useMeasure<HTMLElement>(); // to fit the value label
   const dataContext = useDataContext();
   const { queries } = dataContext;
   const packing = usePacking(dataset); // in cache since the heatmap is shown
@@ -105,7 +110,7 @@ function ProbePanel(props: Props) {
     .join(', ');
 
   return (
-    <section className={styles.probe} aria-label="Probe">
+    <section ref={sectionRef} className={styles.probe} aria-label="Probe">
       <header className={styles.probeHeader}>
         <span className={styles.probeTitle}>Probe at {position}</span>
         {slicedDims.length > 1 && (
@@ -153,7 +158,10 @@ function ProbePanel(props: Props) {
               value: scale?.value && toNumArray(scale.value),
               ticks: scale?.ticks,
             }}
-            ordinateLabel={renderSvgMarkup(valueLabel || dataset.name)}
+            ordinateLabel={renderSvgMarkup(
+              valueLabel || dataset.name,
+              size && (size.height - AXES_HEIGHT) / LABEL_CHAR_WIDTH, // long names cut short
+            )}
             ignoreValue={ignoreValue}
           >
             {current && <ProbeSliceMarker x={current.x} y={current.y} />}
