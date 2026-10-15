@@ -22,6 +22,7 @@ import { useCachedDimScales } from '../dimscales/hooks';
 import { type DimScale } from '../dimscales/utils';
 import { useIgnoreValue, usePacking } from '../netcdf/hooks';
 import { unpackNumArray } from '../netcdf/utils';
+import { isAffordable } from './hooks';
 import { getProbeSelection, type ProbePoint } from './probe';
 import ProbeSliceMarker from './ProbeSliceMarker';
 import styles from './ViewHints.module.css';
@@ -52,15 +53,17 @@ interface Props {
 function ProbePanel(props: Props) {
   const { dataset, dimMapping, probeDim, point, valueLabel } = props;
   const { onProbeDimChange, onClose } = props;
-  const { queries } = useDataContext();
+  const dataContext = useDataContext();
+  const { queries } = dataContext;
   const packing = usePacking(dataset); // in cache since the heatmap is shown
   const ignoreValue = useIgnoreValue(dataset); // e.g. `_FillValue`, masked as on the heatmap
   const scales = useCachedDimScales(dataset);
 
   const selection = getProbeSelection(dimMapping, probeDim, point);
+  const isTooLarge = !isAffordable(dataContext, { dataset, selection }); // e.g. a very long dimension
   const { data, error } = useQuery({
     ...queries.value(dataset, selection),
-    enabled: selection !== undefined,
+    enabled: selection !== undefined && !isTooLarge,
     placeholderData: keepPreviousData,
   });
   const values = useMemo(
@@ -123,7 +126,9 @@ function ProbePanel(props: Props) {
         </button>
       </header>
 
-      {error ? (
+      {isTooLarge ? (
+        <p className={styles.probeError}>Values are too large to fetch</p>
+      ) : error ? (
         <p className={styles.probeError}>Values could not be loaded</p>
       ) : (
         values && (

@@ -66,7 +66,7 @@ export function useViewHint(
 
 /* Overlays are fetched without confirmation (cf. `LargeValueGuard`): values above the limit
  * are skipped, unless already in cache */
-function isAffordable(
+export function isAffordable(
   dataContext: DataContextValue,
   { dataset, selection }: ValueQueryParams,
 ): boolean {
