@@ -101,6 +101,7 @@ function LineVisContainer(props: VisContainerProps) {
                   config={config}
                   symlogThreshold={hint.symlogThreshold}
                   valueTransform={hint.valueTransform}
+                  envelope={hint.envelope}
                 />
               )}
             />

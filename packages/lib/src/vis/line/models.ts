@@ -25,6 +25,7 @@ export interface AuxiliaryParams {
   label?: string;
   errors?: NdArray<NumArray>;
   color?: string;
+  width?: number; // line width in CSS pixels (default 1)
   visible?: boolean;
   ignoreValue?: IgnoreValue; // overrides `ignoreValue` prop of `LineVis`
 }

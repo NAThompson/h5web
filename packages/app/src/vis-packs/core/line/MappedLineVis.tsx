@@ -37,7 +37,9 @@ import {
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
 import { toUnicodeScripts } from '../../view-hints/attrs';
+import { useEnvelopes } from '../../view-hints/envelope';
 import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
+import { type Envelope } from '../../view-hints/models';
 import {
   useExportEntries,
   useMappedArray,
@@ -84,6 +86,7 @@ interface Props {
   config: LineConfig;
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
   valueTransform?: ValueTransform; // values are logarithms (`H5WEB_value_transform`)
+  envelope?: Envelope; // running min / max, over the data or instead of it
 }
 
 function MappedLineVis(props: Props) {
@@ -109,6 +112,7 @@ function MappedLineVis(props: Props) {
     config,
     symlogThreshold,
     valueTransform,
+    envelope,
   } = props;
 
   const {
@@ -168,7 +172,18 @@ function MappedLineVis(props: Props) {
   const numAxisArrays = useToNumArrays(axisValues);
 
   // In multi-plotting mode, the multi-plotting dimension is mapped to `y` and the mapped arrays are 2D
-  const mappedArray = useMappedArray(numArray, ...mappingArgs);
+  const multiDim = dimMapping.indexOf('y');
+  const isMultiPlot = multiDim !== -1;
+  const {
+    array: mappedArray, // envelope instead of the data, in `replace` mode
+    envelopes,
+    envelopeLabel,
+  } = useEnvelopes(
+    useMappedArray(numArray, ...mappingArgs),
+    envelope,
+    isMultiPlot,
+    ignoreValue,
+  );
   const mappedErrorsArray = useMappedArray(numErrorsArray, ...mappingArgs);
   const auxArrays = useMappedArrays(numAuxArrays, ...mappingArgs);
   const auxErrorsArrays = useMappedArrays(numAuxErrorsArrays, ...mappingArgs);
@@ -179,9 +194,6 @@ function MappedLineVis(props: Props) {
     scaleType: yScaleType,
     ignoreValue,
   });
-
-  const multiDim = dimMapping.indexOf('y');
-  const isMultiPlot = multiDim !== -1;
 
   const [dataArray, ...sliceArrays] = useMemo(
     () => (isMultiPlot ? getRows(mappedArray) : [mappedArray]),
@@ -260,7 +272,7 @@ function MappedLineVis(props: Props) {
   );
   const visibleSliceCount = slicesVisible.filter(Boolean).length;
 
-  const auxiliaries = isMultiPlot
+  const curveAuxiliaries = isMultiPlot
     ? sliceArrays.map((array, i) => ({
         label: getSliceLabel(i + 1),
         array,
@@ -275,6 +287,20 @@ function MappedLineVis(props: Props) {
         visible: auxVisible[i],
         ignoreValue: auxIgnoreValues[i] ?? ignoreNone, // don't fall back to signal's `ignoreValue`
       }));
+
+  // Envelopes (`add` mode) of the curves: thicker, in their colours in multi-plots
+  const auxiliaries = [
+    ...curveAuxiliaries,
+    ...envelopes.map((array, i) => ({
+      label: isMultiPlot
+        ? `${getSliceLabel(i)}, ${envelopeLabel}`
+        : envelopeLabel,
+      array,
+      color: isMultiPlot ? getSliceColor(i) : undefined,
+      width: 2,
+      visible: slicesVisible[i],
+    })),
+  ];
 
   const exportEntries = useExportEntries(['npy', 'csv'], dataset, selection, {
     csv: () =>
@@ -324,9 +350,9 @@ function MappedLineVis(props: Props) {
         interpolation={interpolation}
         visible={valueVisible && slicesVisible[0]}
         showLegend={
-          isMultiPlot &&
-          visibleSliceCount > 1 &&
-          visibleSliceCount <= MAX_LEGEND_CURVES
+          isMultiPlot
+            ? visibleSliceCount > 1 && visibleSliceCount <= MAX_LEGEND_CURVES
+            : envelopes.length > 0
         }
         testid={dimMapping.toString()}
         valueTransform={valueTransform}

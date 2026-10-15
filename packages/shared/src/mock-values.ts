@@ -631,6 +631,24 @@ export const mockValues = {
       ),
       [4, 6],
     ),
+  // Convergence: error over iterations, not monotonic, with a missing value
+  convergence: () =>
+    ndarray(
+      range(0, 16).map((i) =>
+        i === 5 ? Number.NaN : 10 ** (-i / 3) * (1.5 + Math.sin(2 * i)),
+      ),
+    ),
+  // Error against truncation order, for two parameters
+  convergence_twoD: () =>
+    ndarray(
+      range(0, 24).map((i) => {
+        const [p, k] = [Math.floor(i / 12), i % 12];
+        return k === 10
+          ? Number.NaN
+          : 10 ** (-k / (p + 1)) * (1.2 + Math.cos(3 * k));
+      }),
+      [2, 12],
+    ),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();

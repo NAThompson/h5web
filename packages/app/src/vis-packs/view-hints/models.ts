@@ -77,6 +77,13 @@ export interface TextOverlay extends OverlayBase {
 export type OverlayHint =
   PointsOverlay | EllipseOverlay | CurveOverlay | TextOverlay;
 
+/* Running min / max of a line (`H5WEB_envelope`), drawn over the data or instead of it */
+export interface Envelope {
+  type: 'cummin' | 'cummax';
+  mode: 'add' | 'replace';
+  reverse: boolean; // suffix envelope: over the values from each one to the end
+}
+
 export interface ViewHint {
   vis?: HintVis;
   scaleType?: ColorScaleType; // colour scale (and height of real surfaces)
@@ -100,6 +107,7 @@ export interface ViewHint {
   complex?: ComplexVisType;
   isoLevels?: number[];
   valueTransform?: ValueTransform; // values are log10 / log2: shown as powers
+  envelope?: Envelope; // line: running min / max
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension

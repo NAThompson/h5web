@@ -27,6 +27,7 @@ import { type ColorScaleType, ComplexVisType } from '@h5web/shared/vis-models';
 import { findAttribute } from '../../utils';
 import { type ColorMap } from '../core/heatmap/models';
 import {
+  type Envelope,
   HINT_ATTR_PREFIX,
   HintVis,
   type OverlayHint,
@@ -89,6 +90,25 @@ function readPlayback(read: AttrReader): Partial<PlaybackSettings> | undefined {
     ),
   }).filter(([, val]) => val !== undefined);
   return settings.length > 0 ? Object.fromEntries(settings) : undefined;
+}
+
+/* `H5WEB_envelope`, with its mode and direction (default: `add`, `forward`) */
+function readEnvelope(read: AttrReader): Envelope | undefined {
+  const type = read.oneOf(
+    'H5WEB_envelope',
+    parseAmong<Envelope['type']>(['cummin', 'cummax']),
+  );
+  const mode = read.oneOf(
+    'H5WEB_envelope_mode',
+    parseAmong<Envelope['mode']>(['add', 'replace']),
+  );
+  const direction = read.oneOf(
+    'H5WEB_envelope_direction',
+    parseAmong(['forward', 'reverse']),
+  );
+  return (
+    type && { type, mode: mode ?? 'add', reverse: direction === 'reverse' }
+  );
 }
 
 function parseScaleType(val: string): ColorScaleType | undefined {
@@ -370,6 +390,7 @@ export function parseViewHint(
       'H5WEB_value_transform',
       parseAmong<ValueTransform>(['exp10', 'exp2']),
     ),
+    envelope: readEnvelope(read),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),

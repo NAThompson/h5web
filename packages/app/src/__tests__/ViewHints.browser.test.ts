@@ -422,6 +422,45 @@ test('label logarithms as powers', async () => {
   expect(page.getByLabelText('Min: 3.906e-3')).toBeVisible();
 });
 
+/* Tooltip of a line plot at sample `index` of `count` (abscissas are indices) */
+async function getLineTooltip(index: number, count: number): Promise<string> {
+  const canvas = document.querySelector('figure canvas');
+  assertNonNull(canvas);
+  const { width, height } = canvas.getBoundingClientRect();
+  const span = count - 1;
+  await userEvent.hover(canvas, {
+    position: {
+      x: (width * (index + 0.01 * span)) / (1.02 * span),
+      y: height / 2,
+    },
+  });
+  const tooltip = await vi.waitFor(() => {
+    const el = document.querySelector('[class*="tooltip"]');
+    assertNonNull(el);
+    return el;
+  });
+  return tooltip.textContent;
+}
+
+function getLegend(): string[] {
+  return [...document.querySelectorAll('figure li')].map(
+    (li) => li.textContent,
+  );
+}
+
+test('draw the running envelope of a line over it, or instead of it', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/envelope_add');
+
+  await expect.poll(getLegend).toEqual(['Signal', 'running min']);
+  // Index 5 is NaN: the envelope is carried over it
+  await expect(getLineTooltip(5, 16)).resolves.toMatch(/NaN.*running min = 0\.11555/u);
+
+  // Suffix running max of each curve, instead of the data
+  await selectExplorerNode('envelope_replace');
+  await expect.poll(getLegend).toEqual(['D0[0]', 'D0[1]']);
+  await expect(getLineTooltip(10, 12)).resolves.not.toMatch(/NaN/u); // carried back from k = 11
+});
+
 function countContourLabels(text: string): number {
   // Contour labels are HTML spans, unlike axis tick labels (SVG text)
   return [...document.querySelectorAll('figure span')].filter(

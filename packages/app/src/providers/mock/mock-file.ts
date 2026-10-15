@@ -1167,6 +1167,26 @@ export function makeMockFile(): GroupWithChildren {
             intAttr('H5WEB_keep_ratio', 0),
           ],
         }),
+        // `H5WEB_envelope`: running min over the data, running max from the end instead of it
+        array('envelope_add', {
+          valueId: 'convergence',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_scale', 'log'),
+            scalarAttr('H5WEB_envelope', 'cummin'),
+          ],
+        }),
+        array('envelope_replace', {
+          valueId: 'convergence_twoD',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_scale', 'log'),
+            intAttr('H5WEB_multi_dim', 0),
+            scalarAttr('H5WEB_envelope', 'cummax'),
+            scalarAttr('H5WEB_envelope_mode', 'replace'),
+            scalarAttr('H5WEB_envelope_direction', 'reverse'),
+          ],
+        }),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

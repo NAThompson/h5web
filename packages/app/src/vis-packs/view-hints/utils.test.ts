@@ -102,6 +102,26 @@ describe('parseViewHint', () => {
     });
   });
 
+  it('parse value transforms and envelopes', () => {
+    expect(
+      hint({
+        H5WEB_value_transform: 'EXP10',
+        H5WEB_envelope: 'cummax',
+        H5WEB_envelope_direction: 'reverse',
+      }),
+    ).toMatchObject({
+      valueTransform: 'exp10',
+      envelope: { type: 'cummax', mode: 'add', reverse: true },
+      notes: [],
+    });
+    expect(
+      hint({ H5WEB_envelope: 'min', H5WEB_envelope_mode: 'replace' }),
+    ).toMatchObject({
+      envelope: undefined,
+      notes: ['ignored invalid "H5WEB_envelope"'],
+    });
+  });
+
   it('take the title from `H5WEB_title`, else `long_name`', () => {
     expect(hint({ long_name: 'ψ', H5WEB_title: 'Title' }).title).toBe('Title');
     expect(hint({ long_name: 'ψ_{0}' }).title).toBe('ψ_{0}');
