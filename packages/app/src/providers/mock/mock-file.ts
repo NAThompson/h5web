@@ -999,8 +999,8 @@ export function makeMockFile(): GroupWithChildren {
           valueId: 'nan_stack',
           attributes: [
             floatAttr('H5WEB_domain', 0, 1),
-            scalarAttr('H5WEB_below_color', '#00f'),
-            scalarAttr('H5WEB_above_color', '#f00'),
+            scalarAttr('H5WEB_below_color', 'rgb(0 0 255)'), // CSS colour syntax d3-color can't parse
+            scalarAttr('H5WEB_above_color', 'rgb(255 0 0 / 100%)'),
             intAttr('H5WEB_keep_ratio', 0),
           ],
         }),

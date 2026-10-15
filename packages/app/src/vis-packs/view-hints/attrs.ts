@@ -284,6 +284,22 @@ function isLevels(arr: number[]): boolean {
 function isCssColor(val: string): boolean {
   return typeof CSS === 'undefined' || CSS.supports('color', val);
 }
+
+/* CSS colour as `rgba(…)`, which the renderer parses (unlike e.g. `oklch(…)` or space-separated
+ * `rgb(…)`), from a pixel painted with it; as is without a DOM (e.g. in unit tests) */
+function toRgbaColor(val: string | undefined): string | undefined {
+  const ctx =
+    val && typeof document !== 'undefined'
+      ? document.createElement('canvas').getContext('2d')
+      : null;
+  if (!val || !ctx) {
+    return val;
+  }
+  ctx.fillStyle = val;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+}
 function isPos(val: number): boolean {
   return Number.isFinite(val) && val > 0;
 }
@@ -352,9 +368,9 @@ export function parseViewHint(
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
-    nanColor: read.str('H5WEB_nan_color', isCssColor),
-    belowColor: read.str('H5WEB_below_color', isCssColor),
-    aboveColor: read.str('H5WEB_above_color', isCssColor),
+    nanColor: toRgbaColor(read.str('H5WEB_nan_color', isCssColor)),
+    belowColor: toRgbaColor(read.str('H5WEB_below_color', isCssColor)),
+    aboveColor: toRgbaColor(read.str('H5WEB_above_color', isCssColor)),
     playbackSkipEmpty: read.bool('H5WEB_playback_skip_empty'),
     playback: readPlayback(read),
     title: read.str('H5WEB_title') ?? read.str('long_name'), // `_{…}` and `^{…}` markup kept
