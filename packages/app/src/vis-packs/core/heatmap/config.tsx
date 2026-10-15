@@ -14,7 +14,7 @@ import {
 import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { useSuggestion } from '../hooks';
+import { useSuggestions } from '../hooks';
 import { type ColorMap, ContourColorMode, ContourMode } from './models';
 
 export interface HeatmapConfig {
@@ -218,38 +218,17 @@ export function HeatmapConfigProvider(props: PropsWithChildren) {
   return <StoreContext value={store}>{children}</StoreContext>;
 }
 
+export type HeatmapSuggestions = Partial<Omit<HeatmapConfig, `set${string}`>>;
+
 export function useHeatmapConfig(
-  suggestions: Partial<Pick<HeatmapConfig, 'scaleType' | 'keepRatio'>> = {},
+  suggestions: HeatmapSuggestions = {},
 ): HeatmapConfig {
   const config = useStore(useContext(StoreContext));
 
-  const [scaleType, setScaleType] = useSuggestion(
-    suggestions.scaleType,
-    config.scaleType,
-    config.setScaleType,
-  );
-
-  const [keepRatio, setKeepRatio] = useSuggestion(
-    suggestions.keepRatio,
-    config.keepRatio,
-    config.setKeepRatio,
-  );
-
   /* Surfaces keep their ratio when axes share a unit, not when units differ; without units,
    * the stored setting applies (off by default, so surfaces of unrelated axes aren't slivers) */
-  const [surfaceKeepRatio, setSurfaceKeepRatio] = useSuggestion(
-    suggestions.keepRatio,
-    config.surfaceKeepRatio,
-    config.setSurfaceKeepRatio,
-  );
-
-  return {
-    ...config,
-    scaleType,
-    keepRatio,
-    surfaceKeepRatio,
-    setScaleType,
-    setKeepRatio,
-    setSurfaceKeepRatio,
-  };
+  return useSuggestions(config, {
+    ...suggestions,
+    surfaceKeepRatio: suggestions.surfaceKeepRatio ?? suggestions.keepRatio,
+  });
 }

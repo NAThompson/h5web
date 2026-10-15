@@ -16,6 +16,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { ComplexVisType, ScaleType } from '@h5web/shared/vis-models';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -39,6 +40,7 @@ interface Props {
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
+  onDataDomainChange?: (dataDomain: Domain) => void; // e.g. for hints that depend on the data
 }
 
 function MappedComplexHeatmapVis(props: Props) {
@@ -51,6 +53,7 @@ function MappedComplexHeatmapVis(props: Props) {
     title,
     toolbarContainer,
     config,
+    onDataDomainChange,
   } = props;
 
   const {
@@ -120,6 +123,11 @@ function MappedComplexHeatmapVis(props: Props) {
   const [dataArray, dataDomain] = showsPhase
     ? [phaseArray, phaseDomain]
     : [amplitudeArray, amplitudeDomain];
+
+  const [domainMin, domainMax] = dataDomain;
+  useEffect(() => {
+    onDataDomainChange?.([domainMin, domainMax]);
+  }, [domainMin, domainMax, onDataDomainChange]);
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);

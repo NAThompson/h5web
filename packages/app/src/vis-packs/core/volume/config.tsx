@@ -15,7 +15,7 @@ import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { type ColorMap } from '../heatmap/models';
-import { useSuggestion } from '../hooks';
+import { useSuggestions } from '../hooks';
 
 export interface IsoLevel {
   id: number;
@@ -59,6 +59,7 @@ export interface VolumeConfig {
   addIsoLevel: (value: number) => void;
   updateIsoLevel: (id: number, update: Partial<Omit<IsoLevel, 'id'>>) => void;
   removeIsoLevel: (id: number) => void;
+  setIsoLevels: (isoLevels: IsoLevel[]) => void;
 
   isoColorMode: IsoColorMode;
   setIsoColorMode: (isoColorMode: IsoColorMode) => void;
@@ -96,6 +97,7 @@ function createVolumeConfigStore() {
         setShowVolume: (showVolume) => set({ showVolume }),
 
         isoLevels: [],
+        setIsoLevels: (isoLevels) => set({ isoLevels }),
         addIsoLevel: (value) =>
           set(({ isoLevels }) => {
             const id = Math.max(0, ...isoLevels.map((level) => level.id)) + 1;
@@ -143,16 +145,57 @@ export function VolumeConfigProvider(props: PropsWithChildren) {
 }
 
 export function useVolumeConfig(
-  suggestions: Partial<Pick<VolumeConfig, 'scaleType'>> = {},
+  suggestions: Partial<VolumeConfig> = {},
 ): VolumeConfig {
   const config = useStore(useContext(StoreContext));
 
-  // e.g. NeXus `SILX_style` signal scale type
-  const [scaleType, setScaleType] = useSuggestion(
-    suggestions.scaleType,
-    config.scaleType,
-    config.setScaleType,
-  );
+  // e.g. NeXus `SILX_style` signal scale type, or a file's `H5WEB_view` hint
+  return useSuggestions(config, suggestions);
+}
 
-  return { ...config, scaleType, setScaleType };
+/* Iso levels suggested for the dataset (e.g. by a file's `H5WEB_view` hint): shown in place of
+ * the stored ones, without touching the store, until the user edits them - they are then
+ * committed to the store and edited there */
+export function useSuggestedIsoLevels(
+  config: VolumeConfig,
+  values: number[] | undefined,
+): VolumeConfig {
+  const [isTouched, setTouched] = useState(false);
+  if (!values || isTouched) {
+    return config;
+  }
+
+  const isoLevels = values.map((value, i) => ({
+    id: i + 1,
+    value,
+    visible: true,
+    opacity: 1,
+    color: ISO_COLORS[i % ISO_COLORS.length],
+  }));
+
+  function commit(): void {
+    config.setIsoLevels(isoLevels);
+    setTouched(true);
+  }
+
+  return {
+    ...config,
+    isoLevels,
+    addIsoLevel: (value) => {
+      commit();
+      config.addIsoLevel(value);
+    },
+    updateIsoLevel: (id, update) => {
+      commit();
+      config.updateIsoLevel(id, update);
+    },
+    removeIsoLevel: (id) => {
+      commit();
+      config.removeIsoLevel(id);
+    },
+    setIsoLevels: (levels) => {
+      setTouched(true);
+      config.setIsoLevels(levels);
+    },
+  };
 }

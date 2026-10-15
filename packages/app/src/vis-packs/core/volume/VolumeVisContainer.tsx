@@ -8,9 +8,13 @@ import {
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import { useViewHint } from '../../view-hints/hooks';
+import OverlayNotes from '../../view-hints/OverlayNotes';
+import { getVolumeSuggestions } from '../../view-hints/suggestions';
+import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
-import { useVolumeConfig } from './config';
+import { useSuggestedIsoLevels, useVolumeConfig } from './config';
 import MappedVolumeVis from './MappedVolumeVis';
 
 function VolumeVisContainer(props: VisContainerProps) {
@@ -20,7 +24,11 @@ function VolumeVisContainer(props: VisContainerProps) {
   assertNumDims(entity, 3);
   assertNumericType(entity);
 
-  const config = useVolumeConfig();
+  const hint = useViewHint(entity);
+  const config = useSuggestedIsoLevels(
+    useVolumeConfig(getVolumeSuggestions(hint)),
+    hint.isoLevels,
+  );
 
   // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
   // as `keepRatio` does for heatmaps
@@ -29,27 +37,30 @@ function VolumeVisContainer(props: VisContainerProps) {
     dimUnits.length === 3 && dimUnits.every((unit) => unit === dimUnits[0]);
 
   return (
-    <VisBoundary>
-      <ValueFetcher
-        dataset={entity}
-        render={(value) => (
-          <DimScalesFetcher
-            dataset={entity}
-            render={({ axisValues }) => (
-              <MappedVolumeVis
-                dataset={entity}
-                value={value}
-                toolbarContainer={toolbarContainer}
-                config={config}
-                axisValues={axisValues}
-                withPhysicalAspect={withPhysicalAspect}
-                axisUnit={withPhysicalAspect ? dimUnits[0] : undefined}
-              />
-            )}
-          />
-        )}
-      />
-    </VisBoundary>
+    <>
+      <VisBoundary>
+        <ValueFetcher
+          dataset={entity}
+          render={(value) => (
+            <DimScalesFetcher
+              dataset={entity}
+              render={({ axisValues }) => (
+                <MappedVolumeVis
+                  dataset={entity}
+                  value={value}
+                  toolbarContainer={toolbarContainer}
+                  config={config}
+                  axisValues={axisValues}
+                  withPhysicalAspect={withPhysicalAspect}
+                  axisUnit={withPhysicalAspect ? dimUnits[0] : undefined}
+                />
+              )}
+            />
+          )}
+        />
+      </VisBoundary>
+      <OverlayNotes notes={getHintNotes(hint)} />
+    </>
   );
 }
 

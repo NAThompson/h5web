@@ -4,10 +4,17 @@ import { useMemo } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useVolumeConfig } from '../../core/volume/config';
+import {
+  useSuggestedIsoLevels,
+  useVolumeConfig,
+} from '../../core/volume/config';
 import MappedVolumeVis from '../../core/volume/MappedVolumeVis';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import OverlayNotes from '../../view-hints/OverlayNotes';
+import { getVolumeSuggestions } from '../../view-hints/suggestions';
+import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -41,7 +48,13 @@ function NxVolumeContainer(props: VisContainerProps) {
     defaultSlice: volumeDefaultSlice,
   });
 
-  const config = useVolumeConfig({ scaleType: silxStyle.signalScaleType });
+  const hint = useViewHint(entity, signalDef.dataset);
+  const config = useSuggestedIsoLevels(
+    useVolumeConfig(
+      getVolumeSuggestions(hint, { scaleType: silxStyle.signalScaleType }),
+    ),
+    hint.isoLevels,
+  );
 
   // Size the volume by its axes (and express gradients in their unit) only if all three share a unit
   const volumeAxisDefs = axisDefs.slice(-3);
@@ -92,6 +105,7 @@ function NxVolumeContainer(props: VisContainerProps) {
           }}
         />
       </VisBoundary>
+      <OverlayNotes notes={getHintNotes(hint)} />
     </>
   );
 }

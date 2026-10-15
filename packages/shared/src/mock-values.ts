@@ -502,4 +502,55 @@ export const mockValues = {
     ndarray(range1().map((val) => Math.cos((val * 3.14) / 40))),
   Y_scatter: () =>
     ndarray(range1().map((_, i) => ((i % 10) + (i % 5)) / 123_456)),
+  // Optimizer run over 5 generations, in the index coordinates of `twoD` (41 x 20)
+  cma_generation: () => ndarray(range(0, 5)),
+  cma_mean: () =>
+    ndarray(
+      range(0, 5).flatMap((g) => [30 - 5 * g, 15 - 2 * g]),
+      [5, 2],
+    ),
+  cma_population: () =>
+    ndarray(
+      range(0, 5).flatMap((g) =>
+        [-1, 0, 1].flatMap((k) => [30 - 5 * g + 2 * k, 15 - 2 * g - k]),
+      ),
+      [5, 3, 2],
+    ),
+  cma_fitness: () =>
+    ndarray(
+      range(0, 5).flatMap((g) => [0, 1, 2].map((k) => 100 / (g + 1) + k)),
+      [5, 3],
+    ),
+  cma_cov: () =>
+    ndarray(
+      range(0, 5).flatMap((g) => [4, 1, 1, 2].map((v) => v / (g + 1))),
+      [5, 2, 2],
+    ),
+  // Field on [0, π]² with static overlays on the edges of the domain, in axis values
+  psi_axis: () => ndarray(range(0, 21).map((i) => (i * Math.PI) / 20)),
+  psi: () =>
+    ndarray(
+      range(0, 21 * 21).map((i) =>
+        i % 21 === 0 || i % 21 === 20 // `NaN` on the edges α = 0 and α = π
+          ? Number.NaN
+          : Math.sin(i % 21) * Math.cos(i / 21),
+      ),
+      [21, 21],
+    ),
+  psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
+  psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
+  psi_point: () => ndarray([Math.PI / 2, 0]),
+  many_points: () =>
+    ndarray(
+      range(0, 6000).flatMap((i) => [(i * 7) % 41, (i * 3) % 20]),
+      [6000, 2],
+    ),
+  cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
+  cma_landscapes: () => {
+    const { data } = twoD();
+    return ndarray(
+      range(0, 5).flatMap((g) => data.map((val) => val + 10 * g)),
+      [5, 20, 41],
+    );
+  },
 } satisfies Record<string, () => NdArray<ArrayValue>>;

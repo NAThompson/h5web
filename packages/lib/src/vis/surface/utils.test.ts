@@ -10,6 +10,7 @@ import {
 import {
   assertSurfaceArrays,
   buildSurfaceBuffers,
+  findCell,
   flattenArray,
   getCellCenters,
   getCoordsDomain,
@@ -17,6 +18,7 @@ import {
   getFootprint,
   getSampledIndices,
   getSurfaceColors,
+  interpolateMeshHeight,
   isSurfaceSupported,
   sampleArray,
 } from './utils';
@@ -344,5 +346,65 @@ describe('downsampled colour field', () => {
     const last = sampledHeights.size - 1;
     expect(sampledHeights.data[last]).toBe(rows * cols - 1);
     expect(colors.slice(last * 3, last * 3 + 3)).toEqual(lut.slice(-3));
+  });
+});
+
+describe('findCell', () => {
+  it('find cell of ascending and descending coordinates', () => {
+    expect(findCell([0, 1, 2, 3], 1.25)).toEqual([1, 0.25]);
+    expect(findCell([3, 2, 1, 0], 1.25)).toEqual([1, 0.75]);
+    expect(findCell([0, 1, 2], 2)).toEqual([1, 1]);
+  });
+
+  it('return undefined outside coordinates', () => {
+    expect(findCell([0, 1, 2], -0.1)).toBeUndefined();
+    expect(findCell([0, 1, 2], Number.NaN)).toBeUndefined();
+    expect(findCell([0], 0)).toBeUndefined();
+  });
+});
+
+describe('interpolateMeshHeight', () => {
+  // Heights h(x, y) = x + 10 y at vertices of a 2 x 3 grid (rows: y, columns: x)
+  const heights = ndarray([0, 1, 2, 10, 11, 12], [2, 3]);
+  function getHeight(row: number, col: number): number {
+    return heights.get(row, col);
+  }
+
+  it('interpolate on the triangles of the mesh', () => {
+    // Planar data: same as bilinear
+    expect(
+      interpolateMeshHeight(getHeight, [0, 1, 2], [0, 1], 1.5, 0.5),
+    ).toBeCloseTo(6.5);
+
+    // Non-planar cell: lower-left triangle (a, b, c) uses a, b, c only
+    const saddle = ndarray([0, 1, 1, 0], [2, 2]);
+    function getSaddle(row: number, col: number): number {
+      return saddle.get(row, col);
+    }
+    expect(interpolateMeshHeight(getSaddle, [0, 1], [0, 1], 0.25, 0.25)).toBe(
+      0.5,
+    );
+    expect(interpolateMeshHeight(getSaddle, [0, 1], [0, 1], 0.75, 0.75)).toBe(
+      0.5,
+    );
+  });
+
+  it('follow descending coordinates', () => {
+    expect(interpolateMeshHeight(getHeight, [2, 1, 0], [0, 1], 2, 0)).toBe(0);
+  });
+
+  it('return NaN over holes and undefined outside the grid', () => {
+    function getHole(row: number, col: number): number {
+      return row === 0 && col === 0 ? Number.NaN : getHeight(row, col);
+    }
+    expect(
+      interpolateMeshHeight(getHole, [0, 1, 2], [0, 1], 0.5, 0.5),
+    ).toBeNaN();
+    expect(
+      interpolateMeshHeight(getHole, [0, 1, 2], [0, 1], 1.5, 0.5),
+    ).toBeCloseTo(6.5);
+    expect(
+      interpolateMeshHeight(getHeight, [0, 1, 2], [0, 1], 3, 0),
+    ).toBeUndefined();
   });
 });

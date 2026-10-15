@@ -114,13 +114,20 @@ export function useDimMappingState(opts: {
   axesCount: number;
   lockedDimsCount?: number;
   defaultSlice?: DefaultSlice;
+  defaultMultiDim?: number; // e.g. suggested by a file's `H5WEB_view` hint
 }): [
   DimensionMapping,
   (mapping: DimensionMapping) => void,
   number | undefined,
   (dim: number | undefined) => void,
 ] {
-  const { dims, axesCount, lockedDimsCount = 0, defaultSlice } = opts;
+  const {
+    dims,
+    axesCount,
+    lockedDimsCount = 0,
+    defaultSlice,
+    defaultMultiDim,
+  } = opts;
 
   const store = useContext(StoreContext);
   const state = useStore(store);
@@ -144,7 +151,9 @@ export function useDimMappingState(opts: {
 
   // Use previous dimension mapping if it is still valid
   const currentMapping = isStateValid(state) ? state.mapping : mapping;
-  const currentMultiDim = isStateValid(state) ? state.multiDim : undefined;
+  const currentMultiDim = isStateValid(state)
+    ? state.multiDim
+    : defaultMultiDim;
 
   // Read latest store state, as setters can be called asynchronously (e.g. debounced slicing)
   const setMapping = useCallback(
@@ -152,7 +161,7 @@ export function useDimMappingState(opts: {
       store.setState((prevState) => {
         const prevMultiDim = isStateValid(prevState)
           ? prevState.multiDim
-          : undefined;
+          : defaultMultiDim;
 
         return {
           dims,
@@ -168,7 +177,7 @@ export function useDimMappingState(opts: {
         };
       });
     },
-    [dims, axesCount, lockedDimsCount, isStateValid, store],
+    [dims, axesCount, lockedDimsCount, defaultMultiDim, isStateValid, store],
   );
 
   const setMultiDim = useCallback(

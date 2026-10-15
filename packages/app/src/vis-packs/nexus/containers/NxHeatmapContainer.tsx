@@ -1,4 +1,4 @@
-import { DimensionMapper, getSliceSelection } from '@h5web/lib';
+import { DimensionMapper, type Domain, getSliceSelection } from '@h5web/lib';
 import {
   assertGroup,
   assertMinDims,
@@ -16,6 +16,12 @@ import MappedHeatmapVis from '../../core/heatmap/MappedHeatmapVis';
 import { guessKeepRatio } from '../../core/utils';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
+import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
+import OverlayLegend from '../../view-hints/OverlayLegend';
+import OverlayNotes from '../../view-hints/OverlayNotes';
+import { getHeatmapSuggestions } from '../../view-hints/suggestions';
+import { getNotesIn3D } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
@@ -43,17 +49,42 @@ function NxHeatmapContainer(props: VisContainerProps) {
   const xAxisDef = axisDefs[dimMapping.indexOf('x')];
   const yAxisDef = axisDefs[dimMapping.indexOf('y')];
 
-  const config = useHeatmapConfig({
-    scaleType: silxStyle.signalScaleType,
-    keepRatio: guessKeepRatio(xAxisDef, yAxisDef),
-  });
+  // `H5WEB_view` hint > NeXus `SILX_style` > heuristics
+  const hint = useViewHint(entity, signalDef.dataset);
+  const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
+  const config = useHeatmapConfig(
+    getHeatmapSuggestions(
+      hint,
+      selectedDataset.path,
+      {
+        scaleType: silxStyle.signalScaleType,
+        keepRatio: guessKeepRatio(xAxisDef, yAxisDef),
+      },
+      dataDomain,
+    ),
+  );
 
   const nxDataToFetch = useNxHeatmapDataToFetch(nxData, selectedDef);
+
+  // Overlays declared by the hint, sliced along a linked dimension (e.g. `generation`)
+  const overlays = useLinkedOverlays(selectedDataset, hint, dimMapping);
+  const { extraSlider } = overlays;
 
   const { slicingProps, playbackRange } = useNxSlicingProps(
     nxDataToFetch,
     dimMapping,
-    { withPlaybackRange: true },
+    { withPlaybackRange: true, getExtraRequests: overlays.getSliceRequests },
+  );
+
+  const dimMapper = (
+    <DimensionMapper
+      className={extraSlider ? undefined : visualizerStyles.dimMapper}
+      dims={dims}
+      dimHints={axisLabels}
+      dimMapping={dimMapping}
+      {...slicingProps}
+      onChange={setDimMapping}
+    />
   );
 
   return (
@@ -67,14 +98,11 @@ function NxHeatmapContainer(props: VisContainerProps) {
         />
       )}
 
-      <DimensionMapper
-        className={visualizerStyles.dimMapper}
-        dims={dims}
-        dimHints={axisLabels}
-        dimMapping={dimMapping}
-        {...slicingProps}
-        onChange={setDimMapping}
-      />
+      {extraSlider ? (
+        <LinkedDimMapper {...extraSlider}>{dimMapper}</LinkedDimMapper>
+      ) : (
+        dimMapper
+      )}
 
       <VisBoundary resetKey={dimMapping} playbackRange={playbackRange}>
         <NxValuesFetcher
@@ -93,9 +121,10 @@ function NxHeatmapContainer(props: VisContainerProps) {
                   dimMapping={dimMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
-                  title={title}
+                  title={hint.title ?? title}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  onDataDomainChange={setDataDomain}
                 />
               );
             }
@@ -109,14 +138,23 @@ function NxHeatmapContainer(props: VisContainerProps) {
                 dimMapping={dimMapping}
                 axisLabels={axisLabels}
                 axisValues={axisValues}
-                title={title}
+                title={hint.title ?? title}
                 toolbarContainer={toolbarContainer}
                 config={config}
+                overlays={overlays.shapes}
+                onDataDomainChange={setDataDomain}
               />
             );
           }}
         />
       </VisBoundary>
+      <OverlayNotes
+        notes={[
+          ...overlays.notes,
+          ...(config.surface ? getNotesIn3D(hint) : []),
+        ]}
+      />
+      <OverlayLegend items={overlays.legend} />
     </>
   );
 }

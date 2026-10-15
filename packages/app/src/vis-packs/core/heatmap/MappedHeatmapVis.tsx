@@ -21,7 +21,8 @@ import {
   type NumericType,
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
-import { useMemo } from 'react';
+import { type Domain } from '@h5web/shared/vis-models';
+import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -32,6 +33,9 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
+import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
+import { type OverlayShapes } from '../../view-hints/overlays';
 import {
   useExportEntries,
   useMappedArray,
@@ -52,6 +56,8 @@ interface Props {
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
+  overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_view` hint
+  onDataDomainChange?: (dataDomain: Domain) => void; // e.g. for hints that depend on the data
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -64,6 +70,8 @@ function MappedHeatmapVis(props: Props) {
     title,
     toolbarContainer,
     config,
+    overlays,
+    onDataDomainChange,
   } = props;
 
   const {
@@ -108,6 +116,11 @@ function MappedHeatmapVis(props: Props) {
           { scaleType, ignoreValue },
         ),
     ) || DEFAULT_DOMAIN;
+  const [domainMin, domainMax] = dataDomain;
+  useEffect(() => {
+    onDataDomainChange?.([domainMin, domainMax]);
+  }, [domainMin, domainMax, onDataDomainChange]);
+
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
@@ -193,7 +206,9 @@ function MappedHeatmapVis(props: Props) {
           heightScale={heightScale}
           shading={shading}
           ignoreValue={ignoreValue}
-        />
+        >
+          {overlays && <OverlayLayer3D shapes={overlays} />}
+        </SurfaceVis>
       ) : (
         <HeatmapVis
           className={visualizerStyles.vis}
@@ -224,6 +239,20 @@ function MappedHeatmapVis(props: Props) {
               flipXAxis={flipXAxis}
               flipYAxis={flipYAxis}
               showLabels={contourLabels}
+            />
+          )}
+          {overlays && (
+            <OverlayLayer2D
+              shapes={overlays}
+              abscissas={abscissaParams.value}
+              ordinates={ordinateParams.value}
+              shape={dataArray.shape}
+              colorParams={{
+                domain: safeDomain,
+                scaleType,
+                colorMap,
+                invertColorMap,
+              }}
             />
           )}
         </HeatmapVis>

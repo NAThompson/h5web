@@ -15,7 +15,8 @@ import {
 } from '../models';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
 import Vis3DLayout from '../three-d/Vis3DLayout';
-import { createScale, DEFAULT_DOMAIN } from '../utils';
+import { createScale, DEFAULT_DOMAIN, SCALES_VALID_MINS } from '../utils';
+import { SurfaceContext, type SurfaceContextValue } from './context';
 import SurfaceMesh from './SurfaceMesh';
 import {
   assertSurfaceArrays,
@@ -25,8 +26,23 @@ import {
   getDownsamplingStride,
   getFootprint,
   getSampledIndices,
+  interpolateMeshHeight,
   sampleArray,
 } from './utils';
+
+/* World coordinate within [-half, half], or up to `margin` outside it moved onto the edge */
+function clampToEdge(
+  coord: number,
+  half: number,
+  margin: number,
+): number | undefined {
+  if (!(Math.abs(coord) <= half + margin)) {
+    return undefined; // also `NaN`
+  }
+  return Math.min(Math.max(coord, -half), half);
+}
+
+const OVERLAY_LIFT = 0.002; // lift children drawn on the surface (with the mesh's polygon offset)
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
@@ -187,6 +203,109 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     [colorField, domain, scaleType],
   );
 
+  // Children (e.g. overlays) are drawn in the data coordinates of the surface
+  const surfaceContext = useMemo<SurfaceContextValue>(() => {
+    const xScale = createScale(ScaleType.Linear, {
+      domain: xDomain,
+      range: flipXAxis ? [w / 2, -w / 2] : [-w / 2, w / 2],
+    });
+    const yScale = createScale(ScaleType.Linear, {
+      domain: yDomain,
+      range: flipYAxis ? [h / 2, -h / 2] : [-h / 2, h / 2],
+    });
+    const zScale = createScale(scaleType, {
+      domain,
+      range: [0, 1],
+      clamp: true,
+    });
+    const validMin =
+      SCALES_VALID_MINS[Array.isArray(scaleType) ? scaleType[0] : scaleType];
+
+    // Normalized height of a vertex of the drawn (downsampled) mesh; `NaN` if it leaves a hole
+    function getVertexHeight(row: number, col: number): number {
+      const val = values.get(row, col);
+      if (!Number.isFinite(val) || ignoreValue?.(val)) {
+        return Number.NaN;
+      }
+      if (val < validMin) {
+        return floorUnsupported ? 0 : Number.NaN;
+      }
+      return zScale(val);
+    }
+
+    return {
+      dataToWorld: (x, y, value) => {
+        /* Points up to one cell outside the footprint are moved onto its edge: e.g. lines on
+         * the edges of a domain whose samples stop just short of them (`[0.001, π - 0.001]`) */
+        const wx = clampToEdge(
+          xScale(x),
+          w / 2,
+          w / Math.max(colIndices.length - 1, 1),
+        );
+        const wy = clampToEdge(
+          yScale(y),
+          h / 2,
+          h / Math.max(rowIndices.length - 1, 1),
+        );
+        if (wx === undefined || wy === undefined) {
+          return undefined;
+        }
+
+        if (value !== undefined) {
+          const isValid =
+            Number.isFinite(value) &&
+            !ignoreValue?.(value) &&
+            value >= validMin;
+          return isValid
+            ? [wx, wy, zScale(value) * heightScale + OVERLAY_LIFT]
+            : undefined;
+        }
+
+        // On the mesh as drawn; over a hole (e.g. `NaN` on the edges of the domain): on the floor
+        const height = interpolateMeshHeight(
+          getVertexHeight,
+          xCoords,
+          yCoords,
+          wx,
+          wy,
+        );
+        return [
+          wx,
+          wy,
+          (Number.isFinite(height) ? (height ?? 0) * heightScale : 0) +
+            OVERLAY_LIFT,
+        ];
+      },
+      cellSize: [
+        Math.abs(xDomain[1] - xDomain[0]) / Math.max(colIndices.length - 1, 1),
+        Math.abs(yDomain[1] - yDomain[0]) / Math.max(rowIndices.length - 1, 1),
+      ],
+      domain,
+      scaleType,
+      colorMap,
+      invertColorMap,
+    };
+  }, [
+    values,
+    xCoords,
+    yCoords,
+    rowIndices,
+    colIndices,
+    ignoreValue,
+    floorUnsupported,
+    xDomain,
+    yDomain,
+    w,
+    h,
+    flipXAxis,
+    flipYAxis,
+    domain,
+    scaleType,
+    heightScale,
+    colorMap,
+    invertColorMap,
+  ]);
+
   const valueConfig = useMemo<Axis3DConfig>(
     () => ({ domain, scaleType, label: valueLabel }),
     [domain, scaleType, valueLabel],
@@ -226,7 +345,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
           showGrid={showGrid}
         />
       )}
-      {children}
+      <SurfaceContext value={surfaceContext}>{children}</SurfaceContext>
     </Vis3DLayout>
   );
 }

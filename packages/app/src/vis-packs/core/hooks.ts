@@ -14,7 +14,7 @@ import {
 } from '@h5web/shared/vis-models';
 import { useToggle } from '@react-hookz/web';
 import { type NdArray } from 'ndarray';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useDataContext } from '../../providers/DataProvider';
 import { applyMapping, getBaseArray, toNumArray } from './utils';
@@ -127,4 +127,36 @@ export function useSuggestion<T>(
   }
 
   return [suggestion, patchedSetter];
+}
+
+/* Several suggestions at once (e.g. from NeXus metadata or a file's `H5WEB_view` hint): each
+ * applies until the user changes that setting, through its setter (`setFoo` for `foo`). Keys
+ * present without a value yet (e.g. suggestions that depend on data still loading) are watched
+ * too, so a change made before the suggestion arrives is not overridden. */
+export function useSuggestions<C extends object>(
+  config: C,
+  suggestions: Partial<C>,
+): C {
+  const [ignored, setIgnored] = useState<ReadonlySet<string>>(new Set());
+
+  const patched: Record<string, unknown> = {
+    ...(config as Record<string, unknown>),
+  };
+  for (const [key, value] of Object.entries(suggestions)) {
+    const setterKey = `set${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+    const setter = patched[setterKey];
+    if (typeof setter !== 'function') {
+      continue;
+    }
+
+    if (value !== undefined && !ignored.has(key)) {
+      patched[key] = value;
+    }
+    patched[setterKey] = (...args: unknown[]) => {
+      setter(...args); // eslint-disable-line @typescript-eslint/no-unsafe-call
+      setIgnored((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+    };
+  }
+
+  return patched as C;
 }

@@ -767,6 +767,208 @@ export function makeMockFile(): GroupWithChildren {
           ],
         }),
       ]),
+      // `H5WEB_view` hints: default vis and settings, overlays linked by the `generation` scale
+      group('view_hints', [
+        array('generation', {
+          valueId: 'cma_generation',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'generation'),
+          ],
+        }),
+        ...(
+          [
+            ['population', 'cma_population', 3],
+            ['fitness', 'cma_fitness', 2],
+            ['mean', 'cma_mean', 2],
+            ['C', 'cma_cov', 3],
+            ['sigma', 'cma_sigma', 1],
+          ] as const
+        ).map(([name, valueId, rank]) =>
+          withDimScales(array(name, { valueId }), {
+            scales: [
+              ['/view_hints/generation'],
+              ...Array.from({ length: rank - 1 }, () => []),
+            ],
+          }),
+        ),
+        array('landscape', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              JSON.stringify({
+                vis: 'heatmap',
+                scaleType: 'symlog',
+                colorMap: 'Inferno',
+                sliceBy: 'generation', // no generation dimension: extra slider
+                overlays: [
+                  { points: 'population', colorBy: 'fitness' },
+                  {
+                    ellipse: { mean: 'mean', cov: 'C', scale: 'sigma' },
+                    nsigma: [1, 2],
+                  },
+                  { curve: 'mean', trail: true },
+                ],
+              }),
+            ),
+          ],
+        }),
+        // Generation dimension of its own: overlays follow its slider
+        withDimScales(
+          array('landscapes', {
+            valueId: 'cma_landscapes',
+            attributes: [
+              scalarAttr(
+                'H5WEB_view',
+                JSON.stringify({ overlays: [{ points: 'population' }] }),
+              ),
+            ],
+          }),
+          { scales: [['/view_hints/generation'], [], []] },
+        ),
+        array('landscape_broken', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              JSON.stringify({
+                overlays: [
+                  { points: 'missing' },
+                  { ellipse: { mean: 'sigma', cov: 'C' } },
+                  { points: 'population' },
+                ],
+              }),
+            ),
+          ],
+        }),
+        // Static overlays (no linked dimension) in axis values, on the edges of [0, π]²
+        array('alpha', { valueId: 'psi_axis' }),
+        array('theta', { valueId: 'psi_axis' }),
+        array('edge_0', { valueId: 'psi_edge_0' }),
+        array('edge_pi', { valueId: 'psi_edge_pi' }),
+        array('point', { valueId: 'psi_point' }),
+        withDimScales(
+          array('psi', {
+            attributes: [
+              scalarAttr(
+                'H5WEB_view',
+                JSON.stringify({
+                  version: 1,
+                  vis: 'heatmap',
+                  scaleType: 'symlog',
+                  colorMap: 'auto', // data changes sign: diverging, symmetric
+                  title: 'ψ(α, θ)',
+                  overlays: [
+                    {
+                      curve: 'edge_0',
+                      columns: ['alpha', 'theta'],
+                      color: '#000',
+                      label: 'e–n',
+                    },
+                    {
+                      curve: 'edge_pi',
+                      columns: ['alpha', 'theta'],
+                      color: '#000',
+                      dash: true,
+                    },
+                    {
+                      points: 'point',
+                      columns: ['alpha', 'theta'],
+                      label: 'e–e',
+                      labelMode: 'inline',
+                    },
+                    { text: 'θ = 0', at: [Math.PI / 4, 0], anchor: 'top' },
+                  ],
+                }),
+              ),
+            ],
+          }),
+          { scales: [['/view_hints/theta'], ['/view_hints/alpha']] },
+        ),
+        // Attribute values that fail to load (see `MockApi#getAttrValues`)
+        ...['attr_error', 'attr_network_error'].map((name) =>
+          array(name, {
+            valueId: 'twoD',
+            attributes: [scalarAttr('H5WEB_view', '{"vis": "line"}')],
+          }),
+        ),
+        array('volume_iso', {
+          valueId: 'threeD_fermi',
+          attributes: [
+            scalarAttr('H5WEB_view', '{"vis": "volume", "isoLevels": [-1, 1]}'),
+          ],
+        }),
+        array('volume_plain', {
+          valueId: 'threeD_fermi',
+          attributes: [scalarAttr('H5WEB_view', '{"vis": "volume"}')],
+        }),
+        array('many_points'),
+        dataset(
+          'huge_points', // 1.6 GB: never fetched for an overlay
+          arrayShape([100_000_000, 2]),
+          floatType(),
+          () => {
+            throw new Error('`huge_points` must not be fetched');
+          },
+        ),
+        array('landscape_large', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              JSON.stringify({
+                overlays: [
+                  { points: 'many_points', color: 'red' },
+                  { points: 'huge_points' },
+                  { points: 'point' },
+                ],
+              }),
+            ),
+          ],
+        }),
+        array('line_overlays', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              '{"vis": "line", "scaleType": 1, "overlays": [{"points": "point"}]}',
+            ),
+          ],
+        }),
+        array('bad_json', {
+          valueId: 'twoD',
+          attributes: [scalarAttr('H5WEB_view', '{"vis": "line"')],
+        }),
+        array('surface', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr('H5WEB_view', '{"vis": "surface", "heightScale": 0.8}'),
+          ],
+        }),
+        array('line', {
+          valueId: 'twoD',
+          attributes: [
+            scalarAttr(
+              'H5WEB_view',
+              '{"vis": "line", "yScaleType": "symlog", "xDim": 1, "multiDim": 0}',
+            ),
+          ],
+        }),
+        nxData('nx_overlay', {
+          signal: array('signal', { valueId: 'twoD' }),
+          attributes: [
+            scalarAttr('H5WEB_view', '{"overlays": [{"points": "../point"}]}'),
+          ],
+        }),
+        nxData('nx_line', {
+          signal: array('signal', { valueId: 'twoD' }),
+          attributes: [
+            scalarAttr('SILX_style', '{"signal_scale_type": "log"}'),
+            scalarAttr('H5WEB_view', '{"vis": "line", "scaleType": "symlog"}'),
+          ],
+        }),
+      ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),
         scalar('slow_value', 42),

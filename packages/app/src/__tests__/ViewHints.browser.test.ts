@@ -1,0 +1,299 @@
+import { afterEach, expect, test, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+
+import {
+  advanceFakeTimers as advance,
+  getSelectedVisTab,
+  renderApp,
+} from '../test-utils';
+import { Vis } from '../vis-packs/core/visualizations';
+import { NxDataVis } from '../vis-packs/nexus/visualizations';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+function getLinkedMapper() {
+  return page.getByRole('group', { name: 'Linked dimension generation' });
+}
+
+function getNotes() {
+  return page.getByRole('note', { name: 'View hint notes' });
+}
+
+function getPointsCx(): string[] {
+  // Disc of each point, drawn over its halo
+  const points = document.querySelector('[data-testid="overlay-points"]');
+  return [...(points?.querySelectorAll('g > circle:last-child') ?? [])].map(
+    (circle) => circle.getAttribute('cx') ?? '',
+  );
+}
+
+test('open the vis declared by the hint, with its settings', async () => {
+  await renderApp('/view_hints/landscape');
+
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+  await expect
+    .element(page.getByRole('combobox', { name: 'SymLog' }))
+    .toBeVisible();
+  expect(page.getByText('Inferno', { exact: true })).toBeVisible();
+});
+
+test('open a line plot with log axis and all slices plotted', async () => {
+  await renderApp('/view_hints/line');
+
+  expect(getSelectedVisTab()).toBe(Vis.Line);
+  await expect
+    .element(page.getByRole('combobox', { name: 'Y SymLog' }))
+    .toBeVisible();
+  expect(
+    page.getByRole('checkbox', { name: 'Plot all D0 slices' }),
+  ).toBeChecked();
+});
+
+test('open heatmap in 3D', async () => {
+  await renderApp('/view_hints/surface');
+
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+  await expect
+    .element(page.getByRole('button', { name: 'Show as 3D surface' }))
+    .toHaveAttribute('aria-pressed', 'true');
+  expect(page.getByRole('slider', { name: 'Height scale' })).toHaveValue('0.8');
+});
+
+test('take hint over NeXus metadata', async () => {
+  await renderApp('/view_hints/nx_line');
+
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxLine); // NX Heatmap otherwise
+  await expect
+    .element(page.getByRole('combobox', { name: 'Y SymLog' })) // not `SILX_style`'s log
+    .toBeVisible();
+});
+
+test('draw overlays of a hint on an NXdata group', async () => {
+  await renderApp('/view_hints/nx_overlay');
+
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);
+  await expect.poll(() => getPointsCx()).toHaveLength(1); // path relative to the group
+});
+
+test('let user change hinted settings', async () => {
+  const { user } = await renderApp('/view_hints/landscape');
+
+  await user.click(page.getByRole('combobox', { name: 'SymLog' }));
+  await user.click(page.getByRole('option', { name: 'Linear' }));
+  await expect
+    .element(page.getByRole('combobox', { name: 'Linear' }))
+    .toBeVisible();
+
+  // Slicing the overlays re-renders the vis: the user's choice stays
+  await user.click(getLinkedMapper().getByRole('slider'));
+  await userEvent.keyboard('{ArrowUp}');
+  expect(page.getByRole('combobox', { name: 'Linear' })).toBeVisible();
+});
+
+test('open dataset whose hint cannot be read or fetched', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/attr_error');
+
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap); // heuristics
+  await expect.element(getNotes()).toHaveTextContent('could not be read');
+
+  await selectExplorerNode('attr_network_error');
+  await expect
+    .element(page.getByRole('figure', { name: 'attr_network_error' }))
+    .toBeVisible();
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+  await expect.element(getNotes()).toHaveTextContent('could not be fetched');
+});
+
+test('suggest iso levels without storing them until edited', async () => {
+  await page.viewport(2560, 1080); // whole volume toolbar
+  const { user, selectExplorerNode } = await renderApp(
+    '/view_hints/volume_iso',
+  );
+
+  expect(getSelectedVisTab()).toBe(Vis.Volume);
+  const isoBtn = page.getByRole('button', { name: 'Isosurfaces', exact: true });
+  await user.click(isoBtn);
+  await expect
+    .element(page.getByRole('textbox', { name: 'Level 2 value' }))
+    .toBeVisible();
+  await userEvent.keyboard('{Escape}');
+
+  // Hinted levels don't leak to other datasets
+  await selectExplorerNode('volume_plain');
+  await expect.element(page.getByRole('figure')).toBeVisible();
+  await user.click(isoBtn);
+  await expect
+    .element(page.getByRole('dialog', { name: 'Isosurfaces' }))
+    .toBeVisible();
+  expect(page.getByRole('listitem')).not.toBeInTheDocument();
+
+  await page.viewport(1920, 1080);
+});
+
+test('show notes in visualizations without overlays', async () => {
+  await renderApp('/view_hints/line_overlays');
+
+  expect(getSelectedVisTab()).toBe(Vis.Line);
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('ignored invalid "scaleType"');
+  expect(getNotes()).toHaveTextContent('overlays are drawn on heatmaps only');
+});
+
+test('note overlay features not drawn in 3D', async () => {
+  const { user } = await renderApp('/view_hints/psi');
+  await expect.poll(() => getPointsCx()).toHaveLength(1);
+  expect(page.getByText(/not drawn in 3D/u)).not.toBeInTheDocument();
+
+  await user.click(page.getByRole('button', { name: 'Show as 3D surface' }));
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('not drawn in 3D: text, dashes, inline labels');
+});
+
+test('ignore malformed hint', async () => {
+  await renderApp('/view_hints/bad_json');
+
+  expect(getSelectedVisTab()).toBe(Vis.Heatmap); // heuristics
+  await expect.element(getNotes()).toHaveTextContent('not valid JSON');
+});
+
+test('draw overlays and slice them with an extra linked slider', async () => {
+  const { user } = await renderApp('/view_hints/landscape');
+
+  const mapper = getLinkedMapper();
+  await expect.element(mapper).toBeVisible();
+  const slider = mapper.getByRole('slider');
+  expect(slider).toHaveValue(0);
+
+  // 3 points, 2 ellipses and the mean's trail (a single point at first)
+  await expect.poll(() => getPointsCx()).toHaveLength(3);
+  expect(page.getByTestId('overlay-line').elements()).toHaveLength(3);
+
+  const before = getPointsCx();
+  await user.click(slider);
+  await userEvent.keyboard('{ArrowUp}');
+  await expect.element(slider).toHaveValue(1);
+  await expect.poll(() => getPointsCx()).not.toEqual(before);
+});
+
+test('play linked slider', async () => {
+  await renderApp('/view_hints/landscape');
+  await expect.element(getLinkedMapper()).toBeVisible();
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+
+  const slider = getLinkedMapper().getByRole('slider');
+  await getLinkedMapper().getByRole('button', { name: 'Play D0' }).click();
+  await advance(350); // 10 slices/s by default
+  expect(Number(slider.element().getAttribute('aria-valuenow'))).toBe(3);
+
+  // Trail of the mean grows with the generation
+  vi.useRealTimers();
+  await expect
+    .poll(
+      () =>
+        document
+          .querySelectorAll('[data-testid="overlay-line"] path')
+          .item(5) // trail of the mean (3rd line, drawn over its halo)
+          .getAttribute('d')
+          ?.split('L').length,
+    )
+    .toBeGreaterThan(1);
+});
+
+test('slice overlays with the base dataset when it has the linked dimension', async () => {
+  const { user } = await renderApp('/view_hints/landscapes');
+
+  expect(getLinkedMapper()).not.toBeInTheDocument(); // no extra slider
+  await expect.poll(() => getPointsCx()).toHaveLength(3);
+
+  const before = getPointsCx();
+  await user.click(page.getByRole('slider', { name: 'D0' }));
+  await userEvent.keyboard('{ArrowUp}');
+  await expect.poll(() => getPointsCx()).not.toEqual(before);
+});
+
+test('skip overlays too large to fetch and draw large point sets with GL', async () => {
+  await renderApp('/view_hints/landscape_large');
+
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('"huge_points" is too large to fetch for an overlay');
+
+  // Only the single point is drawn in SVG; the 6000 points are drawn in the canvas
+  await expect.poll(() => getPointsCx()).toHaveLength(1);
+  expect(page.getByTestId('overlay-points').elements()).toHaveLength(1);
+});
+
+test('play base slider with overlays prefetched along', async () => {
+  await renderApp('/view_hints/landscapes');
+  await expect.poll(() => getPointsCx()).toHaveLength(3);
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+
+  const slider = page.getByRole('slider', { name: 'D0' });
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  await advance(350); // 10 slices/s by default: overlays don't hold playback up
+  expect(Number(slider.element().getAttribute('aria-valuenow'))).toBe(3);
+});
+
+test('skip broken overlays without breaking the base vis', async () => {
+  await renderApp('/view_hints/landscape_broken');
+
+  await expect
+    .element(page.getByRole('figure', { name: 'landscape_broken' }))
+    .toBeVisible();
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('overlay 1 (points): "missing" not found');
+  expect(getNotes()).toHaveTextContent(
+    'overlay 2 (ellipse): "sigma" has unexpected shape [5]',
+  );
+
+  // The valid overlay is drawn, with an extra slider found from its scale
+  await expect.element(getLinkedMapper()).toBeVisible();
+  await expect.poll(() => getPointsCx()).toHaveLength(3);
+});
+
+test('draw static overlays in axis values, unclipped on the edges of the domain', async () => {
+  await renderApp('/view_hints/psi');
+
+  await expect.poll(() => getPointsCx()).toHaveLength(1); // single point stored as `(2,)`
+  expect(getLinkedMapper()).not.toBeInTheDocument();
+
+  const [edge0, edgePi] = [1, 3].map((i) =>
+    Number(
+      document
+        .querySelectorAll('[data-testid="overlay-line"] path')
+        .item(i)
+        .getAttribute('d')
+        ?.slice(1)
+        .split(',')[0],
+    ),
+  );
+  const pointX = Number(getPointsCx()[0]);
+  expect(edge0).toBeLessThan(pointX); // α = 0 < π/2 < π
+  expect(pointX).toBeCloseTo((edge0 + edgePi) / 2, 0);
+
+  const svg = document
+    .querySelector('[data-testid="overlays"]')
+    ?.closest('svg');
+  expect(svg && getComputedStyle(svg).overflow).toBe('visible');
+});
+
+test('apply v0.2 keys: title, auto colour map, legend, texts, inline labels', async () => {
+  await renderApp('/view_hints/psi');
+
+  await expect
+    .element(page.getByRole('figure', { name: 'ψ(α, θ)' }))
+    .toBeVisible();
+  await expect.element(page.getByText('RdBu', { exact: true })).toBeVisible(); // data changes sign
+
+  const legend = page.getByRole('list', { name: 'Overlays' });
+  await expect.element(legend).toHaveTextContent('e–n'); // inline label not in legend
+  expect(legend).not.toHaveTextContent('e–e');
+
+  const texts = [...document.querySelectorAll('[data-testid="overlays"] text')];
+  expect(texts.map((text) => text.textContent)).toEqual(['e–e', 'θ = 0']);
+});

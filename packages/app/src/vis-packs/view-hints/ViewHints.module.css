@@ -1,0 +1,92 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background-color: var(--h5w-dimMapper--bgColor, ghostwhite);
+}
+
+.stack > :first-child {
+  flex: none;
+}
+
+.linked {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--secondary);
+}
+
+.linkedLabel {
+  padding: 0.5rem 0.375rem 0;
+  font-size: 0.875em;
+  font-weight: 600;
+  text-align: center;
+}
+
+.linkedMapper {
+  flex: 1;
+  padding-top: 0.25rem;
+}
+
+/* The slider's own label (`D0`) would be confused with the base dataset's first dimension */
+.linkedMapper :global([id$='-0-label']) {
+  visibility: hidden;
+}
+
+.notes {
+  grid-area: vis;
+  align-self: end;
+  justify-self: start;
+  z-index: 1;
+  max-width: 40em;
+  margin: 0 0 3.25rem 4.5rem; /* above the x axis, right of the y axis */
+  padding: 0.25rem 0.5rem;
+  background-color: rgb(255 255 255 / 85%);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--secondary-dark, #555);
+  pointer-events: none;
+}
+
+.notes > p {
+  margin: 0;
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  clip-path: inset(
+    -10px
+  ); /* shapes on the edges of the domain are drawn whole, others clipped */
+  pointer-events: none;
+}
+
+.legend {
+  grid-area: vis;
+  align-self: start;
+  justify-self: start;
+  z-index: 1;
+  margin: 2.5rem 0 0 4.5rem; /* below the title, right of the y axis (3D: clear of "Reset view") */
+  padding: 0.25rem 0.5rem;
+  list-style: none;
+  background-color: rgb(128 128 128 / 75%);
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  color: white;
+  pointer-events: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.legendSwatch {
+  width: 1.25rem;
+  height: 0.75rem;
+}

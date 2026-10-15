@@ -91,8 +91,12 @@ export class MockApi extends DataProviderApi {
   public override async getAttrValues(
     entity: Entity,
   ): Promise<AttributeValues> {
-    if (entity.name === 'error_value') {
-      throw new Error('some error');
+    if (entity.name === 'error_value' || entity.name === 'attr_error') {
+      throw new Error('some error'); // e.g. an attribute that can't be decoded
+    }
+
+    if (entity.name === 'attr_network_error') {
+      throw new TypeError('Failed to fetch'); // as `fetch` does on network failure
     }
 
     return Object.fromEntries(

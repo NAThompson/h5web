@@ -1,10 +1,11 @@
-import { DimensionMapper, getSliceSelection } from '@h5web/lib';
+import { DimensionMapper, type Domain, getSliceSelection } from '@h5web/lib';
 import {
   assertArrayShape,
   assertComplexType,
   assertDataset,
   assertMinDims,
 } from '@h5web/shared/guards';
+import { useState } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -12,6 +13,10 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import OverlayNotes from '../../view-hints/OverlayNotes';
+import { getHeatmapSuggestions } from '../../view-hints/suggestions';
+import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { useHeatmapConfig } from '../heatmap/config';
 import { guessKeepRatio } from '../utils';
@@ -35,12 +40,21 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
   const dimUnits = useDimUnits(entity);
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
-  const config = useHeatmapConfig({
-    keepRatio: guessKeepRatio(
-      { unit: dimUnits[dimMapping.indexOf('x')] },
-      { unit: dimUnits[dimMapping.indexOf('y')] },
+  const hint = useViewHint(entity);
+  const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
+  const config = useHeatmapConfig(
+    getHeatmapSuggestions(
+      hint,
+      entity.path,
+      {
+        keepRatio: guessKeepRatio(
+          { unit: dimUnits[dimMapping.indexOf('x')] },
+          { unit: dimUnits[dimMapping.indexOf('y')] },
+        ),
+      },
+      dataDomain,
     ),
-  });
+  );
   const selection = getSliceSelection(dimMapping);
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
@@ -80,12 +94,14 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
                   title={entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  onDataDomainChange={setDataDomain}
                 />
               )}
             />
           )}
         />
       </VisBoundary>
+      <OverlayNotes notes={getHintNotes(hint)} />
     </>
   );
 }

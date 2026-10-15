@@ -118,10 +118,25 @@ function SurfaceMesh(props: Props) {
   // Geometry height is normalized; stretching the mesh keeps normals correct (via normal matrix)
   return (
     <mesh geometry={geometry} scale={[1, 1, zHeight]}>
+      {/* Polygon offset: lines and points drawn on the surface stay in front of it */}
       {shading ? (
-        <meshLambertMaterial key="lit" vertexColors side={DoubleSide} />
+        <meshLambertMaterial
+          key="lit"
+          vertexColors
+          side={DoubleSide}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
+        />
       ) : (
-        <meshBasicMaterial key="unlit" vertexColors side={DoubleSide} />
+        <meshBasicMaterial
+          key="unlit"
+          vertexColors
+          side={DoubleSide}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
+        />
       )}
     </mesh>
   );
