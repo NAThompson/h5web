@@ -313,8 +313,13 @@ test('apply title, auto colour map, legend, texts, inline labels', async () => {
   await expect.element(legend).toHaveTextContent('e–n'); // inline label not in legend
   expect(legend).not.toHaveTextContent('e–e');
 
-  const texts = [...document.querySelectorAll('[data-testid="overlays"] text')];
-  expect(texts.map((text) => text.textContent)).toEqual(['e–e', 'θ = 0']);
+  await expect // overlays drawn once the canvas is measured
+    .poll(() =>
+      [...document.querySelectorAll('[data-testid="overlays"] text')].map(
+        (text) => text.textContent,
+      ),
+    )
+    .toEqual(['e–e', 'θ = 0']);
 });
 
 test('share the style of an overlay between the datasets that list it', async () => {
@@ -474,7 +479,9 @@ test('probe a pixel of a stack along the hinted dimension', async () => {
   expect(page.getByLabelText('Probed value')).toHaveTextContent(
     'κ (1/m) = 0.5: 11.2',
   );
-  expect(getProbe().getByText('κ (1/m)', { exact: true })).toBeVisible(); // x axis
+  await expect // x axis, once the probe's canvas is measured
+    .element(getProbe().getByText('κ (1/m)', { exact: true }))
+    .toBeVisible();
   expect(getProbe().getByText('eV', { exact: true })).toBeVisible(); // y axis, from `units`
   const probeTicks = getProbe()
     .element()
