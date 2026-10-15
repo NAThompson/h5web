@@ -165,12 +165,7 @@ test('visualize 2D enum dataset', async () => {
 test('visualize 2D complex dataset', async () => {
   await renderApp('/arrays/twoD_complex');
 
-  expect(getVisTabs()).toEqual([
-    Vis.Matrix,
-    Vis.ComplexCurve,
-    Vis.Line,
-    Vis.Heatmap,
-  ]);
+  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.Line, Vis.Heatmap]);
   expect(getSelectedVisTab()).toBe(Vis.Heatmap);
 
   const figure = page.getByRole('figure', { name: 'twoD_complex (amplitude)' });
