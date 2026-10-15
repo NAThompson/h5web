@@ -1,4 +1,5 @@
 import { useTimeoutEffect, useToggle } from '@react-hookz/web';
+import { useIsFetching } from '@tanstack/react-query';
 import { useStore } from 'zustand';
 
 import { useDataContext } from '../providers/DataProvider';
@@ -18,8 +19,16 @@ function ValueLoader(props: Props) {
   const [isReady, toggleReady] = useToggle();
   useTimeoutEffect(toggleReady, 100);
 
-  // Track progress
+  // Track progress: indeterminate for value fetches that haven't reported any
   const ongoing = useStore(progressStore, (state) => state.ongoing);
+  const fetchingCount = useIsFetching({ queryKey: [filepath, 'value'] });
+  const progressBars = [
+    ...ongoing.entries(),
+    ...Array.from(
+      { length: Math.max(fetchingCount - ongoing.size, 0) },
+      (_, i) => [`indeterminate-${i}`, undefined] as const,
+    ),
+  ].slice(0, MAX_PROGRESS_BARS);
 
   return (
     <div className={styles.loader} data-testid="LoadingDatasetValue">
@@ -37,11 +46,9 @@ function ValueLoader(props: Props) {
             <div />
           </div>
           <div className={styles.progressBars}>
-            {[...ongoing.entries()]
-              .slice(0, MAX_PROGRESS_BARS)
-              .map(([key, val]) => (
-                <progress key={key} className={styles.progress} value={val} />
-              ))}
+            {progressBars.map(([key, val]) => (
+              <progress key={key} className={styles.progress} value={val} />
+            ))}
           </div>
           <p>{isSlice ? 'Loading current slice' : 'Loading data'}...</p>
           <p>
