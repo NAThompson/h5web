@@ -7,7 +7,7 @@ import {
   type ScaleType,
 } from '@h5web/shared/vis-models';
 import { type PickD3Scale, type PickScaleConfigWithoutType } from '@visx/scale';
-import { type HTMLAttributes } from 'react';
+import { type HTMLAttributes, type ReactNode } from 'react';
 
 import { type ColorMap } from './heatmap/models';
 import { type ScaleGamma } from './scaleGamma';
@@ -46,7 +46,7 @@ export interface AxisConfig {
   visDomain: Domain;
   showGrid?: boolean;
   scaleType?: AxisScaleType | SymLogScaleType;
-  label?: string;
+  label?: ReactNode; // if not a string, SVG text content (e.g. `<tspan>`)
   flip?: boolean;
   nice?: boolean;
   formatTick?: (val: number) => string;

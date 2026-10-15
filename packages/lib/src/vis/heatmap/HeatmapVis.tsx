@@ -8,7 +8,11 @@ import {
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { type RGBColor } from 'd3-color';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, type ReactElement } from 'react';
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import {
   type MagnificationTextureFilter,
   type MinificationTextureFilter,
@@ -27,7 +31,7 @@ import {
 } from '../models';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
-import { DEFAULT_DOMAIN } from '../utils';
+import { DEFAULT_DOMAIN, getTextContent } from '../utils';
 import ColorBar from './ColorBar';
 import HeatmapMesh from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
@@ -41,8 +45,8 @@ interface Props extends ClassStyleAttrs {
   scaleType?: VisScaleType;
   aspect?: Aspect;
   showGrid?: boolean;
-  title?: string;
-  colorBarLabel?: string;
+  title?: ReactNode;
+  colorBarLabel?: ReactNode;
   dtype?: string;
   invertColorMap?: boolean;
   abscissaParams?: AxisParams;
@@ -116,7 +120,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     <figure
       className={`${styles.root} ${className}`}
       style={style}
-      aria-label={title}
+      aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
     >
       <VisCanvas

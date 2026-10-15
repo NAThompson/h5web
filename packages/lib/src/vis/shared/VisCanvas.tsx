@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useState } from 'react';
+import { type PropsWithChildren, type ReactNode, useState } from 'react';
 
 import InteractionsProvider from '../../interactions/InteractionsProvider';
 import { type Aspect, type AxisConfig } from '../models';
@@ -14,7 +14,7 @@ import VisCanvasProvider from './VisCanvasProvider';
 const NO_OFFSETS = { left: 0, right: 0, top: 0, bottom: 0 };
 
 interface Props {
-  title?: string;
+  title?: ReactNode;
   aspect?: Aspect;
   abscissaConfig: AxisConfig;
   ordinateConfig: AxisConfig;

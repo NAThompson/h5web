@@ -19,6 +19,7 @@ import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup } from '../../view-hints/markup';
 import { LINE_WIDTH_PX } from '../geometry/config';
 import { useMappedArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
@@ -146,7 +147,9 @@ function MappedComplexCurveVis(props: Props) {
         scaleType={byPhase ? ScaleType.Linear : scaleType}
         colorMap={byPhase ? phaseColorMap : colorMap}
         invertColorMap={invertColorMap}
-        title={`${title} (coloured by ${byPhase ? 'phase' : 'amplitude'})`}
+        title={renderMarkup(
+          `${title} (coloured by ${byPhase ? 'phase' : 'amplitude'})`,
+        )}
         xLabel={axisLabels[xDimIndex] ?? 'x'}
         yLabel="Re"
         zLabel="Im"

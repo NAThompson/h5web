@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import { useMappedArrays, useToNumArrays } from '../hooks';
 import { type LineConfig } from '../line/config';
 import LineToolbar from '../line/LineToolbar';
@@ -159,8 +160,8 @@ function MappedComplexLineVis(props: Props) {
         curveType={curveType}
         showGrid={showGrid}
         abscissaParams={abscissaParams}
-        ordinateLabel={ordinateLabel}
-        title={title}
+        ordinateLabel={renderSvgMarkup(ordinateLabel)}
+        title={renderMarkup(title)}
         auxiliaries={auxiliaries}
         visible={valueVisible}
         interpolation={interpolation}

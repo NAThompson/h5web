@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup } from '../../view-hints/markup';
 import { type HeatmapConfig } from '../heatmap/config';
 import HeatmapToolbar from '../heatmap/HeatmapToolbar';
 import { useMappedArray, useToNumArrays } from '../hooks';
@@ -170,7 +171,7 @@ function MappedComplexHeatmapVis(props: Props) {
         <SurfaceVis
           className={visualizerStyles.vis}
           dataArray={dataArray}
-          title={fullTitle}
+          title={renderMarkup(fullTitle)}
           domain={safeDomain}
           scaleType={scaleType}
           valueLabel={showsPhase ? 'Phase' : 'Amplitude'}
@@ -200,7 +201,7 @@ function MappedComplexHeatmapVis(props: Props) {
         className={visualizerStyles.vis}
         dataArray={dataArray}
         domain={safeDomain}
-        title={fullTitle}
+        title={renderMarkup(fullTitle)}
         colorMap={visColorMap}
         scaleType={scaleType}
         aspect={keepRatio ? 'equal' : 'auto'}

@@ -1,5 +1,6 @@
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { tickStep } from 'd3-array';
+import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { getScaleTransform } from './geometry-worker/scale';
@@ -18,6 +19,7 @@ import {
   getScaleTickValues,
   getSizeToFit,
   getSymlogTicks,
+  getTextContent,
   getValueToIndexScale,
   getVisRatio,
 } from './utils';
@@ -621,5 +623,15 @@ describe('getSymlogTicks', () => {
     expect(getScaleTickValues([ScaleType.SymLog, 0.1], [0, 1], 5)).toEqual([
       0, 0.1, 1,
     ]);
+  });
+});
+
+describe('getTextContent()', () => {
+  it('should return plain text of a node', () => {
+    expect(getTextContent('Ψ')).toBe('Ψ');
+    expect(getTextContent(undefined)).toBe('');
+    expect(getTextContent(['Ψ', createElement('sub', { key: 1 }, 'K')])).toBe(
+      'ΨK',
+    );
   });
 });

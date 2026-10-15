@@ -15,13 +15,13 @@ import { type SVGProps, useMemo } from 'react';
 import { Color, Vector3 } from 'three';
 
 import { type ColorMap } from '../core/heatmap/models';
+import { renderSvgMarkup } from './markup';
 import { type TextAnchor } from './models';
 import {
   getPixelCentreShift,
   type OverlayShapes,
   toPixelCentres,
 } from './overlays';
-import { formatLabel } from './utils';
 import styles from './ViewHints.module.css';
 
 interface ColorParams {
@@ -317,16 +317,7 @@ function OverlayLayer2D(props: Props) {
                       fontWeight={600}
                       {...TEXT_PLACEMENT[anchor]}
                     >
-                      {formatLabel(text.text).map(({ str, shift }, k) => (
-                        <tspan
-                          // eslint-disable-next-line react/no-array-index-key
-                          key={k}
-                          baselineShift={shift}
-                          fontSize={shift ? '75%' : undefined}
-                        >
-                          {str}
-                        </tspan>
-                      ))}
+                      {renderSvgMarkup(text.text)}
                     </text>
                   );
                 })}

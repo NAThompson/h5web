@@ -1,5 +1,5 @@
 import { type LegendItem } from './hooks';
-import { formatLabel } from './utils';
+import { renderMarkup } from './markup';
 import styles from './ViewHints.module.css';
 
 interface Props {
@@ -32,19 +32,7 @@ function OverlayLegend(props: Props) {
               />
             )}
           </svg>
-          <span>
-            {formatLabel(label).map(({ str, shift }, k) =>
-              shift === 'sub' ? (
-                // eslint-disable-next-line react/no-array-index-key
-                <sub key={k}>{str}</sub>
-              ) : shift === 'super' ? (
-                // eslint-disable-next-line react/no-array-index-key
-                <sup key={k}>{str}</sup>
-              ) : (
-                str
-              ),
-            )}
-          </span>
+          <span>{renderMarkup(label)}</span>
         </li>
       ))}
     </ul>

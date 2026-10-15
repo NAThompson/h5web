@@ -1,11 +1,12 @@
 import { type Domain } from '@h5web/shared/vis-models';
-import { type PropsWithChildren, useRef } from 'react';
+import { type PropsWithChildren, type ReactNode, useRef } from 'react';
 import { type Vector3Tuple } from 'three';
 
 import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs, type VisScaleType } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
+import { getTextContent } from '../utils';
 import Headlight from './Headlight';
 import OrbitFraming from './OrbitFraming';
 import styles from './Vis3D.module.css';
@@ -20,13 +21,13 @@ const DIRECTIONAL_INTENSITY = (1 - AMBIENT_SHARE) * Math.PI;
 const LIGHT_POSITION: Vector3Tuple = [-0.2, -0.3, 1]; // mostly from above, so flat areas stay faithful
 
 interface Props extends ClassStyleAttrs {
-  title?: string;
+  title?: ReactNode;
   boxSize: Vector3Tuple; // box spans [-w/2, w/2] x [-h/2, h/2] x [0, d]
   domain: Domain;
   scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
-  colorBarLabel?: string;
+  colorBarLabel?: ReactNode;
   headlight?: boolean; // light follows camera, rather than lighting the box from above
 }
 
@@ -55,7 +56,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     <figure
       className={`${styles.root} ${className}`}
       style={style}
-      aria-label={title}
+      aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
     >
       <div className={styles.main}>

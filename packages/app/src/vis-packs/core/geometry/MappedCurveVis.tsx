@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup } from '../../view-hints/markup';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type CurveConfig, LINE_WIDTH_PX } from './config';
 import CurveToolbar from './CurveToolbar';
@@ -82,7 +83,7 @@ function MappedCurveVis(props: Props) {
         colorMap={colorMap}
         scaleType={scaleType}
         invertColorMap={invertColorMap}
-        title={values ? title : `${title} (coloured by index)`}
+        title={renderMarkup(values ? title : `${title} (coloured by index)`)}
         xLabel={labels[0]}
         yLabel={labels[1]}
         zLabel={labels[2] ?? 'z'}

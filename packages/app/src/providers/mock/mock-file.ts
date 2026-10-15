@@ -1137,7 +1137,7 @@ export function makeMockFile(): GroupWithChildren {
           array('cf_heatmap', {
             valueId: 'twoD',
             attributes: [
-              scalarAttr('long_name', 'E_{k}'),
+              scalarAttr('long_name', 'E_{K}'), // no Unicode subscript K
               scalarAttr('units', 'hartree'),
               scalarAttr('H5WEB_vis', 'heatmap'),
             ],
@@ -1149,7 +1149,7 @@ export function makeMockFile(): GroupWithChildren {
             valueId: 'oneD',
             attributes: [
               scalarAttr('H5WEB_title', 'growth'),
-              scalarAttr('long_name', 'norm'),
+              scalarAttr('long_name', 'norm^{Green}'), // no Unicode superscript G
               scalarAttr('units', 'bohr'),
               scalarAttr('H5WEB_vis', 'line'),
             ],

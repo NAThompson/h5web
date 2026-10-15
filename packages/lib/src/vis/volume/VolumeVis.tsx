@@ -5,12 +5,19 @@ import {
   ScaleType,
 } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, useEffect, useMemo, useRef } from 'react';
+import {
+  type PropsWithChildren,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { BoxGeometry, EdgesGeometry } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
+import { getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
 import Isosurfaces from './Isosurfaces';
 import {
@@ -27,7 +34,7 @@ import styles from './VolumeVis.module.css';
 
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
-  title?: string;
+  title?: ReactNode;
   domain: Domain;
   scaleType?: ColorScaleType;
   colorMap?: ColorMap;
@@ -101,7 +108,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     <figure
       className={`${styles.root} ${className}`}
       style={style}
-      aria-label={title}
+      aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
     >
       <div className={styles.canvasArea}>

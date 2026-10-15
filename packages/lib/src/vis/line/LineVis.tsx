@@ -8,7 +8,12 @@ import {
 } from '@h5web/shared/vis-models';
 import { formatTooltipErr, formatTooltipVal } from '@h5web/shared/vis-utils';
 import { type NdArray } from 'ndarray';
-import { type PropsWithChildren, type ReactElement, useMemo } from 'react';
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useMemo,
+} from 'react';
 
 import DefaultInteractions, {
   type DefaultInteractionsConfig,
@@ -23,7 +28,7 @@ import {
 import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
-import { DEFAULT_DOMAIN, extendDomain } from '../utils';
+import { DEFAULT_DOMAIN, extendDomain, getTextContent } from '../utils';
 import DataCurve from './DataCurve';
 import { useAxisValues } from './hooks';
 import styles from './LineVis.module.css';
@@ -46,8 +51,8 @@ interface Props extends ClassStyleAttrs {
   curveType?: CurveType;
   showGrid?: boolean;
   abscissaParams?: AxisParams;
-  ordinateLabel?: string;
-  title?: string;
+  ordinateLabel?: ReactNode; // if not a string, SVG text content (e.g. `<tspan>`)
+  title?: ReactNode;
   dtype?: string;
   errorsArray?: NdArray<NumArray>;
   showErrors?: boolean;
@@ -135,7 +140,7 @@ function LineVis(props: PropsWithChildren<Props>) {
       ref={rootRef}
       className={`${styles.root} ${className}`}
       style={style}
-      aria-label={title}
+      aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
       data-testid={testid}
     >
@@ -273,7 +278,7 @@ function LineVis(props: PropsWithChildren<Props>) {
                     data-keep-colors
                     style={{ color: curveColor }}
                   />
-                  {dataLabel || ordinateLabel || 'Signal'}
+                  {dataLabel || getTextContent(ordinateLabel) || 'Signal'}
                 </li>
               )}
               {auxiliaries.map(

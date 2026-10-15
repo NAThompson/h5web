@@ -33,6 +33,7 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import {
   useExportEntries,
   useMappedArray,
@@ -294,8 +295,8 @@ function MappedLineVis(props: Props) {
         curveType={curveType}
         showGrid={showGrid}
         abscissaParams={abscissaParams}
-        ordinateLabel={valueLabel}
-        title={title}
+        ordinateLabel={renderSvgMarkup(valueLabel)}
+        title={renderMarkup(title)}
         dtype={formatDType(dataset.type, packing)}
         errorsArray={errorsArray}
         showErrors={showErrors}

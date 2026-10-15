@@ -524,8 +524,12 @@ test('probe a stack with the toolbar toggle, without hint', async () => {
 test('label figures, colour bars and axes from CF `long_name` and `units`', async () => {
   const { selectExplorerNode } = await renderApp('/view_hints/cf_heatmap');
 
-  // Title from the dataset's `long_name`, colour bar from its `units`, axis from the scale's
-  await expect.element(page.getByRole('figure', { name: 'Eₖ' })).toBeVisible();
+  // Title from the dataset's `long_name` (`_{K}` as subscript), colour bar from its `units`,
+  // axis from the scale's
+  await expect.element(page.getByRole('figure', { name: 'EK' })).toBeVisible();
+  expect(document.querySelector('figure p')?.innerHTML).toBe(
+    '<span>E<sub>K</sub></span>',
+  );
   expect(page.getByText('hartree', { exact: true })).toBeVisible();
   const abscissa = await getAxis('abscissa');
   expect(abscissa.getByText('αₕ (hyperangle) (rad)')).toBeVisible();
@@ -536,14 +540,19 @@ test('label figures, colour bars and axes from CF `long_name` and `units`', asyn
     .element(page.getByRole('figure', { name: 'growth' }))
     .toBeVisible();
   const ordinate = await getAxis('ordinate');
-  expect(ordinate.getByText('norm (bohr)')).toBeVisible();
+  expect(ordinate.getByText('normGreen (bohr)')).toBeVisible();
+  const sup = ordinate
+    .element()
+    .querySelector('.visx-axis-label [baseline-shift]');
+  expect(sup).toHaveTextContent('Green');
+  expect(sup).toHaveAttribute('baseline-shift', 'super');
 
   // CF attributes alone: colour bar labelled, title left to the dataset name
   await selectExplorerNode('cf_plain');
   await expect
     .element(page.getByRole('figure', { name: 'cf_plain' }))
     .toBeVisible();
-  expect(page.getByText('Eₖ (hartree)', { exact: true })).toBeVisible();
+  expect(page.getByText('Ek (hartree)', { exact: true })).toBeVisible();
 });
 
 test('note overlays not drawn when an axis is not named by their columns', async () => {

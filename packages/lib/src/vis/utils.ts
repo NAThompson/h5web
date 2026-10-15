@@ -23,6 +23,7 @@ import {
 } from '@visx/scale';
 import { range, tickStep } from 'd3-array';
 import { type ScaleLinear, type ScaleThreshold } from 'd3-scale';
+import { isValidElement, type ReactNode } from 'react';
 import { BufferAttribute, type IUniform, MathUtils } from 'three';
 
 import {
@@ -562,4 +563,17 @@ export function hasR3FEventHandlers(props: Record<string, unknown>): boolean {
   return Object.keys(props).some((prop) =>
     /^on(?:Click|ContextMenu|DoubleClick|Pointer|Wheel)/u.test(prop),
   );
+}
+
+/* Plain text of a title or label given as React node (e.g. with `<sub>`), for `aria-label` */
+export function getTextContent(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join('');
+  }
+  return isValidElement<{ children?: ReactNode }>(node)
+    ? getTextContent(node.props.children)
+    : '';
 }
