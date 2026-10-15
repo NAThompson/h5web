@@ -598,7 +598,7 @@ test('label figures, colour bars and axes from CF `long_name` and `units`', asyn
   // axis from the scale's
   await expect.element(page.getByRole('figure', { name: 'EK' })).toBeVisible();
   expect(document.querySelector('figure p')?.innerHTML).toBe(
-    '<span>E<sub>K</sub></span>',
+    '<span data-text="EK">E<sub>K</sub></span>', // plain text for `aria-label`
   );
   expect(page.getByText('hartree', { exact: true })).toBeVisible();
   const abscissa = await getAxis('abscissa');

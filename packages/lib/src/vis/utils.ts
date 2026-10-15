@@ -613,7 +613,9 @@ export function getTextContent(node: ReactNode): string {
   if (Array.isArray(node)) {
     return node.map(getTextContent).join('');
   }
-  return isValidElement<{ children?: ReactNode }>(node)
-    ? getTextContent(node.props.children)
-    : '';
+  if (!isValidElement<{ children?: ReactNode; 'data-text'?: string }>(node)) {
+    return '';
+  }
+  const { children, 'data-text': text } = node.props;
+  return typeof text === 'string' ? text : getTextContent(children); // plain-text form, if given
 }

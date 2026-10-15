@@ -1,9 +1,11 @@
 import { type ReactNode } from 'react';
 
+import { toUnicodeScripts } from './attrs';
 import { formatLabel } from './utils';
 
 /* Label with `_{...}` and `^{...}` as `<sub>` and `<sup>` (the label itself if it has none), in a
- * single element so that spaces around them are kept (e.g. in flex containers) */
+ * single element so that spaces around them are kept (e.g. in flex containers); its plain-text
+ * form (cf. `getTextContent`, e.g. for `aria-label`) has Unicode scripts instead */
 export function renderMarkup(label: string | undefined): ReactNode {
   const parts = formatLabel(label ?? '');
   if (parts.every(({ shift }) => !shift)) {
@@ -11,7 +13,7 @@ export function renderMarkup(label: string | undefined): ReactNode {
   }
 
   return (
-    <span>
+    <span data-text={toUnicodeScripts(label)}>
       {parts.map(({ str, shift }, k) =>
         shift === 'sub' ? (
           // eslint-disable-next-line react/no-array-index-key
@@ -50,8 +52,8 @@ export function renderSvgMarkup(
     : parts;
 
   return (
-    <>
-      {isCut && <title>{text}</title>}
+    <tspan data-text={toUnicodeScripts(label)}>
+      {isCut && <title>{toUnicodeScripts(label)}</title>}
       {kept.map(({ str, shift }, k) => (
         <tspan
           // eslint-disable-next-line react/no-array-index-key
@@ -63,6 +65,6 @@ export function renderSvgMarkup(
         </tspan>
       ))}
       {isCut && '…'}
-    </>
+    </tspan>
   );
 }

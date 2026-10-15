@@ -17,10 +17,10 @@ function toSvgText(label: string, maxChars?: number): string {
 describe('renderSvgMarkup', () => {
   it('should cut long labels short with an ellipsis, in full in a tooltip', () => {
     expect(toSvgText('residual of chain', 9)).toBe(
-      '<svg><text><title>residual of chain</title><tspan>residual</tspan>…</text></svg>',
+      '<svg><text><tspan data-text="residual of chain"><title>residual of chain</title><tspan>residual</tspan>…</tspan></text></svg>',
     );
-    expect(toSvgText('E_{K} (hartree)', 4)).toBe(
-      '<svg><text><title>EK (hartree)</title><tspan>E</tspan><tspan baseline-shift="sub" font-size="75%">K</tspan><tspan> </tspan>…</text></svg>',
+    expect(toSvgText('E_{k} (hartree)', 4)).toBe(
+      '<svg><text><tspan data-text="Eₖ (hartree)"><title>Eₖ (hartree)</title><tspan>E</tspan><tspan baseline-shift="sub" font-size="75%">k</tspan><tspan> </tspan>…</tspan></text></svg>',
     );
     expect(toSvgText('short', 9)).toBe('<svg><text>short</text></svg>');
   });

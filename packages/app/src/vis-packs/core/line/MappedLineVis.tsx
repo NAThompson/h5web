@@ -33,6 +33,7 @@ import {
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { toUnicodeScripts } from '../../view-hints/attrs';
 import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import {
   useExportEntries,
@@ -263,7 +264,9 @@ function MappedLineVis(props: Props) {
   const exportEntries = useExportEntries(['npy', 'csv'], dataset, selection, {
     csv: () =>
       generateCsv(
-        isMultiPlot ? getSliceLabel(0) : valueLabel || dataset.name,
+        isMultiPlot
+          ? getSliceLabel(0)
+          : toUnicodeScripts(valueLabel) || dataset.name,
         dataArray,
         abscissaParams,
         errorsArray,
