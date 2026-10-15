@@ -30,6 +30,41 @@ interface Props {
   pointSize?: number; // CSS pixels
 }
 
+const MAX_STEPS_PER_SEGMENT = 256;
+
+/* Insert points along each segment, about one per cell of the surface's grid */
+export function densifyPath(
+  x: NumArray,
+  y: NumArray,
+  [dx, dy]: [number, number],
+): { x: number[]; y: number[] } {
+  const count = Math.min(x.length, y.length);
+  const outX: number[] = [];
+  const outY: number[] = [];
+
+  for (let i = 0; i < count; i += 1) {
+    outX.push(x[i]);
+    outY.push(y[i]);
+    if (i === count - 1) {
+      break;
+    }
+
+    const cells = Math.max(
+      Math.abs(x[i + 1] - x[i]) / dx,
+      Math.abs(y[i + 1] - y[i]) / dy,
+    );
+    const steps = Number.isFinite(cells)
+      ? Math.min(Math.ceil(cells), MAX_STEPS_PER_SEGMENT)
+      : 1;
+    for (let k = 1; k < steps; k += 1) {
+      outX.push(x[i] + ((x[i + 1] - x[i]) * k) / steps);
+      outY.push(y[i] + ((y[i + 1] - y[i]) * k) / steps);
+    }
+  }
+
+  return { x: outX, y: outY };
+}
+
 /* White disc with a dark ring: vertex colours tint the disc and leave the ring dark */
 function createRingTexture(): CanvasTexture {
   const size = 64;
@@ -72,15 +107,21 @@ function SurfaceOverlay(props: Props) {
     pointSize = 9,
   } = props;
 
-  const { dataToWorld, domain, scaleType, colorMap, invertColorMap } =
+  const { dataToWorld, cellSize, domain, scaleType, colorMap, invertColorMap } =
     useSurfaceContext();
   const invalidate = useThree((state) => state.invalidate);
 
+  // Lines draped on the surface follow it from cell to cell, rather than cutting through bumps
+  const path = useMemo(
+    () => (showLine && !z && !values ? densifyPath(x, y, cellSize) : { x, y }),
+    [x, y, z, values, showLine, cellSize],
+  );
+
   const buffers = useMemo(() => {
-    const count = Math.min(x.length, y.length);
+    const count = Math.min(path.x.length, path.y.length);
     const world = [0, 1, 2].map(() => new Float64Array(count).fill(Number.NaN));
     for (let i = 0; i < count; i += 1) {
-      const pos = dataToWorld(x[i], y[i], z?.[i]);
+      const pos = dataToWorld(path.x[i], path.y[i], z?.[i]);
       if (pos) {
         pos.forEach((val, axis) => {
           world[axis][i] = val;
@@ -93,10 +134,10 @@ function SurfaceOverlay(props: Props) {
       wy,
       wz,
     ]);
-  }, [x, y, z, dataToWorld]);
+  }, [path, z, dataToWorld]);
 
   const colors = useMemo(() => {
-    const count = Math.min(x.length, y.length);
+    const count = Math.min(path.x.length, path.y.length);
     if (values) {
       const lut = getLinearColorLut(colorMap, invertColorMap);
       return getVertexColors(getColorParams(values, domain, scaleType), lut);
@@ -104,7 +145,7 @@ function SurfaceOverlay(props: Props) {
 
     const { r, g, b } = new Color(color); // converted to linear
     return Float32Array.from({ length: count * 3 }, (_, i) => [r, g, b][i % 3]);
-  }, [x, y, values, color, domain, scaleType, colorMap, invertColorMap]);
+  }, [path, values, color, domain, scaleType, colorMap, invertColorMap]);
 
   const pointsGeometry = useMemo(() => {
     const geom = new BufferGeometry();
@@ -143,6 +184,7 @@ function SurfaceOverlay(props: Props) {
       {showPoints && (
         <points geometry={pointsGeometry} renderOrder={1}>
           <pointsMaterial
+            depthTest={false} // e.g. samples of an optimizer must not hide behind bumps
             vertexColors
             size={pointSize} // in CSS pixels: three.js applies the pixel ratio
             sizeAttenuation={false}

@@ -222,12 +222,18 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
           Math.abs(pos[0]) <= w / 2 + 1e-9 && Math.abs(pos[1]) <= h / 2 + 1e-9;
         return val >= validMin && isInBox ? pos : undefined; // `NaN` fails both
       },
+      cellSize: [
+        Math.abs(xDomain[1] - xDomain[0]) / Math.max(cols - 1, 1),
+        Math.abs(yDomain[1] - yDomain[0]) / Math.max(rows - 1, 1),
+      ],
       domain,
       scaleType,
       colorMap,
       invertColorMap,
     };
   }, [
+    rows,
+    cols,
     dataArray,
     xCenters,
     yCenters,

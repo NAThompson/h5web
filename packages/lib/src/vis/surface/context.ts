@@ -14,6 +14,7 @@ export interface SurfaceContextValue {
     y: number,
     value?: number,
   ) => Vector3Tuple | undefined;
+  cellSize: [number, number]; // size of the grid's cells in data coordinates (x, y)
   domain: Domain;
   scaleType: VisScaleType;
   colorMap: ColorMap;
