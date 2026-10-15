@@ -334,10 +334,10 @@ export function formatPiTick(val: number | { valueOf: () => number }): string {
 
 /**
  * Ticks of a symlog scale of given constant: 0 and every k-th power of 10 from the linear band
- * out to each end of the domain, always with the decade nearest each end (d3's symlog ticks are
- * linear ticks, which all crowd at the ends of the axis when the constant is small); k is chosen
- * for 4 to 8 ticks per sign, depending on `count` (labels of powers of 10 are short). Linear
- * ticks within the linear band.
+ * out to each end of the domain, counted from the decade nearest the end (d3's symlog ticks are
+ * linear ticks, which all crowd at the ends of the axis when the constant is small). About
+ * `count` ticks in all, shared by the two signs in proportion to their decades (at least one
+ * each). Linear ticks within the linear band.
  */
 export function getSymlogTicks(
   domain: Domain,
@@ -346,6 +346,9 @@ export function getSymlogTicks(
 ): number[] {
   const min = Math.min(...domain);
   const max = Math.max(...domain);
+  function linearTicks(): number[] {
+    return scaleLinear({ domain: [min, max] }).ticks(count);
+  }
 
   // Exponents of the powers of 10 in [lo, hi] (0 <= lo), outside the linear band
   function decades(lo: number, hi: number): number[] {
@@ -356,13 +359,13 @@ export function getSymlogTicks(
 
   const pos = max > 0 ? decades(Math.max(min, 0), max) : [];
   const neg = min < 0 ? decades(Math.max(-max, 0), -min) : [];
-  if (pos.length + neg.length < 2) {
-    return scaleLinear({ domain: [min, max] }).ticks(count);
+  const decadeCount = pos.length + neg.length;
+  if (decadeCount < 2) {
+    return linearTicks();
   }
 
   const hasZero = min <= 0 && max >= 0;
-  const perSign = Math.min(Math.max(count, 4), 8);
-  const stride = Math.ceil(Math.max(pos.length, neg.length) / perSign); // same spacing both sides
+  const budget = Math.max(count - (hasZero ? 1 : 0), 1);
 
   // Not within a quarter of a nominal tick spacing of 0 (about 1.5 label heights: labels would
   // overlap), in the space of the scale
@@ -375,23 +378,26 @@ export function getSymlogTicks(
 
   // Every k-th decade down from the one nearest the end of the domain
   function pick(exps: number[]): number[] {
+    if (exps.length === 0) {
+      return [];
+    }
+    const share = Math.max(Math.round((budget * exps.length) / decadeCount), 1);
+    const stride = Math.ceil(exps.length / share);
     const top = exps.length - 1;
     return exps
       .filter((_, i) => (top - i) % stride === 0)
-      .filter(
-        (exp, i, kept) =>
-          i === kept.length - 1 || scaled(Number(`1e${exp}`)) >= minGap,
-      )
-      .map((exp) => Number(`1e${exp}`));
+      .map((exp) => Number(`1e${exp}`))
+      .filter((val) => scaled(val) >= minGap);
   }
 
-  return [
+  const ticks = [
     ...pick(neg)
       .map((val) => -val)
       .toReversed(),
     ...(hasZero ? [0] : []),
     ...pick(pos),
   ];
+  return ticks.length >= 2 ? ticks : linearTicks();
 }
 
 export function getScaleTickValues(

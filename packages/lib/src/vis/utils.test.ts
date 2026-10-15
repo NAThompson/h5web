@@ -592,20 +592,21 @@ describe('getSymlogTicks', () => {
     ]);
   });
 
-  it('should always include the decade nearest each end of the domain', () => {
-    const decades = [1e-11, 1e-9, 1e-7, 1e-5, 1e-3, 0.1]; // every other one, 1e-13 too close to 0
+  it('should count decades from each end of the domain, sharing `count` between signs', () => {
     expect(getSymlogTicks([-0.32, 0.32], 1e-13, 8)).toEqual([
-      ...decades.map((val) => -val).toReversed(),
-      0,
-      ...decades,
-    ]);
+      -0.1, -1e-5, -1e-9, 0, 1e-9, 1e-5, 0.1,
+    ]); // 1e-13 too close to 0
     expect(getSymlogTicks([-5e-6, 0.32], 1e-13, 8)).toEqual([
-      -1e-6, -1e-8, -1e-10, -1e-12, 0, 1e-11, 1e-9, 1e-7, 1e-5, 1e-3, 0.1,
+      -1e-6, -1e-9, -1e-12, 0, 1e-9, 1e-5, 0.1,
     ]);
+    expect(getSymlogTicks([-0.32, 0.32], 1e-13, 3)).toEqual([-0.1, 0, 0.1]);
   });
 
-  it('should leave out powers of 10 too close to 0 on short axes', () => {
-    expect(getSymlogTicks([0, 1], 1e-12, 4)).toEqual([0, 1e-8, 1e-4, 1]);
+  it('should leave out powers of 10 too close to 0, even nearest the end', () => {
+    expect(getSymlogTicks([0, 1], 1e-12, 4)).toEqual([0, 1e-10, 1e-5, 1]);
+    expect(getSymlogTicks([-2e-13, 1], 1e-13, 5)).toEqual([
+      0, 1e-12, 1e-8, 1e-4, 1,
+    ]);
   });
 
   it('should fall back to linear ticks within the linear band', () => {
