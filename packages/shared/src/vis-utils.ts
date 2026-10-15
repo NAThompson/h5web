@@ -21,8 +21,14 @@ import {
 
 export const SCALAR_SELECTION_REGEXP = /^\d+(?:,\d+)*$/u;
 
-export const formatBound = format('.3~e');
-export const formatBoundInput = format('.5~e');
+// Exponent notation, but `0` rather than `0e+0`
+function createExpFormatter(specifier: string): (val: number) => string {
+  const formatter = format(specifier);
+  return (val) => (val === 0 ? '0' : formatter(val));
+}
+
+export const formatBound = createExpFormatter('.3~e');
+export const formatBoundInput = createExpFormatter('.5~e');
 export const formatTooltipVal = format('.5~g');
 export const formatTooltipErr = format('.3~g');
 export const formatScalarComplex = createComplexFormatter(format('.12~g'));

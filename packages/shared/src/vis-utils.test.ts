@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { type ArrayValue } from './hdf5-models';
 import {
   createArrayFromView,
+  formatBound,
   getBounds,
   getBoundsWithErrors,
   mergeBounds,
@@ -50,6 +51,14 @@ function actualCopy(view: NdArray<ArrayValue>) {
     values: [...data],
   };
 }
+
+describe('formatBound', () => {
+  it('should format zero as 0', () => {
+    expect(formatBound(-15)).toBe('−1.5e+1');
+    expect(formatBound(0)).toBe('0');
+    expect(formatBound(-0)).toBe('0');
+  });
+});
 
 describe('getBounds with Float32Array', () => {
   it('should give same bounds as with other arrays', () => {

@@ -63,6 +63,6 @@ test('visualize dataset with `scale_factor`, `add_offset` and `_FillValue` attri
 test('visualize dataset with `scale_factor` and `valid_range` in unpacked units', async () => {
   await renderApp('/netcdf/scale_factor_valid_range');
 
-  expect(page.getByLabelText('Min: 0e+0')).toBeVisible(); // valid_range[0]
+  expect(page.getByLabelText('Min: 0')).toBeVisible(); // valid_range[0]
   expect(page.getByLabelText('Max: 5e+1')).toBeVisible(); // valid_range[1]
 });
