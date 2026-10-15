@@ -284,6 +284,23 @@ describe('RGB', () => {
   });
 });
 
+describe('Volume', () => {
+  const { supportsDataset } = CORE_VIS.Volume;
+  async function supports(dims: number[]) {
+    return supportsDataset(
+      dataset('volume', arrayShape(dims), floatType()),
+      mockDataContext,
+    );
+  }
+
+  it('should support stacks of volumes, but not empty ones', async () => {
+    await expect(supports([4, 4, 4])).resolves.toBe(true);
+    await expect(supports([1, 4, 4, 4])).resolves.toBe(true);
+    await expect(supports([0, 4, 4, 4])).resolves.toBe(false);
+    await expect(supports([4, 4, 1])).resolves.toBe(false);
+  });
+});
+
 describe('Compound', () => {
   const { supportsDataset } = CORE_VIS.Compound;
 

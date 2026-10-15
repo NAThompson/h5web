@@ -149,9 +149,10 @@ export const CORE_VIS = {
         return false;
       }
 
-      // Last three dimensions form the volume (leading ones are sliced): skip empty volumes and
-      // stacks of a single 2D image
-      if (dataset.shape.dims.slice(-3).some((dim) => dim < 2)) {
+      // Last three dimensions form the volume (leading ones are sliced): skip empty datasets
+      // (nothing to slice either) and stacks of a single 2D image
+      const { dims } = dataset.shape;
+      if (dims.includes(0) || dims.slice(-3).some((dim) => dim < 2)) {
         return false;
       }
 
