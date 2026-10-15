@@ -178,14 +178,13 @@ export function useLinkedOverlays(
   const { shapes, notes } = useOverlayShapes(resolved, index, axes);
 
   // Extra slider: prefetch overlays of upcoming indices during playback, as slicing does
-  const { slicingProps } = useSlicingProps(
-    (selection) =>
+  const { slicingProps } = useSlicingProps(() => [], [extraIndex], {
+    getExtraRequests: (selection) =>
       getOverlayRequests(
         resolved,
         selection === undefined ? undefined : Number(selection),
       ),
-    [extraIndex],
-  );
+  });
 
   const legend: LegendItem[] =
     hint.legend === false

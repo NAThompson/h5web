@@ -15,7 +15,7 @@ import { useHeatmapConfig } from '../../core/heatmap/config';
 import MappedHeatmapVis from '../../core/heatmap/MappedHeatmapVis';
 import { guessKeepRatio } from '../../core/utils';
 import { type VisContainerProps } from '../../models';
-import { useSlicingProps } from '../../slicing';
+import { useNxSlicingProps } from '../../slicing';
 import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
 import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
 import OverlayLegend from '../../view-hints/OverlayLegend';
@@ -24,7 +24,7 @@ import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
-import NxValuesFetcher, { getNxValueRequests } from '../NxValuesFetcher';
+import NxValuesFetcher from '../NxValuesFetcher';
 
 function NxHeatmapContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -69,13 +69,10 @@ function NxHeatmapContainer(props: VisContainerProps) {
   const overlays = useLinkedOverlays(selectedDataset, hint, dimMapping);
   const { extraSlider } = overlays;
 
-  const { slicingProps, playbackRange } = useSlicingProps(
-    (sel) => [
-      ...Object.values(getNxValueRequests(nxDataToFetch, sel)),
-      ...overlays.getSliceRequests(sel),
-    ],
+  const { slicingProps, playbackRange } = useNxSlicingProps(
+    nxDataToFetch,
     dimMapping,
-    { withPlaybackRange: true },
+    { withPlaybackRange: true, getExtraRequests: overlays.getSliceRequests },
   );
 
   const dimMapper = (

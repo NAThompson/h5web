@@ -193,6 +193,17 @@ test('slice overlays with the base dataset when it has the linked dimension', as
   await expect.poll(() => getPointsCx()).not.toEqual(before);
 });
 
+test('play base slider with overlays prefetched along', async () => {
+  await renderApp('/view_hints/landscapes');
+  await expect.poll(() => getPointsCx()).toHaveLength(3);
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+
+  const slider = page.getByRole('slider', { name: 'D0' });
+  await page.getByRole('button', { name: 'Play D0' }).click();
+  await advance(350); // 10 slices/s by default: overlays don't hold playback up
+  expect(Number(slider.element().getAttribute('aria-valuenow'))).toBe(3);
+});
+
 test('skip broken overlays without breaking the base vis', async () => {
   await renderApp('/view_hints/landscape_broken');
 

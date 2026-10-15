@@ -56,6 +56,9 @@ type MapMapping = (mapping: DimensionMapping) => DimensionMapping;
 export interface SlicingOpts {
   mapMapping?: MapMapping;
   withPlaybackRange?: boolean; // for visualizations with an axis or colour domain
+  /* Other values shown with each slice (e.g. overlays), prefetched for playback but not guarded
+   * by `LargeValueGuard` nor part of the sequence's range */
+  getExtraRequests?: GetRequests;
 }
 
 export function useSlicingProps(
@@ -63,7 +66,11 @@ export function useSlicingProps(
   dimMapping: DimensionMapping,
   opts: SlicingOpts = {},
 ): Slicing {
-  const { mapMapping = (m) => m, withPlaybackRange = false } = opts;
+  const {
+    mapMapping = (m) => m,
+    withPlaybackRange = false,
+    getExtraRequests = () => [],
+  } = opts;
   const dataContext = useDataContext();
   const [state] = useState(createPrefetchState);
   const [playbackSettings, setPlaybackSettings] = usePlaybackSettingsState();
@@ -90,7 +97,8 @@ export function useSlicingProps(
     });
 
   function requestsFor(mapping: DimensionMapping): ValueQueryParams[] {
-    return getRequests(getSliceSelection(mapMapping(mapping)));
+    const selection = getSliceSelection(mapMapping(mapping));
+    return [...getRequests(selection), ...getExtraRequests(selection)];
   }
 
   const slicingProps: SlicingProps = {

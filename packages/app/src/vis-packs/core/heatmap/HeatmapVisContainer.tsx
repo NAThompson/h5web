@@ -12,7 +12,7 @@ import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useDimHints, useDimUnits } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
-import { useSlicingProps } from '../../slicing';
+import { useDatasetSlicingProps } from '../../slicing';
 import { useLinkedOverlays, useViewHint } from '../../view-hints/hooks';
 import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
 import OverlayLegend from '../../view-hints/OverlayLegend';
@@ -62,13 +62,10 @@ function HeatmapVisContainer(props: VisContainerProps) {
   const overlays = useLinkedOverlays(entity, hint, dimMapping);
   const { extraSlider } = overlays;
 
-  const { slicingProps, playbackRange } = useSlicingProps(
-    (sel) => [
-      { dataset: entity, selection: sel },
-      ...overlays.getSliceRequests(sel),
-    ],
+  const { slicingProps, playbackRange } = useDatasetSlicingProps(
+    entity,
     dimMapping,
-    { withPlaybackRange: true },
+    { withPlaybackRange: true, getExtraRequests: overlays.getSliceRequests },
   );
 
   const dimMapper = (
