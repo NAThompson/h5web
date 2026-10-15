@@ -105,3 +105,28 @@ function getPchipEndSlope(
   }
   return slope;
 }
+
+const LEGEND_CORNERS = ['top-right', 'top-left', 'bottom-right', 'bottom-left'];
+const CORNER_SIZE = 0.35; // fraction of each axis
+
+/* Corner of the plot with the fewest curve points, for the legend (top right if several) */
+export function getLegendCorner(
+  abscissas: NumArray,
+  curves: NumArray[],
+  toRelativeX: (val: number) => number, // to [0, 1]
+  toRelativeY: (val: number) => number,
+): string {
+  const counts = [0, 0, 0, 0];
+  for (const ordinates of curves) {
+    for (const [i, val] of ordinates.entries()) {
+      const x = toRelativeX(abscissas[i]);
+      const y = toRelativeY(val);
+      const col = x > 1 - CORNER_SIZE ? 0 : x < CORNER_SIZE ? 1 : -1;
+      const row = y > 1 - CORNER_SIZE ? 0 : y < CORNER_SIZE ? 2 : -1;
+      if (col >= 0 && row >= 0) {
+        counts[row + col] += 1; // `NaN` coordinates are in no corner
+      }
+    }
+  }
+  return LEGEND_CORNERS[counts.indexOf(Math.min(...counts))];
+}

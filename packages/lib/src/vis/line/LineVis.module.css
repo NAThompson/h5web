@@ -77,6 +77,16 @@
   display: block;
 }
 
+.legend[data-corner^='bottom'] {
+  top: auto;
+  bottom: 0.75rem;
+}
+
+.legend[data-corner$='left'] {
+  right: auto;
+  left: 0.75rem;
+}
+
 .legendItem {
   display: flex;
   align-items: center;

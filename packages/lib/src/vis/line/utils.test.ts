@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getPchipSlopes } from './utils';
+import { getLegendCorner, getPchipSlopes } from './utils';
 
 // Irregularly spaced, non-monotonic data with flat runs
 const xs = Float64Array.from({ length: 200 }, (_, i) => i + Math.sin(i) ** 2);
@@ -54,6 +54,25 @@ describe('getPchipSlopes', () => {
     );
     expect(slopes.slice(101)).toStrictEqual(
       getPchipSlopes(xs.slice(101), ys.slice(101)),
+    );
+  });
+});
+
+function identity(val: number): number {
+  return val;
+}
+
+function getCorner(...curves: number[][]): string {
+  return getLegendCorner([0, 0.5, 1], curves, identity, identity);
+}
+
+describe('getLegendCorner', () => {
+  it('should pick the corner with the fewest curve points', () => {
+    expect(getCorner([0.5, 0.5, 0.5])).toBe('top-right'); // first if several
+    expect(getCorner([0.5, 0.5, 1])).toBe('top-left');
+    expect(getCorner([1, 0.5, 1], [0.5, 0.5, 0])).toBe('bottom-left');
+    expect(getCorner([Number.NaN, 0.5, 1], [1, 0.5, Number.NaN])).toBe(
+      'bottom-right',
     );
   });
 });

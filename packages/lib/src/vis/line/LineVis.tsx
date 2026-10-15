@@ -29,6 +29,7 @@ import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
 import {
+  createScale,
   DEFAULT_DOMAIN,
   extendDomain,
   getTextContent,
@@ -43,6 +44,7 @@ import {
   Interpolation,
   type TooltipData,
 } from './models';
+import { getLegendCorner } from './utils';
 
 const MAX_TOOLTIP_ROWS = 10; // split auxiliary values into columns beyond this
 
@@ -141,6 +143,39 @@ function LineVis(props: PropsWithChildren<Props>) {
   const auxColors = auxColorList.split(',').map((col) => col.trim()); // support comma-separated list of colors
   const visibleAuxCount = auxiliaries.filter((aux) => aux.visible).length;
   const hasVisibleAux = visibleAuxCount > 0;
+
+  const legendCorner = useMemo(
+    () =>
+      hasVisibleAux &&
+      getLegendCorner(
+        abscissas,
+        [
+          ...(visible ? [dataArray.data] : []),
+          ...auxiliaries
+            .filter((aux) => aux.visible)
+            .map((aux) => aux.array.data),
+        ],
+        createScale(abscissaScaleType ?? ScaleType.Linear, {
+          domain: abscissaDomain,
+          range: [0, 1],
+        }),
+        createScale(scaleType ?? ScaleType.Linear, {
+          domain: dataDomain,
+          range: [0, 1],
+        }),
+      ),
+    [
+      hasVisibleAux,
+      visible,
+      dataArray,
+      auxiliaries,
+      abscissas,
+      abscissaScaleType,
+      abscissaDomain,
+      scaleType,
+      dataDomain,
+    ],
+  );
 
   return (
     <figure
@@ -280,6 +315,7 @@ function LineVis(props: PropsWithChildren<Props>) {
             <ul
               className={styles.legend}
               data-visible={showLegend || undefined}
+              data-corner={legendCorner || undefined}
             >
               {visible && (
                 <li className={styles.legendItem}>
