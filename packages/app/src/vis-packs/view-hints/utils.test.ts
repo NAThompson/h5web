@@ -403,6 +403,33 @@ describe('colour map and domain', () => {
     ).toEqual([-1, null]);
   });
 
+  it('pick the auto colour map from a fixed domain, the same for every slice', () => {
+    const fixed = hint({ H5WEB_colormap: 'auto', H5WEB_domain: [-1, 1] });
+    expect(getColorSuggestions(fixed, [0.2, 0.9]).colorMap).toBe('RdBu');
+    expect(getColorSuggestions(fixed, undefined).colorMap).toBe('RdBu');
+    const positive = hint({ H5WEB_colormap: 'auto', H5WEB_domain: [0, 1] });
+    expect(getColorSuggestions(positive, [-1, 1]).colorMap).toBe('Viridis');
+
+    // Automatic end: from the data
+    const half = hint({
+      H5WEB_colormap: 'auto',
+      H5WEB_domain: [Number.NaN, 5],
+    });
+    expect(getColorSuggestions(half, [-1, 3]).colorMap).toBe('RdBu');
+    expect(getColorSuggestions(half, [1, 3]).colorMap).toBe('Viridis');
+    expect(getColorSuggestions(half, undefined).colorMap).toBeUndefined();
+
+    // Symmetric: diverging
+    const symmetric = hint({
+      H5WEB_colormap: 'auto',
+      H5WEB_symmetric: { int: 1 },
+    });
+    expect(getColorSuggestions(symmetric, [1, 3])).toEqual({
+      colorMap: 'RdBu',
+      customDomain: [-3, 3],
+    });
+  });
+
   it('fall back to ±1 around `center` for symmetric domains of data all at `center`', () => {
     expect(
       getColorSuggestions(hint({ H5WEB_symmetric: { int: 1 } }), [0, 0])
