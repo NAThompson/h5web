@@ -60,7 +60,9 @@ function ProbePanel(props: Props) {
   const scales = useCachedDimScales(dataset);
 
   const selection = getProbeSelection(dimMapping, probeDim, point);
-  const isTooLarge = !isAffordable(dataContext, { dataset, selection }); // e.g. a very long dimension
+  const isTooLarge =
+    selection !== undefined &&
+    !isAffordable(dataContext, { dataset, selection }); // e.g. a very long dimension
   const { data, error } = useQuery({
     ...queries.value(dataset, selection),
     enabled: selection !== undefined && !isTooLarge,
