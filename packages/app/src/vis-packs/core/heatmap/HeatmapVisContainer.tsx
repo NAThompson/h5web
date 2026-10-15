@@ -13,7 +13,10 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
-import { getAxisScaleHint } from '../../view-hints/axis-scales';
+import {
+  getAxisScaleHint,
+  getDimScaleNotes,
+} from '../../view-hints/axis-scales';
 import {
   useContourSource,
   useLinkedOverlays,
@@ -48,11 +51,14 @@ function HeatmapVisContainer(props: VisContainerProps) {
     axesCount: 2,
   });
 
-  const { dimHints, dimLabels, dimUnits } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
   const dimScales = useCachedDimScales(entity);
-  const axisScaleNotes = (['x', 'y'] as const).flatMap(
-    (axis) => getAxisScaleHint(dimScales, dimMapping, dims, axis, true).notes,
-  );
+  const dimScaleNotes = [
+    ...getDimScaleNotes(dimScales),
+    ...(['x', 'y'] as const).flatMap(
+      (axis) => getAxisScaleHint(dimScales, dimMapping, dims, axis, true).notes,
+    ),
+  ];
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
@@ -106,6 +112,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
       dims={dims}
       dimHints={dimHints}
       dimLabels={dimLabels}
+      sliceLabels={sliceLabels}
       dimMapping={dimMapping}
       {...slicingProps}
       onChange={setDimMapping}
@@ -167,7 +174,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
         notes={[
           ...overlays.notes,
           ...contourOf.notes,
-          ...(config.surface ? [] : axisScaleNotes),
+          ...dimScaleNotes,
           ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />

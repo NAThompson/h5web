@@ -79,6 +79,7 @@ interface Props {
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
   axisTicks?: AxisMapping<AxisTicks>;
   xSymlogConstant?: number; // `H5WEB_symlog_threshold` of the scale on the x axis
+  multiSliceLabels?: string[]; // labels of the slices of the multi-plotting dimension
   title: string;
   toolbarContainer?: HTMLDivElement | undefined;
   config: LineConfig;
@@ -104,6 +105,7 @@ function MappedLineVis(props: Props) {
     axisValues = [],
     axisTicks = [],
     xSymlogConstant,
+    multiSliceLabels,
     title,
     toolbarContainer,
     config,
@@ -245,6 +247,7 @@ function MappedLineVis(props: Props) {
       index,
       axisLabels[multiDim],
       numAxisArrays[multiDim],
+      multiSliceLabels,
     );
   }
 

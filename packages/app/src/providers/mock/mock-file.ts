@@ -57,8 +57,8 @@ function floatAttr(name: string, ...values: number[]) {
 // Axis values of `axis_hints`: log-spaced ρ from 1e-3 to 1e2, χ from -1000 to 1000
 const RHO = Array.from({ length: 12 }, (_, i) => 10 ** (-3 + (5 * i) / 11));
 const CHI = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
-function range12() {
-  return Array.from({ length: 12 }, (_, i) => i);
+function range60(length = 60) {
+  return Array.from({ length }, (_, i) => i);
 }
 
 export function makeMockFile(): GroupWithChildren {
@@ -832,7 +832,7 @@ export function makeMockFile(): GroupWithChildren {
           { scales: [['/axis_hints/rho']] },
         ),
         // Non-positive values can't be on a log axis; invalid value
-        dataset('zero_based', arrayShape([12]), floatType(), range12(), {
+        dataset('zero_based', arrayShape([12]), floatType(), range60(12), {
           attributes: [scalarAttr('H5WEB_axis_scale', 'log')],
         }),
         dataset('bad_scale', arrayShape([9]), floatType(), CHI, {
@@ -848,6 +848,53 @@ export function makeMockFile(): GroupWithChildren {
           ),
           { scales: [['/axis_hints/bad_scale'], ['/axis_hints/zero_based']] },
         ),
+        // `H5WEB_slice_labels`: names of the slices, as variable-length strings (netCDF-4
+        // `NC_STRING`) on a numeric scale, or as the values of a fixed-length string scale
+        dataset('package_label', arrayShape([4]), strType(H5T_CSET.UTF8), [
+          'ψ10',
+          'ψ20',
+          'ψ21',
+          'ψ30',
+        ]),
+        dataset('package_index', arrayShape([4]), intType(), [1, 2, 3, 4], {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'package_index'),
+            scalarAttr('H5WEB_slice_labels', 'package_label'),
+          ],
+        }),
+        withDimScales(
+          dataset('packages', arrayShape([4, 3, 5]), floatType(), range60()),
+          { scales: [['/axis_hints/package_index'], [], []] },
+        ),
+        dataset(
+          'blend_angle',
+          arrayShape([3]),
+          strType(H5T_CSET.ASCII, H5T_STR.NULLPAD, 8),
+          ['0 deg', '30 deg', '60 deg'],
+          {
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr('NAME', 'angle'),
+            ],
+          },
+        ),
+        withDimScales(
+          dataset('blend', arrayShape([3, 5]), floatType(), range60(15), {
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              intAttr('H5WEB_multi_dim', 0),
+            ],
+          }),
+          { scales: [['/axis_hints/blend_angle'], []] },
+        ),
+        // On the dataset: labels the only dimension of their length
+        dataset('own_labels', arrayShape([4, 3, 5]), floatType(), range60(), {
+          attributes: [scalarAttr('H5WEB_slice_labels', 'package_label')],
+        }),
+        dataset('bad_labels', arrayShape([4, 3, 5]), floatType(), range60(), {
+          attributes: [scalarAttr('H5WEB_slice_labels', 'rho')],
+        }),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects

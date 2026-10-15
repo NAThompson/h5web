@@ -55,7 +55,7 @@ function GeometryVisContainer(props: Props) {
 
   const selection = getSliceSelection(dimMapping);
   const hint = useViewHint(entity);
-  const { dimHints, dimLabels } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
@@ -70,6 +70,7 @@ function GeometryVisContainer(props: Props) {
           dims={dims}
           dimHints={dimHints}
           dimLabels={dimLabels}
+          sliceLabels={sliceLabels}
           dimMapping={dimMapping}
           {...slicingProps}
           onChange={setDimMapping}

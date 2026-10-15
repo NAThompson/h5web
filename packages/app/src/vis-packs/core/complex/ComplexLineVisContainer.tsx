@@ -33,7 +33,7 @@ function ComplexLineVisContainer(props: VisContainerProps) {
   const config = useLineConfig();
   const selection = getSliceSelection(dimMapping);
 
-  const { dimHints, dimLabels } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -48,6 +48,7 @@ function ComplexLineVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimLabels={dimLabels}
+        sliceLabels={sliceLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

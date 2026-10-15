@@ -12,7 +12,10 @@ import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
-import { getAxisScaleHint } from '../../view-hints/axis-scales';
+import {
+  getAxisScaleHint,
+  getDimScaleNotes,
+} from '../../view-hints/axis-scales';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import {
@@ -48,20 +51,15 @@ function LineVisContainer(props: VisContainerProps) {
   );
 
   // `H5WEB_axis_scale` of the scale on the x axis, once dimension scales are resolved
-  const xAxisScale = getAxisScaleHint(
-    useCachedDimScales(entity),
-    lineMapping,
-    dims,
-    'x',
-    false,
-  );
+  const dimScales = useCachedDimScales(entity);
+  const xAxisScale = getAxisScaleHint(dimScales, lineMapping, dims, 'x', false);
   const config = useLineConfig({
     ...getLineSuggestions(hint),
     xScaleType: xAxisScale.scaleType,
   });
   const selection = getSliceSelection(lineMapping);
 
-  const { dimHints, dimLabels } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -82,6 +80,7 @@ function LineVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimLabels={dimLabels}
+        sliceLabels={sliceLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}
@@ -107,6 +106,9 @@ function LineVisContainer(props: VisContainerProps) {
                   axisLabels={axisLabels}
                   axisValues={axisValues}
                   axisTicks={axisTicks}
+                  multiSliceLabels={
+                    multiDim === undefined ? undefined : sliceLabels[multiDim]
+                  }
                   xSymlogConstant={
                     axisScales[lineMapping.indexOf('x')]?.symlogConstant
                   }
@@ -121,7 +123,13 @@ function LineVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={[...getHintNotes(hint), ...xAxisScale.notes]} />
+      <OverlayNotes
+        notes={[
+          ...getHintNotes(hint),
+          ...getDimScaleNotes(dimScales),
+          ...xAxisScale.notes,
+        ]}
+      />
     </>
   );
 }

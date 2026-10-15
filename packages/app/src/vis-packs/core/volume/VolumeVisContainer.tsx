@@ -10,9 +10,10 @@ import { useMemo } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimInfo } from '../../dimscales/hooks';
+import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
+import { getDimScaleNotes } from '../../view-hints/axis-scales';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getVolumeSuggestions } from '../../view-hints/suggestions';
@@ -46,7 +47,13 @@ function VolumeVisContainer(props: VisContainerProps) {
 
   // Size the volume by its axes (and express gradients in their unit) only if they share a unit,
   // as `keepRatio` does for heatmaps
-  const { dimHints, dimLabels, dimUnits: allUnits } = useDimInfo(entity);
+  const {
+    dimHints,
+    dimLabels,
+    sliceLabels,
+    dimUnits: allUnits,
+  } = useDimInfo(entity);
+  const dimScales = useCachedDimScales(entity);
   const dimUnits = allUnits.slice(-3);
   const withPhysicalAspect =
     dimUnits.length === 3 && dimUnits.every((unit) => unit === dimUnits[0]);
@@ -68,6 +75,7 @@ function VolumeVisContainer(props: VisContainerProps) {
           dims={dims}
           dimHints={dimHints}
           dimLabels={dimLabels}
+          sliceLabels={sliceLabels}
           dimMapping={dimMapping}
           {...slicingProps}
           onChange={setDimMapping}
@@ -101,7 +109,9 @@ function VolumeVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={getHintNotes(hint)} />
+      <OverlayNotes
+        notes={[...getHintNotes(hint), ...getDimScaleNotes(dimScales)]}
+      />
     </>
   );
 }

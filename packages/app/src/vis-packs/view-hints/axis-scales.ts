@@ -32,8 +32,8 @@ function canShowAxis(
 
 /**
  * Scale of the dimension on an axis, from its scale's `H5WEB_axis_scale` (`undefined` if none or
- * linear), and notes: invalid attributes, and scales that can't show the axis' values, which is
- * then linear (e.g. non-positive values on a log axis)
+ * linear), with a note if it can't show the axis' values, which is then linear (e.g. non-positive
+ * values on a log axis)
  */
 export function getAxisScaleHint(
   dimScales: AxisMapping<DimScale>,
@@ -48,17 +48,22 @@ export function getAxisScaleHint(
     return { notes: [] };
   }
 
-  const notes = [...(scale.notes ?? [])];
   const { scaleType } = scale;
   if (!scaleType || scaleType === ScaleType.Linear) {
-    return { notes };
+    return { notes: [] };
   }
   if (!canShowAxis(scale, dims[dim], isHeatmap)) {
     const name = scale.name ?? `D${dim}`;
-    notes.push(
-      `"H5WEB_axis_scale" "${scaleType}" can't show the values of "${name}" (e.g. non-positive on a log axis): linear axis`,
-    );
-    return { notes };
+    return {
+      notes: [
+        `"H5WEB_axis_scale" "${scaleType}" can't show the values of "${name}" (e.g. non-positive on a log axis): linear axis`,
+      ],
+    };
   }
-  return { scaleType, notes };
+  return { scaleType, notes: [] };
+}
+
+/* Notes about the `H5WEB_*` attributes of the dimension scales (e.g. invalid values) */
+export function getDimScaleNotes(dimScales: AxisMapping<DimScale>): string[] {
+  return dimScales.flatMap((scale) => scale?.notes ?? []);
 }

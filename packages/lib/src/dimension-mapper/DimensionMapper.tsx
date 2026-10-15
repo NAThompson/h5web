@@ -13,6 +13,7 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   dims: number[];
   dimHints?: (string | undefined)[];
   dimLabels?: (string | undefined)[]; // short names of the dimensions (default: D0, D1...)
+  sliceLabels?: (string[] | undefined)[]; // labels of the indices of each dimension
   dimMapping: DimensionMapping;
   withSlicingControls?: boolean;
   canSliceFast?: (nextMapping: DimensionMapping) => boolean; // shortens debounce delay when slicing
@@ -53,6 +54,7 @@ function DimensionMapper(props: Props) {
     dims,
     dimHints,
     dimLabels,
+    sliceLabels,
     dimMapping,
     withSlicingControls = false,
     canSliceFast,
@@ -184,6 +186,7 @@ function DimensionMapper(props: Props) {
               dimension={index}
               label={dimLabels?.[index]}
               hint={dimHints?.[index]}
+              valueLabels={sliceLabels?.[index]}
               length={dims[index]}
               initialValue={val}
               withControls={withSlicingControls}

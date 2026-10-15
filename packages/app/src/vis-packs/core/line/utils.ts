@@ -22,7 +22,12 @@ export function getMultiPlotSliceLabel(
   index: number,
   axisLabel: string | undefined,
   axisValues: NumArray | undefined,
+  sliceLabels?: string[], // e.g. `H5WEB_slice_labels`: label alone
 ): string {
+  if (sliceLabels?.[index] !== undefined) {
+    return sliceLabels[index];
+  }
+
   const scaleValue = axisValues?.[index];
   if (scaleValue === undefined) {
     return `D${dim}[${index}]`;

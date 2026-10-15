@@ -25,6 +25,7 @@ import {
   getAttributeValue,
 } from '../../utils';
 import { createAttrReader, toUnicodeScripts } from '../view-hints/attrs';
+import { getDatasetLabels, getScaleLabels } from './slice-labels';
 
 export interface DimScale {
   label?: string;
@@ -36,6 +37,7 @@ export interface DimScale {
   scaleType?: AxisScaleType; // scale's `H5WEB_axis_scale`
   symlogConstant?: number; // scale's `H5WEB_symlog_threshold`
   notes?: string[]; // invalid `H5WEB_*` attributes of the scale
+  sliceLabels?: string[]; // labels of the indices (`H5WEB_slice_labels`, string-valued scale)
 }
 
 interface UsableScale {
@@ -66,25 +68,27 @@ export async function getDimScales(
     queryClient.query(queries.dimensionScales(dataset)), // shared with curve detection
   ]);
 
-  return Promise.all(
-    dims.map(async (dimSize, index) => {
+  const dimScales = await Promise.all(
+    dims.map(async (dimSize, index): Promise<DimScale | undefined> => {
       const label = labels[index];
-      const scale = await findUsableScale(
-        scales?.[index] || [], // providers that can't dereference `DIMENSION_LIST` plot against indices
-        dimSize,
-        dataContext,
+      const scalePaths = scales?.[index] || []; // providers that can't dereference `DIMENSION_LIST` plot against indices
+      const scale = await findUsableScale(scalePaths, dimSize, dataContext);
+      const slice = await withoutDataErrors(
+        getScaleLabels(scalePaths, scale?.dataset, dimSize, dataContext),
       );
+      const sliceNotes = slice?.note ? [slice.note] : [];
 
       if (!scale) {
-        // A label names the dimension even when no scale is attached
-        return label ? { label, name: label } : undefined;
+        // A label (or a string-valued scale) names the dimension even when no scale is attached
+        const name = label || slice?.name;
+        return name || sliceNotes.length > 0
+          ? { label: name, name, sliceLabels: slice?.labels, notes: sliceNotes }
+          : undefined;
       }
 
       const { dataset: scaleDataset, value } = scale;
-      const { name, longName, unit, ticks, ...hints } = await getScaleMeta(
-        scaleDataset,
-        dataContext,
-      );
+      const { name, longName, unit, ticks, notes, ...hints } =
+        await getScaleMeta(scaleDataset, dataContext);
 
       // CF `long_name` of the scale, else the dimension label, else the scale's own name
       const base =
@@ -98,9 +102,38 @@ export async function getDimScales(
         longName,
         ticks,
         ...hints,
+        sliceLabels: slice?.labels,
+        notes: [...(notes ?? []), ...sliceNotes],
       };
     }),
   );
+
+  // `H5WEB_slice_labels` of the dataset itself, over its scales' (notes on the first dimension)
+  const own = await withoutDataErrors(
+    getDatasetLabels(dataset, scales, dataContext),
+  );
+  if (own?.dim !== undefined) {
+    dimScales[own.dim] = { ...dimScales[own.dim], sliceLabels: own.labels };
+  }
+  if (own?.note) {
+    const [first] = dimScales;
+    dimScales[0] = { ...first, notes: [...(first?.notes ?? []), own.note] };
+  }
+  return dimScales;
+}
+
+/* Errors that are not HDF5's own (e.g. network errors) are rethrown */
+async function withoutDataErrors<T>(
+  promise: Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (isTransportError(error)) {
+      throw error;
+    }
+    return undefined;
+  }
 }
 
 /* `NAME` is the name given to `make_scale`, empty if none was. The attributes

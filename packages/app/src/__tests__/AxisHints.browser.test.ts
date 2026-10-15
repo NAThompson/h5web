@@ -4,7 +4,7 @@ import { ScaleType } from '@h5web/shared/vis-models';
 import ndarray from 'ndarray';
 import { createElement as h } from 'react';
 import { expect, test } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
 
 import { getSelectedVisTab, renderApp } from '../test-utils';
@@ -194,4 +194,48 @@ test('keep axes linear when their scale is invalid or cannot show their values',
   expect(getTickLabels('abscissa')).toEqual(
     expect.arrayContaining(['0', '2', '4']),
   );
+});
+
+test('label slices with the strings named by a dimension scale', async () => {
+  const { user } = await renderApp('/axis_hints/packages');
+
+  const slider = page.getByRole('slider', { name: 'package_index' });
+  const label = page.getByTestId('D0 slice label');
+  await expect.element(label).toHaveTextContent('ψ10'); // variable-length strings
+  expect(label).toHaveAttribute('title', '0: ψ10\n1: ψ20\n2: ψ21\n3: ψ30');
+  expect(slider).toHaveAttribute('aria-valuetext', 'ψ10');
+
+  await user.click(slider);
+  await userEvent.keyboard('{ArrowUp}');
+  await expect.element(label).toHaveTextContent('ψ20');
+});
+
+test('label curves with the values of a string-valued scale', async () => {
+  await renderApp('/axis_hints/blend');
+
+  const legend = page.getByRole('figure').getByRole('list');
+  await expect.element(legend).toBeVisible();
+  expect(
+    legend
+      .getByRole('listitem')
+      .elements()
+      .map((li) => li.textContent),
+  ).toEqual(['0 deg', '30 deg', '60 deg']); // fixed-length strings, without padding
+  expect(page.getByTestId('D0 slice label')).toHaveTextContent('0 deg');
+});
+
+test('label slices of the dimension named by the dataset', async () => {
+  const { selectExplorerNode } = await renderApp('/axis_hints/own_labels');
+
+  await expect
+    .element(page.getByTestId('D0 slice label'))
+    .toHaveTextContent('ψ10');
+
+  await selectExplorerNode('bad_labels');
+  await expect
+    .element(getNotes())
+    .toHaveTextContent(
+      'ignored "H5WEB_slice_labels": "rho" is not a 1D dataset of strings',
+    );
+  expect(page.getByTestId('D0 slice label')).not.toBeInTheDocument();
 });

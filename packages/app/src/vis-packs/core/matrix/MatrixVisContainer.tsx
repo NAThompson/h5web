@@ -29,7 +29,7 @@ function MatrixVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(dimMapping);
 
   const { slicingProps } = useDatasetSlicingProps(entity, dimMapping);
-  const { dimHints, dimLabels } = useDimInfo(entity); // once resolved, e.g. by another vis
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity); // once resolved, e.g. by another vis
 
   return (
     <>
@@ -38,6 +38,7 @@ function MatrixVisContainer(props: VisContainerProps) {
         dims={dims}
         dimHints={dimHints}
         dimLabels={dimLabels}
+        sliceLabels={sliceLabels}
         dimMapping={dimMapping}
         {...slicingProps}
         onChange={setDimMapping}

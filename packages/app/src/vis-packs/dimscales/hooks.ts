@@ -57,6 +57,7 @@ export interface DimInfo {
   dimHints: AxisMapping<string>; // full labels (with units), e.g. as hints of the dimension mapper
   dimLabels: AxisMapping<string>; // unique short names, for the dimension mapper's buttons and sliders
   dimUnits: AxisMapping<string>; // e.g. to suggest whether to keep the ratio
+  sliceLabels: AxisMapping<string[]>; // labels of the indices, for sliders
 }
 
 /* Labels and units of the dimensions for the dimension mapper and suggestions, which sit outside
@@ -69,6 +70,7 @@ export function useDimInfo(dataset: Dataset): DimInfo {
       dimHints: dimScales.map((scale) => scale?.label),
       dimLabels: getUniqueLabels(dimScales.map((scale) => scale?.name)),
       dimUnits: dimScales.map((scale) => scale?.unit),
+      sliceLabels: dimScales.map((scale) => scale?.sliceLabels),
     }),
     [dimScales],
   );
