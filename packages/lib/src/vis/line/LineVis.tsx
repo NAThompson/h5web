@@ -47,6 +47,7 @@ import {
   type LegendEntry,
   type TooltipData,
 } from './models';
+import UnplottableMarks, { getMarkedCurves } from './UnplottableMarks';
 import { getLegendCorner } from './utils';
 
 const MAX_TOOLTIP_ROWS = 10; // split auxiliary values into columns beyond this
@@ -76,6 +77,8 @@ interface Props extends ClassStyleAttrs {
   showLegend?: boolean; // legend of the curves, else only in snapshots
   valueTransform?: ValueTransform; // values are logarithms: y ticks as powers, real values in tooltips
   legendEntries?: LegendEntry[]; // after the curves (e.g. of children)
+  markUnplottable?: boolean; // mark values that can't be drawn (e.g. 0 in log scale) on the edge
+  unplottableColor?: string; // of the marks (default: colour of their curve)
 }
 
 function LineVis(props: PropsWithChildren<Props>) {
@@ -105,6 +108,8 @@ function LineVis(props: PropsWithChildren<Props>) {
     showLegend = false,
     valueTransform,
     legendEntries = [],
+    markUnplottable,
+    unplottableColor,
     className = '',
     style,
   } = props;
@@ -153,7 +158,10 @@ function LineVis(props: PropsWithChildren<Props>) {
     '--aux-colors',
   ]);
   const curveColor = dataColor ?? cssCurveColor;
-  const auxColors = auxColorList.split(',').map((col) => col.trim()); // support comma-separated list of colors
+  const auxColors = useMemo(
+    () => auxColorList.split(',').map((col) => col.trim()), // support comma-separated list of colors
+    [auxColorList],
+  );
   const visibleAuxCount = auxiliaries.filter((aux) => aux.visible).length;
   const hasVisibleAux = visibleAuxCount > 0;
   const entries =
@@ -165,6 +173,17 @@ function LineVis(props: PropsWithChildren<Props>) {
           legendEntries,
         )
       : [];
+
+  const markedCurves = useMemo(
+    () =>
+      getMarkedCurves(
+        visible && { ordinates: dataArray.data, color: curveColor },
+        auxiliaries,
+        auxColors,
+        ignoreValue,
+      ),
+    [visible, dataArray, curveColor, auxiliaries, auxColors, ignoreValue],
+  );
 
   const hasLegend = entries.length > 0;
   const legendCorner = useMemo(
@@ -332,6 +351,14 @@ function LineVis(props: PropsWithChildren<Props>) {
               visible={auxVisible}
             />
           ),
+        )}
+
+        {markUnplottable && (
+          <UnplottableMarks
+            abscissas={abscissas}
+            curves={markedCurves}
+            color={unplottableColor}
+          />
         )}
 
         {legendCorner && (

@@ -127,6 +127,7 @@ function LineVisContainer(props: VisContainerProps) {
                       : undefined
                   }
                   legend={hint.legend}
+                  nanColor={hint.nanColor}
                 />
               )}
             />

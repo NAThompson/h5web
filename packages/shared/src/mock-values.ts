@@ -673,6 +673,9 @@ export const mockValues = {
   ref_vline: () => ndarray([7]),
   ref_band_y: () => ndarray([1e-4, 1e-2]),
   ref_band_x: () => ndarray([2, 4]),
+  // Residual with exact zeros, a negative value and a missing one (log scale)
+  residual_zeros: () =>
+    ndarray([1e-2, 1e-4, 0, 1e-8, Number.NaN, -1e-9, 1e-12, 0]),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();

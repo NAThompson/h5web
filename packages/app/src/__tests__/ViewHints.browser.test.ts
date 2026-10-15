@@ -511,6 +511,32 @@ test('draw reference lines and bands of line views, with legend entries', async 
   );
 });
 
+function getUnplottableMarks(): { fill: string; isBottom: boolean }[] {
+  const svg = document.querySelector('[data-testid="unplottable-marks"]');
+  const height = svg?.getBoundingClientRect().height ?? 0;
+  return [...(svg?.querySelectorAll('polygon') ?? [])].map((mark) => ({
+    fill: mark.getAttribute('fill') ?? '',
+    isBottom: mark.getAttribute('points')?.endsWith(`,${height}`) ?? false,
+  }));
+}
+
+test('mark values that cannot be drawn in log scale on the bottom edge', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/line_zeros');
+
+  // Two zeros and a negative value, in `H5WEB_nan_color`; not `NaN`
+  const nanColor = 'rgba(217, 217, 217, 1)';
+  await expect
+    .poll(getUnplottableMarks)
+    .toEqual(
+      Array.from({ length: 3 }, () => ({ fill: nanColor, isBottom: true })),
+    );
+
+  // Logarithm of 0 (−∞), in the colour of the curve
+  await selectExplorerNode('value_transform_line');
+  await expect.poll(getUnplottableMarks).toHaveLength(1);
+  expect(getUnplottableMarks()[0].fill).not.toBe(nanColor);
+});
+
 function countContourLabels(text: string): number {
   // Contour labels are HTML spans, unlike axis tick labels (SVG text)
   return [...document.querySelectorAll('figure span')].filter(

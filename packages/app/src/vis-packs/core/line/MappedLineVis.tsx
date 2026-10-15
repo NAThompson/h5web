@@ -94,6 +94,7 @@ interface Props {
   extras?: HintExtras; // extra curves and references of a hint
   dataLabel?: string; // of the curve, in the legend and tooltip (not in multi-plots)
   legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
+  nanColor?: string; // of the marks of values that can't be drawn (e.g. 0 in log scale)
 }
 
 /* Drawn along with the dataset (`H5WEB_series` and overlays of a hint) */
@@ -147,6 +148,7 @@ function MappedLineVis(props: Props) {
     extras = NO_EXTRAS,
     dataLabel,
     legend,
+    nanColor,
   } = props;
   const { series, references, legendEntries } = extras;
 
@@ -413,6 +415,8 @@ function MappedLineVis(props: Props) {
         testid={dimMapping.toString()}
         valueTransform={valueTransform}
         legendEntries={legendEntries}
+        markUnplottable
+        unplottableColor={nanColor}
       >
         <KeepZoom visKey="line" xOnly />
         {references.length > 0 && <ReferenceLayer shapes={references} />}

@@ -1269,6 +1269,15 @@ export function makeMockFile(): GroupWithChildren {
             ),
           ],
         }),
+        // Values that can't be drawn in log scale: marked on the bottom edge, in `H5WEB_nan_color`
+        array('line_zeros', {
+          valueId: 'residual_zeros',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_scale', 'log'),
+            scalarAttr('H5WEB_nan_color', '#d9d9d9'),
+          ],
+        }),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],
