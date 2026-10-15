@@ -104,3 +104,16 @@
   padding-bottom: 0;
   transform: none;
 }
+
+.legendMark[data-dash] {
+  background: repeating-linear-gradient(
+    to right,
+    currentColor 0 0.25em,
+    transparent 0.25em 0.4em
+  );
+}
+
+.legendMark[data-band] {
+  height: 0.625rem;
+  opacity: 0.35;
+}

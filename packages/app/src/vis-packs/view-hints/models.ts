@@ -74,8 +74,19 @@ export interface TextOverlay extends OverlayBase {
   anchor: TextAnchor; // side of the position where the text goes
 }
 
+/* Line views: reference line at a value, or shaded interval between two */
+export interface ReferenceOverlay extends OverlayBase {
+  kind: 'hline' | 'vline' | 'band';
+  value: string; // path of a scalar or (1,) dataset (lines), or of a (2,) dataset [lo, hi] (bands)
+  axis: 'x' | 'y'; // axis of the values
+}
+
 export type OverlayHint =
-  PointsOverlay | EllipseOverlay | CurveOverlay | TextOverlay;
+  | PointsOverlay
+  | EllipseOverlay
+  | CurveOverlay
+  | TextOverlay
+  | ReferenceOverlay;
 
 /* Running min / max of a line (`H5WEB_envelope`), drawn over the data or instead of it */
 export interface Envelope {

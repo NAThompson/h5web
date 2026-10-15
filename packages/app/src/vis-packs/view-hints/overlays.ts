@@ -31,6 +31,7 @@ import {
   type EllipseOverlay,
   type OverlayHint,
   type PointsOverlay,
+  type ReferenceOverlay,
   type TextAnchor,
   type TextOverlay,
   type ViewHint,
@@ -137,6 +138,17 @@ function getRoles(hint: OverlayHint): Role[] {
       ];
     case 'text':
       return []; // no dataset
+    case 'hline':
+    case 'vline':
+    case 'band':
+      return [
+        {
+          role: 'value',
+          path: hint.value,
+          rank: hint.kind === 'band' ? 1 : 0,
+          required: true,
+        },
+      ];
     case 'curve':
       // A trail is the sequence of the linked dimension: one row per index
       return [
@@ -150,6 +162,11 @@ function getRoles(hint: OverlayHint): Role[] {
     default:
       return [];
   }
+}
+
+/* Overlays drawn on line views only */
+export function isReference(hint: OverlayHint): hint is ReferenceOverlay {
+  return hint.kind === 'hline' || hint.kind === 'vline' || hint.kind === 'band';
 }
 
 function isOverlayDataset(
@@ -744,6 +761,13 @@ type ValueGetter = (
   input: OverlayInput,
 ) => number[] | undefined;
 
+export type ShapeBuilder<T> = (
+  overlays: ResolvedOverlay[],
+  getValues: ValueGetter,
+  index: number | undefined,
+  axes: AxisDims,
+) => T;
+
 /* Dimensions of an input once sliced at the linked index (or of a trail's rows) */
 function getSlicedDims({ dataset, linkedDim }: OverlayInput): number[] {
   return getDims(dataset).filter((_, i) => i !== linkedDim);
@@ -999,6 +1023,9 @@ export function buildOverlayShapes(
 
   for (const overlay of overlays) {
     const { hint } = overlay;
+    if (isReference(hint)) {
+      continue; // line views only
+    }
     if (hint.kind === 'points') {
       const points = buildPoints(overlay, hint, getValues, axes);
       if (points) {

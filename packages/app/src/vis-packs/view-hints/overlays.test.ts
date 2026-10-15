@@ -355,7 +355,7 @@ describe('resolveOverlays', () => {
           H5WEB_width: 'wide', // wrong type: ignored
         }),
         arr('no_geometry', [4, 2]),
-        arr('band', [2], undefined, { H5WEB_geometry: 'band' }), // Phase 2
+        arr('band', [2], undefined, { H5WEB_geometry: 'band' }), // no `H5WEB_axis`
         group('bad_ellipse', [], {
           attributes: attrs({ H5WEB_geometry: 'ellipse', H5WEB_mean: 'mean' }),
         }),
@@ -371,7 +371,7 @@ describe('resolveOverlays', () => {
       'overlay "missing": not found',
       'overlay "colored": ignored invalid "H5WEB_width"',
       'overlay "no_geometry": no valid "H5WEB_geometry"',
-      'overlay "band": "H5WEB_geometry" "band" is not supported yet',
+      'overlay "band": needs "H5WEB_axis" (x or y)',
       'overlay "bad_ellipse": needs "H5WEB_mean" and "H5WEB_cov"',
       'overlay "labels": "/run/labels" is not a numeric dataset',
       'overlay "sigma": "/run/sigma" has unexpected shape [10]',

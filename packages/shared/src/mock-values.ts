@@ -669,6 +669,10 @@ export const mockValues = {
       [3, 10],
     ),
   series_bound: () => ndarray(range(0, 10).map((i) => 4 * Math.exp(-i / 6))),
+  // Reference lines and bands of a line view
+  ref_vline: () => ndarray([7]),
+  ref_band_y: () => ndarray([1e-4, 1e-2]),
+  ref_band_x: () => ndarray([2, 4]),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
   cma_landscapes: () => {
     const { data } = twoD();

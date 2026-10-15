@@ -148,14 +148,16 @@ test('suggest iso levels without storing them until edited', async () => {
   await page.viewport(1920, 1080);
 });
 
-test('show notes in visualizations without overlays', async () => {
+test('note overlays not drawn on line views', async () => {
   await renderApp('/view_hints/line_overlays');
 
   expect(getSelectedVisTab()).toBe(Vis.Line);
   await expect
     .element(getNotes())
     .toHaveTextContent('ignored invalid "H5WEB_scale"');
-  expect(getNotes()).toHaveTextContent('overlays are drawn on heatmaps only');
+  expect(getNotes()).toHaveTextContent(
+    'overlay "point": drawn on heatmaps only',
+  );
 });
 
 test('note overlay features not drawn in 3D', async () => {
@@ -482,6 +484,31 @@ test('draw series of a hint on the same axes, sliced along with the dataset', as
   await expect
     .poll(async () => getLineTooltip(0, 10))
     .toMatch(/fit.* = 2(?!\d).*bound = 4/u);
+});
+
+function getReferences(): string[] {
+  const svg = document.querySelector('[data-testid="references"]');
+  return [...(svg?.children ?? [])].map((el) => {
+    const { kind } = (el as SVGElement).dataset;
+    return `${kind} ${el.getAttribute(kind === 'band' ? 'fill' : 'stroke')}`;
+  });
+}
+
+test('draw reference lines and bands of line views, with legend entries', async () => {
+  await renderApp('/view_hints/line_references');
+
+  await expect
+    .poll(getReferences)
+    .toEqual(['band #666', 'band green', 'hline crimson', 'vline #666']);
+  expect(getLegend()).toEqual([
+    'line_references',
+    'target',
+    'tolerance 10-3', // superscript
+    'switch',
+  ]);
+  expect(getNotes()).toHaveTextContent(
+    'overlay "band_no_axis": needs "H5WEB_axis" (x or y)',
+  );
 });
 
 function countContourLabels(text: string): number {

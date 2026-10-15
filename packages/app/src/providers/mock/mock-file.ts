@@ -1222,6 +1222,53 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/series_k'], ['/view_hints/series_x']] },
         ),
+        // Reference lines and bands of line views, listed as overlays
+        scalar('tolerance', 1e-3, {
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'hline'),
+            scalarAttr('H5WEB_label', 'tolerance 10^{-3}'),
+            scalarAttr('H5WEB_color', 'crimson'),
+            intAttr('H5WEB_dash', 1),
+          ],
+        }),
+        array('switch', {
+          valueId: 'ref_vline', // (1,)
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'vline'),
+            scalarAttr('H5WEB_label', 'switch'),
+          ],
+        }),
+        array('target', {
+          valueId: 'ref_band_y',
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'band'),
+            scalarAttr('H5WEB_axis', 'y'),
+            scalarAttr('H5WEB_label', 'target'),
+            scalarAttr('H5WEB_color', 'green'),
+          ],
+        }),
+        array('warmup', {
+          valueId: 'ref_band_x',
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'band'),
+            scalarAttr('H5WEB_axis', 'x'),
+          ],
+        }),
+        array('band_no_axis', {
+          valueId: 'ref_band_x',
+          attributes: [scalarAttr('H5WEB_geometry', 'band')],
+        }),
+        array('line_references', {
+          valueId: 'convergence',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_scale', 'log'),
+            scalarAttr(
+              'H5WEB_overlays',
+              'warmup target tolerance switch band_no_axis point',
+            ),
+          ],
+        }),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [scalarAttr('H5WEB_overlays', '../point')],

@@ -49,9 +49,11 @@ import {
   getMissingAxisNotes,
   getOverlayRequests,
   getRequestKey,
+  isReference,
   type OverlayShapes,
   type ResolvedOverlays,
   resolveOverlays,
+  type ShapeBuilder,
 } from './overlays';
 import { getNotesIn3D, viewHintQuery } from './utils';
 
@@ -120,13 +122,15 @@ export function useResolvedOverlays(
   return data;
 }
 
-/* Shapes of the overlays at a linked index, and notes about what can't be drawn. While the
- * values of a new index load, shapes of the previous index are kept (smooth playback). */
-export function useOverlayShapes(
+/* Shapes of the overlays at a linked index (as built by `build`), and notes about what can't be
+ * drawn. While the values of a new index load, shapes of the previous index are kept (smooth
+ * playback). */
+export function useOverlayShapes<T = OverlayShapes>(
   resolved: ResolvedOverlays | undefined,
   index: number | undefined,
   axes: AxisDims,
-): { shapes: OverlayShapes | undefined; notes: string[] } {
+  build: ShapeBuilder<T>,
+): { shapes: T | undefined; notes: string[] } {
   const dataContext = useDataContext();
   const { queries } = dataContext;
   const allRequests = getOverlayRequests(resolved, index);
@@ -149,7 +153,7 @@ export function useOverlayShapes(
     const values = new Map(
       requests.map((request, i) => [getRequestKey(request), data[i]]),
     );
-    return buildOverlayShapes(
+    return build(
       resolved.overlays,
       (overlay, input) => {
         const request = getInputRequest(overlay, input, index);
@@ -158,7 +162,7 @@ export function useOverlayShapes(
       index,
       axes,
     );
-  }, [resolved, index, axes.x, axes.y, data]); // eslint-disable-line react-hooks/exhaustive-deps -- `requests` follow from `resolved` and `index`
+  }, [resolved, index, axes.x, axes.y, data, build]); // eslint-disable-line react-hooks/exhaustive-deps -- `requests` follow from `resolved` and `index`
 
   const notes = [...(resolved?.notes ?? [])];
   for (const { dataset, selection } of tooLarge) {
@@ -225,7 +229,12 @@ export function useLinkedOverlays(
         : undefined;
 
   const axes = { x: dimMapping.indexOf('x'), y: dimMapping.indexOf('y') };
-  const { shapes, notes } = useOverlayShapes(resolved, index, axes);
+  const { shapes, notes } = useOverlayShapes(
+    resolved,
+    index,
+    axes,
+    buildOverlayShapes,
+  );
   const { dimHints } = useDimInfo(base);
 
   // Extra slider: prefetch overlays of upcoming indices during playback, as slicing does
@@ -237,10 +246,13 @@ export function useLinkedOverlays(
       ).filter((req) => isAffordable(dataContext, req)),
   });
 
+  const allOverlays = resolved?.overlays ?? [];
+  const overlays = allOverlays.filter(({ hint: o }) => !isReference(o));
+  const references = allOverlays.filter(({ hint: o }) => isReference(o));
   const legend: LegendItem[] =
     hint.legend === false
       ? []
-      : (resolved?.overlays ?? []).flatMap(({ hint: overlay }) =>
+      : overlays.flatMap(({ hint: overlay }) =>
           overlay.label &&
           overlay.labelMode !== 'inline' &&
           overlay.kind !== 'text'
@@ -259,7 +271,8 @@ export function useLinkedOverlays(
     shapes,
     notes: [
       ...notes,
-      ...getMissingAxisNotes(resolved?.overlays ?? [], axes, dimHints),
+      ...getMissingAxisNotes(overlays, axes, dimHints),
+      ...references.map(({ label }) => `${label}: drawn on line views only`),
     ],
     legend,
     notesIn3D: getNotesIn3D(

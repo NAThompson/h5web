@@ -1,5 +1,6 @@
 import { type IgnoreValue, type NumArray } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
+import { type ReactNode } from 'react';
 
 export enum CurveType {
   LineOnly = 'OnlyLine',
@@ -28,6 +29,14 @@ export interface AuxiliaryParams {
   width?: number; // line width in CSS pixels (default 1)
   visible?: boolean;
   ignoreValue?: IgnoreValue; // overrides `ignoreValue` prop of `LineVis`
+}
+
+/* Legend entry of something other than a curve (e.g. reference line, shaded band) */
+export interface LegendEntry {
+  label: ReactNode;
+  color: string;
+  dash?: boolean;
+  isBand?: boolean;
 }
 
 export enum Interpolation {

@@ -15,12 +15,12 @@ import { useDatasetSlicingProps } from '../../slicing';
 import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
+import { useLineOverlays } from '../../view-hints/references';
 import { useLineSeries } from '../../view-hints/series';
 import {
   getLineDimSuggestions,
   getLineSuggestions,
 } from '../../view-hints/suggestions';
-import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
@@ -55,8 +55,19 @@ function LineVisContainer(props: VisContainerProps) {
 
   // Extra curves of the hint, sliced along with the dataset
   const series = useLineSeries(entity, hint, lineMapping);
+  const references = useLineOverlays(entity, hint, lineMapping);
+  const extras = useMemo(
+    () => ({
+      series: series.curves,
+      references: references.shapes,
+      legendEntries: references.legend,
+    }),
+    [series.curves, references.shapes, references.legend],
+  );
   const hasExtraCurves =
-    hint.envelope?.mode === 'add' || series.curves.length > 0;
+    hint.envelope?.mode === 'add' ||
+    series.curves.length > 0 ||
+    references.legend.length > 0; // the dataset's curve is named in the legend
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -109,7 +120,7 @@ function LineVisContainer(props: VisContainerProps) {
                   symlogThreshold={hint.symlogThreshold}
                   valueTransform={hint.valueTransform}
                   envelope={hint.envelope}
-                  series={series.curves}
+                  extras={extras}
                   dataLabel={
                     hasExtraCurves
                       ? (toUnicodeScripts(hint.longName) ?? entity.name)
@@ -122,7 +133,7 @@ function LineVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={[...getHintNotes(hint), ...series.notes]} />
+      <OverlayNotes notes={[...references.notes, ...series.notes]} />
     </>
   );
 }

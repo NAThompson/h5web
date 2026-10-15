@@ -5,6 +5,7 @@ import {
   getSliceSelection,
   INTERPOLATORS,
   KeepZoom,
+  type LegendEntry,
   LineVis,
   useCombinedDomain,
   useDomain,
@@ -40,6 +41,8 @@ import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useEnvelopes } from '../../view-hints/envelope';
 import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
 import { type Envelope } from '../../view-hints/models';
+import ReferenceLayer from '../../view-hints/ReferenceLayer';
+import { type ReferenceShape } from '../../view-hints/references';
 import { type SeriesCurve } from '../../view-hints/series';
 import {
   useExportEntries,
@@ -88,10 +91,19 @@ interface Props {
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
   valueTransform?: ValueTransform; // values are logarithms (`H5WEB_value_transform`)
   envelope?: Envelope; // running min / max, over the data or instead of it
-  series?: SeriesCurve[]; // extra curves on the same axes (`H5WEB_series`)
+  extras?: HintExtras; // extra curves and references of a hint
   dataLabel?: string; // of the curve, in the legend and tooltip (not in multi-plots)
   legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
 }
+
+/* Drawn along with the dataset (`H5WEB_series` and overlays of a hint) */
+export interface HintExtras {
+  series: SeriesCurve[]; // extra curves on the same axes
+  references: ReferenceShape[]; // reference lines and bands
+  legendEntries: LegendEntry[]; // of the references
+}
+
+const NO_EXTRAS: HintExtras = { series: [], references: [], legendEntries: [] };
 
 /* Legend: curves of a multi-plot (unless too many), or extra curves of a hint */
 function isLegendShown(
@@ -132,10 +144,11 @@ function MappedLineVis(props: Props) {
     symlogThreshold,
     valueTransform,
     envelope,
-    series = [],
+    extras = NO_EXTRAS,
     dataLabel,
     legend,
   } = props;
+  const { series, references, legendEntries } = extras;
 
   const {
     customDomain,
@@ -242,12 +255,18 @@ function MappedLineVis(props: Props) {
     [auxArrays, auxErrorsArrays, showErrors, yScaleType, ...auxIgnoreValues], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const seriesDomains = useMemo(
-    () =>
-      series.map(({ array, ignoreValue: ignore }) =>
+  // Series and values of references along y (e.g. a tolerance) in the domain
+  const extraDomains = useMemo(
+    () => [
+      ...series.map(({ array, ignoreValue: ignore }) =>
         getDomain(array, { scaleType: yScaleType, ignoreValue: ignore }),
       ),
-    [series, yScaleType],
+      getDomain(
+        references.flatMap(({ axis, values }) => (axis === 'y' ? values : [])),
+        { scaleType: yScaleType },
+      ),
+    ],
+    [series, references, yScaleType],
   );
 
   const combinedDomain =
@@ -255,7 +274,7 @@ function MappedLineVis(props: Props) {
       useCombinedDomain([
         valueVisible ? dataDomain : undefined,
         ...auxDomains.filter((_, i) => auxVisible[i]),
-        ...seriesDomains,
+        ...extraDomains,
       ]),
       `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}`,
       (sequenceValue) =>
@@ -389,12 +408,14 @@ function MappedLineVis(props: Props) {
           legend,
           isMultiPlot,
           visibleSliceCount,
-          extraCurves.length,
+          extraCurves.length + legendEntries.length,
         )}
         testid={dimMapping.toString()}
         valueTransform={valueTransform}
+        legendEntries={legendEntries}
       >
         <KeepZoom visKey="line" xOnly />
+        {references.length > 0 && <ReferenceLayer shapes={references} />}
       </LineVis>
     </>
   );

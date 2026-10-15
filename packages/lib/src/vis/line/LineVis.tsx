@@ -26,7 +26,6 @@ import {
   type ClassStyleAttrs,
   type ValueTransform,
 } from '../models';
-import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
 import {
@@ -39,11 +38,13 @@ import {
 } from '../utils';
 import DataCurve from './DataCurve';
 import { useAxisValues } from './hooks';
+import LineLegend, { getLegendEntries } from './LineLegend';
 import styles from './LineVis.module.css';
 import {
   type AuxiliaryParams,
   CurveType,
   Interpolation,
+  type LegendEntry,
   type TooltipData,
 } from './models';
 import { getLegendCorner } from './utils';
@@ -74,6 +75,7 @@ interface Props extends ClassStyleAttrs {
   visible?: boolean;
   showLegend?: boolean; // legend of the curves, else only in snapshots
   valueTransform?: ValueTransform; // values are logarithms: y ticks as powers, real values in tooltips
+  legendEntries?: LegendEntry[]; // after the curves (e.g. of children)
 }
 
 function LineVis(props: PropsWithChildren<Props>) {
@@ -102,6 +104,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     visible = true,
     showLegend = false,
     valueTransform,
+    legendEntries = [],
     className = '',
     style,
   } = props;
@@ -153,10 +156,20 @@ function LineVis(props: PropsWithChildren<Props>) {
   const auxColors = auxColorList.split(',').map((col) => col.trim()); // support comma-separated list of colors
   const visibleAuxCount = auxiliaries.filter((aux) => aux.visible).length;
   const hasVisibleAux = visibleAuxCount > 0;
+  const entries =
+    hasVisibleAux || legendEntries.length > 0
+      ? getLegendEntries(
+          visible && { label: dataLabel, ordinateLabel, color: curveColor },
+          auxiliaries,
+          auxColors,
+          legendEntries,
+        )
+      : [];
 
+  const hasLegend = entries.length > 0;
   const legendCorner = useMemo(
     () =>
-      hasVisibleAux &&
+      hasLegend &&
       getLegendCorner(
         abscissas,
         [
@@ -175,7 +188,7 @@ function LineVis(props: PropsWithChildren<Props>) {
         }),
       ),
     [
-      hasVisibleAux,
+      hasLegend,
       visible,
       dataArray,
       auxiliaries,
@@ -321,41 +334,12 @@ function LineVis(props: PropsWithChildren<Props>) {
           ),
         )}
 
-        {hasVisibleAux && (
-          /* Legend shown in snapshots (cf. `[data-snapshot]` in CSS) unless `showLegend` */
-          <Overlay>
-            <ul
-              className={styles.legend}
-              data-visible={showLegend || undefined}
-              data-corner={legendCorner || undefined}
-            >
-              {visible && (
-                <li className={styles.legendItem}>
-                  <span
-                    className={styles.legendMark}
-                    data-keep-colors
-                    style={{ color: curveColor }}
-                  />
-                  {dataLabel || getTextContent(ordinateLabel) || 'Signal'}
-                </li>
-              )}
-              {auxiliaries.map(
-                ({ label, color, visible: auxVisible }, index) =>
-                  auxVisible ? (
-                    <li className={styles.legendItem} key={label || index}>
-                      <span
-                        className={styles.legendMark}
-                        data-keep-colors
-                        style={{
-                          color: color ?? auxColors[index % auxColors.length],
-                        }}
-                      />
-                      {label || `Auxiliary ${index + 1}`}
-                    </li>
-                  ) : null,
-              )}
-            </ul>
-          </Overlay>
+        {legendCorner && (
+          <LineLegend
+            entries={entries}
+            corner={legendCorner}
+            isVisible={showLegend}
+          />
         )}
 
         {children}

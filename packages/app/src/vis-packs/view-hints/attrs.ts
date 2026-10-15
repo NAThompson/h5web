@@ -20,6 +20,7 @@ import {
 import {
   type Attribute,
   type AttributeValues,
+  type Dataset,
   type Entity,
 } from '@h5web/shared/hdf5-models';
 import { type ColorScaleType, ComplexVisType } from '@h5web/shared/vis-models';
@@ -31,6 +32,7 @@ import {
   HINT_ATTR_PREFIX,
   HintVis,
   type OverlayHint,
+  type ReferenceOverlay,
   type SeriesStyle,
   type TextAnchor,
   type ViewHint,
@@ -429,7 +431,35 @@ function parseZ(val: string | undefined): string | undefined {
   return key === 'value' || key === 'surface' ? key : val;
 }
 
-const UNSUPPORTED_GEOMETRIES = new Set(['hline', 'vline', 'band']);
+const REFERENCE_GEOMETRIES = new Set(['hline', 'vline', 'band']);
+
+/* Reference line (`hline`: y value, `vline`: x value) or band ([lo, hi] along `H5WEB_axis`) */
+function parseReference(
+  geometry: ReferenceOverlay['kind'],
+  entity: Entity,
+  read: AttrReader,
+  style: Omit<ReferenceOverlay, 'kind' | 'value' | 'axis'>,
+): ReferenceOverlay | string {
+  const axis =
+    geometry === 'band'
+      ? read.oneOf('H5WEB_axis', parseAmong<'x' | 'y'>(['x', 'y']))
+      : geometry === 'hline'
+        ? 'y'
+        : 'x';
+  if (
+    !isDataset(entity) ||
+    (!hasArrayShape(entity) && !hasScalarShape(entity))
+  ) {
+    return `"${geometry}" needs a dataset`;
+  }
+  if (!axis) {
+    return 'needs "H5WEB_axis" (x or y)';
+  }
+  if (geometry === 'band' && getDims(entity).at(-1) !== 2) {
+    return '"band" needs a (2,) dataset [lo, hi]';
+  }
+  return { kind: geometry, value: entity.path, axis, ...style };
+}
 
 /**
  * Overlay drawn by an object listed in `H5WEB_overlays`, from its attributes: `H5WEB_geometry`
@@ -534,9 +564,20 @@ export function parseOverlay(
     };
   }
 
-  return UNSUPPORTED_GEOMETRIES.has(geometry)
-    ? `"H5WEB_geometry" "${geometry}" is not supported yet`
-    : `unknown "H5WEB_geometry" "${geometry}"`;
+  if (REFERENCE_GEOMETRIES.has(geometry)) {
+    return parseReference(
+      geometry as ReferenceOverlay['kind'],
+      entity,
+      read,
+      style,
+    );
+  }
+
+  return `unknown "H5WEB_geometry" "${geometry}"`;
+}
+
+function getDims(entity: Dataset): number[] {
+  return hasArrayShape(entity) ? entity.shape.dims : [];
 }
 
 /* Whether an entity says how to view it */
