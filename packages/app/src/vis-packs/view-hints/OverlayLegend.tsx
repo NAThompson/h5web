@@ -6,7 +6,7 @@ interface Props {
   items: LegendItem[];
 }
 
-/* Legend of the labelled overlays of a `H5WEB_view` hint */
+/* Legend of the labelled overlays of a `H5WEB_*` view hint */
 function OverlayLegend(props: Props) {
   const { items } = props;
   if (items.length === 0) {

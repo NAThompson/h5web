@@ -13,14 +13,15 @@ import {
 } from '../../providers/DataProvider';
 import { type ValueQueryParams } from '../../providers/models';
 import { isValueInCache } from '../../utils';
-import { createGeometryContext } from '../core/geometry/utils';
 import { useSlicingProps } from '../slicing';
 import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
+import { toNumbers } from './attrs';
 import type LinkedDimMapper from './LinkedDimMapper';
-import { EMPTY_HINT, VIEW_HINT_ATTR, type ViewHint } from './models';
+import { EMPTY_HINT, type ViewHint } from './models';
 import {
   type AxisDims,
   buildOverlayShapes,
+  createOverlayContext,
   getIndexFromSelection,
   getInputRequest,
   getOverlayRequests,
@@ -28,11 +29,10 @@ import {
   type OverlayShapes,
   type ResolvedOverlays,
   resolveOverlays,
-  toNumbers,
 } from './overlays';
-import { viewHintQuery } from './utils';
+import { getNotesIn3D, viewHintQuery } from './utils';
 
-/* `H5WEB_view` hint of a dataset or NXdata group (usually in cache once the entity is resolved).
+/* `H5WEB_*` view hint of a dataset or NXdata group (usually in cache once the entity is resolved).
  * Never suspends nor throws: no hint until fetched, or if it can't be fetched (with a note). */
 export function useViewHint(
   entity: ProvidedEntity,
@@ -43,7 +43,7 @@ export function useViewHint(
   if (error) {
     return {
       ...EMPTY_HINT,
-      notes: [`${VIEW_HINT_ATTR} could not be fetched: ${error.message}`],
+      notes: [`H5WEB_* attributes could not be fetched: ${error.message}`],
     };
   }
   return data ?? EMPTY_HINT;
@@ -84,8 +84,8 @@ export function useResolvedOverlays(
   const { data, error } = useQuery({
     queryKey: [dataContext.filepath, 'overlays', base.path, hint.anchor],
     queryFn: async () =>
-      resolveOverlays(hint, base, createGeometryContext(dataContext)),
-    enabled: hint.overlays.length > 0 || hint.notes.length > 0,
+      resolveOverlays(hint, base, createOverlayContext(dataContext)),
+    enabled: hint.overlayPaths.length > 0 || hint.notes.length > 0,
   });
 
   if (error) {
@@ -172,6 +172,7 @@ export interface LinkedOverlays {
   shapes: OverlayShapes | undefined;
   notes: string[];
   legend: LegendItem[]; // labelled overlays, unless the hint hides the legend
+  notesIn3D: string[]; // overlay features not drawn on 3D surfaces
   // values of the overlays to fetch with a slice of the base dataset (when the link is one of its dimensions)
   getSliceRequests: (selection: string | undefined) => ValueQueryParams[];
   // extra slider for a linked dimension the base dataset doesn't have
@@ -234,6 +235,9 @@ export function useLinkedOverlays(
     shapes,
     notes,
     legend,
+    notesIn3D: getNotesIn3D(
+      resolved?.overlays.map(({ hint: overlay }) => overlay) ?? [],
+    ),
     getSliceRequests: (selection) =>
       baseDim === undefined
         ? []

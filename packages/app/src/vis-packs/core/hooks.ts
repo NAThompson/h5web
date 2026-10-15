@@ -129,7 +129,7 @@ export function useSuggestion<T>(
   return [suggestion, patchedSetter];
 }
 
-/* Several suggestions at once (e.g. from NeXus metadata or a file's `H5WEB_view` hint): each
+/* Several suggestions at once (e.g. from NeXus metadata or a file's `H5WEB_*` view hint): each
  * applies until the user changes that setting, through its setter (`setFoo` for `foo`). Keys
  * present without a value yet (e.g. suggestions that depend on data still loading) are watched
  * too, so a change made before the suggestion arrives is not overridden. */

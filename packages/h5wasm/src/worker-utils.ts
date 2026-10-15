@@ -447,6 +447,130 @@ export function parseComplexValue(value: unknown, isScalar: boolean): unknown {
   return isScalar ? pairs[0] : pairs;
 }
 
+// Characters of bytes 0x80-0x9F once decoded as windows-1252 (h5wasm's "ascii" decoder)
+const CP1252_HIGH = '€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ';
+const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
+
+function toUtf8(str: string): string {
+  const bytes: number[] = [];
+  for (const char of str) {
+    const code = char.codePointAt(0) ?? 0;
+    const high = CP1252_HIGH.indexOf(char);
+    if (high !== -1) {
+      bytes.push(0x80 + high);
+    } else if (code <= 0xff) {
+      bytes.push(code);
+    } else {
+      return str;
+    }
+  }
+
+  try {
+    return UTF8_DECODER.decode(new Uint8Array(bytes));
+  } catch {
+    return str; // genuine single-byte text
+  }
+}
+
+/* Whether a datatype holds ASCII-tagged strings, possibly in compound, array or vlen members */
+function hasAsciiStrings(metadata: Metadata): boolean {
+  /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison --
+   * h5wasm types the class as a plain number */
+  switch (metadata.type) {
+    case H5T_CLASS.STRING:
+      return metadata.cset === 0;
+    case H5T_CLASS.COMPOUND:
+      return !!metadata.compound_type?.members.some(hasAsciiStrings);
+    case H5T_CLASS.ARRAY:
+      return !!metadata.array_type && hasAsciiStrings(metadata.array_type);
+    case H5T_CLASS.VLEN:
+      return !!metadata.vlen_type && hasAsciiStrings(metadata.vlen_type);
+    default:
+      return false;
+  }
+  /* eslint-enable @typescript-eslint/no-unsafe-enum-comparison */
+}
+
+function fixString(value: unknown): unknown {
+  // Fast path: nothing to re-decode in plain ASCII
+  return typeof value === 'string' && /\P{ASCII}/u.test(value)
+    ? toUtf8(value)
+    : value;
+}
+
+/* One element of a datatype, with ASCII-tagged strings re-decoded, member by member */
+function fixElement(element: unknown, metadata: Metadata): unknown {
+  /* eslint-disable @typescript-eslint/no-unsafe-enum-comparison --
+   * h5wasm types the class as a plain number */
+  switch (metadata.type) {
+    case H5T_CLASS.STRING:
+      return metadata.cset === 0 ? fixString(element) : element;
+    case H5T_CLASS.COMPOUND: {
+      const members = metadata.compound_type?.members;
+      return Array.isArray(element) && members
+        ? element.map((val: unknown, i) =>
+            members[i] ? fixElement(val, members[i]) : val,
+          )
+        : element;
+    }
+    case H5T_CLASS.ARRAY: {
+      const { array_type } = metadata;
+      return array_type
+        ? fixNested(element, array_type, array_type.shape?.length ?? 1)
+        : element;
+    }
+    case H5T_CLASS.VLEN:
+      return metadata.vlen_type
+        ? fixNested(element, metadata.vlen_type, 1)
+        : element;
+    default:
+      return element;
+  }
+  /* eslint-enable @typescript-eslint/no-unsafe-enum-comparison */
+}
+
+function hasCompound(metadata: Metadata): boolean {
+  /* eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison --
+   * h5wasm types the class as a plain number */
+  if (metadata.type === H5T_CLASS.COMPOUND) {
+    return true;
+  }
+  const base = metadata.array_type ?? metadata.vlen_type;
+  return !!base && hasCompound(base);
+}
+
+function fixAllStrings(value: unknown): unknown {
+  return Array.isArray(value) ? value.map(fixAllStrings) : fixString(value);
+}
+
+/* Elements of a (nested) array, `depth` levels deep. Without compound members, all strings are
+ * ASCII-tagged, at whatever depth h5wasm nests them (e.g. array types of nD datasets). */
+function fixNested(value: unknown, metadata: Metadata, depth: number): unknown {
+  if (!hasCompound(metadata)) {
+    return fixAllStrings(value);
+  }
+  if (depth === 0) {
+    return fixElement(value, metadata);
+  }
+  return Array.isArray(value)
+    ? value.map((val: unknown) => fixNested(val, metadata, depth - 1))
+    : value;
+}
+
+/* Strings tagged ASCII often hold UTF-8 (e.g. netCDF-4 attributes written by NCDatasets.jl),
+ * but h5wasm decodes them byte by byte: decode them as UTF-8 when they are valid UTF-8, also in
+ * ASCII-tagged members of compound, array and vlen types. `isElement`: value of a scalar
+ * attribute, dataset or selection; else an array of elements. */
+export function fixAsciiStrings(
+  value: unknown,
+  metadata: Metadata,
+  isElement: boolean,
+): unknown {
+  return hasAsciiStrings(metadata)
+    ? fixNested(value, metadata, isElement ? 0 : 1)
+    : value;
+}
+
 type TypedArray = Exclude<NumArray, number[]> | BigIntTypedArray;
 
 export const SLAB_SIZE = 32 * 1024 * 1024; // in bytes

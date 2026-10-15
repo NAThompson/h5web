@@ -2,10 +2,12 @@ import {
   hasArrayShape,
   hasNumericType,
   hasScalarShape,
+  hasStringType,
   isDataset,
 } from '@h5web/shared/guards';
 import {
   type ArrayShape,
+  type AttributeValues,
   type Dataset,
   type NumericType,
   type ProvidedEntity,
@@ -13,11 +15,16 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type NumArray } from '@h5web/shared/vis-models';
 
+import { type DataContextValue } from '../../providers/DataProvider';
 import { type ValueQueryParams } from '../../providers/models';
+import { isTransportError } from '../../providers/utils';
 import {
+  createGeometryContext,
   type GeometryContext,
   resolveCoordinate,
 } from '../core/geometry/utils';
+import { isPhonyScaleName } from '../dimscales/utils';
+import { parseOverlay } from './attrs';
 import {
   type CurveOverlay,
   type EllipseOverlay,
@@ -27,6 +34,41 @@ import {
   type TextOverlay,
   type ViewHint,
 } from './models';
+
+/* Also fetches the attributes of overlay objects, and the text of text overlays: `undefined` if
+ * they can't be read (rejects on transport errors, as `GeometryContext`) */
+export interface OverlayContext extends GeometryContext {
+  getAttrValues: (
+    entity: ProvidedEntity,
+  ) => Promise<AttributeValues | undefined>;
+  getValue: (dataset: Dataset<ScalarShape | ArrayShape>) => Promise<unknown>;
+}
+
+async function ignoreDataErrors<T>(
+  promise: Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (isTransportError(error)) {
+      throw error;
+    }
+    return undefined;
+  }
+}
+
+export function createOverlayContext(
+  dataContext: DataContextValue,
+): OverlayContext {
+  const { queryClient, queries } = dataContext;
+  return {
+    ...createGeometryContext(dataContext),
+    getAttrValues: async (entity) =>
+      ignoreDataErrors(queryClient.query(queries.attrValues(entity))),
+    getValue: async (dataset) =>
+      ignoreDataErrors(queryClient.query(queries.value(dataset))),
+  };
+}
 
 type OverlayDatasetShape = ScalarShape | ArrayShape;
 export type OverlayDataset = Dataset<OverlayDatasetShape, NumericType>;
@@ -130,6 +172,7 @@ export function findLinkedDim(
   dims: number[],
   scales: string[][] | null,
   link: Link | undefined,
+  hasScales = scales?.some((paths) => paths.length > 0) ?? false, // e.g. netCDF phony scales
 ): number | undefined {
   if (!link) {
     return undefined;
@@ -140,7 +183,6 @@ export function findLinkedDim(
     return dim;
   }
 
-  const hasScales = scales?.some((paths) => paths.length > 0) ?? false;
   return !hasScales && dims[0] === link.length ? 0 : undefined;
 }
 
@@ -154,10 +196,15 @@ async function getLink(
     return undefined;
   }
 
+  const name = await ctx.getStrAttr(entity, 'NAME');
+  if (isPhonyScaleName(name)) {
+    return undefined; // not a variable: nothing to slice along
+  }
+
   const baseDim = baseScales?.findIndex((paths) => paths.includes(scalePath));
   return {
     scalePath,
-    label: (await ctx.getStrAttr(entity, 'NAME')) || entity.name,
+    label: name || entity.name,
     length: getDims(entity)[0],
     baseDim: baseDim !== undefined && baseDim >= 0 ? baseDim : undefined,
   };
@@ -177,7 +224,31 @@ async function findEntity(
   }
 }
 
-async function getScales(
+/* Scales without netCDF-4 phony dimensions (scales that are not variables), which never name
+ * nor link dimensions */
+export async function withoutPhonyScales(
+  scales: string[][] | null | undefined,
+  ctx: GeometryContext,
+): Promise<string[][] | null> {
+  if (!scales) {
+    return null;
+  }
+  return Promise.all(
+    scales.map(async (paths) => {
+      const isPhony = await Promise.all(
+        paths.map(async (path) => {
+          const entity = await findEntity('/', path, ctx);
+          return isPhonyScaleName(
+            entity && (await ctx.getStrAttr(entity, 'NAME')),
+          );
+        }),
+      );
+      return paths.filter((_, i) => !isPhony[i]);
+    }),
+  );
+}
+
+async function getRawScales(
   dataset: OverlayDataset,
   ctx: GeometryContext,
 ): Promise<string[][] | null> {
@@ -186,14 +257,73 @@ async function getScales(
     : null;
 }
 
+async function getScales(
+  dataset: OverlayDataset,
+  ctx: GeometryContext,
+): Promise<string[][] | null> {
+  return withoutPhonyScales(await getRawScales(dataset, ctx), ctx);
+}
+
 interface FoundRole extends Role {
   entity: ProvidedEntity | undefined;
+}
+
+interface LoadedOverlay {
+  overlay: OverlayHint;
+  label: string;
+  anchor: string; // paths of the overlay's attributes are resolved relative to this path
 }
 
 interface FoundOverlay {
   overlay: OverlayHint;
   label: string;
   roles: FoundRole[];
+  sliceByPath?: string | null; // scale named by the overlay's `H5WEB_slice_by` (`null`: not found)
+}
+
+/* Overlay drawn by an object listed in `H5WEB_overlays` (from its attributes), or why not */
+async function loadOverlay(
+  anchor: string,
+  path: string,
+  ctx: OverlayContext,
+  notes: string[],
+): Promise<LoadedOverlay | string> {
+  const label = `overlay "${path}"`;
+  const entity = await findEntity(anchor, path, ctx);
+  if (!entity) {
+    return `${label}: not found`;
+  }
+
+  const values = await ctx.getAttrValues(entity);
+  if (!values) {
+    return `${label}: attributes could not be read`;
+  }
+
+  // Text overlay: a scalar string dataset
+  const isText =
+    isDataset(entity) &&
+    hasStringType(entity) &&
+    (hasScalarShape(entity) ||
+      (hasArrayShape(entity) && entity.shape.dims.join(',') === '1'));
+  const value = isText ? await ctx.getValue(entity) : undefined;
+  const text: unknown = Array.isArray(value) ? value[0] : value;
+
+  const overlay = parseOverlay(
+    entity,
+    values,
+    notes,
+    `${label}: `,
+    typeof text === 'string' ? text : undefined,
+  );
+  if (typeof overlay === 'string') {
+    return `${label}: ${overlay}`;
+  }
+
+  return {
+    overlay,
+    label,
+    anchor: entity.path, // relative to the group holding the overlay object
+  };
 }
 
 /* Link: declared scale, else a scale shared by an overlay's dataset and a sliced dimension of the
@@ -208,8 +338,19 @@ async function findLink(
   ctx: GeometryContext,
 ): Promise<Link | undefined> {
   if (hint.sliceBy) {
-    const entity = await findEntity(anchor, hint.sliceBy, ctx);
+    const entity = await findEntity(
+      hint.sliceByAnchor ?? anchor,
+      hint.sliceBy,
+      ctx,
+    );
     return entity && getLink(entity.path, baseScales, ctx);
+  }
+
+  // Scale named by an overlay (first one)
+  const declared = found.find(({ sliceByPath }) => sliceByPath)?.sliceByPath;
+  const declaredLink = declared && (await getLink(declared, baseScales, ctx));
+  if (declaredLink) {
+    return declaredLink;
   }
 
   const axisDimsCount = 2;
@@ -239,7 +380,7 @@ async function findLink(
 }
 
 /* Names of each dimension of the base dataset: names of its scales (dataset name and `NAME`) */
-async function getDimNames(
+export async function getDimNames(
   baseScales: string[][] | null,
   ctx: GeometryContext,
 ): Promise<string[][]> {
@@ -267,19 +408,18 @@ export function getColumnOf(
 ): ResolvedOverlay['columnOf'] | undefined {
   const rank = base.shape.dims.length;
   if (!overlay.columnNames) {
-    const [c0, c1] = overlay.columns ?? [0, 1];
-    return { [rank - 1]: c0, [rank - 2]: c1 };
+    return { [rank - 1]: 0, [rank - 2]: 1 };
   }
 
+  // Other columns (e.g. third coordinate of a Gaussian) are not drawn
   const columnOf: ResolvedOverlay['columnOf'] = {};
   for (const [col, name] of overlay.columnNames.entries()) {
     const dim = dimNames.findIndex((names) => names.includes(name));
-    if (dim === -1) {
-      return undefined;
+    if (dim !== -1) {
+      columnOf[dim] = col;
     }
-    columnOf[dim] = col;
   }
-  return columnOf;
+  return Object.keys(columnOf).length >= 2 ? columnOf : undefined;
 }
 
 /* Unlinked dataset of the expected rank; also a single point `(c,)` where rows `(N, c)` are
@@ -294,7 +434,7 @@ function canUseWhole(dims: number[], rank: number, role: string): boolean {
 
 /* Check the datasets of an overlay once sliced at the linked index: inputs, or why not */
 async function checkOverlay(
-  { overlay, label, roles }: FoundOverlay,
+  { overlay, label, roles, sliceByPath }: FoundOverlay,
   columnOf: ResolvedOverlay['columnOf'],
   link: Link | undefined,
   ctx: GeometryContext,
@@ -315,8 +455,18 @@ async function checkOverlay(
     }
 
     const dims = getDims(entity);
-    const scales = await getScales(entity, ctx); // eslint-disable-line no-await-in-loop -- cached
-    const linkedDim = findLinkedDim(dims, scales, link);
+    const rawScales = await getRawScales(entity, ctx); // eslint-disable-line no-await-in-loop -- cached
+    const scales = await withoutPhonyScales(rawScales, ctx); // eslint-disable-line no-await-in-loop -- cached
+    // An overlay's `H5WEB_slice_by` links its leading dimension, scale attached or not
+    const isDeclared =
+      !!link && sliceByPath === link.scalePath && dims[0] === link.length;
+    const linkedDim =
+      findLinkedDim(
+        dims,
+        scales,
+        link,
+        rawScales?.some((paths) => paths.length > 0),
+      ) ?? (isDeclared ? 0 : undefined);
     const isLinked = linkedDim !== undefined && dims.length === rank + 1;
     // A dataset with the link's scale must be sliced; others may be used whole
     const hasLinkScale =
@@ -340,42 +490,91 @@ async function checkOverlay(
 }
 
 /**
- * Resolve the overlays of a hint: find their datasets (paths resolved like CF `coordinates`),
- * the dimension that links them to the base dataset, and check their shapes. Overlays that
- * can't be drawn are left out, with a note saying why; never throws on data errors.
+ * Resolve the overlays of a hint: find the objects listed in `H5WEB_overlays` and their datasets
+ * (paths resolved like CF `coordinates`), read their attributes, find the dimension that links
+ * them to the base dataset, and check their shapes. Overlays that can't be drawn are left out,
+ * with a note saying why; never throws on data errors.
  */
 export async function resolveOverlays(
   hint: ViewHint,
   base: Dataset<ArrayShape>,
-  ctx: GeometryContext,
+  ctx: OverlayContext,
 ): Promise<ResolvedOverlays> {
   const notes = [...hint.notes];
-  if (hint.overlays.length === 0) {
+  if (hint.overlayPaths.length === 0) {
     return { overlays: [], notes };
   }
 
   const anchor = hint.anchor ?? base.path;
-  const baseScales = (await ctx.getDimensionScales(base)) ?? null;
-
-  const found = await Promise.all(
-    hint.overlays.map(async (overlay, index) => ({
-      overlay,
-      label: `overlay ${index + 1} (${overlay.kind})`,
-      roles: await Promise.all(
-        getRoles(overlay).map(async (role) => ({
-          ...role,
-          entity: await findEntity(anchor, role.path, ctx),
-        })),
-      ),
-    })),
+  const baseScales = await withoutPhonyScales(
+    await ctx.getDimensionScales(base),
+    ctx,
   );
+
+  const loaded = await Promise.all(
+    hint.overlayPaths.map(async (path) => {
+      const overlayNotes: string[] = [];
+      const result = await loadOverlay(anchor, path, ctx, overlayNotes);
+      return { result, overlayNotes };
+    }),
+  );
+  // Datasets of the overlays, found in parallel; notes are kept in order
+  const allFound = await Promise.all(
+    loaded.map(async ({ result }) => {
+      if (typeof result === 'string') {
+        return undefined;
+      }
+      const { overlay, label, anchor: overlayAnchor } = result;
+      const [roles, sliceBy] = await Promise.all([
+        Promise.all(
+          getRoles(overlay).map(async (role) => ({
+            ...role,
+            entity: await findEntity(overlayAnchor, role.path, ctx),
+          })),
+        ),
+        overlay.sliceBy
+          ? findEntity(overlayAnchor, overlay.sliceBy, ctx)
+          : undefined,
+      ]);
+      return {
+        overlay,
+        label,
+        roles,
+        sliceByPath: overlay.sliceBy ? (sliceBy?.path ?? null) : undefined,
+      };
+    }),
+  );
+  const found: FoundOverlay[] = [];
+  loaded.forEach(({ result, overlayNotes }, i) => {
+    notes.push(...overlayNotes);
+    const item = allFound[i];
+    if (typeof result === 'string') {
+      notes.push(result);
+    }
+    if (!item) {
+      return;
+    }
+    if (item.sliceByPath === null) {
+      notes.push(
+        `${item.label}: "H5WEB_slice_by" dimension scale "${item.overlay.sliceBy}" not found`,
+      );
+    }
+    found.push(item);
+  });
 
   const link = await findLink(hint, anchor, found, baseScales, ctx);
   const dimNames = found.some(({ overlay }) => overlay.columnNames)
     ? await getDimNames(baseScales, ctx)
     : [];
   if (hint.sliceBy && !link) {
-    notes.push(`"sliceBy" dimension scale "${hint.sliceBy}" not found`);
+    notes.push(`"H5WEB_slice_by" dimension scale "${hint.sliceBy}" not found`);
+  }
+  for (const { label, overlay, sliceByPath } of found) {
+    if (sliceByPath && link?.scalePath !== sliceByPath) {
+      notes.push(
+        `${label}: not linked by "H5WEB_slice_by" "${overlay.sliceBy}" (not a usable dimension scale, or another link is used)`,
+      );
+    }
   }
 
   const overlays: ResolvedOverlay[] = [];
@@ -383,7 +582,7 @@ export async function resolveOverlays(
     const columnOf = getColumnOf(item.overlay, base, dimNames);
     if (!columnOf) {
       notes.push(
-        `${item.label}: "columns" ${JSON.stringify(item.overlay.columnNames)} don't name dimensions of "${base.name}"`,
+        `${item.label}: "H5WEB_columns" "${item.overlay.columnNames?.join(' ')}" don't name dimensions of "${base.name}"`,
       );
       continue;
     }
@@ -469,17 +668,6 @@ export function getIndexFromSelection(
   return Number.isInteger(index) ? index : undefined;
 }
 
-/* Values as plain numbers (a scalar selection may come back as a number) */
-export function toNumbers(value: unknown): number[] | undefined {
-  if (typeof value === 'number' || typeof value === 'bigint') {
-    return [Number(value)];
-  }
-  if (Array.isArray(value) || ArrayBuffer.isView(value)) {
-    return Array.from(value as ArrayLike<number | bigint>, Number);
-  }
-  return undefined;
-}
-
 /* Points of an ellipse of a 2D Gaussian: mean + k √(eigenvalues of s² C) along its axes */
 export function getEllipsePoints(
   mean: [number, number],
@@ -560,17 +748,15 @@ function getSlicedDims({ dataset, linkedDim }: OverlayInput): number[] {
   return getDims(dataset).filter((_, i) => i !== linkedDim);
 }
 
-/* Columns shown along the x and y axes (and z); `undefined` if an axis shows a dimension that
- * no column holds (e.g. linked dimension mapped to an axis) */
+/* Columns shown along the x and y axes; `undefined` if an axis shows a dimension that no column
+ * holds (e.g. linked dimension mapped to an axis) */
 function getColumns(
   overlay: ResolvedOverlay,
   axes: AxisDims,
-): [number, number, number | undefined] | undefined {
+): [number, number] | undefined {
   const cx = overlay.columnOf[axes.x];
   const cy = overlay.columnOf[axes.y];
-  return cx === undefined || cy === undefined
-    ? undefined
-    : [cx, cy, overlay.hint.columns?.[2]];
+  return cx === undefined || cy === undefined ? undefined : [cx, cy];
 }
 
 function getLineStyle(
@@ -660,14 +846,18 @@ function buildPoints(
     return undefined;
   }
 
-  const [cx, cy, cz] = columns;
+  const [cx, cy] = columns;
   const cols = getSlicedDims(points).at(-1) ?? values.length; // single point: `(c,)`
-  if (Math.max(cx, cy, cz ?? 0) >= cols) {
+  if (Math.max(cx, cy) >= cols) {
     return undefined;
   }
 
-  // Heights: from a dataset, a third column, or else on the surface
-  const zColumn = cz ?? (cols === 3 && !hint.columns ? 2 : undefined);
+  // Heights: from a dataset, the third column, or else on the surface
+  // Third column as height only when the columns aren't named (else: `H5WEB_z`, or on the surface)
+  const zColumn =
+    cols === 3 && !hint.columnNames
+      ? [0, 1, 2].find((c) => c !== cx && c !== cy)
+      : undefined;
   const colorValues = colorBy && getValues(overlay, colorBy);
   const zValues = z
     ? getValues(overlay, z)

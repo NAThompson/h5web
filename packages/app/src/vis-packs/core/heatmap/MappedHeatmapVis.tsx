@@ -56,7 +56,7 @@ interface Props {
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
-  overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_view` hint
+  overlays?: OverlayShapes; // e.g. declared by a file's `H5WEB_*` view hint
   onDataDomainChange?: (dataDomain: Domain) => void; // e.g. for hints that depend on the data
 }
 

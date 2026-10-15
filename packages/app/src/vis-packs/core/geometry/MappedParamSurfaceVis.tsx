@@ -36,7 +36,7 @@ function MappedParamSurfaceVis(props: Props) {
   const { data, title, toolbarContainer, config: storedConfig, hint } = props;
   const { x, y, z, values, shape, labels, ignoreValue, packing } = data;
 
-  // A file's `H5WEB_view` hint: scale first, since the data domain depends on it
+  // A file's `H5WEB_*` view hint: scale first, since the data domain depends on it
   const hinted = useSuggestions(storedConfig, getParamSurfaceSuggestions(hint));
   const { scaleType } = hinted;
 

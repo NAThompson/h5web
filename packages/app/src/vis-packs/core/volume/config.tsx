@@ -149,11 +149,11 @@ export function useVolumeConfig(
 ): VolumeConfig {
   const config = useStore(useContext(StoreContext));
 
-  // e.g. NeXus `SILX_style` signal scale type, or a file's `H5WEB_view` hint
+  // e.g. NeXus `SILX_style` signal scale type, or a file's `H5WEB_*` view hint
   return useSuggestions(config, suggestions);
 }
 
-/* Iso levels suggested for the dataset (e.g. by a file's `H5WEB_view` hint): shown in place of
+/* Iso levels suggested for the dataset (e.g. by a file's `H5WEB_*` view hint): shown in place of
  * the stored ones, without touching the store, until the user edits them - they are then
  * committed to the store and edited there */
 export function useSuggestedIsoLevels(

@@ -21,7 +21,6 @@ import LinkedDimMapper from '../../view-hints/LinkedDimMapper';
 import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
-import { getNotesIn3D } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { useNxData, useNxHeatmapDataToFetch } from '../hooks';
 import NxHeatmapSignalPicker from '../NxHeatmapSignalPicker';
@@ -49,7 +48,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
   const xAxisDef = axisDefs[dimMapping.indexOf('x')];
   const yAxisDef = axisDefs[dimMapping.indexOf('y')];
 
-  // `H5WEB_view` hint > NeXus `SILX_style` > heuristics
+  // `H5WEB_*` view hint > NeXus `SILX_style` > heuristics
   const hint = useViewHint(entity, signalDef.dataset);
   const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
   const config = useHeatmapConfig(
@@ -151,7 +150,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
       <OverlayNotes
         notes={[
           ...overlays.notes,
-          ...(config.surface ? getNotesIn3D(hint) : []),
+          ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />
       <OverlayLegend items={overlays.legend} />

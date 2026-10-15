@@ -114,7 +114,7 @@ export function useDimMappingState(opts: {
   axesCount: number;
   lockedDimsCount?: number;
   defaultSlice?: DefaultSlice;
-  defaultMultiDim?: number; // e.g. suggested by a file's `H5WEB_view` hint
+  defaultMultiDim?: number; // e.g. suggested by a file's `H5WEB_*` view hint
 }): [
   DimensionMapping,
   (mapping: DimensionMapping) => void,

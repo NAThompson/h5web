@@ -46,6 +46,14 @@ const PNG_RED_DOT = new Uint8Array([
 
 const ENUM_MAPPING = { FOO: 0, BAR: 1, BAZ: 2 };
 
+/* View attributes as netCDF-4 writes them: numbers as 1-element arrays, booleans as `Int8` */
+function intAttr(name: string, value: number) {
+  return arrayAttr(name, [value], { type: intType(true, 8) });
+}
+function floatAttr(name: string, ...values: number[]) {
+  return arrayAttr(name, values, { type: floatType(64) });
+}
+
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
     isRoot: true,
@@ -718,19 +726,14 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('units', 'm^-2'),
           ],
         }),
-        // `H5WEB_view` hint opening the heatmap, while the user switches to the surface
+        // `H5WEB_*` attributes opening the heatmap, while the user switches to the surface
         array('torus_hinted', {
           valueId: 'torus_curvature',
           attributes: [
             scalarAttr('coordinates', 'torus_x torus_y torus_z'),
-            scalarAttr(
-              'H5WEB_view',
-              JSON.stringify({
-                vis: 'heatmap',
-                scaleType: 'symlog',
-                colorMap: 'auto',
-              }),
-            ),
+            scalarAttr('H5WEB_vis', 'heatmap'),
+            scalarAttr('H5WEB_scale', 'symlog'),
+            scalarAttr('H5WEB_colormap', 'auto'),
           ],
         }),
         array('torus_waves', {
@@ -782,7 +785,8 @@ export function makeMockFile(): GroupWithChildren {
           ],
         }),
       ]),
-      // `H5WEB_view` hints: default vis and settings, overlays linked by the `generation` scale
+      // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
+      // scale, whose geometry and style are attributes of the overlay objects
       group('view_hints', [
         array('generation', {
           valueId: 'cma_generation',
@@ -793,110 +797,121 @@ export function makeMockFile(): GroupWithChildren {
         }),
         ...(
           [
-            ['population', 'cma_population', 3],
-            ['fitness', 'cma_fitness', 2],
-            ['mean', 'cma_mean', 2],
-            ['C', 'cma_cov', 3],
-            ['sigma', 'cma_sigma', 1],
+            [
+              'population',
+              'cma_population',
+              3,
+              [
+                scalarAttr('H5WEB_geometry', 'points'),
+                scalarAttr('H5WEB_color_by', 'fitness'),
+                floatAttr('H5WEB_size', 6),
+              ],
+            ],
+            ['fitness', 'cma_fitness', 2, []],
+            [
+              'mean',
+              'cma_mean',
+              2,
+              [
+                scalarAttr('H5WEB_geometry', 'curve'),
+                intAttr('H5WEB_trail', 1),
+              ],
+            ],
+            ['C', 'cma_cov', 3, []],
+            ['sigma', 'cma_sigma', 1, []],
           ] as const
-        ).map(([name, valueId, rank]) =>
-          withDimScales(array(name, { valueId }), {
+        ).map(([name, valueId, rank, attributes]) =>
+          withDimScales(array(name, { valueId, attributes: [...attributes] }), {
             scales: [
               ['/view_hints/generation'],
               ...Array.from({ length: rank - 1 }, () => []),
             ],
           }),
         ),
+        group('ellipse', [], {
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'ellipse'),
+            scalarAttr('H5WEB_mean', 'mean'), // bare names: found in ancestor groups
+            scalarAttr('H5WEB_cov', 'C'),
+            scalarAttr('H5WEB_sigma', 'sigma'),
+          ],
+        }),
+        group('ellipse_broken', [], {
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'ellipse'),
+            scalarAttr('H5WEB_mean', 'sigma'),
+            scalarAttr('H5WEB_cov', 'C'),
+          ],
+        }),
         array('landscape', {
           valueId: 'twoD',
           attributes: [
-            scalarAttr(
-              'H5WEB_view',
-              JSON.stringify({
-                vis: 'heatmap',
-                scaleType: 'symlog',
-                colorMap: 'Inferno',
-                sliceBy: 'generation', // no generation dimension: extra slider
-                overlays: [
-                  { points: 'population', colorBy: 'fitness' },
-                  {
-                    ellipse: { mean: 'mean', cov: 'C', scale: 'sigma' },
-                    nsigma: [1, 2],
-                  },
-                  { curve: 'mean', trail: true },
-                ],
-              }),
-            ),
+            scalarAttr('H5WEB_vis', 'heatmap'),
+            scalarAttr('H5WEB_scale', 'symlog'),
+            scalarAttr('H5WEB_colormap', 'Inferno'),
+            scalarAttr('H5WEB_slice_by', 'generation'), // no generation dimension: extra slider
+            scalarAttr('H5WEB_overlays', 'population ellipse mean'),
           ],
         }),
         // Generation dimension of its own: overlays follow its slider
         withDimScales(
           array('landscapes', {
             valueId: 'cma_landscapes',
-            attributes: [
-              scalarAttr(
-                'H5WEB_view',
-                JSON.stringify({ overlays: [{ points: 'population' }] }),
-              ),
-            ],
+            attributes: [scalarAttr('H5WEB_overlays', 'population')],
           }),
           { scales: [['/view_hints/generation'], [], []] },
         ),
         array('landscape_broken', {
           valueId: 'twoD',
           attributes: [
-            scalarAttr(
-              'H5WEB_view',
-              JSON.stringify({
-                overlays: [
-                  { points: 'missing' },
-                  { ellipse: { mean: 'sigma', cov: 'C' } },
-                  { points: 'population' },
-                ],
-              }),
-            ),
+            scalarAttr('H5WEB_overlays', 'missing ellipse_broken population'),
           ],
         }),
         // Static overlays (no linked dimension) in axis values, on the edges of [0, π]²
         array('alpha', { valueId: 'psi_axis' }),
         array('theta', { valueId: 'psi_axis' }),
-        array('edge_0', { valueId: 'psi_edge_0' }),
-        array('edge_pi', { valueId: 'psi_edge_pi' }),
-        array('point', { valueId: 'psi_point' }),
+        array('edge_0', {
+          valueId: 'psi_edge_0',
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'curve'),
+            scalarAttr('H5WEB_columns', 'alpha theta'),
+            scalarAttr('H5WEB_color', '#000'),
+            scalarAttr('H5WEB_label', 'e–n'),
+          ],
+        }),
+        array('edge_pi', {
+          valueId: 'psi_edge_pi',
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'curve'),
+            scalarAttr('H5WEB_columns', 'alpha theta'),
+            scalarAttr('H5WEB_color', '#000'),
+            scalarAttr('H5WEB_dash', true), // h5py boolean
+          ],
+        }),
+        array('psi_point', {
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'points'),
+            scalarAttr('H5WEB_columns', 'alpha theta'),
+            scalarAttr('H5WEB_label', 'e–e'),
+            scalarAttr('H5WEB_label_mode', 'Inline'),
+          ],
+        }),
+        scalar('theta_0', 'θ = 0', {
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'text'),
+            scalarAttr('H5WEB_columns', 'alpha theta'),
+            floatAttr('H5WEB_at', Math.PI / 4, 0),
+            scalarAttr('H5WEB_anchor', 'top'),
+          ],
+        }),
         withDimScales(
           array('psi', {
             attributes: [
-              scalarAttr(
-                'H5WEB_view',
-                JSON.stringify({
-                  version: 1,
-                  vis: 'heatmap',
-                  scaleType: 'symlog',
-                  colorMap: 'auto', // data changes sign: diverging, symmetric
-                  title: 'ψ(α, θ)',
-                  overlays: [
-                    {
-                      curve: 'edge_0',
-                      columns: ['alpha', 'theta'],
-                      color: '#000',
-                      label: 'e–n',
-                    },
-                    {
-                      curve: 'edge_pi',
-                      columns: ['alpha', 'theta'],
-                      color: '#000',
-                      dash: true,
-                    },
-                    {
-                      points: 'point',
-                      columns: ['alpha', 'theta'],
-                      label: 'e–e',
-                      labelMode: 'inline',
-                    },
-                    { text: 'θ = 0', at: [Math.PI / 4, 0], anchor: 'top' },
-                  ],
-                }),
-              ),
+              scalarAttr('long_name', 'ψ(α, θ)'),
+              scalarAttr('H5WEB_vis', 'heatmap'),
+              scalarAttr('H5WEB_scale', 'symlog'),
+              scalarAttr('H5WEB_colormap', 'auto'), // data changes sign: diverging, symmetric
+              scalarAttr('H5WEB_overlays', 'edge_0 edge_pi psi_point theta_0'),
             ],
           }),
           { scales: [['/view_hints/theta'], ['/view_hints/alpha']] },
@@ -905,20 +920,26 @@ export function makeMockFile(): GroupWithChildren {
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {
             valueId: 'twoD',
-            attributes: [scalarAttr('H5WEB_view', '{"vis": "line"}')],
+            attributes: [scalarAttr('H5WEB_vis', 'line')],
           }),
         ),
         array('volume_iso', {
           valueId: 'threeD_fermi',
           attributes: [
-            scalarAttr('H5WEB_view', '{"vis": "volume", "isoLevels": [-1, 1]}'),
+            scalarAttr('H5WEB_vis', 'volume'),
+            floatAttr('H5WEB_iso_levels', -1, 1),
           ],
         }),
         array('volume_plain', {
           valueId: 'threeD_fermi',
-          attributes: [scalarAttr('H5WEB_view', '{"vis": "volume"}')],
+          attributes: [scalarAttr('H5WEB_vis', 'volume')],
         }),
-        array('many_points'),
+        array('many_points', {
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'points'),
+            scalarAttr('H5WEB_color', 'red'),
+          ],
+        }),
         dataset(
           'huge_points', // 1.6 GB: never fetched for an overlay
           arrayShape([100_000_000, 2]),
@@ -926,63 +947,105 @@ export function makeMockFile(): GroupWithChildren {
           () => {
             throw new Error('`huge_points` must not be fetched');
           },
+          { attributes: [scalarAttr('H5WEB_geometry', 'points')] },
         ),
+        array('point', {
+          valueId: 'psi_point',
+          attributes: [scalarAttr('H5WEB_geometry', 'points')],
+        }),
         array('landscape_large', {
           valueId: 'twoD',
           attributes: [
-            scalarAttr(
-              'H5WEB_view',
-              JSON.stringify({
-                overlays: [
-                  { points: 'many_points', color: 'red' },
-                  { points: 'huge_points' },
-                  { points: 'point' },
-                ],
-              }),
-            ),
+            scalarAttr('H5WEB_overlays', 'many_points huge_points point'),
           ],
         }),
         array('line_overlays', {
           valueId: 'twoD',
           attributes: [
-            scalarAttr(
-              'H5WEB_view',
-              '{"vis": "line", "scaleType": 1, "overlays": [{"points": "point"}]}',
-            ),
+            scalarAttr('H5WEB_vis', 'line'),
+            floatAttr('H5WEB_scale', 1), // wrong type: ignored with a note
+            scalarAttr('H5WEB_overlays', 'point'),
           ],
         }),
-        array('bad_json', {
+        array('bad_attrs', {
           valueId: 'twoD',
-          attributes: [scalarAttr('H5WEB_view', '{"vis": "line"')],
+          attributes: [
+            intAttr('H5WEB_vis', 2),
+            scalarAttr('H5WEB_keep_ratio', 'yes'),
+          ],
         }),
         array('surface', {
           valueId: 'twoD',
           attributes: [
-            scalarAttr('H5WEB_view', '{"vis": "surface", "heightScale": 0.8}'),
+            scalarAttr('H5WEB_vis', 'surface'),
+            floatAttr('H5WEB_z_stretch', 0.8),
           ],
         }),
-        array('line', {
-          valueId: 'twoD',
-          attributes: [
-            scalarAttr(
-              'H5WEB_view',
-              '{"vis": "line", "yScaleType": "symlog", "xDim": 1, "multiDim": 0}',
-            ),
-          ],
-        }),
+        withDimScales(
+          array('line', {
+            valueId: 'twoD',
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              scalarAttr('H5WEB_scale', 'SymLog'),
+              scalarAttr('H5WEB_x_dim', 'X'), // dimension scale name
+              scalarAttr('H5WEB_multi_dim', 'series'), // or dimension label, or index
+            ],
+          }),
+          { labels: ['series', ''], scales: [[], ['/dimension_scales/X']] },
+        ),
         nxData('nx_overlay', {
           signal: array('signal', { valueId: 'twoD' }),
-          attributes: [
-            scalarAttr('H5WEB_view', '{"overlays": [{"points": "../point"}]}'),
-          ],
+          attributes: [scalarAttr('H5WEB_overlays', '../point')],
+        }),
+        // Group attributes override the signal's, attribute by attribute
+        nxData('nx_merged', {
+          signal: array('signal', {
+            valueId: 'twoD',
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              scalarAttr('H5WEB_scale', 'log'),
+            ],
+          }),
+          attributes: [scalarAttr('H5WEB_scale', 'symlog')],
         }),
         nxData('nx_line', {
           signal: array('signal', { valueId: 'twoD' }),
           attributes: [
             scalarAttr('SILX_style', '{"signal_scale_type": "log"}'),
-            scalarAttr('H5WEB_view', '{"vis": "line", "scaleType": "symlog"}'),
+            scalarAttr('H5WEB_vis', 'line'),
+            scalarAttr('H5WEB_scale', 'symlog'),
           ],
         }),
+        // netCDF-4: phony dimension scales (not variables) are neither axes nor links, so the
+        // static overlay is drawn on every slice of the stack
+        ...(['phony_5', 'phony_2'] as const).map((name, i) =>
+          array(name, {
+            valueId: i === 0 ? 'cma_generation' : 'psi_point',
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr(
+                'NAME',
+                `This is a netCDF dimension but not a netCDF variable.  ${5 - 3 * i}`,
+              ),
+            ],
+          }),
+        ),
+        withDimScales(
+          array('phony_points', {
+            valueId: 'cma_mean',
+            attributes: [scalarAttr('H5WEB_geometry', 'points')],
+          }),
+          { scales: [['/view_hints/phony_5'], ['/view_hints/phony_2']] },
+        ),
+        withDimScales(
+          array('phony_stack', {
+            valueId: 'cma_landscapes',
+            attributes: [
+              scalarAttr('H5WEB_overlays', '/view_hints/phony_points'),
+            ],
+          }),
+          { scales: [['/view_hints/phony_5'], [], []] },
+        ),
       ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),

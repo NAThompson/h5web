@@ -1,6 +1,7 @@
 import { isTypedArray } from '@h5web/shared/guards';
 import { H5T_CLASS } from '@h5web/shared/h5t';
 import { type ProvidedEntity } from '@h5web/shared/hdf5-models';
+import { SCALAR_SELECTION_REGEXP } from '@h5web/shared/vis-utils';
 import { transfer } from 'comlink';
 // eslint-disable-next-line import-x/no-namespace
 import type * as H5WasmModule from 'h5wasm';
@@ -16,6 +17,7 @@ import {
 import { fetchFirstBlock, LazyFile } from './lazy-file';
 import {
   createLazyFileNode,
+  fixAsciiStrings,
   getAvailableFileName,
   getSelectionRanges,
   initH5Wasm,
@@ -155,9 +157,15 @@ async function getValue(
     return transfer(directValue, [directValue.buffer]);
   }
 
-  const value = withReadErrors(() =>
-    readSelectedValue(new lib.Dataset(fileId, path), selection),
-  );
+  const value = withReadErrors(() => {
+    const dataset = new lib.Dataset(fileId, path);
+    return fixAsciiStrings(
+      readSelectedValue(dataset, selection),
+      dataset.metadata,
+      dataset.shape?.length === 0 ||
+        (!!selection && SCALAR_SELECTION_REGEXP.test(selection)),
+    );
+  });
   return isTypedArray(value) ? transfer(value, [value.buffer]) : value;
 }
 
@@ -282,7 +290,7 @@ async function getAttrValue(
       return parseComplexValue(value, attr.shape?.length === 0);
     }
 
-    return value;
+    return fixAsciiStrings(value, attr.metadata, attr.shape?.length === 0);
   });
 }
 
