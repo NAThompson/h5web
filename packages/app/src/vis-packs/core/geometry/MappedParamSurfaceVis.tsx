@@ -13,6 +13,12 @@ import { createPortal } from 'react-dom';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { type ViewHint } from '../../view-hints/models';
+import {
+  getColorSuggestions,
+  getParamSurfaceSuggestions,
+} from '../../view-hints/suggestions';
+import { useSuggestions } from '../hooks';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type GeometryData } from './GeometryFetcher';
 import ParamSurfaceToolbar from './ParamSurfaceToolbar';
@@ -23,21 +29,16 @@ interface Props {
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: ParamSurfaceConfig;
+  hint: ViewHint;
 }
 
 function MappedParamSurfaceVis(props: Props) {
-  const { data, title, toolbarContainer, config } = props;
+  const { data, title, toolbarContainer, config: storedConfig, hint } = props;
   const { x, y, z, values, shape, labels, ignoreValue, packing } = data;
-  const {
-    customDomain,
-    colorMap,
-    scaleType,
-    invertColorMap,
-    keepRatio,
-    showGrid,
-    representation,
-    shading,
-  } = config;
+
+  // A file's `H5WEB_view` hint: scale first, since the data domain depends on it
+  const hinted = useSuggestions(storedConfig, getParamSurfaceSuggestions(hint));
+  const { scaleType } = hinted;
 
   const arrays = useMemo(() => {
     if (!z || !values) {
@@ -65,6 +66,18 @@ function MappedParamSurfaceVis(props: Props) {
           },
         ),
     ) || DEFAULT_DOMAIN;
+
+  const config = useSuggestions(hinted, getColorSuggestions(hint, dataDomain));
+  const {
+    customDomain,
+    colorMap,
+    invertColorMap,
+    keepRatio,
+    showGrid,
+    representation,
+    shading,
+  } = config;
+
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 

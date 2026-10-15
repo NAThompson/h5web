@@ -801,6 +801,7 @@ describe('findGeometry on mock file', () => {
         '/geometry/knot_speed_dimscales': GeometryKind.Curve,
         '/geometry/knot_speed_phases_dimscales': GeometryKind.Curve,
         '/geometry/torus_curvature': GeometryKind.Surface,
+        '/geometry/torus_hinted': GeometryKind.Surface,
         '/geometry/torus_waves': GeometryKind.Surface,
         '/geometry/helix': GeometryKind.Curve,
         '/geometry/nx_torus/curvature': GeometryKind.Surface,

@@ -1,5 +1,6 @@
 import { type VisContainerProps } from '../../models';
 import { type DefaultSlice } from '../../nexus/models';
+import { useViewHint } from '../../view-hints/hooks';
 import GeometryVisContainer from './GeometryVisContainer';
 import MappedParamSurfaceVis from './MappedParamSurfaceVis';
 import { useParamSurfaceConfig } from './surface-config';
@@ -10,8 +11,9 @@ interface Props extends VisContainerProps {
 }
 
 function ParamSurfaceVisContainer(props: Props) {
-  const { toolbarContainer } = props;
+  const { entity, toolbarContainer } = props;
   const config = useParamSurfaceConfig();
+  const hint = useViewHint(entity);
 
   return (
     <GeometryVisContainer
@@ -23,6 +25,7 @@ function ParamSurfaceVisContainer(props: Props) {
           title={title}
           toolbarContainer={toolbarContainer}
           config={config}
+          hint={hint}
         />
       )}
     />

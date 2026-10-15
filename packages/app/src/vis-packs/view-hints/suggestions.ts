@@ -6,6 +6,7 @@ import {
   type Domain,
 } from '@h5web/shared/vis-models';
 
+import { type ParamSurfaceConfig } from '../core/geometry/surface-config';
 import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
 import { type VolumeConfig } from '../core/volume/config';
@@ -135,6 +136,17 @@ export function getVolumeSuggestions(
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
+  };
+}
+
+/* Colour map and domain come from `getColorSuggestions` once the data domain is known */
+export function getParamSurfaceSuggestions(
+  hint: ViewHint,
+): Partial<ParamSurfaceConfig> {
+  return {
+    scaleType: hint.scaleType,
+    keepRatio: hint.keepRatio,
+    invertColorMap: hint.invertColorMap,
   };
 }
 

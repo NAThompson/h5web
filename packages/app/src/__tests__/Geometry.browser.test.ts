@@ -147,6 +147,23 @@ test(
 );
 
 test(
+  'apply scale and colour map of hint to parametric surface',
+  async () => {
+    const { selectVisTab } = await renderApp('/geometry/torus_hinted');
+    await selectVisTab(Vis.Surface);
+    await expect
+      .element(page.getByRole('radio', { name: 'Wireframe' }))
+      .toBeVisible(); // surface toolbar
+
+    await expect
+      .element(page.getByRole('combobox', { name: 'SymLog' }))
+      .toBeVisible();
+    expect(page.getByText('RdBu', { exact: true })).toBeVisible(); // curvature changes sign
+  },
+  TEST_TIMEOUT,
+);
+
+test(
   'switch surface representation',
   async () => {
     const { user } = await renderApp('/geometry/torus_curvature');

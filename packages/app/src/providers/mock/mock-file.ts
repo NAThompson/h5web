@@ -718,6 +718,21 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('units', 'm^-2'),
           ],
         }),
+        // `H5WEB_view` hint opening the heatmap, while the user switches to the surface
+        array('torus_hinted', {
+          valueId: 'torus_curvature',
+          attributes: [
+            scalarAttr('coordinates', 'torus_x torus_y torus_z'),
+            scalarAttr(
+              'H5WEB_view',
+              JSON.stringify({
+                vis: 'heatmap',
+                scaleType: 'symlog',
+                colorMap: 'auto',
+              }),
+            ),
+          ],
+        }),
         array('torus_waves', {
           attributes: [
             // Absolute paths are supported too; leading dimension can be sliced
