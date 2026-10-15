@@ -321,6 +321,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       scaleType={legend.scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
+      colorBarLabel={colorArray ? undefined : valueLabel} // colour shows the height
     >
       <SurfaceMesh
         values={values}

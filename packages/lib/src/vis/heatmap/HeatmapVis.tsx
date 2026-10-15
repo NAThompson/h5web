@@ -42,6 +42,7 @@ interface Props extends ClassStyleAttrs {
   aspect?: Aspect;
   showGrid?: boolean;
   title?: string;
+  colorBarLabel?: string;
   dtype?: string;
   invertColorMap?: boolean;
   abscissaParams?: AxisParams;
@@ -67,6 +68,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     showGrid = false,
     invertColorMap = false,
     title,
+    colorBarLabel,
     dtype,
     abscissaParams = {},
     ordinateParams = {},
@@ -180,6 +182,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         colorMap={colorMap}
         invertColorMap={invertColorMap}
         withBounds
+        label={colorBarLabel}
       />
     </figure>
   );
