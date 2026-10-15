@@ -333,9 +333,11 @@ export function formatPiTick(val: number | { valueOf: () => number }): string {
 }
 
 /**
- * Ticks of a symlog scale of given constant: 0 and powers of 10 beyond the linear band, every
- * few decades for about `count` ticks (d3's symlog ticks are linear ticks, which all crowd at
- * the ends of the axis when the constant is small); linear ticks within the linear band.
+ * Ticks of a symlog scale of given constant: 0 and every k-th power of 10 from the linear band
+ * out to each end of the domain, always with the decade nearest each end (d3's symlog ticks are
+ * linear ticks, which all crowd at the ends of the axis when the constant is small); k is chosen
+ * for 4 to 8 ticks per sign, depending on `count` (labels of powers of 10 are short). Linear
+ * ticks within the linear band.
  */
 export function getSymlogTicks(
   domain: Domain,
@@ -359,31 +361,39 @@ export function getSymlogTicks(
   }
 
   const hasZero = min <= 0 && max >= 0;
-  const stride = Math.ceil(
-    (pos.length + neg.length + (hasZero ? 1 : 0)) / Math.max(count, 1),
-  );
+  const perSign = Math.min(Math.max(count, 4), 8);
+  const stride = Math.ceil(Math.max(pos.length, neg.length) / perSign); // same spacing both sides
 
-  // Not within half a tick spacing of 0 (labels would overlap), in the space of the scale
+  // Not within a quarter of a nominal tick spacing of 0 (about 1.5 label heights: labels would
+  // overlap), in the space of the scale
   function scaled(val: number): number {
     return Math.log1p(Math.abs(val) / constant);
   }
   const minGap = hasZero
-    ? (scaled(min) + scaled(max)) / Math.max(count, 1) / 2
+    ? (scaled(min) + scaled(max)) / Math.max(count, 1) / 4
     : 0;
-  function keep(exp: number): boolean {
-    return exp % stride === 0 && scaled(Number(`1e${exp}`)) >= minGap;
+
+  // Every k-th decade down from the one nearest the end of the domain
+  function pick(exps: number[]): number[] {
+    const top = exps.length - 1;
+    return exps
+      .filter((_, i) => (top - i) % stride === 0)
+      .filter(
+        (exp, i, kept) =>
+          i === kept.length - 1 || scaled(Number(`1e${exp}`)) >= minGap,
+      )
+      .map((exp) => Number(`1e${exp}`));
   }
+
   return [
-    ...neg
-      .filter(keep)
-      .map((exp) => -Number(`1e${exp}`))
+    ...pick(neg)
+      .map((val) => -val)
       .toReversed(),
     ...(hasZero ? [0] : []),
-    ...pos.filter(keep).map((exp) => Number(`1e${exp}`)),
+    ...pick(pos),
   ];
 }
 
-/* Tick values for a scale, when they differ from the scale's own ticks */
 export function getScaleTickValues(
   scaleType: VisScaleType,
   domain: Domain,
