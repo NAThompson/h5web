@@ -15,7 +15,11 @@ import DefaultInteractions, {
 } from '../../interactions/DefaultInteractions';
 import ResetZoomButton from '../../toolbar/floating/ResetZoomButton';
 import { useAxisDomain, useCssColors, useValueToIndexScale } from '../hooks';
-import { type AxisParams, type ClassStyleAttrs } from '../models';
+import {
+  type AxisConfig,
+  type AxisParams,
+  type ClassStyleAttrs,
+} from '../models';
 import Overlay from '../shared/Overlay';
 import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
@@ -38,6 +42,7 @@ interface Props extends ClassStyleAttrs {
   dataColor?: string;
   domain: Domain | undefined;
   scaleType?: AxisScaleType;
+  symlogConstant?: number; // width of the linear band around 0 of the symlog scale (default 1)
   curveType?: CurveType;
   showGrid?: boolean;
   abscissaParams?: AxisParams;
@@ -63,7 +68,8 @@ function LineVis(props: PropsWithChildren<Props>) {
     domain,
     curveType = CurveType.LineOnly,
     showGrid = true,
-    scaleType = ScaleType.Linear,
+    scaleType: axisScaleType = ScaleType.Linear,
+    symlogConstant,
     abscissaParams = {},
     ordinateLabel,
     title,
@@ -102,6 +108,14 @@ function LineVis(props: PropsWithChildren<Props>) {
     extensionFactor: 0.01,
   });
   assertDefined(abscissaDomain, 'Abscissas have undefined domain');
+
+  const scaleType = useMemo<AxisConfig['scaleType']>(
+    () =>
+      axisScaleType === ScaleType.SymLog && symlogConstant
+        ? [ScaleType.SymLog, symlogConstant]
+        : axisScaleType,
+    [axisScaleType, symlogConstant],
+  );
 
   const dataDomain = useMemo(() => {
     return domain ? extendDomain(domain, 0.05, scaleType) : DEFAULT_DOMAIN;

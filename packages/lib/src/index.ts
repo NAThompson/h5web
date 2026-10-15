@@ -262,6 +262,7 @@ export type {
   AxisParams,
   AxisTicks,
   VisScaleType,
+  SymLogScaleType,
   ExtractScaleType,
   ScaleConfig,
   ScaleGammaConfig,

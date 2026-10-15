@@ -45,7 +45,7 @@ export interface AxisConfig {
   isIndexAxis?: boolean;
   visDomain: Domain;
   showGrid?: boolean;
-  scaleType?: AxisScaleType;
+  scaleType?: AxisScaleType | SymLogScaleType;
   label?: string;
   flip?: boolean;
   nice?: boolean;
@@ -55,10 +55,14 @@ export interface AxisConfig {
 
 export type AxisTicks = 'pi'; // ticks at multiples of π (π/4, π/2, π...)
 
-export type VisScaleType = ColorScaleType | [ScaleType.Gamma, number];
+/* Symlog scale with the given constant, i.e. width of the linear band around 0 (default 1) */
+export type SymLogScaleType = [ScaleType.SymLog, number];
+
+export type VisScaleType =
+  ColorScaleType | [ScaleType.Gamma, number] | SymLogScaleType;
 export type ExtractScaleType<V extends VisScaleType> = V extends ColorScaleType
   ? V
-  : ScaleType.Gamma;
+  : V[0];
 
 export interface ScaleGammaConfig {
   domain?: Domain;

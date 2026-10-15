@@ -1,8 +1,4 @@
-import {
-  type ColorScaleType,
-  type Domain,
-  type NumArray,
-} from '@h5web/shared/vis-models';
+import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { type ThreeEvent } from '@react-three/fiber';
 import { useCallback, useMemo } from 'react';
 
@@ -11,6 +7,7 @@ import { type ColorMap } from '../heatmap/models';
 import { useUpdateGeometry } from '../hooks';
 import GlyphMaterial from '../line/GlyphMaterial';
 import { GlyphType } from '../line/models';
+import { type VisScaleType } from '../models';
 import { useVisCanvasContext } from '../shared/VisCanvasProvider';
 import { createScale } from '../utils';
 import ScatterPointsGeometry from './scatterPointsGeometry';
@@ -20,7 +17,7 @@ interface Props {
   ordinates: NumArray;
   data: NumArray;
   domain: Domain;
-  scaleType: ColorScaleType;
+  scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
   size: number;

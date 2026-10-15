@@ -1,8 +1,4 @@
-import {
-  type Domain,
-  type NumArray,
-  type ScaleType,
-} from '@h5web/shared/vis-models';
+import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { useFrame, useThree } from '@react-three/fiber';
 import { type NdArray } from 'ndarray';
 import {
@@ -27,6 +23,7 @@ import {
 import { type ColorMap, type TextureSafeTypedArray } from '../heatmap/models';
 import {
   getColorMapTexture,
+  getShaderScale,
   scaleDomain,
   toTextureSafeNdArray,
 } from '../heatmap/utils';
@@ -288,9 +285,8 @@ function VolumeMesh(props: Props) {
   useEffect(() => () => volumeTexture.dispose(), [volumeTexture]);
   useEffect(() => () => colorMapTexture.dispose(), [colorMapTexture]);
 
-  const [scaleType, gammaExponent] = Array.isArray(visScaleType)
-    ? visScaleType
-    : [visScaleType as ScaleType, 1];
+  const [scaleType, gammaExponent, symlogConstant] =
+    getShaderScale(visScaleType);
 
   const material = useMemo(
     () =>
@@ -305,6 +301,7 @@ function VolumeMesh(props: Props) {
           domainMin: 0,
           oneOverRange: 1,
           gammaExponent: 1,
+          symlogConstant: 1,
           normRevertFactor: 1,
           valueOffset: 0,
           samplesPerVoxel: 1,
@@ -326,7 +323,7 @@ function VolumeMesh(props: Props) {
 
   useEffect(() => () => material.dispose(), [material]);
 
-  const [min, max] = scaleDomain(domain, scaleType);
+  const [min, max] = scaleDomain(domain, scaleType, symlogConstant);
   const { uniforms } = material;
 
   useEffect(() => {
@@ -340,6 +337,7 @@ function VolumeMesh(props: Props) {
       ? oneOverRange
       : 0;
     uniforms.gammaExponent.value = gammaExponent;
+    uniforms.symlogConstant.value = symlogConstant;
     uniforms.normRevertFactor.value = valueScale;
     uniforms.valueOffset.value = valueOffset;
     uniforms.opacity.value = opacity;
@@ -353,6 +351,7 @@ function VolumeMesh(props: Props) {
     min,
     max,
     gammaExponent,
+    symlogConstant,
     valueScale,
     valueOffset,
     opacity,

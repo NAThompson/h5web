@@ -94,6 +94,7 @@ function LineVisContainer(props: VisContainerProps) {
                   title={entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}
+                  symlogThreshold={hint.symlogThreshold}
                 />
               )}
             />

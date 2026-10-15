@@ -43,6 +43,7 @@ export function getVolumeFragmentShader(
     uniform float domainMin;
     uniform float oneOverRange;
     uniform float gammaExponent;
+    uniform float symlogConstant;
     uniform float normRevertFactor;
     uniform float valueOffset;
 

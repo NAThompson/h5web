@@ -931,6 +931,17 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/alpha_pi']] },
         ),
+        // `H5WEB_symlog_threshold`: linear band of the symlog scale around 0
+        ...(['heatmap', 'line'] as const).map((vis) =>
+          array(`symlog_${vis}`, {
+            valueId: 'decades_twoD',
+            attributes: [
+              scalarAttr('H5WEB_vis', vis),
+              scalarAttr('H5WEB_scale', 'symlog'),
+              floatAttr('H5WEB_symlog_threshold', 1e-12),
+            ],
+          }),
+        ),
         // Attribute values that fail to load (see `MockApi#getAttrValues`)
         ...['attr_error', 'attr_network_error'].map((name) =>
           array(name, {

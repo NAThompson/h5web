@@ -13,7 +13,12 @@ import {
 } from 'three';
 
 import { type AxisTicks, type VisScaleType } from '../models';
-import { createScale, formatPiTick, getTickFormatter } from '../utils';
+import {
+  createScale,
+  formatPiTick,
+  getScaleTickValues,
+  getTickFormatter,
+} from '../utils';
 import TextSprite, { updateLabelSprite } from './TextSprite';
 import { getAxisTicks } from './utils';
 
@@ -266,11 +271,13 @@ function Axes3D(props: Props) {
       Array.isArray(scaleType) ? scaleType[0] : scaleType,
     );
     // Flat box (e.g. planar curve): no Z axis to annotate
+    const zCount = Math.max(Math.round(zHeight * 8), 2);
     const zTicks =
       zHeight > 0
-        ? zScale
-            .ticks(Math.max(Math.round(zHeight * 8), 2))
-            .filter((val) => zFormatter(val) !== '')
+        ? (
+            getScaleTickValues(scaleType, valueDomain, zCount) ??
+            zScale.ticks(zCount)
+          ).filter((val) => zFormatter(val) !== '')
         : [];
 
     const xNear = (sx * w) / 2;

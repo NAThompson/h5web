@@ -2,7 +2,6 @@ import { isDefined } from '@h5web/shared/guards';
 import {
   type AnyNumArray,
   type AxisScaleType,
-  type ColorScaleType,
   type Domain,
   type MaybeFloat16ArrayConstructor,
   type NumArray,
@@ -88,8 +87,10 @@ export function createScale(
   config: ScaleConfig,
 ): Scale {
   if (Array.isArray(scaleType)) {
-    const [, exponent] = scaleType;
-    return scaleGamma({ ...(config as ScaleGammaConfig), exponent });
+    const [type, param] = scaleType;
+    return type === ScaleType.SymLog
+      ? scaleSymlog({ ...config, constant: param })
+      : scaleGamma({ ...(config as ScaleGammaConfig), exponent: param });
   }
 
   switch (scaleType) {
@@ -191,17 +192,18 @@ export function clampBound(
 export function extendDomain(
   domain: Domain,
   extendFactor: number,
-  scaleType: ColorScaleType = ScaleType.Linear,
+  scaleType: VisScaleType = ScaleType.Linear,
 ): Domain {
   if (extendFactor <= 0) {
     return domain;
   }
 
-  const validMin = SCALES_VALID_MINS[scaleType];
+  const type = Array.isArray(scaleType) ? scaleType[0] : scaleType;
+  const validMin = SCALES_VALID_MINS[type];
 
   const [min] = domain;
   if (min < validMin) {
-    throw new Error(`Expected domain compatible with ${scaleType} scale`);
+    throw new Error(`Expected domain compatible with ${type} scale`);
   }
 
   const extendedDomain = unsafeExtendDomain(domain, extendFactor, scaleType);
@@ -212,11 +214,12 @@ export function extendDomain(
 function unsafeExtendDomain(
   domain: Domain,
   extendFactor: number,
-  scaleType: ColorScaleType,
+  scaleType: VisScaleType,
 ): Domain {
   const [min, max] = domain;
   if (min === max) {
-    return extendEmptyDomain(min, extendFactor, scaleType);
+    const type = Array.isArray(scaleType) ? scaleType[0] : scaleType;
+    return extendEmptyDomain(min, extendFactor, type);
   }
 
   const scale = createScale(scaleType, { domain, range: [0, 1] });
@@ -327,6 +330,68 @@ export function formatPiTick(val: number | { valueOf: () => number }): string {
   const den = 12 / divisor;
   const sign = twelfths < 0 ? '−' : '';
   return `${sign}${num === 1 ? '' : num}π${den === 1 ? '' : `/${den}`}`;
+}
+
+/**
+ * Ticks of a symlog scale of given constant: 0 and powers of 10 beyond the linear band, every
+ * few decades for about `count` ticks (d3's symlog ticks are linear ticks, which all crowd at
+ * the ends of the axis when the constant is small); linear ticks within the linear band.
+ */
+export function getSymlogTicks(
+  domain: Domain,
+  constant: number,
+  count: number,
+): number[] {
+  const min = Math.min(...domain);
+  const max = Math.max(...domain);
+
+  // Exponents of the powers of 10 in [lo, hi] (0 <= lo), outside the linear band
+  function decades(lo: number, hi: number): number[] {
+    const from = Math.ceil(Math.log10(Math.max(lo, constant)));
+    const to = Math.floor(Math.log10(hi));
+    return to >= from ? range(from, to + 1) : [];
+  }
+
+  const pos = max > 0 ? decades(Math.max(min, 0), max) : [];
+  const neg = min < 0 ? decades(Math.max(-max, 0), -min) : [];
+  if (pos.length + neg.length < 2) {
+    return scaleLinear({ domain: [min, max] }).ticks(count);
+  }
+
+  const hasZero = min <= 0 && max >= 0;
+  const stride = Math.ceil(
+    (pos.length + neg.length + (hasZero ? 1 : 0)) / Math.max(count, 1),
+  );
+
+  // Not within half a tick spacing of 0 (labels would overlap), in the space of the scale
+  function scaled(val: number): number {
+    return Math.log1p(Math.abs(val) / constant);
+  }
+  const minGap = hasZero
+    ? (scaled(min) + scaled(max)) / Math.max(count, 1) / 2
+    : 0;
+  function keep(exp: number): boolean {
+    return exp % stride === 0 && scaled(Number(`1e${exp}`)) >= minGap;
+  }
+  return [
+    ...neg
+      .filter(keep)
+      .map((exp) => -Number(`1e${exp}`))
+      .toReversed(),
+    ...(hasZero ? [0] : []),
+    ...pos.filter(keep).map((exp) => Number(`1e${exp}`)),
+  ];
+}
+
+/* Tick values for a scale, when they differ from the scale's own ticks */
+export function getScaleTickValues(
+  scaleType: VisScaleType,
+  domain: Domain,
+  count: number,
+): number[] | undefined {
+  return Array.isArray(scaleType) && scaleType[0] === ScaleType.SymLog
+    ? getSymlogTicks(domain, scaleType[1], count)
+    : undefined;
 }
 
 export function getTickFormatter(

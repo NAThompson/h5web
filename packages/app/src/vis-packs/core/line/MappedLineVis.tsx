@@ -71,6 +71,7 @@ interface Props {
   title: string;
   toolbarContainer?: HTMLDivElement | undefined;
   config: LineConfig;
+  symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
 }
 
 function MappedLineVis(props: Props) {
@@ -94,6 +95,7 @@ function MappedLineVis(props: Props) {
     title,
     toolbarContainer,
     config,
+    symlogThreshold,
   } = props;
 
   const {
@@ -288,6 +290,7 @@ function MappedLineVis(props: Props) {
         dataColor={isMultiPlot ? getSliceColor(0) : undefined}
         domain={safeDomain}
         scaleType={yScaleType}
+        symlogConstant={symlogThreshold}
         curveType={curveType}
         showGrid={showGrid}
         abscissaParams={abscissaParams}

@@ -11,6 +11,7 @@ import {
   formatPiTick,
   getIntegerTicks,
   getPiTicks,
+  getScaleTickValues,
   getTickFormatter,
 } from '../utils';
 import styles from './AxisSystem.module.css';
@@ -65,16 +66,25 @@ function Axis(props: Props) {
   const [AxisComponent, GridComponent] = COMPONENTS[type];
 
   const numTicks = adaptedNumTicks(axisLength);
+  const scaleTickValues = getScaleTickValues(scaleType, domain, numTicks);
   const isPiAxis = ticks === 'pi' && scaleType === ScaleType.Linear;
   const ticksProp = isPiAxis
     ? { tickValues: getPiTicks(domain, numTicks) }
     : isIndexAxis
       ? { tickValues: getIntegerTicks(domain, numTicks) }
-      : { numTicks };
+      : scaleTickValues
+        ? { tickValues: scaleTickValues }
+        : { numTicks };
 
   const tickFormatter =
     formatTick ||
-    (isPiAxis ? formatPiTick : getTickFormatter(domain, axisLength, scaleType));
+    (isPiAxis
+      ? formatPiTick
+      : getTickFormatter(
+          domain,
+          axisLength,
+          Array.isArray(scaleType) ? scaleType[0] : scaleType,
+        ));
 
   return (
     <>

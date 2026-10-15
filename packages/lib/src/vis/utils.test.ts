@@ -2,8 +2,11 @@ import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { tickStep } from 'd3-array';
 import { describe, expect, it } from 'vitest';
 
+import { getScaleTransform } from './geometry-worker/scale';
+import { scaleDomain } from './heatmap/utils';
 import {
   clampBound,
+  createScale,
   extendDomain,
   formatPiTick,
   getAxisDomain,
@@ -12,7 +15,9 @@ import {
   getDomains,
   getIntegerTicks,
   getPiTicks,
+  getScaleTickValues,
   getSizeToFit,
+  getSymlogTicks,
   getValueToIndexScale,
   getVisRatio,
 } from './utils';
@@ -536,5 +541,72 @@ describe('getVisRatio', () => {
     expect(getVisRatio(2, [0, 1], [0, 2])).toBe(0.25);
     expect(getVisRatio(2, [0, 2], [0, 1])).toBe(1);
     expect(getVisRatio(2, [100, 200], [10, 20])).toBe(5);
+  });
+});
+
+describe('symlog constant', () => {
+  const symlog = createScale([ScaleType.SymLog, 1e-12], {
+    domain: [0, 1],
+    range: [0, 1],
+  });
+
+  it('should set the width of the linear band around 0', () => {
+    expect(symlog.constant()).toBe(1e-12);
+    // With the default constant (1), 1e-10 is indistinguishable from 0
+    expect(
+      createScale(ScaleType.SymLog, { domain: [0, 1] })(1e-10),
+    ).toBeCloseTo(0, 9);
+    expect(symlog(1e-10)).toBeGreaterThan(0.15); // log(1 + 100) / log(1 + 1e12)
+    expect(symlog(1e-10)).toBeCloseTo(Math.log1p(100) / Math.log1p(1e12));
+  });
+
+  it('should agree with the scale functions of shaders and contours', () => {
+    const [lo, hi] = scaleDomain([0, 1], ScaleType.SymLog, 1e-12);
+    const { fn } = getScaleTransform([ScaleType.SymLog, 1e-12]);
+    for (const val of [1e-14, 1e-10, 0.5]) {
+      expect((fn(val) - fn(0)) / (fn(1) - fn(0))).toBeCloseTo(symlog(val));
+      const scaled = Math.log10(1 + val / 1e-12);
+      expect((scaled - lo) / (hi - lo)).toBeCloseTo(symlog(val));
+    }
+  });
+
+  it('should extend domains in the space of the scale', () => {
+    const [min, max] = extendDomain([1e-16, 1], 0.05, [
+      ScaleType.SymLog,
+      1e-12,
+    ]);
+    expect(min).toBeLessThan(0);
+    expect(min).toBeGreaterThan(-1e-10); // not -0.05 as with the default constant
+    expect(max).toBeGreaterThan(1);
+  });
+});
+
+describe('getSymlogTicks', () => {
+  it('should put ticks at 0 and powers of 10 beyond the linear band', () => {
+    expect(getSymlogTicks([0, 1], 1e-3, 5)).toEqual([0, 0.001, 0.01, 0.1, 1]);
+    expect(getSymlogTicks([1e-16, 1], 1e-12, 5)).toEqual([
+      1e-12, 1e-9, 1e-6, 1e-3, 1,
+    ]); // every third decade
+    expect(getSymlogTicks([-100, 10], 1, 10)).toEqual([
+      -100, -10, -1, 0, 1, 10,
+    ]);
+  });
+
+  it('should leave out powers of 10 too close to 0 on short axes', () => {
+    expect(getSymlogTicks([0, 1], 1e-12, 4)).toEqual([0, 1e-8, 1e-4, 1]);
+  });
+
+  it('should fall back to linear ticks within the linear band', () => {
+    expect(getSymlogTicks([0, 0.5], 1, 5)).toEqual([
+      0, 0.1, 0.2, 0.3, 0.4, 0.5,
+    ]);
+  });
+
+  it('should only apply to symlog scales with a constant', () => {
+    expect(getScaleTickValues(ScaleType.SymLog, [0, 1], 5)).toBeUndefined();
+    expect(getScaleTickValues([ScaleType.Gamma, 2], [0, 1], 5)).toBeUndefined();
+    expect(getScaleTickValues([ScaleType.SymLog, 0.1], [0, 1], 5)).toEqual([
+      0, 0.1, 1,
+    ]);
   });
 });
