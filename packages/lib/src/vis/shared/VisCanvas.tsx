@@ -1,9 +1,21 @@
-import { type PropsWithChildren, type ReactNode, useState } from 'react';
+import {
+  type PropsWithChildren,
+  type ReactNode,
+  useContext,
+  useState,
+} from 'react';
 
 import InteractionsProvider from '../../interactions/InteractionsProvider';
 import { type Aspect, type AxisConfig } from '../models';
 import { getAxisOffsets, getVisRatio } from '../utils';
 import AxisSystem from './AxisSystem';
+import CanvasPanel from './CanvasPanel';
+import {
+  MultiCanvasContext,
+  VisPanelContext,
+  withoutHiddenAxes,
+} from './multi-canvas';
+import PanelViewLink from './PanelViewLink';
 import R3FCanvas from './R3FCanvas';
 import RatioEnforcer from './RatioEnforcer';
 import ThresholdAdjuster from './ThresholdAdjuster';
@@ -33,6 +45,11 @@ function VisCanvas(props: PropsWithChildren<Props>) {
     children,
   } = props;
 
+  // Within a `MultiVisCanvas`, drawn in its shared canvas, maybe without some axes
+  const isPanel = !!useContext(MultiCanvasContext);
+  const { axes } = useContext(VisPanelContext);
+  const Canvas = isPanel ? CanvasPanel : R3FCanvas;
+
   const visRatio = getVisRatio(
     aspect,
     abscissaConfig.visDomain,
@@ -40,11 +57,14 @@ function VisCanvas(props: PropsWithChildren<Props>) {
   );
 
   const axisOffsets = showAxes
-    ? getAxisOffsets({
-        left: !!ordinateConfig.label,
-        bottom: !!abscissaConfig.label,
-        top: !!title,
-      })
+    ? withoutHiddenAxes(
+        getAxisOffsets({
+          left: !!ordinateConfig.label,
+          bottom: !!abscissaConfig.label,
+          top: !!title,
+        }),
+        axes,
+      )
     : NO_OFFSETS;
 
   const [svgOverlay, setSvgOverlay] = useState<SVGSVGElement | null>(null);
@@ -63,7 +83,7 @@ function VisCanvas(props: PropsWithChildren<Props>) {
       {showAxes && title && <p className={styles.title}>{title}</p>}
 
       <div className={styles.canvasArea}>
-        <R3FCanvas className={styles.r3fRoot} orthographic>
+        <Canvas className={styles.r3fRoot} orthographic>
           <VisCanvasProvider
             visRatio={visRatio}
             abscissaConfig={abscissaConfig}
@@ -71,15 +91,20 @@ function VisCanvas(props: PropsWithChildren<Props>) {
             svgOverlay={svgOverlay}
             floatingToolbar={floatingToolbar}
           >
-            <AxisSystem axisOffsets={axisOffsets} showAxes={showAxes} />
+            <AxisSystem
+              axisOffsets={axisOffsets}
+              showAxes={showAxes}
+              axes={axes}
+            />
             <InteractionsProvider>{children}</InteractionsProvider>
             <ViewportCenterer />
+            {isPanel && <PanelViewLink />}
             <RatioEnforcer />
             {raycasterThreshold !== undefined && (
               <ThresholdAdjuster value={raycasterThreshold} />
             )}
           </VisCanvasProvider>
-        </R3FCanvas>
+        </Canvas>
 
         <svg
           ref={setSvgOverlay}

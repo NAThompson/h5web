@@ -70,6 +70,7 @@ interface Props extends ClassStyleAttrs {
   belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
   aboveColor?: string;
   valueTransform?: ValueTransform; // values are logarithms: shown as powers in the colour bar
+  showColorBar?: boolean; // e.g. not on panels that share one
 }
 
 function HeatmapVis(props: PropsWithChildren<Props>) {
@@ -99,6 +100,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     belowColor,
     aboveColor,
     valueTransform,
+    showColorBar = true,
     className = '',
     style,
   } = props;
@@ -225,17 +227,19 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         {children}
       </VisCanvas>
 
-      <ColorBar
-        domain={domain}
-        scaleType={scaleType}
-        colorMap={colorMap}
-        invertColorMap={invertColorMap}
-        withBounds
-        label={colorBarLabel}
-        belowColor={belowColor}
-        aboveColor={aboveColor}
-        valueTransform={valueTransform}
-      />
+      {showColorBar && (
+        <ColorBar
+          domain={domain}
+          scaleType={scaleType}
+          colorMap={colorMap}
+          invertColorMap={invertColorMap}
+          withBounds
+          label={colorBarLabel}
+          belowColor={belowColor}
+          aboveColor={aboveColor}
+          valueTransform={valueTransform}
+        />
+      )}
     </figure>
   );
 }

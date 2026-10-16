@@ -81,6 +81,8 @@ export type { DimensionMapperProps } from './dimension-mapper/DimensionMapper';
 
 // Building blocks
 export { default as VisCanvas } from './vis/shared/VisCanvas';
+export { default as MultiVisCanvas } from './vis/shared/MultiVisCanvas';
+export { VisPanelContext } from './vis/shared/multi-canvas';
 export { default as TooltipMesh } from './vis/shared/TooltipMesh';
 export { default as Html } from './vis/shared/Html';
 export { default as Overlay } from './vis/shared/Overlay';
@@ -89,6 +91,8 @@ export { default as DataToHtml } from './vis/shared/DataToHtml';
 export { default as Tooltip } from './vis/shared/Tooltip';
 export { default as Guides } from './vis/shared/Guides';
 export type { VisCanvasProps } from './vis/shared/VisCanvas';
+export type { MultiVisCanvasProps } from './vis/shared/MultiVisCanvas';
+export type { VisPanelOptions } from './vis/shared/multi-canvas';
 export type { TooltipMeshProps } from './vis/shared/TooltipMesh';
 export type { DataToHtmlProps } from './vis/shared/DataToHtml';
 export type { TooltipProps } from './vis/shared/Tooltip';

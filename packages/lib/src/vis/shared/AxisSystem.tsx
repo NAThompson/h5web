@@ -9,10 +9,11 @@ import { useVisCanvasContext } from './VisCanvasProvider';
 interface Props {
   axisOffsets: AxisOffsets;
   showAxes: boolean;
+  axes?: { x: boolean; y: boolean }; // which axes are shown, e.g. of a panel
 }
 
 function AxisSystem(props: Props) {
-  const { axisOffsets, showAxes } = props;
+  const { axisOffsets, showAxes, axes } = props;
   const {
     canvasSize,
     visCanvas,
@@ -33,7 +34,7 @@ function AxisSystem(props: Props) {
             domain={visibleDomains.xVisibleDomain}
             canvasSize={canvasSize}
             offset={axisOffsets.bottom}
-            showAxis={showAxes}
+            showAxis={showAxes && (axes?.x ?? true)}
           />
           <Axis
             type="ordinate"
@@ -41,7 +42,7 @@ function AxisSystem(props: Props) {
             domain={visibleDomains.yVisibleDomain}
             canvasSize={canvasSize}
             offset={axisOffsets.left}
-            showAxis={showAxes}
+            showAxis={showAxes && (axes?.y ?? true)}
             flipAxis
           />
         </>,

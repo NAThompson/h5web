@@ -1,10 +1,11 @@
 import { useSyncedRef } from '@react-hookz/web';
 import { type ThreeEvent } from '@react-three/fiber';
 import { useTooltip } from '@visx/tooltip';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useContext } from 'react';
 
 import { type Coords, type Size } from '../models';
 import Guides from './Guides';
+import { VisPanelContext } from './multi-canvas';
 import Tooltip from './Tooltip';
 import { useVisCanvasContext } from './VisCanvasProvider';
 import VisMesh from './VisMesh';
@@ -18,6 +19,7 @@ interface Props {
 function TooltipMesh(props: Props) {
   const { guides, renderTooltip, size } = props;
   const { canvasSize, worldToData } = useVisCanvasContext();
+  const { tooltip: isEnabled = true } = useContext(VisPanelContext);
   const { width, height } = canvasSize;
 
   const {
@@ -76,6 +78,9 @@ function TooltipMesh(props: Props) {
   );
 
   const content = tooltipData && renderTooltip(...tooltipData);
+  if (!isEnabled) {
+    return null;
+  }
 
   return (
     <>

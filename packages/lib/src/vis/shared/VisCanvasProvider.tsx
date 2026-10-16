@@ -14,6 +14,7 @@ import Box from '../../interactions/box';
 import { useCanvasAxisScale } from '../hooks';
 import { type AxisConfig, type AxisScale, type Size } from '../models';
 import { getSizeToFit } from '../utils';
+import { PanelInternalsContext } from './multi-canvas';
 
 export interface VisCanvasContextValue {
   canvasSize: Size;
@@ -159,9 +160,9 @@ function VisCanvasProvider(props: PropsWithChildren<Props>) {
   );
 
   const gl = useThree((state) => state.gl);
-  const canvasWrapper = gl.domElement.parentElement;
-  assertNonNull(canvasWrapper);
-  const r3fRoot = canvasWrapper.parentElement;
+  const panel = useContext(PanelInternalsContext); // within a `MultiVisCanvas`
+  const r3fRoot =
+    panel?.root ?? gl.domElement.parentElement?.parentElement ?? null;
   assertNonNull(r3fRoot);
   const canvasArea = r3fRoot.parentElement;
   assertNonNull(canvasArea);
