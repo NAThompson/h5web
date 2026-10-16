@@ -1,5 +1,5 @@
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
-import { formatTick } from '@h5web/shared/vis-utils';
+import { formatTick, needsPowerTicks } from '@h5web/shared/vis-utils';
 import { tickStep } from 'd3-array';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +18,7 @@ import {
   getDomain,
   getDomains,
   getIntegerTicks,
+  getLogTickFormat,
   getPiTicks,
   getPowerTicks,
   getScaleTickValues,
@@ -716,5 +717,45 @@ describe('getTickFormatter()', () => {
   it('should not hide them all when there is no power of 10', () => {
     const format = getTickFormatter([11, 41], 80, ScaleType.Log);
     expect([20, 30].map((val) => format(val))).toEqual(['20', '30']);
+  });
+
+  it('should give all decades as powers if one needs a power', () => {
+    const format = getTickFormatter([1e-6, 10], 1000, ScaleType.Log);
+    expect([1e-6, 2e-6, 0.001, 1, 10].map((val) => format(val))).toEqual([
+      '10⁻⁶',
+      '', // hidden
+      '10⁻³',
+      '10⁰',
+      '10¹',
+    ]);
+    const plain = getTickFormatter([0.001, 0.01], 1000, ScaleType.Log);
+    expect([0.001, 0.002, 0.01].map((val) => plain(val))).toEqual([
+      '0.001',
+      '0.002',
+      '0.01',
+    ]);
+  });
+
+  it('should give labelled log ticks as powers if one needs a power', () => {
+    const scale = createScale(ScaleType.Log, { domain: [5e-4, 0.002] });
+    const format = getLogTickFormat(scale, 10);
+    expect([5e-4, 0.001, 0.002].map(format)).toEqual([
+      '5×10⁻⁴',
+      '10⁻³',
+      '2×10⁻³',
+    ]);
+  });
+
+  it('should give linear ticks as powers if one needs a power', () => {
+    const format = getTickFormatter([0, 1e5], 1000, ScaleType.Linear);
+    const ticks = toTicks([0, 5e4, 1e5]);
+    const powers = needsPowerTicks(ticks);
+    expect(powers).toBe(true);
+    expect(ticks.map(({ value }) => format(value, 3, powers))).toEqual([
+      '0',
+      '5×10⁴',
+      '10⁵',
+    ]);
+    expect(needsPowerTicks(toTicks([0, 5e3, 1e4]))).toBe(false);
   });
 });

@@ -14,6 +14,8 @@ import {
   getBounds,
   getBoundsWithErrors,
   getValidDomainForScale,
+  isPlainNumber,
+  needsPowerTicks,
 } from '@h5web/shared/vis-utils';
 import {
   scaleLinear,
@@ -23,7 +25,11 @@ import {
   scaleThreshold,
 } from '@visx/scale';
 import { range, tickStep } from 'd3-array';
-import { type ScaleLinear, type ScaleThreshold } from 'd3-scale';
+import {
+  type ScaleLinear,
+  type ScaleLogarithmic,
+  type ScaleThreshold,
+} from 'd3-scale';
 import { isValidElement, type ReactNode } from 'react';
 import { BufferAttribute, type IUniform, MathUtils } from 'three';
 
@@ -528,11 +534,32 @@ export function getTickPrecision(
   return Math.min(precision, 21); // max of `toPrecision`
 }
 
+/* Tick formatter of a log scale's default ticks (some of which d3 leaves unlabelled): powers of 10
+ * throughout if a labelled tick needs one (`10⁻⁴ 10⁻³ 10⁻²`, not `10⁻⁴ 0.001 0.01`) */
+export function getLogTickFormat(
+  scale: Pick<ScaleLogarithmic<number, number>, 'ticks' | 'tickFormat'>,
+  count: number,
+): (val: { valueOf: () => number }) => string {
+  const tickFormat = scale.tickFormat.bind(scale) as unknown as (
+    count: number,
+    format: (val: number) => string, // rather than a specifier
+  ) => (val: { valueOf: () => number }) => string;
+
+  const isLabelled = tickFormat(count, () => '-');
+  const labelled = scale.ticks(count).filter((val) => isLabelled(val));
+  const powers = needsPowerTicks(labelled.map((value) => ({ value })));
+  return tickFormat(count, (val) => formatTick(val, undefined, powers));
+}
+
 export function getTickFormatter(
   domain: Domain,
   availableSize: number,
   scaleType: ScaleType,
-): (val: number | { valueOf: () => number }, precision?: number) => string {
+): (
+  val: number | { valueOf: () => number },
+  precision?: number,
+  powers?: boolean, // cf. `needsPowerTicks`
+) => string {
   if (scaleType !== ScaleType.Log) {
     return formatTick;
   }
@@ -554,11 +581,13 @@ export function getTickFormatter(
     return formatTick;
   }
 
-  // Otherwise, use formatter that hides non-exact powers of 10
+  // Otherwise, use formatter that hides non-exact powers of 10 (all as powers if one needs to be)
+  const decades = [Math.ceil(Math.log10(min)), Math.floor(Math.log10(max))];
+  const powers = decades.some((exp) => !isPlainNumber(10 ** exp));
   return (val, precision) => {
     const loggedVal = Math.log10(Math.abs(val.valueOf()));
     return loggedVal === Math.floor(loggedVal)
-      ? formatTick(val, precision)
+      ? formatTick(val, precision, powers)
       : '';
   };
 }

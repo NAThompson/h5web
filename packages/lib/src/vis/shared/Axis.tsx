@@ -1,4 +1,5 @@
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
+import { needsPowerTicks } from '@h5web/shared/vis-utils';
 import { AxisBottom, AxisLeft, type SharedAxisProps } from '@visx/axis';
 import { GridColumns, GridRows } from '@visx/grid';
 import { type ScaleInput } from '@visx/scale';
@@ -86,7 +87,11 @@ function Axis(props: Props) {
     axisLength,
     Array.isArray(scaleType) ? scaleType[0] : scaleType,
   );
-  const tickFormatter: (val: number, precision: number) => string =
+  const tickFormatter: (
+    val: number,
+    precision: number,
+    powers: boolean,
+  ) => string =
     formatTick || customTicks?.format || withTicksFormat(scaleFormatter, ticks);
 
   return (
@@ -101,9 +106,11 @@ function Axis(props: Props) {
         >
           <AxisComponent
             scale={scale}
-            tickFormat={(val: ScaleInput<AxisScale>, _, allTicks) =>
-              tickFormatter(val.valueOf(), getTickPrecision(allTicks))
-            }
+            tickFormat={(val: ScaleInput<AxisScale>, _, allTicks) => {
+              const precision = getTickPrecision(allTicks);
+              const powers = needsPowerTicks(allTicks, precision);
+              return tickFormatter(val.valueOf(), precision, powers);
+            }}
             label={typeof label === 'string' ? label : undefined}
             labelOffset={labelOffset}
             hideAxisLine={showGrid}

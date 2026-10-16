@@ -93,11 +93,20 @@ export const formatScalarComplex = createComplexFormatter(format('.12~g'));
 
 const TICK_PRECISION = 3; // significant digits, unless more are needed (cf. `getTickPrecision`)
 
+/* Whether ticks should all show with powers of 10, so they read alike (`2×10⁻⁴`, `10⁻³`) */
+export function needsPowerTicks(
+  ticks: { value: { valueOf: () => number } }[],
+  precision = TICK_PRECISION,
+): boolean {
+  return ticks.some(({ value }) => !isPlainNumber(value.valueOf(), precision));
+}
+
 export function formatTick(
   val: number | { valueOf: () => number },
   precision = TICK_PRECISION,
+  powers = false,
 ): string {
-  return formatNumber(val.valueOf(), precision);
+  return formatNumber(val.valueOf(), precision, powers);
 }
 
 export function formatBool(value: ScalarValue<BooleanType>): string {

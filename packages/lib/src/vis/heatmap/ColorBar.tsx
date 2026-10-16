@@ -1,5 +1,9 @@
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
-import { formatBound, formatTick } from '@h5web/shared/vis-utils';
+import {
+  formatBound,
+  formatTick,
+  needsPowerTicks,
+} from '@h5web/shared/vis-utils';
 import { useMeasure } from '@react-hookz/web';
 import { AxisBottom, AxisRight } from '@visx/axis';
 import { type CSSProperties, type ReactNode } from 'react';
@@ -10,6 +14,7 @@ import {
   adaptedNumTicks,
   createScale,
   getCustomTicks,
+  getLogTickFormat,
   getRealValue,
   getScaleTickValues,
   getTextContent,
@@ -83,12 +88,13 @@ function ColorBar(props: Props) {
   const tickValues =
     powers?.values ?? getScaleTickValues(scaleType, domain, numTicks);
   const ticks = tickValues ?? axisScale.ticks(numTicks);
+  const tickObjs = ticks.map((value) => ({ value }));
+  const precision = getTickPrecision(tickObjs);
   const scaleFormatter: (val: number) => string =
     scaleType === ScaleType.Log
-      ? // @ts-expect-error: log scale's `tickFormat` accepts a formatter function
-        axisScale.tickFormat(numTicks, formatTick)
+      ? getLogTickFormat(axisScale, numTicks)
       : (val) =>
-          formatTick(val, getTickPrecision(ticks.map((value) => ({ value }))));
+          formatTick(val, precision, needsPowerTicks(tickObjs, precision));
   const formatAxisTick: (val: number) => string = powers
     ? powers.format
     : withTicksFormat(scaleFormatter, valueTransform);

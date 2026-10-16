@@ -1,4 +1,9 @@
-import { type ColorScaleType, type Domain } from '@h5web/shared/vis-models';
+import {
+  type ColorScaleType,
+  type Domain,
+  ScaleType,
+} from '@h5web/shared/vis-models';
+import { formatTick, needsPowerTicks } from '@h5web/shared/vis-utils';
 import { useMeasure } from '@react-hookz/web';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { scaleLinear } from '@visx/scale';
@@ -13,12 +18,22 @@ import {
   createScale,
   DEFAULT_DOMAIN,
   extendDomain,
+  getLogTickFormat,
 } from '../../../vis/utils';
 import ColorBar from './ColorBar';
 import styles from './Histogram.module.css';
 import Markers from './Markers';
 
 const EXTEND_FACTOR = 0.3;
+
+// Alike on an axis (e.g. `2×10⁴`, `10⁵`)
+function formatTicks(
+  val: { valueOf: () => number },
+  _: number,
+  ticks: { value: { valueOf: () => number } }[],
+): string {
+  return formatTick(val, undefined, needsPowerTicks(ticks));
+}
 
 interface Props extends HistogramParams {
   scaleType: ColorScaleType;
@@ -113,7 +128,11 @@ function Histogram(props: Props) {
           numTicks={adaptedNumTicks(width)}
           tickClassName={styles.tick}
           tickComponent={Tick}
-          tickFormat={xScale.tickFormat(adaptedNumTicks(width), '.3~g')}
+          tickFormat={
+            scaleType === ScaleType.Log
+              ? getLogTickFormat(xScale, adaptedNumTicks(width))
+              : formatTicks
+          }
         />
         {showLeftAxis && (
           <AxisLeft
@@ -121,7 +140,7 @@ function Histogram(props: Props) {
             numTicks={adaptedNumTicks(height)}
             tickClassName={styles.tick}
             tickComponent={Tick}
-            tickFormat={yScale.tickFormat(adaptedNumTicks(height), '.3~g')}
+            tickFormat={formatTicks}
           />
         )}
       </svg>
