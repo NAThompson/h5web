@@ -23,7 +23,8 @@ interface Props {
 }
 
 /* Stand-in for `R3FCanvas` within a `MultiVisCanvas`: the R3F children are drawn in this
- * element's area of the shared canvas (behind it), with the context they are rendered in */
+ * element's area of the shared canvas (behind it), with the context they are rendered in and
+ * the same ambient light */
 function CanvasPanel(props: PropsWithChildren<Props>) {
   const { className, children } = props;
 
@@ -72,6 +73,7 @@ function CanvasPanel(props: PropsWithChildren<Props>) {
         node: (
           <ContextBridge>
             <PanelInternalsContext value={internals}>
+              <ambientLight intensity={1} />
               {children}
             </PanelInternalsContext>
           </ContextBridge>
