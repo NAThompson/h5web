@@ -1735,7 +1735,7 @@ export function makeMockFile(): GroupWithChildren {
         ...(
           [
             ['multiples', 'k p', []],
-            ['multiples_k', 'k', [intAttr('H5WEB_multiples_columns', 2)]],
+            ['multiples_k', 'k', [intAttr('H5WEB_multiples_columns', 3)]],
           ] as const
         ).map(([name, dims, attributes]) =>
           withDimScales(

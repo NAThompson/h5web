@@ -41,6 +41,18 @@ async function hoverPanel(title: string) {
   await userEvent.hover(page.elementLocator(area));
 }
 
+/* Bottom of a panel's plot, once drawn */
+async function getPlotBottom(title: string): Promise<number> {
+  await expect
+    .poll(() =>
+      getPanel(title).element().querySelector('[class*="canvasArea"]'),
+    )
+    .not.toBeNull();
+  const area = getPanel(title).element().querySelector('[class*="canvasArea"]');
+  assertNonNull(area);
+  return area.getBoundingClientRect().bottom;
+}
+
 test('show the panels of a group side by side, in one canvas', async () => {
   await renderApp('/view_hints/panels');
 
@@ -215,8 +227,12 @@ test('slice small multiples along the other dimensions', async () => {
   await expect
     .poll(getPanelTitles)
     .toEqual(['k = 0', 'k = 1', 'k = 2', 'k = 3']);
-  // `H5WEB_multiples_columns`: two per row
-  expect(getPanel('k = 2').element()).toHaveStyle({ gridRow: '2' });
+  // `H5WEB_multiples_columns`: three per row
+  expect(getPanel('k = 3').element()).toHaveStyle({ gridRow: '2' });
+
+  // Plots of a row aligned, whether their x axis is below them (end of the partial last row) or not
+  const bottom = await getPlotBottom('k = 2');
+  await expect(getPlotBottom('k = 0')).resolves.toBeCloseTo(bottom, 0);
 
   const slider = page.getByRole('slider', { name: 'p' });
   await expect.element(slider).toBeVisible();

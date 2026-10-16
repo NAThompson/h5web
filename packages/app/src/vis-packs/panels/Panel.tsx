@@ -28,6 +28,7 @@ interface Props extends PanelProps {
   linkAxes: boolean;
   showXAxis: boolean; // e.g. only along the bottom edge of a grid
   showYAxis: boolean; // e.g. only along the left edge
+  axisBand: number; // px: of x axes in the row, kept without one (plots aligned)
   showTooltip: boolean; // e.g. not when the linked cursor's readout replaces it
   showTitle: boolean; // else a button to open it in a corner (e.g. facet grid, with headers)
   load: boolean; // even out of view (e.g. for a snapshot of all panels)
@@ -75,6 +76,7 @@ function Panel(props: Props) {
     linkAxes,
     showXAxis,
     showYAxis,
+    axisBand,
     showTooltip,
     showTitle,
     load,
@@ -148,7 +150,11 @@ function Panel(props: Props) {
     <section
       ref={setElem}
       className={styles.panel}
-      style={{ gridRow, gridColumn }}
+      style={{
+        gridRow,
+        gridColumn,
+        paddingBottom: (!showXAxis && axisBand) || undefined,
+      }}
       aria-label={title}
       data-empty={isEmpty || undefined}
     >

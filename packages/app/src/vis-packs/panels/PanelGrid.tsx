@@ -344,6 +344,7 @@ function PanelGrid(props: Props) {
                     showXAxis={
                       !edgeAxesOnly || spec.row === bottomRows.get(spec.col)
                     }
+                    axisBand={axisRows.has(spec.row) ? axesHeight : 0}
                     showYAxis={!edgeAxesOnly || spec.col === 0}
                     showTitle={!headers}
                     showTooltip={!withReadout}
