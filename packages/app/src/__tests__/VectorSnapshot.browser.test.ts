@@ -138,6 +138,7 @@ test('download SVG and PDF from snapshot menu', async () => {
     .mockImplementation(() => {});
 
   await user.click(page.getByRole('button', { name: 'Toggle sidebar' }));
+
   await user.click(page.getByRole('button', { name: 'Snapshot' }));
   await user.click(page.getByRole('button', { name: 'Save as SVG' }));
   await user.click(page.getByRole('button', { name: 'Snapshot' }));
@@ -200,7 +201,7 @@ test('export all panels of a scrolled grid', async () => {
 
   const root = document.querySelector<HTMLElement>('[data-snapshot-root]');
   assertNonNull(root);
-  root.style.cssText = 'flex: none; height: 240px;'; // panels out of view
+  root.style.cssText = 'flex: none; width: 480px; height: 240px;'; // panels out of view
   const { cssText } = root.style;
   const scroller = root.querySelector('[data-panel-scroller]');
   assertNonNull(scroller);
@@ -209,6 +210,23 @@ test('export all panels of a scrolled grid', async () => {
     .toBe(true);
 
   await user.click(page.getByRole('button', { name: 'Toggle sidebar' }));
+
+  // Whole grid (with its padding) and colour bar after it, not over its last column
+  const gridRight =
+    Math.max(
+      ...[...root.querySelectorAll('section')].map(
+        (section) => section.getBoundingClientRect().right,
+      ),
+    ) - root.getBoundingClientRect().left;
+  const colorBars = root.querySelector('[class*="_colorBars_"]');
+  assertNonNull(colorBars);
+  const minWidth =
+    gridRight +
+    scroller.scrollLeft +
+    8 + // padding of the grid
+    colorBars.getBoundingClientRect().width;
+  expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth); // scrolls
+
   await user.click(page.getByRole('button', { name: 'Snapshot' }));
   await user.click(page.getByRole('button', { name: 'Save as SVG' }));
   await expect
@@ -223,6 +241,9 @@ test('export all panels of a scrolled grid', async () => {
   expect(Number(doc.documentElement.getAttribute('height'))).toBeGreaterThan(
     root.getBoundingClientRect().height + 100,
   );
+  expect(
+    Number(doc.documentElement.getAttribute('width')),
+  ).toBeGreaterThanOrEqual(minWidth - 0.5);
   expect(doc.querySelectorAll('image')).toHaveLength(9); // 12 panels, 3 blank (NaN)
   expect(getTexts(doc)).toEqual(
     expect.arrayContaining(['k = 0', 'k = 3', 'p = 0', 'p = 2']),

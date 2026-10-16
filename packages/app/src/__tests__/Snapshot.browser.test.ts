@@ -3,6 +3,7 @@ import {
   HeatmapVis,
   INTERPOLATORS,
   mockValues,
+  renderSvgSnapshot,
   SnapshotBtn,
 } from '@h5web/lib';
 import { assertDefined, assertNonNull } from '@h5web/shared/guards';
@@ -495,3 +496,28 @@ test('draw vertical text rotated', async () => {
     countInk(img, { x, y: middle - 18, width, height: 8 }),
   ).toBeGreaterThan(5);
 }, 30_000); // panels drawn and snapshotted (slow in the full suite)
+
+test('cut text off as on screen, with an ellipsis or not', async () => {
+  const style =
+    'width: 60px; margin: 0; overflow: hidden; white-space: nowrap;';
+  const root = document.createElement('div');
+  root.style.cssText = 'width: 200px; font-size: 14px';
+  root.innerHTML = `<p style="${style} text-overflow: ellipsis">kn = 10, pn = 12</p><p style="${style}">kn = 10, pn = 12</p>`;
+  document.body.append(root);
+
+  const texts = [...renderSvgSnapshot(root).querySelectorAll('text')].map(
+    (text) => text.textContent,
+  );
+  expect(texts).toHaveLength(2);
+  expect(texts[0]).toMatch(/^kn = .+…$/u);
+  expect(texts[0].length).toBeLessThan(12);
+  expect(texts[1]).toMatch(/^kn = [^…]+$/u);
+  expect(texts[1].length).toBeLessThan(14);
+
+  const img = await decodePng(await exportSnapshot(root, { scale: 1 }));
+  expect(countInk(img, { x: 0, y: 0, width: 60, height: 40 })).toBeGreaterThan(
+    20,
+  );
+  expect(countInk(img, { x: 64, y: 0, width: 136, height: 40 })).toBe(0);
+  root.remove();
+});

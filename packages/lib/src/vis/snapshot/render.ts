@@ -222,20 +222,102 @@ export function getTextTransform(
   return { angle: (((angle % 360) + 540) % 360) - 180, scale };
 }
 
+let measuringCtx: CanvasRenderingContext2D | null | undefined;
+
+/* Width of `text` in the font of `style` */
+export function measureText(text: string, style: CSSStyleDeclaration): number {
+  measuringCtx =
+    measuringCtx ?? document.createElement('canvas').getContext('2d');
+  if (!measuringCtx) {
+    return 0;
+  }
+  const { fontStyle, fontWeight, fontSize, fontFamily } = style;
+  measuringCtx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
+  return measuringCtx.measureText(text).width;
+}
+
+/* Part of characters `start` to `end` of a text node shown on screen: up to `end` (exclusive),
+ * then an ellipsis or not, as the nearest ancestor clipping its overflow cuts the text off (e.g.
+ * `text-overflow: ellipsis` on panel titles). Horizontal text only. */
+export function getShownText(
+  node: Text,
+  start: number,
+  end: number,
+): { end: number; ellipsis: boolean } {
+  const full = { end, ellipsis: false };
+  let clip: HTMLElement | null = node.parentElement;
+  while (
+    clip &&
+    !clip.hasAttribute(SNAPSHOT_ATTR) && // within the snapshot root
+    getComputedStyle(clip).overflowX === 'visible'
+  ) {
+    clip = clip.parentElement;
+  }
+  if (
+    !clip ||
+    clip.hasAttribute(SNAPSHOT_ATTR) ||
+    clip.scrollWidth <= clip.clientWidth
+  ) {
+    return full; // nothing cut off (e.g. scroller of panels, expanded)
+  }
+
+  const style = getComputedStyle(clip);
+  const isEllipsis = style.textOverflow === 'ellipsis';
+  const { left } = clip.getBoundingClientRect();
+  const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+  const clipRight = left + clip.clientLeft + clip.clientWidth; // padding box
+  const limit = isEllipsis
+    ? clipRight - paddingRight - measureText('…', style)
+    : clipRight;
+
+  const range = document.createRange();
+  function charRect(i: number): DOMRect {
+    range.setStart(node, i);
+    range.setEnd(node, i + 1);
+    return range.getBoundingClientRect();
+  }
+  if (charRect(end - 1).right <= limit + 0.5) {
+    return full;
+  }
+  if (charRect(start).left >= clipRight - paddingRight - 0.5) {
+    return { end: start, ellipsis: false }; // all of it cut off
+  }
+
+  let shown = start;
+  while (
+    shown < end &&
+    (isEllipsis
+      ? charRect(shown).right <= limit + 0.5
+      : charRect(shown).left < clipRight)
+  ) {
+    shown += 1;
+  }
+  return { end: shown, ellipsis: isEllipsis };
+}
+
 function textLayer(node: Text, style: CSSStyleDeclaration, scale: number[]) {
   const start = node.data.search(/\S/u);
   if (start === -1) {
     return undefined;
   }
 
+  const { angle } = getTextTransform(node.parentElement ?? document.body);
+  const trimmedEnd = node.data.trimEnd().length;
+  const shown =
+    Math.abs(angle) > 0.5
+      ? { end: trimmedEnd, ellipsis: false }
+      : getShownText(node, start, trimmedEnd);
+  if (shown.end === start && !shown.ellipsis) {
+    return undefined;
+  }
+
   const range = document.createRange();
   range.setStart(node, start);
-  range.setEnd(node, node.data.trimEnd().length);
+  range.setEnd(node, Math.max(shown.end, start + 1)); // first character: ellipsis' place
   const rect = range.getBoundingClientRect();
-  const text = range.toString().replaceAll(/\s+/gu, ' ');
+  range.setEnd(node, shown.end);
+  const text = `${range.toString().replaceAll(/\s+/gu, ' ').trimEnd()}${shown.ellipsis ? '…' : ''}`;
   const [sx, sy] = scale;
-
-  const { angle } = getTextTransform(node.parentElement ?? document.body);
 
   function draw(ctx: CanvasRenderingContext2D) {
     const { fontStyle, fontWeight, fontSize, fontFamily } = style;

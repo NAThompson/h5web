@@ -21,6 +21,7 @@
   display: grid;
   place-content: safe center; /* when smaller than the area (else from the start: all scrollable) */
   gap: 0.5rem;
+  width: max-content; /* with its padding when it scrolls (e.g. laid out whole for snapshots) */
   min-width: 100%;
   min-height: 100%;
   padding: 0.5rem;

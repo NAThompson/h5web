@@ -1,7 +1,9 @@
 import { expandScrollers, getCanvasPanels } from './panels';
 import {
+  getShownText,
   getTextTransform,
   isRendered,
+  measureText,
   SNAPSHOT_ATTR,
   SNAPSHOT_IGNORE_ATTR,
 } from './render';
@@ -555,16 +557,25 @@ function textToSvg(
     ...colorAttrs(style.color, 'fill', ctx, opacity),
   };
 
+  const isRotated = Math.abs(angle) > 0.5;
   return lines.flatMap(([from, to]) => {
+    const shown = isRotated
+      ? { end: to, ellipsis: false }
+      : getShownText(node, from, to); // e.g. cut off with an ellipsis
     range.setStart(node, from);
-    range.setEnd(node, to);
-    const text = range.toString().replaceAll(/\s+/gu, ' ').trim();
-    const { x, y, width, height } = relativeRect(range, ctx);
-    if (!text || width === 0 || height === 0) {
+    range.setEnd(node, Math.max(shown.end, from + 1)); // first character: ellipsis' place
+    const { x, y, height, width: rangeWidth } = relativeRect(range, ctx);
+    range.setEnd(node, shown.end);
+    const ellipsis = shown.ellipsis ? '…' : '';
+    const text = `${range.toString().replaceAll(/\s+/gu, ' ').trim()}${ellipsis}`;
+    const width =
+      shown.end > from
+        ? relativeRect(range, ctx).width + measureText(ellipsis, style)
+        : measureText(ellipsis, style);
+    if (!text || rangeWidth === 0 || height === 0) {
       return [];
     }
 
-    const isRotated = Math.abs(angle) > 0.5;
     const [cx, cy] = [x + width / 2, y + height / 2];
     const offset = ((asc - desc) / 2) * scale; // from middle of line box to baseline
     const length = isRotated ? Math.max(width, height) : width;
