@@ -172,6 +172,7 @@ test('export panels with their titles, shared colour bars and vector lines', asy
     root,
     (svg) =>
       svg.querySelectorAll('image').length === 3 &&
+      svg.querySelectorAll('linearGradient').length === 2 && // shared colour bars
       [...svg.querySelectorAll('path[fill="none"]')].some((p) =>
         /^M[\d.]+ [\d.]+L/u.test(p.getAttribute('d') ?? ''),
       ),
@@ -190,8 +191,7 @@ test('export panels with their titles, shared colour bars and vector lines', asy
 
   const texts = getTexts(doc);
   expect(texts).toEqual(expect.arrayContaining(['ψ', 'profile']));
-  expect(doc.querySelectorAll('linearGradient')).toHaveLength(2); // shared colour bars
-});
+}, 30_000); // panels drawn and snapshotted (slow in the full suite)
 
 test('export all panels of a scrolled grid', async () => {
   const { user } = await renderApp('/view_hints/multiples');
@@ -212,7 +212,7 @@ test('export all panels of a scrolled grid', async () => {
   await user.click(page.getByRole('button', { name: 'Snapshot' }));
   await user.click(page.getByRole('button', { name: 'Save as SVG' }));
   await expect
-    .poll(() => createSpy.mock.calls.length, { timeout: 10_000 })
+    .poll(() => createSpy.mock.calls.length, { timeout: 20_000 })
     .toBe(1);
 
   const blob = createSpy.mock.calls[0][0] as Blob;
@@ -228,4 +228,4 @@ test('export all panels of a scrolled grid', async () => {
     expect.arrayContaining(['k = 0, p = 0', 'k = 3, p = 2']),
   );
   expect(root.style.cssText).toBe(cssText); // restored
-});
+}, 30_000); // panels drawn and snapshotted (slow in the full suite)

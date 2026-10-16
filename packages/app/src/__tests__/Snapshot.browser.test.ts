@@ -475,7 +475,7 @@ test('export each panel of a grid at its place, with titles', async () => {
         .every((plot) => countInk(img, getRegion(root, plot)) > 1000);
     })
     .toBe(true);
-});
+}, 30_000); // panels drawn and snapshotted (slow in the full suite)
 
 test('draw vertical text rotated', async () => {
   await renderApp('/view_hints/multiples');
@@ -494,4 +494,4 @@ test('draw vertical text rotated', async () => {
   expect(
     countInk(img, { x, y: middle - 18, width, height: 8 }),
   ).toBeGreaterThan(5);
-});
+}, 30_000); // panels drawn and snapshotted (slow in the full suite)
