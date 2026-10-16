@@ -3,7 +3,7 @@ import { assertDefined, assertNonNull } from '@h5web/shared/guards';
 import { ScaleType } from '@h5web/shared/vis-models';
 import ndarray from 'ndarray';
 import { createElement as h } from 'react';
-import { expect, test } from 'vitest';
+import { expect, onTestFinished, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
 
@@ -194,6 +194,24 @@ test('keep axes linear when their scale is invalid or cannot show their values',
   expect(getTickLabels('abscissa')).toEqual(
     expect.arrayContaining(['0', '2', '4']),
   );
+});
+
+test('keep the ratio only of axes of the same unit, on linear scales', async () => {
+  await page.viewport(2560, 1080); // "Keep ratio" not in the "More controls" menu
+  onTestFinished(async () => page.viewport(1920, 1080));
+  const { user } = await renderApp('/axis_hints/ratio');
+
+  const keepRatioBtn = page.getByRole('button', { name: 'Keep ratio' });
+  await expect.element(keepRatioBtn).toHaveAttribute('aria-pressed', 'true'); // r2 vs r1 (bohr)
+
+  await user.click(getDimMappingBtn('x', 'angle')); // rad vs bohr
+  await expect.element(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await user.click(getDimMappingBtn('x', 'r2'));
+  await expect.element(keepRatioBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await user.click(getDimMappingBtn('x', 'rho')); // log
+  await expect.element(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('label slices with the strings named by a dimension scale', async () => {

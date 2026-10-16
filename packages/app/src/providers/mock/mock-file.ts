@@ -864,6 +864,44 @@ export function makeMockFile(): GroupWithChildren {
           ),
           { scales: [['/axis_hints/bad_scale'], ['/axis_hints/zero_based']] },
         ),
+        // `H5WEB_keep_ratio` only for axes of the same unit and on linear scales
+        ...(
+          [
+            ['ratio_angle', 3, 'rad'],
+            ['ratio_r1', 4, 'bohr'],
+            ['ratio_r2', 5, 'bohr'],
+          ] as const
+        ).map(([name, size, unit]) =>
+          dataset(name, arrayShape([size]), floatType(), indices(size), {
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr('NAME', name.slice(6)),
+              scalarAttr('units', unit),
+            ],
+          }),
+        ),
+        withDimScales(
+          dataset(
+            'ratio',
+            arrayShape([3, 12, 4, 5]),
+            floatType(),
+            indices(720),
+            {
+              attributes: [
+                scalarAttr('H5WEB_vis', 'heatmap'),
+                intAttr('H5WEB_keep_ratio', 1),
+              ],
+            },
+          ),
+          {
+            scales: [
+              ['/axis_hints/ratio_angle'],
+              ['/axis_hints/rho'], // log
+              ['/axis_hints/ratio_r1'],
+              ['/axis_hints/ratio_r2'],
+            ],
+          },
+        ),
         // `H5WEB_slice_labels`: names of the slices, as variable-length strings (netCDF-4
         // `NC_STRING`) on a numeric scale, or as the values of a fixed-length string scale
         dataset('package_label', arrayShape([4]), strType(H5T_CSET.UTF8), [
