@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   combineDomains,
   formatIndexLabel,
+  getBottomRows,
   getGridSize,
   getMultiplesGrid,
   getPanelMapping,
@@ -130,5 +131,16 @@ describe('combineDomains', () => {
   it('combine domains, ignoring missing ones', () => {
     expect(combineDomains([[0, 1], undefined, [-2, 0.5]])).toEqual([-2, 1]);
     expect(combineDomains([undefined])).toBeUndefined();
+  });
+});
+
+describe('getBottomRows', () => {
+  it('find the bottom-most panel of each column of a partial last row', () => {
+    const panels = getMultiplesGrid([5], 3, 5); // 3 + 2
+    expect(Object.fromEntries(getBottomRows(panels))).toEqual({
+      0: 1,
+      1: 1,
+      2: 0,
+    });
   });
 });

@@ -13,7 +13,7 @@ import { type PanelColors } from './PanelContent';
 import styles from './Panels.module.css';
 import SharedAxisLabels from './SharedAxisLabels';
 import SharedColorBar from './SharedColorBar';
-import { combineDomains } from './utils';
+import { combineDomains, getBottomRows } from './utils';
 
 const DOMAIN_UPDATE_DELAY = 150; // ms: domains of panels loading together are combined at once
 const PENDING_COLORS: PanelColors = { domain: [0, 1] }; // until the first panel of a group loads
@@ -41,16 +41,16 @@ function getPanelSize(
   return Math.floor(fit >= min ? fit : Math.max(min, colFit));
 }
 
-/* Sizes of the columns or rows of the grid, with `extra` on one of them (e.g. axes) */
+/* Sizes of the columns or rows of the grid, with `extra` on some of them (e.g. axes) */
 function getTracks(
   count: number,
   size: number,
   extra: number,
-  extraIndex: number,
+  extraIndices: number[],
 ): string {
   return Array.from(
     { length: count },
-    (_, i) => `${size + (i === extraIndex ? extra : 0)}px`,
+    (_, i) => `${size + (extraIndices.includes(i) ? extra : 0)}px`,
   ).join(' ');
 }
 
@@ -179,10 +179,11 @@ function PanelGrid(props: Props) {
   const [axesWidth, axesHeight] = edgeAxesOnly
     ? [AXES.left, AXES.bottom]
     : [0, 0];
+  const bottomRows = useMemo(() => getBottomRows(specs), [specs]); // with x axes
   const panelSize = getPanelSize(
     [cols, rows],
     [width - labelSize, height - labelSize],
-    [axesWidth, axesHeight],
+    [axesWidth, axesHeight * new Set(bottomRows.values()).size],
     edgeAxesOnly ? MIN_COMPACT_SIZE : MIN_SIZE,
   );
   const plotSize = edgeAxesOnly
@@ -208,17 +209,14 @@ function PanelGrid(props: Props) {
                 padding: GAP,
                 gridTemplateColumns: [
                   labelSize > 0 && `${labelSize}px`,
-                  getTracks(cols, panelSize, axesWidth, 0),
+                  getTracks(cols, panelSize, axesWidth, [0]),
                 ]
                   .filter(Boolean)
                   .join(' '),
                 gridTemplateRows: [
-                  getTracks(
-                    rows,
-                    panelSize + TITLE_HEIGHT,
-                    axesHeight,
-                    rows - 1,
-                  ),
+                  getTracks(rows, panelSize + TITLE_HEIGHT, axesHeight, [
+                    ...bottomRows.values(),
+                  ]),
                   labelSize > 0 && `${labelSize}px`,
                 ]
                   .filter(Boolean)
@@ -249,7 +247,9 @@ function PanelGrid(props: Props) {
                     }
                     linkAxes={linkAxes}
                     cursorStore={linkCursor ? cursorStore : undefined}
-                    showXAxis={!edgeAxesOnly || spec.row === rows - 1}
+                    showXAxis={
+                      !edgeAxesOnly || spec.row === bottomRows.get(spec.col)
+                    }
                     showYAxis={!edgeAxesOnly || spec.col === 0}
                     showTooltip={!withReadout}
                     isCompact={isCompact}

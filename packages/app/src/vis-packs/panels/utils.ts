@@ -148,6 +148,17 @@ export function getMultiplesGrid(
   });
 }
 
+/* Row of the bottom-most panel of each column (e.g. above the end of a partial last row) */
+export function getBottomRows(
+  panels: { row: number; col: number }[],
+): Map<number, number> {
+  const bottomRows = new Map<number, number>();
+  panels.forEach(({ row, col }) => {
+    bottomRows.set(col, Math.max(row, bottomRows.get(col) ?? 0));
+  });
+  return bottomRows;
+}
+
 /* Smallest domain containing the given ones (`undefined` if none) */
 export function combineDomains(
   domains: (Domain | undefined)[],
