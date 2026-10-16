@@ -6,6 +6,7 @@ import { type PanelSpec } from './models';
 import {
   combineDomains,
   formatIndexLabel,
+  formatPlainBound,
   getBottomRows,
   getColorGroup,
   getGridSize,
@@ -135,6 +136,18 @@ describe('combineDomains', () => {
   it('combine domains, ignoring missing ones', () => {
     expect(combineDomains([[0, 1], undefined, [-2, 0.5]])).toEqual([-2, 1]);
     expect(combineDomains([undefined])).toBeUndefined();
+  });
+});
+
+describe('formatPlainBound', () => {
+  it('should give plain numbers when reasonable', () => {
+    expect(formatPlainBound(3.847_86)).toBe('3.848');
+    expect(formatPlainBound(-3.339_12)).toBe('−3.339');
+    expect(formatPlainBound(0.038_56)).toBe('0.03856');
+    expect(formatPlainBound(0)).toBe('0');
+    expect(formatPlainBound(1.11e-16)).toBe('1.11e-16');
+    expect(formatPlainBound(2.5e7)).toBe('2.5e+7');
+    expect(formatPlainBound(1234.56)).toBe('1235');
   });
 });
 

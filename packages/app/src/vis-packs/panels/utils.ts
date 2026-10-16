@@ -1,5 +1,7 @@
 import { type Axis, type DimensionMapping } from '@h5web/lib';
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
+import { formatBound } from '@h5web/shared/vis-utils';
+import { format } from 'd3-format';
 
 import { type PanelKind, type PanelSpec } from './models';
 
@@ -217,4 +219,13 @@ export function formatIndexLabel(
   }
   const num = Number(value);
   return `${name} = ${Number.isInteger(num) ? num : Number(num.toPrecision(4))}`;
+}
+
+const formatPlain = format('.4~g'); // exponent notation from 1e4
+
+/* End of a colour domain: a plain number when reasonable (e.g. `−3.339`, `0.0386`), else in
+ * exponent notation (e.g. `1.11e-16`) */
+export function formatPlainBound(val: number): string {
+  const abs = Math.abs(val);
+  return abs === 0 || abs >= 1e-3 ? formatPlain(val) : formatBound(val);
 }
