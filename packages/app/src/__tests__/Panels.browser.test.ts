@@ -126,6 +126,26 @@ test('zoom panels with the same axes together', async () => {
     .toBe(3);
 });
 
+// Ctrl+click opens the context menu on macOS, instead of starting a selection to zoom
+test.runIf(navigator.platform.startsWith('Mac'))(
+  'prevent the context menu in panels',
+  async () => {
+    await renderApp('/view_hints/panels');
+
+    await hoverPanel('ψ');
+    const target = getPanel('ψ')
+      .element()
+      .querySelector('[class*="eventTarget"]');
+    assertNonNull(target);
+    const evt = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(true);
+  },
+);
+
 test('open a panel in the single view from its title', async () => {
   const { user } = await renderApp('/view_hints/panels');
 
