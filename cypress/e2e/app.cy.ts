@@ -213,9 +213,7 @@ describe('/mock', () => {
     cy.waitForStableDOM();
 
     cy.get('@d1Slider').should('have.attr', 'aria-valuenow', 3);
-    cy.get('@vis')
-      .should('contain.text', '9.996e-1')
-      .and('contain.text', '−1e+0');
+    cy.get('@vis').should('contain.text', '0.9996').and('contain.text', '−1');
 
     if (takeSnapshots) {
       cy.matchImageSnapshot('heatmap_4d_sliced');
@@ -269,8 +267,8 @@ describe('/mock', () => {
 
     cy.get('@min').should('have.value', '5e+1');
     cy.findByRole('figure', { name: 'twoD' }).within(() => {
-      cy.findByText('5e+1').should('be.visible');
-      cy.findByText('4e+2').should('be.visible');
+      cy.findByText('50').should('be.visible');
+      cy.findByText('400').should('be.visible');
     });
 
     if (takeSnapshots) {
@@ -496,7 +494,7 @@ describe('/mock', () => {
 
       cy.findByRole('figure', { name: 'tertiary' })
         .should('be.visible')
-        .and('contain.text', '−4.75e+1'); // color bar min
+        .and('contain.text', '−47.5'); // color bar min
 
       if (takeSnapshots) {
         cy.matchImageSnapshot('auximage');

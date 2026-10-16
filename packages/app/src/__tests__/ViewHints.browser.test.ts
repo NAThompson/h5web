@@ -354,8 +354,8 @@ test('give constant data a finite colour domain', async () => {
   await renderApp('/view_hints/constant');
 
   // One decade around the value (symlog), not `−∞`/`+∞`
-  await expect.element(page.getByLabelText('Min: 3.162e-1')).toBeVisible();
-  expect(page.getByLabelText('Max: 3.162e+0')).toBeVisible();
+  await expect.element(page.getByLabelText('Min: 0.3162')).toBeVisible();
+  expect(page.getByLabelText('Max: 3.162')).toBeVisible();
   const ticks = [
     ...document.querySelectorAll('[class*="colorBar"] svg text'),
   ].map((tick) => tick.textContent);
@@ -385,7 +385,7 @@ test('put ticks at multiples of π on axes whose dimension scale says so', async
 
 function countColorBarPowers(): number {
   return [...document.querySelectorAll('[class*="colorBar"] svg text')].filter(
-    (tick) => /^1e-\d+$/u.test(tick.textContent),
+    (tick) => /^10⁻\S+$/u.test(tick.textContent),
   ).length;
 }
 
@@ -398,7 +398,7 @@ test('set the linear band of symlog scales around 0', async () => {
   await selectExplorerNode('symlog_line');
   await expect
     .poll(() => getTickLabels('ordinate'))
-    .toEqual(expect.arrayContaining(['1e-10', '1e-8', '1e-6']));
+    .toEqual(expect.arrayContaining(['10⁻¹⁰', '10⁻⁸', '10⁻⁶']));
 });
 
 function getColorBarTicks(): string[] {
@@ -421,7 +421,7 @@ test('label logarithms as powers', async () => {
   await expect
     .poll(getColorBarTicks)
     .toEqual(expect.arrayContaining(['2⁻⁸', '2⁻⁴', '2⁰']));
-  expect(page.getByLabelText('Min: 3.906e-3')).toBeVisible();
+  expect(page.getByLabelText('Min: 0.003906')).toBeVisible();
 
   // Real values on other scales too, like the bounds
   await user.click(page.getByRole('combobox', { name: /Linear/u }));

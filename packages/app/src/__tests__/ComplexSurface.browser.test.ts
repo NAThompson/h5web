@@ -44,8 +44,8 @@ test(
     ).toBeVisible();
 
     // Colour bar shows phase over [-π, π], with a cyclic colour map
-    expect(figure.getByLabelText(/^Min: [-−]3\.142e\+0$/u)).toBeVisible();
-    expect(figure.getByLabelText('Max: 3.142e+0')).toBeVisible();
+    expect(figure.getByLabelText(/^Min: [-−]3\.142$/u)).toBeVisible();
+    expect(figure.getByLabelText('Max: 3.142')).toBeVisible();
     expect(page.getByRole('combobox', { name: /Twilight/u })).toBeVisible();
 
     // Back to 2D: amplitude, as before (2D mode untouched)
@@ -73,7 +73,7 @@ test(
     });
     await expect.element(figure).toBeVisible();
     expect(resetViewBtn()).toBeVisible();
-    expect(figure.getByLabelText('Max: 5e+0')).toBeVisible();
+    expect(figure.getByLabelText('Max: 5')).toBeVisible();
     expect(page.getByRole('combobox', { name: /Viridis/u })).toBeVisible();
   },
   SURFACE_TEST_TIMEOUT,
@@ -174,7 +174,7 @@ test(
     });
     await expect.element(figure).toBeVisible();
     expect(resetViewBtn()).toBeVisible();
-    expect(figure.getByLabelText('Max: 3.142e+0')).toBeVisible();
+    expect(figure.getByLabelText('Max: 3.142')).toBeVisible();
   },
   SURFACE_TEST_TIMEOUT,
 );

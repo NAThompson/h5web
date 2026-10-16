@@ -6,7 +6,6 @@ import { renderMarkup } from '../view-hints/markup';
 import { getHeatmapSuggestions } from '../view-hints/suggestions';
 import { type PanelSpec } from './models';
 import { type PanelColors } from './PanelContent';
-import { formatPlainBound } from './utils';
 
 interface Props {
   spec: PanelSpec; // one of the panels sharing the colours, whose hint labels them
@@ -31,7 +30,6 @@ function SharedColorBar(props: Props) {
       belowColor={hint.belowColor}
       aboveColor={hint.aboveColor}
       valueTransform={hint.valueTransform}
-      formatBound={formatPlainBound}
     />
   );
 }

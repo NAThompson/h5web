@@ -21,46 +21,83 @@ import {
 
 export const SCALAR_SELECTION_REGEXP = /^\d+(?:,\d+)*$/u;
 
-// Exponent notation, but `0` rather than `0e+0`
+// Exponent notation, but `0` rather than `0e+0` (for inputs, which must parse)
 function createExpFormatter(specifier: string): (val: number) => string {
   const formatter = format(specifier);
   return (val) => (val === 0 ? '0' : formatter(val));
 }
 
-export const formatBound = createExpFormatter('.3~e');
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+/* Power with a superscript exponent (`10⁻⁴`, `2¹⁰`) */
+export function formatPower(base: number, exp: number): string {
+  const digits = Math.abs(exp)
+    .toString()
+    .replaceAll(/\d/gu, (d) => SUPERSCRIPTS[Number(d)]);
+  return `${base}${exp < 0 ? '⁻' : ''}${digits}`;
+}
+
+/* Whether a number shows plainly (cf. `formatNumber`), rather than with a power of 10 */
+export function isPlainNumber(val: number, precision = 4): boolean {
+  if (!Number.isFinite(val) || val === 0) {
+    return true;
+  }
+  const [, exp] = val.toExponential(precision - 1).split('e'); // rounded: 9.9999e-4 => 1.000e-3
+  return Number(exp) >= -3 && Number(exp) < Math.max(5, precision);
+}
+
+/* Number for display, to `precision` significant digits: plain from 10⁻³ to 10⁵ (`0.03856`,
+ * `12500`, or more digits if `precision` allows), else as a mantissa times a power of 10
+ * (`1.2×10⁻⁸`, `10⁻⁴`) - always if `powers` (e.g. alike on an axis) - never in e-notation;
+ * true minus signs */
+export function formatNumber(
+  val: number,
+  precision = 4,
+  powers = false,
+): string {
+  if (!Number.isFinite(val)) {
+    return Number.isNaN(val) ? 'NaN' : val > 0 ? '∞' : '−∞';
+  }
+  if (val === 0) {
+    return '0';
+  }
+  const sign = val < 0 ? '−' : '';
+  const abs = Math.abs(val);
+  if (!powers && isPlainNumber(val, precision)) {
+    return `${sign}${Number(abs.toPrecision(precision))}`;
+  }
+  const [mantissa, exp] = abs
+    .toExponential(precision - 1)
+    .split('e')
+    .map(Number);
+  const power = formatPower(10, exp);
+  return mantissa === 1 ? `${sign}${power}` : `${sign}${mantissa}×${power}`;
+}
+
+export function formatBound(val: number): string {
+  return formatNumber(val, 4);
+}
+
 export const formatBoundInput = createExpFormatter('.5~e');
-export const formatTooltipVal = format('.5~g');
-export const formatTooltipErr = format('.3~g');
+export const formatInputVal = format('.5~g'); // e.g. levels in a text field
+
+export function formatTooltipVal(val: number): string {
+  return formatNumber(val, 5);
+}
+
+export function formatTooltipErr(val: number): string {
+  return formatNumber(val, 3);
+}
+
 export const formatScalarComplex = createComplexFormatter(format('.12~g'));
 
 const TICK_PRECISION = 3; // significant digits, unless more are needed (cf. `getTickPrecision`)
-const TICK_DECIMAL_REGEX = /0\.(\d+)$/u; // can start with minus sign
-const tickFormats = new Map<
-  number,
-  [auto: (val: number) => string, exp: (val: number) => string]
->();
 
 export function formatTick(
   val: number | { valueOf: () => number },
   precision = TICK_PRECISION,
 ): string {
-  let formats = tickFormats.get(precision);
-  if (!formats) {
-    // automatic mode (`Number.toPrecision`) and exponent mode
-    formats = [format(`.${precision}~g`), format(`.${precision}~e`)];
-    tickFormats.set(precision, formats);
-  }
-  const [formatAuto, formatExp] = formats;
-  const str = formatAuto(val.valueOf());
-
-  /* If automatic mode gives a decimal number with more decimals than significant digits,
-   * force exponent notation - e.g. 0.00000123456 => 0.00000123 => 1.235e-6 */
-  const match = TICK_DECIMAL_REGEX.exec(str);
-  if (match && match[1].length > precision) {
-    return formatExp(val.valueOf());
-  }
-
-  return str;
+  return formatNumber(val.valueOf(), precision);
 }
 
 export function formatBool(value: ScalarValue<BooleanType>): string {

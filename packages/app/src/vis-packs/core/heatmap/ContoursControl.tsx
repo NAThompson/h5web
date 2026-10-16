@@ -1,5 +1,5 @@
 import { Checkbox, parseLevels, Popover, ToggleGroup } from '@h5web/lib';
-import { formatTooltipVal } from '@h5web/shared/vis-utils';
+import { formatInputVal, formatTooltipVal } from '@h5web/shared/vis-utils';
 import { useState } from 'react';
 import { MdTerrain } from 'react-icons/md';
 
@@ -36,8 +36,11 @@ function parseCount(text: string): number | undefined {
     : undefined;
 }
 
-function formatLevels(levels: number[]): string {
-  return levels.map((level) => formatTooltipVal(level)).join(', ');
+function formatLevels(
+  levels: number[],
+  format: (val: number) => string = formatInputVal,
+): string {
+  return levels.map((level) => format(level)).join(', ');
 }
 
 function ContoursControl(props: Props) {
@@ -171,6 +174,7 @@ function ContoursControl(props: Props) {
             {activeCount > 0
               ? formatLevels(
                   mode === ContourMode.Auto ? autoLevels : customLevels,
+                  formatTooltipVal,
                 )
               : 'No levels'}
           </p>

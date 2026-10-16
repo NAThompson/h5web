@@ -52,8 +52,8 @@ test('show min/max and data range in popup', async () => {
 
   const range = page.getByText('Data range');
   expect(range).toBeVisible();
-  expect(range.getByTitle('-95')).toHaveTextContent('−9.5e+1');
-  expect(range.getByTitle('400')).toHaveTextContent('4e+2');
+  expect(range.getByTitle('-95')).toHaveTextContent('−95');
+  expect(range.getByTitle('400')).toHaveTextContent('400');
 });
 
 test('move thumbs with keyboard to update domain', async () => {
@@ -69,12 +69,12 @@ test('move thumbs with keyboard to update domain', async () => {
   // Move min thumb one step to the left with keyboard
   await user.type(minThumb, '{ArrowLeft}');
   expect(minInput).toHaveValue('−1.04671e+2');
-  expect(page.getByLabelText('Min: −1.047e+2')).toBeVisible();
+  expect(page.getByLabelText('Min: −104.7')).toBeVisible();
 
   // Move min thumb five steps to the left (in a single press)
   await user.type(minThumb, '{ArrowLeft>5/}'); // press key and hold for 5 keydown events, then release
   await expect.element(minInput).toHaveValue('−2.30818e+2');
-  expect(page.getByLabelText('Min: −2.308e+2')).toBeVisible();
+  expect(page.getByLabelText('Min: −230.8')).toBeVisible();
 
   expect(minThumb).toHaveValue(20); // still at original position
   expect(maxInput).toHaveValue('4e+2'); // unaffected
@@ -83,12 +83,12 @@ test('move thumbs with keyboard to update domain', async () => {
   const maxThumb = page.getByRole('slider', { name: /max/ });
   await user.type(maxThumb, '{PageDown}');
   expect(maxInput).toHaveValue('5.72182e+1');
-  expect(page.getByLabelText('Max: 5.722e+1')).toBeVisible();
+  expect(page.getByLabelText('Max: 57.22')).toBeVisible();
 
   // Move max thumb ten steps to the right
   await user.type(maxThumb, '{PageUp}');
   expect(maxInput).toHaveValue('3.68841e+2'); // not back to 4e+2 because 4e+2 is not exactly on a slider division
-  expect(page.getByLabelText('Max: 3.688e+2')).toBeInTheDocument();
+  expect(page.getByLabelText('Max: 368.8')).toBeInTheDocument();
 
   expect(maxThumb).toHaveValue(81); // still at original position
   expect(minInput).toHaveValue('−2.30818e+2'); // unaffected
@@ -208,7 +208,7 @@ test('edit bounds manually', async () => {
 
   // Type new value in min input field but don't apply it
   await minInput.fill('-100');
-  expect(page.getByLabelText('Min: −9.5e+1')).toBeVisible(); // not applied
+  expect(page.getByLabelText('Min: −95')).toBeVisible(); // not applied
 
   // Cancel min editing
   await cancelMinBtn.click();
@@ -219,7 +219,7 @@ test('edit bounds manually', async () => {
   // Type new min value again but now apply it
   await minInput.fill('-100');
   await applyMinBtn.click();
-  expect(page.getByLabelText('Min: −1e+2')).toBeVisible(); // applied
+  expect(page.getByLabelText('Min: −100')).toBeVisible(); // applied
   expect(editBtn).toHaveAttribute('aria-pressed', 'true'); // because max still in edit mode
 
   // Type new max value and apply it with Enter
@@ -227,7 +227,7 @@ test('edit bounds manually', async () => {
   await user.keyboard('{Enter}');
 
   expect(maxInput).toHaveValue('1e+5'); // auto-format
-  expect(page.getByLabelText('Max: 1e+5')).toBeVisible();
+  expect(page.getByLabelText('Max: 10⁵')).toBeVisible();
   expect(editBtn).toHaveAttribute('aria-pressed', 'false'); // min and max no longer in edit mode
 });
 
@@ -333,8 +333,8 @@ test('handle min > max', async () => {
     'falling back to data range',
   );
 
-  expect(page.getByLabelText('Min: −9.5e+1')).toBeVisible();
-  expect(page.getByLabelText('Max: 4e+2')).toBeVisible();
+  expect(page.getByLabelText('Min: −95')).toBeVisible();
+  expect(page.getByLabelText('Max: 400')).toBeVisible();
 
   // Autoscaling min hides the error
   await page.getByRole('button', { name: 'Min', exact: true }).click();
@@ -358,7 +358,7 @@ test('handle min or max <= 0 in log scale', async () => {
   expect(page.getByText('Custom min invalid')).toHaveTextContent(
     'falling back to data min',
   );
-  expect(page.getByLabelText('Max: 9.996e-1')).toBeVisible(); // data max
+  expect(page.getByLabelText('Max: 0.9996')).toBeVisible(); // data max
 
   // If min and max are negative and min > max, min > max error and fallback take over
   await maxInput.fill('-10');

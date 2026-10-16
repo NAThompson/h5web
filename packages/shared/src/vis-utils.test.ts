@@ -5,6 +5,8 @@ import { type ArrayValue } from './hdf5-models';
 import {
   createArrayFromView,
   formatBound,
+  formatNumber,
+  formatTick,
   getBounds,
   getBoundsWithErrors,
   mergeBounds,
@@ -52,9 +54,63 @@ function actualCopy(view: NdArray<ArrayValue>) {
   };
 }
 
+describe('formatNumber', () => {
+  it('should give plain numbers from 10⁻³ to 10⁵', () => {
+    expect(formatNumber(3.847_86)).toBe('3.848');
+    expect(formatNumber(0.038_56)).toBe('0.03856');
+    expect(formatNumber(12_500)).toBe('12500');
+    expect(formatNumber(1234.56)).toBe('1235');
+    expect(formatNumber(0.001)).toBe('0.001');
+    expect(formatNumber(99_999, 5)).toBe('99999');
+    expect(formatNumber(123_456, 6)).toBe('123456'); // all digits
+  });
+
+  it('should give powers of 10 otherwise', () => {
+    expect(formatNumber(1.2e-8)).toBe('1.2×10⁻⁸');
+    expect(formatNumber(2.749e-12)).toBe('2.749×10⁻¹²');
+    expect(formatNumber(1.11e-16)).toBe('1.11×10⁻¹⁶');
+    expect(formatNumber(3.1e7)).toBe('3.1×10⁷');
+    expect(formatNumber(123_456)).toBe('1.235×10⁵');
+    expect(formatNumber(1e-4)).toBe('10⁻⁴'); // no mantissa
+    expect(formatNumber(1e21)).toBe('10²¹');
+    expect(formatNumber(0.05, 3, true)).toBe('5×10⁻²'); // forced
+    expect(formatNumber(1, 3, true)).toBe('10⁰');
+  });
+
+  it('should use true minus signs', () => {
+    expect(formatNumber(-3.339_12)).toBe('−3.339');
+    expect(formatNumber(-1e-4)).toBe('−10⁻⁴');
+    expect(formatNumber(-2.5e-7)).toBe('−2.5×10⁻⁷');
+  });
+
+  it('should format special values', () => {
+    expect(formatNumber(0)).toBe('0');
+    expect(formatNumber(-0)).toBe('0');
+    expect(formatNumber(Number.NaN)).toBe('NaN');
+    expect(formatNumber(Infinity)).toBe('∞');
+    expect(formatNumber(-Infinity)).toBe('−∞');
+  });
+
+  it('should round before choosing the notation', () => {
+    expect(formatNumber(9.9999e-4)).toBe('0.001');
+    expect(formatNumber(9.9994e-4)).toBe('9.999×10⁻⁴');
+    expect(formatNumber(99_999.9)).toBe('10⁵');
+    expect(formatNumber(99_999.9, 6)).toBe('99999.9');
+    expect(formatNumber(9.999_96, 4)).toBe('10');
+  });
+
+  it('should never give e-notation', () => {
+    const values = [1e-300, 5e-7, 1.5e-5, 7e12, Number.MAX_VALUE];
+    values.forEach((val) => {
+      expect(formatNumber(val)).not.toMatch(/e/u);
+      expect(formatTick(val)).not.toMatch(/e/u);
+    });
+  });
+});
+
 describe('formatBound', () => {
   it('should format zero as 0', () => {
-    expect(formatBound(-15)).toBe('−1.5e+1');
+    expect(formatBound(-15)).toBe('−15');
     expect(formatBound(0)).toBe('0');
     expect(formatBound(-0)).toBe('0');
   });

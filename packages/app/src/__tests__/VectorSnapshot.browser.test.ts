@@ -110,7 +110,7 @@ test('export heatmap as image with vector axes and colour bar', async () => {
   expect(texts).toContain('NeXus 2D');
   expect(texts).toContain('20'); // ordinate tick
   expect(texts).toContain('40'); // abscissa tick
-  expect(texts).toContain('−9.5e+1'); // colour bar bound
+  expect(texts).toContain('−95'); // colour bar bound
   expect(doc.querySelectorAll('line').length).toBeGreaterThan(10); // ticks and grid
 });
 

@@ -26,8 +26,8 @@ test(
     expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible();
 
     // Phase is mapped over [-π, π] with a cyclic colour map; no domain/scale controls
-    expect(phaseFigure.getByLabelText(/^Min: [-−]3\.142e\+0$/u)).toBeVisible();
-    expect(phaseFigure.getByLabelText('Max: 3.142e+0')).toBeVisible();
+    expect(phaseFigure.getByLabelText(/^Min: [-−]3\.142$/u)).toBeVisible();
+    expect(phaseFigure.getByLabelText('Max: 3.142')).toBeVisible();
     expect(page.getByRole('combobox', { name: /Twilight/u })).toBeVisible();
     expect(
       page.getByRole('button', { name: 'Edit domain' }),

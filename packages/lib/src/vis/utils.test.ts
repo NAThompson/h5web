@@ -443,8 +443,8 @@ describe('getPiTicks', () => {
     expect(formatPiTick(1.02)).toBe('1.02');
     expect(getPiTicks([0, 1e-7], 2).map(formatPiTick)).toEqual([
       '0',
-      '5e-8',
-      '1e-7',
+      '5×10⁻⁸',
+      '10⁻⁷',
     ]);
   });
 
@@ -692,7 +692,7 @@ describe('getTickPrecision()', () => {
     ]);
     expect(
       formatTick(10_050, getTickPrecision(toTicks([10_000, 10_050]))),
-    ).toBe('1.005e+4');
+    ).toBe('10050');
   });
 });
 

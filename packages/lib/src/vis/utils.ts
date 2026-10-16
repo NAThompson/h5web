@@ -9,6 +9,7 @@ import {
   type TypedArrayConstructor,
 } from '@h5web/shared/vis-models';
 import {
+  formatPower,
   formatTick,
   getBounds,
   getBoundsWithErrors,
@@ -359,8 +360,6 @@ export function formatPiTick(val: number | { valueOf: () => number }): string {
   return `${sign}${num === 1 ? '' : num}π${den === 1 ? '' : `/${den}`}`;
 }
 
-const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
-
 function getPowerBase(transform: ValueTransform): number {
   return transform === 'exp2' ? 2 : 10;
 }
@@ -392,10 +391,7 @@ export function formatPowerTick(
   if (!Number.isInteger(exp)) {
     return formatTick(getRealValue(exp, transform), precision);
   }
-  const digits = Math.abs(exp)
-    .toString()
-    .replaceAll(/\d/gu, (d) => SUPERSCRIPTS[Number(d)]);
-  return `${getPowerBase(transform)}${exp < 0 ? '⁻' : ''}${digits}`;
+  return formatPower(getPowerBase(transform), exp);
 }
 
 /* Tick formatter of an axis on a scale without custom ticks (cf. `getCustomTicks`): logarithms as

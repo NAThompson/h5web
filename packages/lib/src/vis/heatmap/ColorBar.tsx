@@ -14,7 +14,6 @@ import {
   getScaleTickValues,
   getTextContent,
   getTickPrecision,
-  hasPowerTicks,
   withTicksFormat,
 } from '../utils';
 import styles from './ColorBar.module.css';
@@ -32,14 +31,12 @@ interface Props {
   belowColor?: string; // shown as a triangle beyond the lower end (cf. matplotlib's `extend`)
   aboveColor?: string;
   valueTransform?: ValueTransform; // values are logarithms: ticks and bounds as powers
-  formatBound?: (val: number) => string; // of the domain's ends (default: exponent notation)
 }
 
 /* Ends of the domain (real values of logarithms) */
 function formatBounds(
   domain: Domain,
   valueTransform: ValueTransform | undefined,
-  format = formatBound,
 ): [string, string] {
   if (domain[0] === domain[1]) {
     return ['−∞', '+∞'];
@@ -47,9 +44,7 @@ function formatBounds(
   const [min, max] = valueTransform
     ? domain.map((val) => getRealValue(val, valueTransform))
     : domain;
-  return valueTransform && !hasPowerTicks(domain)
-    ? [formatTick(min, 4), formatTick(max, 4)] // plain, as the ticks (`2.661`)
-    : [format(min), format(max)];
+  return [formatBound(min), formatBound(max)]; // e.g. `2.661`, `1.11×10⁻¹⁶`
 }
 
 function ColorBar(props: Props) {
@@ -64,7 +59,6 @@ function ColorBar(props: Props) {
     belowColor,
     aboveColor,
     valueTransform,
-    formatBound: format,
   } = props;
 
   const [barSize, barRef] = useMeasure<HTMLDivElement>();
@@ -75,7 +69,7 @@ function ColorBar(props: Props) {
     : 0;
 
   const Axis = horizontal ? AxisBottom : AxisRight;
-  const [minBound, maxBound] = formatBounds(domain, valueTransform, format);
+  const [minBound, maxBound] = formatBounds(domain, valueTransform);
 
   const axisScale = createScale(scaleType, {
     domain,

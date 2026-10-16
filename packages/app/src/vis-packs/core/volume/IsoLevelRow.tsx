@@ -1,5 +1,5 @@
 import { normalizeMinus } from '@h5web/lib';
-import { formatTooltipVal } from '@h5web/shared/vis-utils';
+import { formatInputVal } from '@h5web/shared/vis-utils';
 import { useState } from 'react';
 import { MdClose } from 'react-icons/md';
 
@@ -55,7 +55,7 @@ function IsoLevelRow(props: RowProps) {
         type="text"
         inputMode="decimal"
         aria-label={`Level ${index} value`}
-        value={draft ?? formatTooltipVal(value)}
+        value={draft ?? formatInputVal(value)}
         onChange={(evt) => setDraft(evt.currentTarget.value)}
         onBlur={commitDraft}
         onKeyDown={(evt) => {

@@ -120,7 +120,7 @@ test('visualize 2D dataset', async () => {
 
   const figure = page.getByRole('figure', { name: 'twoD' });
   expect(figure).toBeVisible();
-  expect(figure.getByLabelText('Max: 4e+2')).toBeVisible();
+  expect(figure.getByLabelText('Max: 400')).toBeVisible();
 });
 
 test('visualize 2D dataset as line', async () => {
@@ -148,7 +148,7 @@ test('visualize 2D boolean dataset', async () => {
 
   const figure = page.getByRole('figure', { name: 'twoD_boolean' });
   expect(figure).toBeVisible();
-  expect(figure.getByLabelText('Max: 1e+0')).toBeVisible();
+  expect(figure.getByLabelText('Max: 1')).toBeVisible();
 });
 
 test('visualize 2D enum dataset', async () => {
@@ -159,7 +159,7 @@ test('visualize 2D enum dataset', async () => {
 
   const figure = page.getByRole('figure', { name: 'twoD_enum' });
   expect(figure).toBeVisible();
-  expect(figure.getByLabelText('Max: 2e+0')).toBeVisible();
+  expect(figure.getByLabelText('Max: 2')).toBeVisible();
 });
 
 test('visualize 2D complex dataset', async () => {
@@ -170,7 +170,7 @@ test('visualize 2D complex dataset', async () => {
 
   const figure = page.getByRole('figure', { name: 'twoD_complex (amplitude)' });
   expect(figure).toBeVisible();
-  expect(figure.getByLabelText('Max: 5e+0')).toBeVisible();
+  expect(figure.getByLabelText('Max: 5')).toBeVisible();
 
   const selector = page.getByRole('combobox', { name: '𝓐 Amplitude' });
   await selector.click();

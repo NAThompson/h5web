@@ -293,7 +293,7 @@ test('play the hinted dimension by default, past empty images', async () => {
 
 function countColorBarPowers(): number {
   return [...document.querySelectorAll('[class*="colorBar"] svg text')].filter(
-    (tick) => /1e-\d+$/u.test(tick.textContent), // e.g. `−1e-7`
+    (tick) => /10⁻\S+$/u.test(tick.textContent), // e.g. `−10⁻⁷`
   ).length;
 }
 
