@@ -1,6 +1,5 @@
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 
-import { toUnicodeScripts } from '../view-hints/attrs';
 import { renderMarkup } from '../view-hints/markup';
 import { type CursorStore, useCursor, useCursorValues } from './cursor';
 import { type PanelSpec } from './models';
@@ -48,7 +47,12 @@ function CursorReadout(props: Props) {
       </span>
       {linked.length === 0 && <strong>{formatValue(value)}</strong>}
       {linked.map(({ key, title: panelTitle }) => {
-        const text = `${toUnicodeScripts(panelTitle)} = ${formatValue(key === source ? value : values.get(key))}`;
+        const text = (
+          <>
+            {renderMarkup(panelTitle)}
+            {` = ${formatValue(key === source ? value : values.get(key))}`}
+          </>
+        ); // markup as HTML: Unicode has no superscript of many letters
         return key === source ? (
           <strong key={key}>{text}</strong>
         ) : (

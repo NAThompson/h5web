@@ -47,12 +47,12 @@ test('show min/max and data range in popup', async () => {
   const maxInput = page.getByLabelText('max', { exact: true });
   expect(minInput).toHaveValue('−9.5e+1');
   expect(maxInput).toHaveValue('4e+2');
-  expect(minInput).toHaveAttribute('title', '-95');
+  expect(minInput).toHaveAttribute('title', '−95');
   expect(maxInput).toHaveAttribute('title', '400');
 
   const range = page.getByText('Data range');
   expect(range).toBeVisible();
-  expect(range.getByTitle('-95')).toHaveTextContent('−95');
+  expect(range.getByTitle('−95')).toHaveTextContent('−95');
   expect(range.getByTitle('400')).toHaveTextContent('400');
 });
 

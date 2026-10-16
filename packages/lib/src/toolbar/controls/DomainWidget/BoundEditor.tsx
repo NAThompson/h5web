@@ -1,4 +1,4 @@
-import { formatBoundInput } from '@h5web/shared/vis-utils';
+import { formatBoundInput, formatNumber } from '@h5web/shared/vis-utils';
 import {
   type Ref,
   useEffect,
@@ -92,7 +92,7 @@ function BoundEditor(props: Props) {
         type="text"
         name="bound"
         value={inputValue}
-        title={isEditing ? undefined : value.toString()}
+        title={isEditing ? undefined : formatNumber(value, 17)}
         aria-labelledby={`${id}-label`} // https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/issues/566
         onChange={(evt) => setInputValue(evt.target.value)}
         onFocus={() => {

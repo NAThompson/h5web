@@ -1,5 +1,5 @@
 import { type Domain } from '@h5web/shared/vis-models';
-import { formatBound } from '@h5web/shared/vis-utils';
+import { formatBound, formatNumber } from '@h5web/shared/vis-utils';
 import { type Ref, useImperativeHandle, useRef } from 'react';
 
 import { DomainError, type DomainErrors } from '../../../vis/models';
@@ -91,11 +91,11 @@ function DomainControls(props: Props) {
         Data range{' '}
         <span>
           [{' '}
-          <abbr title={dataDomain[0].toString()}>
+          <abbr title={formatNumber(dataDomain[0], 17)}>
             {formatBound(dataDomain[0])}
           </abbr>{' '}
           ,{' '}
-          <abbr title={dataDomain[1].toString()}>
+          <abbr title={formatNumber(dataDomain[1], 17)}>
             {formatBound(dataDomain[1])}
           </abbr>{' '}
           ]
