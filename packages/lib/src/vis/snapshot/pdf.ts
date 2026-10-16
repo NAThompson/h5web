@@ -46,14 +46,99 @@ function prepareText(svg: SVGSVGElement, pdf: JsPdf) {
     .toSorted((a, b) => a - b);
   const factor = Math.min(1, Math.max(MIN_FONT_FACTOR, ratios[0] ?? 1));
 
-  for (const text of texts) {
-    text.removeAttribute('textLength');
-  }
   if (factor < 1) {
     for (const elem of svg.querySelectorAll('[font-size]')) {
       const size = Number.parseFloat(elem.getAttribute('font-size') ?? '');
       elem.setAttribute('font-size', String(size * factor));
     }
+  }
+  joinRuns(texts, pdf);
+  for (const text of texts) {
+    text.removeAttribute('textLength');
+  }
+}
+
+function num(elem: Element, attr: string): number {
+  return Number.parseFloat(elem.getAttribute(attr) ?? '');
+}
+
+function isCentered(elem: Element): boolean {
+  return elem.getAttribute('text-anchor') === 'middle';
+}
+
+/* Start of text on screen (placed at its start or middle, unrotated) */
+function getStart(elem: Element): number {
+  return num(elem, 'x') - (isCentered(elem) ? num(elem, 'textLength') / 2 : 0);
+}
+
+/* Text placed as `textToSvg` and `flattenText` place runs of text */
+function isRun(elem: Element): boolean {
+  return (
+    !elem.hasAttribute('transform') &&
+    ['start', 'middle', null].includes(elem.getAttribute('text-anchor')) &&
+    Number.isFinite(num(elem, 'x')) &&
+    Number.isFinite(num(elem, 'y'))
+  );
+}
+
+function isBold(elem: Element): boolean {
+  return elem.closest('[font-weight]')?.getAttribute('font-weight') === 'bold';
+}
+
+/* Runs of a line of text (e.g. `ψ`, subscript `3,0`, `, elliptic formula`) one after the other in
+ * the embedded font, as it is narrower or wider than on screen (else with gaps or overlapping),
+ * centred where the line was */
+function joinRuns(texts: Element[], pdf: JsPdf) {
+  pdf.setFont(FONT, 'bold');
+  const boldFont = pdf.getFont();
+  pdf.setFont(FONT, 'normal');
+  const normalFont = pdf.getFont();
+  function width(elem: Element): number {
+    const font = isBold(elem) ? boldFont : normalFont;
+    return (
+      pdf.getStringUnitWidth(elem.textContent, { font }) * getFontSize(elem)
+    );
+  }
+
+  const lines: Element[][] = [];
+  texts.filter(isRun).forEach((text, i, runs) => {
+    const prev = runs[i - 1] as Element | undefined;
+    const size = getFontSize(text);
+    const gap = prev
+      ? getStart(text) - getStart(prev) - num(prev, 'textLength')
+      : Infinity;
+    const isNext =
+      prev?.parentElement === text.parentElement &&
+      gap > -1 &&
+      gap < size * 0.6 &&
+      Math.abs(num(text, 'y') - num(prev, 'y')) < size;
+    if (isNext) {
+      lines[lines.length - 1].push(text);
+    } else {
+      lines.push([text]);
+    }
+  });
+
+  for (const line of lines.filter((runs) => runs.length > 1)) {
+    const [first] = line;
+    const last = line[line.length - 1];
+    const start = getStart(first);
+    const screenWidth = getStart(last) + num(last, 'textLength') - start;
+    let x = 0;
+    const offsets = line.map((run, i) => {
+      if (i > 0) {
+        const prev = line[i - 1];
+        const gap = getStart(run) - getStart(prev) - num(prev, 'textLength');
+        x += width(prev) + Math.max(gap, 0);
+      }
+      return x;
+    });
+    const total = x + width(last);
+    const shift = start + (screenWidth - total) / 2;
+    line.forEach((run, i) => {
+      const middle = isCentered(run) ? width(run) / 2 : 0;
+      run.setAttribute('x', String(offsets[i] + shift + middle));
+    });
   }
 }
 
