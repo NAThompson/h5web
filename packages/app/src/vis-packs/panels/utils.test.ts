@@ -48,6 +48,17 @@ describe('getPanelMapping', () => {
     ]);
   });
 
+  it('keep the axes of the panel on dimensions the reference slices', () => {
+    const panel = { dims: [5, 21, 21], scales: ref.scales };
+    expect(getPanelMapping(panel, 'heatmap', ref, [3, 1, 'x'])).toEqual([
+      3,
+      'y',
+      'x',
+    ]);
+    const line = { dims: [5, 21], scales: [['/g'], ['/theta']] };
+    expect(getPanelMapping(line, 'line', ref, [3, 1, 'x'])).toEqual([3, 'x']);
+  });
+
   it('put missing axes on the last free dimensions, others at 0', () => {
     const line = { dims: [21], scales: [['/alpha']] };
     expect(getPanelMapping(line, 'line', ref, [3, 'y', 'x'])).toEqual(['x']);

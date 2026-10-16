@@ -55,8 +55,8 @@ export function getPanelAxes(kind: PanelKind): Axis[] {
 }
 
 /* Mapping of a panel's dimensions that follows the reference's (cf. `matchDim`): slicing indices
- * and axes it can show, other axes on its last free dimensions (as by default), other dimensions
- * at index 0 */
+ * and axes it can show, other axes on its last free dimensions (as by default), else on sliced
+ * ones, other dimensions at index 0 */
 export function getPanelMapping(
   panel: DimsInfo,
   kind: PanelKind,
@@ -83,12 +83,14 @@ export function getPanelMapping(
     });
   });
 
-  // Missing axes on the last free dimensions: `x` last
+  // Missing axes on the last free dimensions (`x` last), else on the last sliced ones
   for (const axis of axes) {
     if (!mapping.includes(axis)) {
       const free = mapping.lastIndexOf(undefined);
-      if (free !== -1) {
-        mapping[free] = axis;
+      const sliced = mapping.findLastIndex((dim) => typeof dim === 'number');
+      const index = free === -1 ? sliced : free;
+      if (index !== -1) {
+        mapping[index] = axis;
       }
     }
   }
