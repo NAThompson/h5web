@@ -316,6 +316,12 @@ export {
   SNAPSHOT_IGNORE_ATTR,
 } from './vis/snapshot/render';
 export type { SnapshotOptions } from './vis/snapshot/render';
+export {
+  renderSvgSnapshot,
+  exportSvgSnapshot,
+  exportPdfSnapshot,
+} from './vis/snapshot/svg';
+export type { SvgSnapshotOptions } from './vis/snapshot/svg';
 export { default as ExportMenu } from './toolbar/controls/ExportMenu';
 export { default as CellWidthInput } from './toolbar/controls/CellWidthInput';
 export { default as ScalarVis } from './vis/scalar/ScalarVis';

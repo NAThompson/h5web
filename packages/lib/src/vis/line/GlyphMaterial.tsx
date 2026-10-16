@@ -85,7 +85,13 @@ function GlyphMaterial(props: Props) {
     `,
   };
 
-  return <shaderMaterial args={[shader]} vertexColors={withVertexColor} />;
+  return (
+    <shaderMaterial
+      args={[shader]}
+      vertexColors={withVertexColor}
+      userData={{ glyphType }} // for SVG snapshots
+    />
+  );
 }
 
 export default GlyphMaterial;
