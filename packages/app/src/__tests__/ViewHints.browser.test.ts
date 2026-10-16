@@ -488,6 +488,12 @@ test('draw series of a hint on the same axes, sliced along with the dataset', as
       'series "sigma": shape [5] doesn\'t match "series_data"series "missing_series": not found',
     );
 
+  // Collapsed so as not to cover the plot
+  const missing = getNotes().getByText(/missing_series/u);
+  expect(missing).not.toBeVisible();
+  await userEvent.click(getNotes().getByText('ⓘ 2 notes'));
+  await expect.element(missing).toBeVisible();
+
   // Next slice of `k`: the fit follows, the bound stays
   await userEvent.click(page.getByRole('slider', { name: 'k' }));
   await userEvent.keyboard('{ArrowUp}');

@@ -37,8 +37,22 @@
   pointer-events: none;
 }
 
-.notes > p {
+.notes summary {
+  cursor: pointer;
+  list-style: none;
+  pointer-events: auto; /* the rest lets the plot be panned */
+}
+
+.notes summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes p {
   margin: 0;
+}
+
+.notes details[open] > summary {
+  margin-bottom: 0.25rem;
 }
 
 .svg {
