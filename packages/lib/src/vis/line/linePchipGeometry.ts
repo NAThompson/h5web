@@ -188,10 +188,15 @@ export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
           return clamp(ceil(size.x / float(${MAX_ERROR_PX})), 1.0, maxSegments);
         }
 
+        // Fraction of the interval at fraction \`offset\` of current segment
+        float pchipT(float offset) {
+          return (segment + offset) / segmentsForInterval();
+        }
+
         // Cubic Hermite interpolant at fraction \`offset\` of current segment
         vec3 pchipPoint(float offset) {
           float segments = segmentsForInterval();
-          float t = (segment + offset) / segments;
+          float t = pchipT(offset);
           float width = instanceEnd.x - instanceStart.x;
           float rise = instanceEnd.y - instanceStart.y;
           float m0 = instanceStart.w * width;
@@ -203,6 +208,17 @@ export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
           return vec3(instanceStart.x + t * width, y, z);
         }
       `,
+  );
+  // Dash distances (cf. `setDashDistances`) of whole intervals, shared out by `t`
+  source = replaceOrThrow(
+    source,
+    'dashScale * instanceDistanceStart;',
+    'dashScale * mix( instanceDistanceStart, instanceDistanceEnd, pchipT( 0.0 ) );',
+  );
+  source = replaceOrThrow(
+    source,
+    'dashScale * instanceDistanceEnd;',
+    'dashScale * mix( instanceDistanceStart, instanceDistanceEnd, pchipT( 1.0 ) );',
   );
   source = replaceOrThrow(
     source,
@@ -246,19 +262,25 @@ export function pchipOnBeforeRender(
     return;
   }
 
-  const { width, height } = renderer.getSize(new Vector2()); // CSS pixels, like `LineMaterial`'s `resolution`;
-  const origin = new Vector3(0, 0, 0).project(camera);
-  const unit = new Vector3(1, 1, 0).project(camera).sub(origin);
-  const pixelsPerUnit = new Vector2(
-    Math.abs((unit.x * width) / 2),
-    Math.abs((unit.y * height) / 2),
-  );
-
   // Also runs before first compile, so that three knows to upload it
   // eslint-disable-next-line no-param-reassign -- uniforms are set by mutation
   line.material.uniforms.maxSegments = {
-    value: geometry.setPixelsPerUnit(pixelsPerUnit),
+    value: geometry.setPixelsPerUnit(getPixelsPerUnit(renderer, camera)),
   };
+}
+
+// CSS pixels (like `LineMaterial`'s `resolution`) per world unit along x and y
+export function getPixelsPerUnit(
+  renderer: WebGLRenderer,
+  camera: Camera,
+): Vector2 {
+  const { width, height } = renderer.getSize(new Vector2());
+  const origin = new Vector3(0, 0, 0).project(camera);
+  const unit = new Vector3(1, 1, 0).project(camera).sub(origin);
+  return new Vector2(
+    Math.abs((unit.x * width) / 2),
+    Math.abs((unit.y * height) / 2),
+  );
 }
 
 export default LinePchipGeometry;

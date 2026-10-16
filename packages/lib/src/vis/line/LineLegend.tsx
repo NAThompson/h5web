@@ -25,12 +25,13 @@ export function getLegendEntries(
           },
         ]
       : []),
-    ...auxiliaries.flatMap(({ label, color, visible }, index) =>
+    ...auxiliaries.flatMap(({ label, color, dash, visible }, index) =>
       visible
         ? [
             {
               label: label || `Auxiliary ${index + 1}`,
               color: color ?? auxColors[index % auxColors.length],
+              dash,
             },
           ]
         : [],

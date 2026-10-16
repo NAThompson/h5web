@@ -16,6 +16,7 @@ interface Props {
   color: string;
   curveType?: CurveType;
   width?: number;
+  dash?: boolean;
   interpolation?: Interpolation;
   glyphType?: GlyphType;
   glyphSize?: number;
@@ -38,6 +39,7 @@ function DataCurve(props: Props) {
     showErrors = true,
     color,
     width,
+    dash,
     interpolation,
     curveType = CurveType.LineOnly,
     glyphType = GlyphType.Circle,
@@ -60,6 +62,7 @@ function DataCurve(props: Props) {
         ordinates={ordinates}
         color={color}
         width={width}
+        dash={dash}
         interpolation={interpolation}
         ignoreValue={ignoreValue}
         materialProps={materialProps}

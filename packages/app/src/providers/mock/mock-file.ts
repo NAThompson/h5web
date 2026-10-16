@@ -1454,7 +1454,10 @@ export function makeMockFile(): GroupWithChildren {
           { scales: [['/view_hints/series_k'], ['/view_hints/series_x']] },
         ),
         array('series_bound', {
-          attributes: [scalarAttr('long_name', 'bound')], // no scale: along x
+          attributes: [
+            scalarAttr('long_name', 'bound'), // no scale: along x
+            intAttr('H5WEB_dash', 1),
+          ],
         }),
         withDimScales(
           array('series_data', {

@@ -426,6 +426,7 @@ export function parseSeriesStyle(
     label: read.str('H5WEB_label') ?? read.str('long_name'),
     color: toRgbaColor(read.str('H5WEB_color', isCssColor)),
     width: read.num('H5WEB_width', isPos),
+    dash: read.bool('H5WEB_dash'),
   };
 }
 

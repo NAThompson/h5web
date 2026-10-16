@@ -41,6 +41,7 @@ describe('pchipOnBeforeCompile', () => {
     };
 
     expect(() => pchipOnBeforeCompile(shader)).not.toThrow();
+    expect(shader.vertexShader).toContain('pchipT( 1.0 ) );'); // dash distances
   });
 
   it('should throw when the code to patch is missing', () => {

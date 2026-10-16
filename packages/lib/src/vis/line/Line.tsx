@@ -11,6 +11,7 @@ import { useUpdateGeometry } from '../hooks';
 import { useVisCanvasContext } from '../shared/VisCanvasProvider';
 import { hasR3FEventHandlers } from '../utils';
 import LineConstantGeometry from './lineConstantGeometry';
+import { DASH_SIZE, GAP_SIZE, useDashDistances } from './lineDash';
 import LineGeometry from './lineGeometry';
 import LinePchipGeometry, {
   pchipOnBeforeCompile,
@@ -26,6 +27,7 @@ interface Props extends ThreeElement<typeof ThreeLine2> {
   ordinates: NumArray;
   color: string;
   width?: number;
+  dash?: boolean;
   interpolation?: Interpolation;
   materialProps?: LineMaterialParameters;
   visible?: boolean;
@@ -39,6 +41,7 @@ function Line(props: Props) {
     color,
     interpolation,
     width = 1,
+    dash = false,
     materialProps = {},
     visible = true,
     ignoreValue,
@@ -71,6 +74,7 @@ function Line(props: Props) {
     skipUpdates: !visible,
     isInteractive: hasR3FEventHandlers(lineProps),
   });
+  useDashDistances(geometry, dash && visible);
 
   return (
     <Line2 geometry={geometry} visible={visible} {...lineProps}>
@@ -78,6 +82,9 @@ function Line(props: Props) {
         key={interpolation} // recompile shader when switching to/from PCHIP
         color={color}
         linewidth={width}
+        dashed={dash}
+        dashSize={DASH_SIZE}
+        gapSize={GAP_SIZE}
         onBeforeCompile={isPchip ? pchipOnBeforeCompile : undefined}
         onBeforeRender={isPchip ? pchipOnBeforeRender : undefined}
         {...materialProps}

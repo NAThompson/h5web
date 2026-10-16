@@ -148,6 +148,7 @@ export interface SeriesStyle {
   label?: string; // legend entry (default: CF `long_name`, else the dataset name)
   color?: string;
   width?: number; // line width in CSS pixels
+  dash?: boolean; // dashed line
 }
 
 /* Colours of special values (from a hint) */

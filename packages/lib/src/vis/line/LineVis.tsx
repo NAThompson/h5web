@@ -352,6 +352,7 @@ function LineVis(props: PropsWithChildren<Props>) {
               showErrors={showErrors}
               color={color ?? auxColors[i % auxColors.length]}
               width={aux.width}
+              dash={aux.dash}
               curveType={curveType}
               ignoreValue={aux.ignoreValue ?? ignoreValue}
               interpolation={interpolation}
