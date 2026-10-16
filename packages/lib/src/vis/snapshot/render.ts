@@ -41,7 +41,7 @@ function getFilter(elem: Element): string {
   return combineFilters(filters);
 }
 
-function isRendered(elem: Element): boolean {
+export function isRendered(elem: Element): boolean {
   const { width, height } = elem.getBoundingClientRect();
   return (
     width > 0 &&
