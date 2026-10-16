@@ -197,7 +197,9 @@ test('export panels with their titles, shared colour bars and vector lines', asy
 test('export all panels of a scrolled grid', async () => {
   const { user } = await renderApp('/view_hints/multiples');
   const createSpy = vi.spyOn(URL, 'createObjectURL');
-  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const clickSpy = vi
+    .spyOn(HTMLAnchorElement.prototype, 'click')
+    .mockImplementation(() => {});
 
   const root = document.querySelector<HTMLElement>('[data-snapshot-root]');
   assertNonNull(root);
@@ -233,6 +235,8 @@ test('export all panels of a scrolled grid', async () => {
     .poll(() => createSpy.mock.calls.length, { timeout: 20_000 })
     .toBe(1);
 
+  const anchor = clickSpy.mock.contexts[0] as HTMLAnchorElement;
+  expect(anchor.download).toBe('multiples.svg'); // named after the dataset
   const blob = createSpy.mock.calls[0][0] as Blob;
   const doc = new DOMParser().parseFromString(
     await blob.text(),

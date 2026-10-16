@@ -7,6 +7,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useDimMappingState, useSetDimMapping } from '../../dim-mapping-store';
+import { useDataContext } from '../../providers/DataProvider';
 import { useSelectPath } from '../../visualizer/navigation';
 import visualizerStyles from '../../visualizer/Visualizer.module.css';
 import { useCachedDimScales, useDimInfo } from '../dimscales/hooks';
@@ -62,8 +63,9 @@ interface Props extends VisContainerProps {
 
 /* Panels of a group, sliced together by the sliders of the panel with the most dimensions */
 function GroupPanels(props: Props) {
-  const { resolved, toolbarContainer } = props;
+  const { entity, resolved, toolbarContainer } = props;
   const { hint, panels, notes } = resolved;
+  const { filename } = useDataContext();
 
   const ref = findReference(panels);
   const [refMapping, setRefMapping] = useDimMappingState({
@@ -172,6 +174,9 @@ function GroupPanels(props: Props) {
       />
       <PanelGrid
         ref={gridRef}
+        name={
+          entity.path === '/' ? filename.replace(/\.\w+$/u, '') : entity.name
+        } // root: the file's name (e.g. NetCDF), without extension
         className={visualizerStyles.vis}
         specs={specs}
         rows={rows}

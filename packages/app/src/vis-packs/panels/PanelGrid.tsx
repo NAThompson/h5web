@@ -134,6 +134,7 @@ function getGroupColors(
 }
 
 interface Props {
+  name: string; // e.g. of the group or dataset (snapshot file names)
   specs: PanelSpec[];
   rows: number;
   cols: number;
@@ -153,6 +154,7 @@ interface Props {
 /* Panels in a grid, drawn in a single canvas, with a colour bar per shared domain */
 function PanelGrid(props: Props) {
   const {
+    name,
     specs,
     rows,
     cols,
@@ -282,6 +284,8 @@ function PanelGrid(props: Props) {
     <div
       ref={rootRef}
       className={`${styles.root} ${className}`}
+      role="group"
+      aria-label={name}
       data-snapshot-root // cf. `SNAPSHOT_ROOT_ATTR`: grid and colour bars
     >
       <div className={styles.canvas}>

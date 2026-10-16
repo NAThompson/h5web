@@ -190,6 +190,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
       />
       <PanelGrid
         ref={gridRef}
+        name={entity.name}
         className={visualizerStyles.vis}
         specs={specs}
         rows={rows}
