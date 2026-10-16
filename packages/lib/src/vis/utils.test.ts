@@ -14,6 +14,7 @@ import {
   formatPowerTick,
   getAxisDomain,
   getCombinedDomain,
+  getCustomTicks,
   getDomain,
   getDomains,
   getIntegerTicks,
@@ -467,13 +468,13 @@ describe('getPowerTicks', () => {
     expect(formatPowerTick(3, 'exp2')).toBe('2³');
   });
 
-  it('should label other exponents by their real values when zoomed in', () => {
-    const ticks = getPowerTicks([0, 1], 2);
-    expect(ticks).toEqual([0, 0.5, 1]);
-    expect(ticks.map((t) => formatPowerTick(t, 'exp10'))).toEqual([
-      '10⁰',
+  it('should label all ticks by their real values when zoomed in', () => {
+    const ticks = getCustomTicks('exp10', ScaleType.Linear, [0, 1], 2);
+    expect(ticks?.values).toEqual([0, 0.5, 1]);
+    expect(ticks?.values.map((t) => ticks.format(t))).toEqual([
+      '1', // not `10⁰`, as the other ticks aren't powers
       '3.16',
-      '10¹',
+      '10',
     ]);
   });
 });

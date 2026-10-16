@@ -370,10 +370,14 @@ export function getRealValue(val: number, transform: ValueTransform): number {
   return getPowerBase(transform) ** val;
 }
 
+/* Powers on axes of logarithms spanning two decades or more, else plain real values */
+export function hasPowerTicks(domain: Domain): boolean {
+  return Math.abs(domain[1] - domain[0]) >= 2;
+}
+
 /* Integer exponents on axes spanning two decades or more, else plain nice ticks */
 export function getPowerTicks(domain: Domain, count: number): number[] {
-  const span = Math.abs(domain[1] - domain[0]);
-  return span >= 2
+  return hasPowerTicks(domain)
     ? getIntegerTicks(domain, count)
     : scaleLinear({ domain }).ticks(count);
 }
@@ -422,7 +426,9 @@ export function getCustomTicks(
     ? { values: getPiTicks(domain, count), format: formatPiTick }
     : {
         values: getPowerTicks(domain, count),
-        format: (val, precision) => formatPowerTick(val, ticks, precision),
+        format: hasPowerTicks(domain)
+          ? (val, precision) => formatPowerTick(val, ticks, precision)
+          : (val, precision) => formatTick(getRealValue(val, ticks), precision), // `1`, not `10⁰`
       };
 }
 

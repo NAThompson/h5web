@@ -14,6 +14,7 @@ import {
   getScaleTickValues,
   getTextContent,
   getTickPrecision,
+  hasPowerTicks,
   withTicksFormat,
 } from '../utils';
 import styles from './ColorBar.module.css';
@@ -44,7 +45,9 @@ function formatBounds(
   const [min, max] = valueTransform
     ? domain.map((val) => getRealValue(val, valueTransform))
     : domain;
-  return [formatBound(min), formatBound(max)];
+  return valueTransform && !hasPowerTicks(domain)
+    ? [formatTick(min, 4), formatTick(max, 4)] // plain, as the ticks (`2.661`)
+    : [formatBound(min), formatBound(max)];
 }
 
 function ColorBar(props: Props) {
