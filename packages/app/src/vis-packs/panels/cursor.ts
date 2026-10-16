@@ -13,20 +13,38 @@ export interface Cursor {
 export interface CursorStore {
   get: () => Cursor | undefined;
   set: (cursor: Cursor | undefined) => void;
+  getValues: () => ReadonlyMap<string, number>; // of panels at the cursor, by key (if reported)
+  setValue: (key: string, value: number | undefined) => void;
   subscribe: (listener: () => void) => () => void;
 }
 
 export function createCursorStore(): CursorStore {
   let cursor: Cursor | undefined;
+  let values = new Map<string, number>();
   const listeners = new Set<() => void>();
+  function notify() {
+    for (const listener of listeners) {
+      listener();
+    }
+  }
   return {
     get: () => cursor,
     set: (next) => {
       if (next !== cursor) {
         cursor = next;
-        for (const listener of listeners) {
-          listener();
+        notify();
+      }
+    },
+    getValues: () => values,
+    setValue: (key, value) => {
+      if (!Object.is(values.get(key), value)) {
+        values = new Map(values);
+        if (value === undefined) {
+          values.delete(key);
+        } else {
+          values.set(key, value);
         }
+        notify();
       }
     },
     subscribe: (listener) => {
@@ -40,6 +58,12 @@ export const CursorContext = createContext<CursorStore | undefined>(undefined);
 
 export function useCursor(store: CursorStore): Cursor | undefined {
   return useSyncExternalStore(store.subscribe, store.get);
+}
+
+export function useCursorValues(
+  store: CursorStore,
+): ReadonlyMap<string, number> {
+  return useSyncExternalStore(store.subscribe, store.getValues);
 }
 
 export function useCursorStore(): CursorStore | undefined {

@@ -26,6 +26,7 @@ import {
   combineDomains,
   getBottomRows,
   getColorGroup,
+  MAX_LISTED_VALUES,
   SNAPSHOT_MAX_PANELS,
 } from './utils';
 
@@ -274,6 +275,7 @@ function PanelGrid(props: Props) {
   const isCompact = plotSize < COMPACT_PLOT_SIZE;
   // Linked cursor's values in a readout, instead of a tooltip (small panels, small multiples)
   const withReadout = linkCursor && (edgeAxesOnly || isCompact);
+  const listValues = withReadout && specs.length <= MAX_LISTED_VALUES;
   const [rowOffset, colOffset] = [leadRows.length, leadCols.length];
 
   return (
@@ -284,7 +286,11 @@ function PanelGrid(props: Props) {
     >
       <div className={styles.canvas}>
         {withReadout && (
-          <CursorReadout store={cursorStore} axisLabels={axisLabels ?? {}} />
+          <CursorReadout
+            store={cursorStore}
+            axisLabels={axisLabels ?? {}}
+            panels={specs}
+          />
         )}
         <div ref={sizeRef} className={styles.canvasArea}>
           <MultiVisCanvas>
@@ -350,6 +356,7 @@ function PanelGrid(props: Props) {
                     showTooltip={!withReadout}
                     load={loadAll && index < SNAPSHOT_MAX_PANELS}
                     isCompact={isCompact}
+                    reportValue={listValues}
                     onDataDomainChange={onDataDomainChange}
                     onOpen={onOpen}
                   />

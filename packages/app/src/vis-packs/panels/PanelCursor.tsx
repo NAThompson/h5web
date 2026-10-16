@@ -7,7 +7,7 @@ import {
 } from '@h5web/lib';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { useThree } from '@react-three/fiber';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Vector3 } from 'three';
 
 import { getPixelEdges, getPixelIndex } from '../view-hints/probe';
@@ -22,6 +22,7 @@ interface Props extends PanelLayerData {
   linkKey: string;
   kind: PanelKind;
   showValue: boolean; // else crosshair only (e.g. small panels, with a readout of the hovered one)
+  reportValue: boolean; // to the store, for the readout to list
 }
 
 /* Value of the panel at a point in data coordinates; for lines, at the nearest abscissa */
@@ -71,8 +72,16 @@ function useValueAt(
 /* Crosshair at the cursor's coordinates, with the value of the panel there, in every panel with
  * the same axes as the one under the pointer */
 function PanelCursor(props: Props) {
-  const { store, panelKey, panelTitle, linkKey, kind, showValue, ...data } =
-    props;
+  const {
+    store,
+    panelKey,
+    panelTitle,
+    linkKey,
+    kind,
+    showValue,
+    reportValue,
+    ...data
+  } = props;
   const cursor = useCursor(store);
   const { canvasArea, htmlToData } = useVisCanvasContext();
   const camera = useThree((state) => state.camera);
@@ -104,6 +113,12 @@ function PanelCursor(props: Props) {
     () => [new Vector3(cursor?.x ?? 0, found?.y ?? cursor?.y ?? 0)] as const,
     [cursor?.x, cursor?.y, found?.y],
   );
+
+  const value = reportValue ? found?.value : undefined;
+  useEffect(() => {
+    store.setValue(panelKey, value);
+  }, [store, panelKey, value]);
+  useEffect(() => () => store.setValue(panelKey, undefined), [store, panelKey]);
 
   if (!isShown) {
     return null;

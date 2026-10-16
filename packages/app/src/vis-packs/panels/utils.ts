@@ -5,6 +5,7 @@ import { type PanelKind, type PanelSpec } from './models';
 
 export const MAX_PANELS = 1024; // more would take too long to fetch and draw
 export const SNAPSHOT_MAX_PANELS = 256; // loaded for a snapshot, if not seen yet
+export const MAX_LISTED_VALUES = 8; // panels: the readout lists the values of all linked ones
 
 /* Rows and columns of a grid of `count` panels: as hinted (more rows if too few), else near-square,
  * wider than tall */

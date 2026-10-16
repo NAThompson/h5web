@@ -234,6 +234,16 @@ test('slice small multiples along the other dimensions', async () => {
   const bottom = await getPlotBottom('k = 2');
   await expect(getPlotBottom('k = 0')).resolves.toBeCloseTo(bottom, 0);
 
+  // Few panels: the readout lists the value of each one at the cursor, the hovered one in bold
+  await hoverPanel('k = 1');
+  const readout = page.getByRole('status', { name: 'Cursor' });
+  await expect
+    .poll(() => readout.element().textContent)
+    .toMatch(/k = 0 = [\d−].*k = 1 = [\d−].*k = 2 = [\d−].*k = 3 = [\d−]/u);
+  expect(readout.element().querySelector('strong')?.textContent).toMatch(
+    /^k = 1 = /u,
+  );
+
   const slider = page.getByRole('slider', { name: 'p' });
   await expect.element(slider).toBeVisible();
   await user.click(slider);

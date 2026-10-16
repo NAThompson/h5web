@@ -24,6 +24,7 @@ export interface PanelProps {
   colors?: PanelColors; // shared colour domain, if any (else the panel's own, with a colour bar)
   cursorStore?: CursorStore; // linked cursor
   isCompact: boolean; // small panel: no overlay text, small markers, cursor values in a readout
+  reportValue?: boolean; // value at the linked cursor, for the readout to list
   onDataDomainChange?: (key: string, domain: Domain | undefined) => void;
 }
 
@@ -33,8 +34,15 @@ interface Props extends PanelProps {
 
 /* Values of a panel as its kind of vis */
 function PanelContent(props: Props) {
-  const { spec, value, colors, cursorStore, isCompact, onDataDomainChange } =
-    props;
+  const {
+    spec,
+    value,
+    colors,
+    cursorStore,
+    isCompact,
+    reportValue = false,
+    onDataDomainChange,
+  } = props;
   const { dataset, kind, key, linkKey } = spec;
 
   const axes = useDimScales(dataset);
@@ -51,6 +59,7 @@ function PanelContent(props: Props) {
           linkKey={linkKey}
           kind={kind}
           showValue={!isCompact}
+          reportValue={reportValue}
         />
       )),
   };
