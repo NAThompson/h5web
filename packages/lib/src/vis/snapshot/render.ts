@@ -192,6 +192,36 @@ function boxLayer(elem: HTMLElement, style: CSSStyleDeclaration) {
   return { filter: getFilter(elem), draw };
 }
 
+/* Rotation (degrees) and scale of an element's text from its and its ancestors' CSS
+ * transforms and writing mode (e.g. vertical colour bar label) */
+export function getTextTransform(
+  elem: HTMLElement,
+  root?: HTMLElement,
+): { angle: number; scale: number } {
+  let angle = 0;
+  let scale = 1;
+  for (let node: HTMLElement | null = elem; node; node = node.parentElement) {
+    const { transform } = getComputedStyle(node);
+    if (transform !== 'none') {
+      const { a, b } = new DOMMatrixReadOnly(transform);
+      angle += (Math.atan2(b, a) * 180) / Math.PI;
+      scale *= Math.hypot(a, b);
+    }
+    if (node === root) {
+      break;
+    }
+  }
+
+  const { writingMode } = getComputedStyle(elem);
+  if (
+    writingMode.startsWith('vertical') ||
+    writingMode.startsWith('sideways')
+  ) {
+    angle += writingMode === 'sideways-lr' ? -90 : 90;
+  }
+  return { angle: (((angle % 360) + 540) % 360) - 180, scale };
+}
+
 function textLayer(node: Text, style: CSSStyleDeclaration, scale: number[]) {
   const start = node.data.search(/\S/u);
   if (start === -1) {
@@ -205,12 +235,22 @@ function textLayer(node: Text, style: CSSStyleDeclaration, scale: number[]) {
   const text = range.toString().replaceAll(/\s+/gu, ' ');
   const [sx, sy] = scale;
 
+  const { angle } = getTextTransform(node.parentElement ?? document.body);
+
   function draw(ctx: CanvasRenderingContext2D) {
     const { fontStyle, fontWeight, fontSize, fontFamily } = style;
     ctx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
     ctx.fillStyle = style.color;
     const { fontBoundingBoxAscent: asc, fontBoundingBoxDescent: desc } =
       ctx.measureText(text);
+    if (Math.abs(angle) > 0.5) {
+      // Rotated (e.g. vertical label): centred in its box
+      ctx.translate(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.textAlign = 'center';
+      ctx.fillText(text, 0, (asc - desc) / 2);
+      return;
+    }
     ctx.translate(rect.x, rect.y); // `rect` includes CSS transform scale, font metrics don't
     ctx.scale(sx, sy);
     ctx.fillText(text, 0, (rect.height / sy - asc - desc) / 2 + asc);
@@ -287,7 +327,7 @@ function backgroundLayers(root: HTMLElement, color?: string | null): Layer[] {
  * 4. HTML boxes and text in document order (title, colour bar, legend, annotations).
  *
  * Not supported: arbitrary CSS stacking (e.g. HTML backgrounds painted below
- * the canvas), overflow clipping other than at the root, rotated or skewed HTML,
+ * the canvas), overflow clipping other than at the root, skewed HTML (rotated: text only),
  * wrapped text, `opacity` on HTML elements, non-uniform or rounded borders,
  * HTML images, and web fonts inside SVGs (system fonts are used instead). */
 export async function renderSnapshot(

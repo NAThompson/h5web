@@ -1,5 +1,10 @@
 import { expandScrollers, getCanvasPanels } from './panels';
-import { isRendered, SNAPSHOT_ATTR, SNAPSHOT_IGNORE_ATTR } from './render';
+import {
+  getTextTransform,
+  isRendered,
+  SNAPSHOT_ATTR,
+  SNAPSHOT_IGNORE_ATTR,
+} from './render';
 import {
   type Attrs,
   canvasToSvg,
@@ -498,33 +503,6 @@ function boxToSvg(
   }
 
   return elems;
-}
-
-/* Rotation (degrees) and scale of an element's text from its and its ancestors' CSS
- * transforms and writing mode (e.g. vertical colour bar label) */
-function getTextTransform(elem: HTMLElement, root: HTMLElement) {
-  let angle = 0;
-  let scale = 1;
-  for (let node: HTMLElement | null = elem; node; node = node.parentElement) {
-    const { transform } = getComputedStyle(node);
-    if (transform !== 'none') {
-      const { a, b } = new DOMMatrixReadOnly(transform);
-      angle += (Math.atan2(b, a) * 180) / Math.PI;
-      scale *= Math.hypot(a, b);
-    }
-    if (node === root) {
-      break;
-    }
-  }
-
-  const { writingMode } = getComputedStyle(elem);
-  if (
-    writingMode.startsWith('vertical') ||
-    writingMode.startsWith('sideways')
-  ) {
-    angle += writingMode === 'sideways-lr' ? -90 : 90;
-  }
-  return { angle: (((angle % 360) + 540) % 360) - 180, scale };
 }
 
 function isCentered(style: CSSStyleDeclaration): boolean {

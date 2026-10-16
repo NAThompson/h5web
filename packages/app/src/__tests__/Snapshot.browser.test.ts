@@ -476,3 +476,22 @@ test('export each panel of a grid at its place, with titles', async () => {
     })
     .toBe(true);
 });
+
+test('draw vertical text rotated', async () => {
+  await renderApp('/view_hints/multiples');
+  const root = document.querySelector<HTMLElement>('[data-snapshot-root]');
+  assertNonNull(root);
+  const label = await vi.waitFor(() => {
+    const elem = root.querySelector('[class*="_yLabel_"]');
+    assertNonNull(elem);
+    return elem;
+  });
+
+  // `theta` along the label's height, not across it: ink well above its middle
+  const img = await decodePng(await exportSnapshot(root, { scale: 1 }));
+  const { x, y, width, height } = getRegion(root, label);
+  const middle = y + height / 2;
+  expect(
+    countInk(img, { x, y: middle - 18, width, height: 8 }),
+  ).toBeGreaterThan(5);
+});
