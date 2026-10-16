@@ -108,7 +108,10 @@ export function getSafeScale(
   return Math.min(scale, maxForSides, maxForArea);
 }
 
-export function getSnapshotFilename(title: string | undefined): string {
+export function getSnapshotFilename(
+  title: string | undefined,
+  extension = 'png',
+): string {
   const base = (title ?? '')
     .trim()
     .replaceAll(/[^\p{L}\p{N} \-._]+/gu, '')
@@ -116,5 +119,5 @@ export function getSnapshotFilename(title: string | undefined): string {
     .replace(/^[-._]+/u, '') // no hidden or option-like file names
     .slice(0, 64);
 
-  return `${base || 'snapshot'}.png`;
+  return `${base || 'snapshot'}.${extension}`;
 }

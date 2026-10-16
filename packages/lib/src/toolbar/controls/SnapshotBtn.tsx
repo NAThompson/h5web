@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { MdCameraAlt } from 'react-icons/md';
 
 import { exportSnapshot, findVisElement } from '../../vis/snapshot/render';
+import { exportPdfSnapshot, exportSvgSnapshot } from '../../vis/snapshot/svg';
 import { getSnapshotFilename } from '../../vis/snapshot/utils';
 import ActionMenu from './ActionMenu';
 import { download } from './utils';
 
 type Target = HTMLElement | null | undefined;
+type Format = 'png' | 'svg' | 'pdf';
 
 interface Props {
   /* Visualization to snapshot, or a container of it. Recommended when the
@@ -16,15 +18,27 @@ interface Props {
   target?: Target | (() => Target);
   /* Output resolutions offered in the menu, as multiples of `devicePixelRatio` */
   resolutions?: number[];
-  /* Defaults to the visualization's title (or `snapshot`) + `.png` */
+  /* Vector formats offered in the menu (2D visualizations as vector paths, with
+   * heatmaps and 3D scenes as embedded images) */
+  vectorFormats?: ('svg' | 'pdf')[];
+  /* Defaults to the visualization's title (or `snapshot`) + extension of format */
   filename?: string;
 }
 
 function SnapshotBtn(props: Props) {
-  const { target, resolutions = [1, 2], filename } = props;
+  const {
+    target,
+    resolutions = [1, 2],
+    vectorFormats = ['svg', 'pdf'],
+    filename,
+  } = props;
   const [status, setStatus] = useState<'idle' | 'busy' | 'failed'>('idle');
 
-  async function takeSnapshot(resolution: number, menuBtn: HTMLElement | null) {
+  async function takeSnapshot(
+    format: Format,
+    resolution: number,
+    menuBtn: HTMLElement | null,
+  ) {
     const container = typeof target === 'function' ? target() : target;
     const from = container ?? menuBtn;
     const elem = from ? findVisElement(from) : undefined;
@@ -37,8 +51,14 @@ function SnapshotBtn(props: Props) {
 
       const scale = resolution * Math.max(1, globalThis.devicePixelRatio || 1);
       await download(
-        async () => exportSnapshot(elem, { scale }),
-        filename ?? getSnapshotFilename(elem.getAttribute('aria-label') ?? ''),
+        async () =>
+          format === 'svg'
+            ? exportSvgSnapshot(elem)
+            : format === 'pdf'
+              ? exportPdfSnapshot(elem)
+              : exportSnapshot(elem, { scale }),
+        filename?.replace(/(\.[^.]*)?$/u, `.${format}`) ??
+          getSnapshotFilename(elem.getAttribute('aria-label') ?? '', format),
       );
       setStatus('idle');
     } catch (error) {
@@ -52,13 +72,22 @@ function SnapshotBtn(props: Props) {
       label={status === 'failed' ? 'Snapshot failed' : 'Snapshot'}
       Icon={MdCameraAlt}
       disabled={status === 'busy'}
-      actions={resolutions.map((resolution) => ({
-        key: String(resolution),
-        label: `Save as PNG${resolution === 1 ? '' : ` (${resolution}×)`}`,
-        onSelect: (menuBtn) => {
-          void takeSnapshot(resolution, menuBtn);
-        },
-      }))}
+      actions={[
+        ...resolutions.map((resolution) => ({
+          key: String(resolution),
+          label: `Save as PNG${resolution === 1 ? '' : ` (${resolution}×)`}`,
+          onSelect: (menuBtn: HTMLElement | null) => {
+            void takeSnapshot('png', resolution, menuBtn);
+          },
+        })),
+        ...vectorFormats.map((format) => ({
+          key: format,
+          label: `Save as ${format.toUpperCase()}`,
+          onSelect: (menuBtn: HTMLElement | null) => {
+            void takeSnapshot(format, 1, menuBtn);
+          },
+        })),
+      ]}
     />
   );
 }
