@@ -19,6 +19,7 @@ import { type LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import LinePchipGeometry from '../line/linePchipGeometry';
 import { GlyphType } from '../line/models';
 import { ScaledOrthographicCamera } from '../shared/ScaledOrthographicCamera';
+import { type CanvasPanels, renderPanel } from './panels';
 import {
   chainSegments,
   decimate,
@@ -63,6 +64,9 @@ interface Drawable {
 
 type Mvp = (x: number, y: number, z: number) => Point | undefined;
 
+/* Scene drawn in an area of a canvas: the whole canvas or a panel of it */
+type SceneState = Pick<RootState, 'scene' | 'camera' | 'size' | 'gl'>;
+
 const GLYPH_TYPE_KEY = 'glyphType'; // in `userData` of `GlyphMaterial`
 
 function isLineSegments2(obj: Object3D): obj is LineSegments2 {
@@ -96,7 +100,7 @@ function getSortKey(d: Drawable): number[] {
 }
 
 /* Visible objects in the order three draws them (cf. `painterSortStable`) */
-function getDrawables(state: RootState): Drawable[] {
+function getDrawables(state: SceneState): Drawable[] {
   const { scene, camera } = state;
   const drawables: Drawable[] = [];
   const viewProj = new Matrix4().multiplyMatrices(
@@ -140,7 +144,7 @@ function getDrawables(state: RootState): Drawable[] {
 }
 
 /* World to canvas CSS pixels; `undefined` beyond the near/far planes (invalid points) */
-function getMvp(state: RootState, obj: Object3D): Mvp {
+function getMvp(state: SceneState, obj: Object3D): Mvp {
   const { camera, size } = state;
   const m = new Matrix4()
     .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
@@ -185,7 +189,7 @@ function isCulled(a: Point, b: Point, width: number, height: number): boolean {
 
 function lineToSvg(
   obj: LineSegments2,
-  state: RootState,
+  state: SceneState,
   ctx: SceneContext,
 ): SVGElement | undefined {
   const { geometry } = obj;
@@ -279,7 +283,7 @@ function lineToSvg(
 function lineSegmentsToSvg(
   obj: Object3D & { geometry: { getAttribute: (name: string) => unknown } },
   material: Material & { color?: Color },
-  state: RootState,
+  state: SceneState,
   ctx: SceneContext,
 ): SVGElement | undefined {
   const positions = obj.geometry.getAttribute('position') as
@@ -316,7 +320,7 @@ function lineSegmentsToSvg(
 function glyphsToSvg(
   obj: Points,
   material: ShaderMaterial,
-  state: RootState,
+  state: SceneState,
   ctx: SceneContext,
 ): SVGElement[] {
   const glyphType = getGlyphType(material);
@@ -464,22 +468,16 @@ function imageElem(
   });
 }
 
-/* Content of a WebGL canvas, in its CSS pixels: 2D scenes as vector paths (lines,
- * glyphs, error bars, contours) over a raster of anything else (e.g. heatmap meshes);
- * other scenes (3D) as a copy of the canvas */
-export function canvasToSvg(
-  canvas: HTMLCanvasElement,
+/* Scene in `size` CSS pixels (drawn in `width` by `height`, e.g. CSS transform scale): vector
+ * paths (lines, glyphs, error bars, contours) over a raster of anything else (e.g. heatmap
+ * meshes), drawn by `rasterize` without the given objects */
+function sceneToSvg(
+  state: SceneState,
+  [width, height]: [number, number],
   ctx: SceneContext,
+  rasterize: (hidden: Object3D[]) => HTMLCanvasElement,
 ): SVGElement {
-  const { width, height } = canvas.getBoundingClientRect();
   const group = createSvgElement('g');
-  const state = _roots.get(canvas)?.store.getState();
-
-  if (!state || !(state.camera instanceof ScaledOrthographicCamera)) {
-    group.append(imageElem(copyCanvas(canvas), width, height, false));
-    return group;
-  }
-
   state.scene.updateMatrixWorld();
   state.camera.updateMatrixWorld();
   const drawables = getDrawables(state);
@@ -487,11 +485,7 @@ export function canvasToSvg(
   const rasters = drawables.filter((d) => !d.isVector);
 
   if (rasters.length > 0) {
-    const raster = renderRaster(
-      state,
-      vectors.map((d) => d.object),
-      ctx.rasterScale,
-    );
+    const raster = rasterize(vectors.map((d) => d.object));
     if (hasInk(raster)) {
       const pixelated = rasters.some((d) => hasNearestTexture(d.material));
       group.append(imageElem(raster, width, height, pixelated));
@@ -538,4 +532,54 @@ export function canvasToSvg(
     group.append(vectorGroup);
   }
   return group;
+}
+
+/* Content of a WebGL canvas, in its CSS pixels: 2D scenes as vector paths over a raster
+ * (cf. `sceneToSvg`); other scenes (3D) as a copy of the canvas */
+export function canvasToSvg(
+  canvas: HTMLCanvasElement,
+  ctx: SceneContext,
+): SVGElement {
+  const { width, height } = canvas.getBoundingClientRect();
+  const state = _roots.get(canvas)?.store.getState();
+
+  if (!state || !(state.camera instanceof ScaledOrthographicCamera)) {
+    const group = createSvgElement('g');
+    group.append(imageElem(copyCanvas(canvas), width, height, false));
+    return group;
+  }
+
+  return sceneToSvg(state, [width, height], ctx, (hidden) =>
+    renderRaster(state, hidden, ctx.rasterScale),
+  );
+}
+
+/* Panels of a `MultiVisCanvas` (also those out of view), each as `sceneToSvg` in its area
+ * relative to `origin` and clipped to it */
+export function panelsToSvg(
+  { gl, entries }: CanvasPanels,
+  origin: DOMRect,
+  ctx: SceneContext,
+): SVGElement[] {
+  return entries.map((entry) => {
+    const { scene, camera, element } = entry;
+    const rect = element.getBoundingClientRect();
+    const size = { width: entry.width, height: entry.height, top: 0, left: 0 };
+    const state = { scene, camera, size, gl };
+    const scale = getSafeScale(entry.width, entry.height, ctx.rasterScale);
+
+    const group = sceneToSvg(state, [rect.width, rect.height], ctx, (hidden) =>
+      renderPanel(gl, entry, scale, hidden),
+    );
+    const clip = createSvgElement('clipPath');
+    clip.append(
+      createSvgElement('rect', { width: rect.width, height: rect.height }),
+    );
+    group.setAttribute(
+      'transform',
+      `translate(${fmt(rect.x - origin.x)} ${fmt(rect.y - origin.y)})`,
+    );
+    group.setAttribute('clip-path', ctx.define(clip));
+    return group;
+  });
 }

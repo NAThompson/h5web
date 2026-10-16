@@ -1,8 +1,10 @@
+import { expandScrollers, getCanvasPanels } from './panels';
 import { isRendered, SNAPSHOT_ATTR, SNAPSHOT_IGNORE_ATTR } from './render';
 import {
   type Attrs,
   canvasToSvg,
   createSvgElement,
+  panelsToSvg,
   type SceneContext,
 } from './svgScene';
 import {
@@ -649,7 +651,8 @@ function collectHtml(
  * canvases of 2D visualizations are converted to vector paths (lines, glyphs, error
  * bars, contours) over a raster image of anything else (heatmaps); 3D canvases are
  * embedded as raster images. Several visualizations in `root` (e.g. panels) are
- * exported together, each at its position. */
+ * exported together, each at its position; all panels of a `MultiVisCanvas`, as
+ * if it didn't scroll. */
 export function renderSvgSnapshot(
   root: HTMLElement,
   options: SvgSnapshotOptions = {},
@@ -659,6 +662,8 @@ export function renderSvgSnapshot(
   const dpr = Math.max(1, globalThis.devicePixelRatio || 1);
   const rasterScale = options.rasterScale ?? Math.min(3, 2 * dpr);
 
+  root.setAttribute(SNAPSHOT_ATTR, '');
+  const restoreScrollers = expandScrollers(root); // all panels of a grid
   const origin = root.getBoundingClientRect();
   const { width, height } = origin;
   const svg = createSvgElement('svg', {
@@ -696,10 +701,12 @@ export function renderSvgSnapshot(
     svg.append(createSvgElement('rect', { width, height, fill: background }));
   }
 
-  root.setAttribute(SNAPSHOT_ATTR, '');
   try {
     for (const canvas of root.querySelectorAll('canvas')) {
-      if (isRendered(canvas)) {
+      const panels = getCanvasPanels(canvas);
+      if (panels && isRendered(canvas)) {
+        svg.append(...panelsToSvg(panels, origin, ctx));
+      } else if (isRendered(canvas)) {
         const { x, y } = relativeRect(canvas, ctx);
         const group = canvasToSvg(canvas, ctx);
         group.setAttribute('transform', `translate(${fmt(x)} ${fmt(y)})`);
@@ -721,6 +728,7 @@ export function renderSvgSnapshot(
     }
     svg.append(html);
   } finally {
+    restoreScrollers();
     root.removeAttribute(SNAPSHOT_ATTR);
   }
 

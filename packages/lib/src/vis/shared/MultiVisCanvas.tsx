@@ -44,6 +44,7 @@ function MultiVisCanvas(props: PropsWithChildren<Props>) {
             setScroller(elem);
           }}
           className={styles.scroller}
+          data-panel-scroller // cf. `SCROLLER_ATTR`
         >
           <MultiCanvasContext value={registry}>{children}</MultiCanvasContext>
         </div>

@@ -5,6 +5,7 @@ import { Color } from 'three';
 import {
   type CanvasPanelEntry,
   type CanvasPanelRegistry,
+  canvasPanels,
 } from './multi-canvas';
 import PanelPortal from './PanelPortal';
 
@@ -36,6 +37,14 @@ function PanelRenderer(props: Props) {
   const { registry, scroller } = props;
   const ids = useSyncExternalStore(registry.subscribeIds, registry.getIds);
   const invalidate = useThree((state) => state.invalidate);
+  const canvas = useThree((state) => state.gl.domElement);
+
+  useEffect(() => {
+    canvasPanels.set(canvas, registry);
+    return () => {
+      canvasPanels.delete(canvas);
+    };
+  }, [canvas, registry]);
 
   useFrame(({ gl }) => {
     const canvasRect = gl.domElement.getBoundingClientRect();

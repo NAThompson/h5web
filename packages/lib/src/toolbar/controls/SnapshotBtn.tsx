@@ -3,10 +3,7 @@ import { MdCameraAlt } from 'react-icons/md';
 
 import { exportSnapshot, findVisElement } from '../../vis/snapshot/render';
 import { exportPdfSnapshot, exportSvgSnapshot } from '../../vis/snapshot/svg';
-import {
-  getSnapshotFilename,
-  withExtension,
-} from '../../vis/snapshot/utils';
+import { getSnapshotFilename, withExtension } from '../../vis/snapshot/utils';
 import ActionMenu from './ActionMenu';
 import { download } from './utils';
 
@@ -26,6 +23,8 @@ interface Props {
   vectorFormats?: ('svg' | 'pdf')[];
   /* Defaults to the visualization's title (or `snapshot`) + extension of format */
   filename?: string;
+  /* Called before each snapshot, which waits for it (e.g. to load content out of view) */
+  beforeSnapshot?: () => Promise<void> | void;
 }
 
 function SnapshotBtn(props: Props) {
@@ -34,6 +33,7 @@ function SnapshotBtn(props: Props) {
     resolutions = [1, 2],
     vectorFormats = ['svg', 'pdf'],
     filename,
+    beforeSnapshot,
   } = props;
   const [status, setStatus] = useState<'idle' | 'busy' | 'failed'>('idle');
 
@@ -51,6 +51,7 @@ function SnapshotBtn(props: Props) {
       if (!elem) {
         throw new Error('No visualization found');
       }
+      await beforeSnapshot?.();
 
       const scale = resolution * Math.max(1, globalThis.devicePixelRatio || 1);
       await download(

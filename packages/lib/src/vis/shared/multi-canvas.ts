@@ -81,6 +81,15 @@ export const MultiCanvasContext = createContext<CanvasPanelRegistry | null>(
   null,
 );
 
+/* Panels drawn in the shared canvas of each `MultiVisCanvas` (e.g. for snapshots) */
+export const canvasPanels = new WeakMap<
+  HTMLCanvasElement,
+  CanvasPanelRegistry
+>();
+
+/* Attribute of the element the panels of a `MultiVisCanvas` scroll in */
+export const SCROLLER_ATTR = 'data-panel-scroller';
+
 /* How a visualization is drawn as a panel of a `MultiVisCanvas` */
 export interface VisPanelOptions {
   linkKey?: string; // panels with the same key zoom and pan together (same data in view)

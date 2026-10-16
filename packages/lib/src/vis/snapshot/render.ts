@@ -1,4 +1,5 @@
 /* eslint-disable no-param-reassign -- painting mutates the 2D context's state */
+import { expandScrollers, getCanvasPanels, renderPanel } from './panels';
 import {
   combineFilters,
   getColorAlpha,
@@ -12,6 +13,10 @@ export const SNAPSHOT_ATTR = 'data-snapshot';
 
 /* Elements with this attribute (and their descendants) are left out of snapshots. */
 export const SNAPSHOT_IGNORE_ATTR = 'data-snapshot-ignore';
+
+/* Element snapshotted as a whole when its canvas is found (cf. `findVisElement`), e.g. a grid of
+ * panels of a `MultiVisCanvas` with their shared colour bars, instead of a `figure` */
+export const SNAPSHOT_ROOT_ATTR = 'data-snapshot-root';
 
 export interface SnapshotOptions {
   /* Pixel ratio of the output image; defaults to `devicePixelRatio`. May be
@@ -64,6 +69,23 @@ function canvasLayer(canvas: HTMLCanvasElement): Layer {
   copy.getContext('2d')?.drawImage(canvas, 0, 0);
   const draw = drawImage(copy, canvas.getBoundingClientRect());
   return { filter: getFilter(canvas), draw };
+}
+
+/* Panels of a `MultiVisCanvas`, each drawn at its place (also those out of view) */
+function canvasLayers(canvas: HTMLCanvasElement): Layer[] {
+  const panels = getCanvasPanels(canvas);
+  if (!panels) {
+    return [canvasLayer(canvas)];
+  }
+  const { gl, entries } = panels;
+  const filter = getFilter(canvas);
+  return entries.map((entry) => {
+    const copy = renderPanel(gl, entry, gl.getPixelRatio());
+    return {
+      filter,
+      draw: drawImage(copy, entry.element.getBoundingClientRect()),
+    };
+  });
 }
 
 function svgLayer(svg: SVGSVGElement, scale: number): Layer {
@@ -259,7 +281,8 @@ function backgroundLayers(root: HTMLElement, color?: string | null): Layer[] {
 /* Render an h5web visualization to a 2D canvas as it appears on screen. Layers
  * are painted in a fixed order, which matches h5web's visualizations:
  * 1. background of the element or its ancestors;
- * 2. canvases (WebGL scene at current zoom level);
+ * 2. canvases (WebGL scene at current zoom level; each panel of a `MultiVisCanvas`,
+ *    all of them, as if it didn't scroll);
  * 3. top-level SVGs (axes, grid, SVG overlays, colour bar axis);
  * 4. HTML boxes and text in document order (title, colour bar, legend, annotations).
  *
@@ -271,17 +294,17 @@ export async function renderSnapshot(
   root: HTMLElement,
   options: SnapshotOptions = {},
 ): Promise<HTMLCanvasElement> {
+  const layers: Layer[] = [];
+  root.setAttribute(SNAPSHOT_ATTR, '');
+  const restoreScrollers = expandScrollers(root); // all panels of a grid
   const { x, y, width, height } = root.getBoundingClientRect();
   const defaultScale = Math.max(1, globalThis.devicePixelRatio || 1);
   const scale = getSafeScale(width, height, options.scale ?? defaultScale);
-
-  const layers: Layer[] = [];
-  root.setAttribute(SNAPSHOT_ATTR, '');
   try {
     layers.push(...backgroundLayers(root, options.background));
 
     const canvases = [...root.querySelectorAll('canvas')].filter(isRendered);
-    layers.push(...canvases.map(canvasLayer));
+    layers.push(...canvases.flatMap(canvasLayers));
 
     const svgs = [...root.querySelectorAll('svg')].filter(
       (svg) => !svg.parentElement?.closest('svg') && isRendered(svg),
@@ -294,6 +317,7 @@ export async function renderSnapshot(
       }
     }
   } finally {
+    restoreScrollers();
     root.removeAttribute(SNAPSHOT_ATTR);
   }
 
@@ -339,14 +363,19 @@ export async function exportSnapshot(
   return blob;
 }
 
-/* Find the visualization (`figure` around the first canvas) for an element that
- * is either the visualization, a container of it, or a descendant of a container
- * of it (e.g. a toolbar button rendered next to it). */
+/* Find the visualization (`figure` around the first canvas, or element with
+ * `SNAPSHOT_ROOT_ATTR`) for an element that is either the visualization, a
+ * container of it, or a descendant of a container of it (e.g. a toolbar button
+ * rendered next to it). */
 export function findVisElement(from: Element): HTMLElement | undefined {
   for (let node: Element | null = from; node; node = node.parentElement) {
     const canvas = node.querySelector('canvas');
     if (canvas) {
-      return canvas.closest('figure') ?? canvas.parentElement ?? undefined;
+      return (
+        canvas.closest<HTMLElement>(`figure, [${SNAPSHOT_ROOT_ATTR}]`) ??
+        canvas.parentElement ??
+        undefined
+      );
     }
   }
   return undefined;

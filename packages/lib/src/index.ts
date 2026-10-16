@@ -314,6 +314,7 @@ export {
   findVisElement,
   SNAPSHOT_ATTR,
   SNAPSHOT_IGNORE_ATTR,
+  SNAPSHOT_ROOT_ATTR,
 } from './vis/snapshot/render';
 export type { SnapshotOptions } from './vis/snapshot/render';
 export {
