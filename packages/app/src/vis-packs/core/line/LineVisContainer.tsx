@@ -141,9 +141,12 @@ function LineVisContainer(props: VisContainerProps) {
                   extras={extras}
                   dataLabel={
                     hasExtraCurves
-                      ? (toUnicodeScripts(hint.longName) ?? entity.name)
+                      ? (toUnicodeScripts(hint.curveLabel ?? hint.longName) ??
+                        entity.name)
                       : undefined
                   }
+                  dataColor={hint.curveColor}
+                  dataWidth={hint.curveWidth}
                   legend={hint.legend}
                   nanColor={hint.nanColor}
                 />

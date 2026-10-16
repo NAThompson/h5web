@@ -58,6 +58,7 @@ interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
   dataLabel?: string;
   dataColor?: string;
+  dataWidth?: number; // line width in CSS pixels
   domain: Domain | undefined;
   scaleType?: AxisScaleType;
   symlogConstant?: number; // width of the linear band around 0 of the symlog scale (default 1)
@@ -88,6 +89,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     dataArray,
     dataLabel,
     dataColor,
+    dataWidth,
     domain,
     curveType = CurveType.LineOnly,
     showGrid = true,
@@ -328,6 +330,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           errors={errorsArray?.data}
           showErrors={showErrors}
           color={curveColor}
+          width={dataWidth}
           curveType={curveType}
           ignoreValue={ignoreValue}
           interpolation={interpolation}

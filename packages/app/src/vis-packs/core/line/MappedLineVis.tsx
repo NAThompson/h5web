@@ -96,6 +96,8 @@ interface Props {
   envelope?: Envelope; // running min / max, over the data or instead of it
   extras?: HintExtras; // extra curves and references of a hint
   dataLabel?: string; // of the curve, in the legend and tooltip (not in multi-plots)
+  dataColor?: string; // of the curve (not in multi-plots)
+  dataWidth?: number;
   legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
   nanColor?: string; // of the marks of values that can't be drawn (e.g. 0 in log scale)
 }
@@ -152,6 +154,8 @@ function MappedLineVis(props: Props) {
     envelope,
     extras = NO_EXTRAS,
     dataLabel,
+    dataColor,
+    dataWidth,
     legend,
     nanColor,
   } = props;
@@ -398,7 +402,9 @@ function MappedLineVis(props: Props) {
         className={visualizerStyles.vis}
         dataArray={dataArray}
         dataLabel={isMultiPlot ? getSliceLabel(0) : dataLabel}
-        dataColor={isMultiPlot ? getSliceColor(0) : undefined}
+        {...(isMultiPlot // style of the dataset's curve, else of its first slice
+          ? { dataColor: getSliceColor(0) }
+          : { dataColor, dataWidth })}
         domain={safeDomain}
         scaleType={yScaleType}
         symlogConstant={symlogThreshold}

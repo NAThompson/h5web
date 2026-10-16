@@ -119,6 +119,9 @@ export interface ViewHint {
   isoLevels?: number[];
   valueTransform?: ValueTransform; // values are log10 / log2: shown as powers
   envelope?: Envelope; // line: running min / max
+  curveLabel?: string; // line: legend entry of the dataset's own curve (default: CF `long_name`)
+  curveColor?: string; // line: colour of the dataset's own curve (not in multi-plots)
+  curveWidth?: number; // line: width of the dataset's own curve in CSS pixels
   seriesPaths?: string[]; // line: extra datasets on the same axes (their attributes say how)
   seriesAnchor?: string; // series paths are resolved relative to this path
   xDim?: number; // line: dimension on the x axis

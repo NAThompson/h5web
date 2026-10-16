@@ -476,7 +476,9 @@ test('draw the running envelope of a line over it, or instead of it', async () =
 test('draw series of a hint on the same axes, sliced along with the dataset', async () => {
   await renderApp('/view_hints/series_data');
 
-  await expect.poll(getLegend).toEqual(['data', 'fit e⁻ˣ/⁶', 'bound']);
+  await expect.poll(getLegend).toEqual(['measured', 'fit e⁻ˣ/⁶', 'bound']);
+  const mark = document.querySelector<HTMLElement>('figure li > span');
+  expect(mark?.style.color).toBe('rgb(235, 104, 52)'); // `H5WEB_color` of the dataset
   await expect(getLineTooltip(0, 10)).resolves.toMatch(
     /fit.* = 1(?!\d).*bound = 4/u,
   ); // k = 1
