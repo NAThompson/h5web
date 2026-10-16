@@ -15,6 +15,7 @@ import { type ViewHint } from '../view-hints/models';
 import { getColorSuggestions } from '../view-hints/suggestions';
 import { createCursorStore } from './cursor';
 import CursorReadout from './CursorReadout';
+import FacetHeaders from './FacetHeaders';
 import { type PanelSpec } from './models';
 import Panel from './Panel';
 import { type PanelColors } from './PanelContent';
@@ -32,11 +33,12 @@ const DOMAIN_UPDATE_DELAY = 150; // ms: domains of panels loading together are c
 const PENDING_COLORS: PanelColors = { domain: [0, 1] }; // until the first panel of a group loads
 
 const MIN_SIZE = 192; // px: of a panel with axes (more panels than fit: scroll)
-const MIN_COMPACT_SIZE = 96; // px: of a panel without axes
+const MIN_COMPACT_SIZE = 80; // px: of a panel without axes
 const COMPACT_PLOT_SIZE = 200; // px: smaller plots are drawn compact (cf. `isCompact`)
 const LABEL_SIZE = 24; // px: shared axis labels
 const GAP = 8; // px, between panels and around the grid
-const TITLE_HEIGHT = 24; // px
+const TITLE_HEIGHT = 24; // px: of panel titles, and column headers
+const ROW_HEADER_WIDTH = 20; // px: vertical text
 const AXES = getAxisOffsets({ left: true, bottom: true }); // with labels
 const SNAPSHOT_TIMEOUT = 30_000; // ms: to load the panels out of view
 
@@ -72,19 +74,26 @@ export interface PanelGridHandle {
   prepareSnapshot: () => Promise<void>;
 }
 
-/* Size of the panels (square, besides their title and axes along the edges of the grid): as large
- * as fit the available area, else as the columns fit its width (the grid then scrolls down) */
+/* Size of the panels (square, besides their title, and axes and headers along the edges of the
+ * grid): as large as fit the available area, else as the columns fit its width (the grid then
+ * scrolls down) */
 function getPanelSize(
   [cols, rows]: [number, number],
   [width, height]: [number, number],
-  [axesWidth, axesHeight]: [number, number],
+  [extraWidth, extraHeight]: [number, number],
+  titleHeight: number,
   min: number,
 ): number {
-  const colFit = (width - axesWidth - GAP * (cols + 1)) / cols;
+  const colFit = (width - extraWidth - GAP * (cols + 1)) / cols;
   const rowFit =
-    (height - axesHeight - (GAP + TITLE_HEIGHT) * rows - GAP) / rows;
+    (height - extraHeight - (GAP + titleHeight) * rows - GAP) / rows;
   const fit = Math.min(colFit, rowFit);
   return Math.floor(fit >= min ? fit : Math.max(min, colFit));
+}
+
+/* Total size of tracks of the grid (e.g. labels), with the gaps after them */
+function sumTracks(sizes: number[]): number {
+  return sizes.reduce((acc, size) => acc + size + GAP, 0);
 }
 
 /* Sizes of the columns or rows of the grid, with `extra` on some of them (e.g. axes) */
@@ -134,6 +143,7 @@ interface Props {
   linkCursor: boolean;
   edgeAxesOnly: boolean; // axes only along the left and bottom edges of the grid (compact)
   axisLabels?: { x?: string; y?: string }; // shared by all panels: once, beside the grid
+  headers?: { rows: string[]; cols: string[] }; // facet grid: instead of panel titles
   onOpen?: (spec: PanelSpec) => void;
   className?: string;
   ref?: Ref<PanelGridHandle>;
@@ -152,6 +162,7 @@ function PanelGrid(props: Props) {
     linkCursor,
     edgeAxesOnly,
     axisLabels,
+    headers,
     onOpen,
     className = '',
     ref,
@@ -238,10 +249,23 @@ function PanelGrid(props: Props) {
     ? [AXES.left, AXES.bottom]
     : [0, 0];
   const bottomRows = useMemo(() => getBottomRows(specs), [specs]); // with x axes
+  const axisRows = new Set(bottomRows.values());
+  // Facet grid: headers along the edges instead of panel titles
+  const [rowHeader, colHeader, titleHeight] = headers
+    ? [ROW_HEADER_WIDTH, TITLE_HEIGHT, 0]
+    : [0, 0, TITLE_HEIGHT];
+  // Tracks around the panels: shared y label and row headers; column headers; x label
+  const leadCols = [labelSize, rowHeader].filter(Boolean);
+  const leadRows = [colHeader].filter(Boolean);
+  const trailRows = [labelSize].filter(Boolean);
   const panelSize = getPanelSize(
     [cols, rows],
-    [width - labelSize, height - labelSize],
-    [axesWidth, axesHeight * new Set(bottomRows.values()).size],
+    [width, height],
+    [
+      axesWidth + sumTracks(leadCols),
+      axesHeight * axisRows.size + sumTracks([...leadRows, ...trailRows]),
+    ],
+    titleHeight,
     edgeAxesOnly ? MIN_COMPACT_SIZE : MIN_SIZE,
   );
   const plotSize = edgeAxesOnly
@@ -250,7 +274,7 @@ function PanelGrid(props: Props) {
   const isCompact = plotSize < COMPACT_PLOT_SIZE;
   // Linked cursor's values in a readout, instead of a tooltip (small panels, small multiples)
   const withReadout = linkCursor && (edgeAxesOnly || isCompact);
-  const colOffset = labelSize > 0 ? 1 : 0; // after the shared y label
+  const [rowOffset, colOffset] = [leadRows.length, leadCols.length];
 
   return (
     <div
@@ -270,19 +294,16 @@ function PanelGrid(props: Props) {
                 gap: GAP,
                 padding: GAP,
                 gridTemplateColumns: [
-                  labelSize > 0 && `${labelSize}px`,
+                  ...leadCols.map((px) => `${px}px`),
                   getTracks(cols, panelSize, axesWidth, [0]),
-                ]
-                  .filter(Boolean)
-                  .join(' '),
+                ].join(' '),
                 gridTemplateRows: [
-                  getTracks(rows, panelSize + TITLE_HEIGHT, axesHeight, [
-                    ...bottomRows.values(),
+                  ...leadRows.map((px) => `${px}px`),
+                  getTracks(rows, panelSize + titleHeight, axesHeight, [
+                    ...axisRows,
                   ]),
-                  labelSize > 0 && `${labelSize}px`,
-                ]
-                  .filter(Boolean)
-                  .join(' '),
+                  ...trailRows.map((px) => `${px}px`),
+                ].join(' '),
               }}
               data-shared-labels={!!axisLabels || undefined}
             >
@@ -291,7 +312,18 @@ function PanelGrid(props: Props) {
                   labels={axisLabels}
                   rows={rows}
                   cols={cols}
+                  start={[rowOffset + 1, colOffset + 1]}
                   visibleSize={[width - 2 * GAP, height - 2 * GAP]}
+                />
+              )}
+              {headers && (
+                <FacetHeaders
+                  headers={headers}
+                  rows={rows}
+                  cols={cols}
+                  start={[rowOffset + 1, colOffset + 1]}
+                  axesSize={[axesWidth, axesHeight]}
+                  axisRows={axisRows}
                 />
               )}
               {specs.map((spec, index) => {
@@ -300,7 +332,7 @@ function PanelGrid(props: Props) {
                   <Panel
                     key={spec.key}
                     spec={spec}
-                    gridRow={spec.row + 1}
+                    gridRow={spec.row + rowOffset + 1}
                     gridColumn={spec.col + colOffset + 1}
                     colors={
                       isDomainShared && group !== undefined
@@ -313,6 +345,7 @@ function PanelGrid(props: Props) {
                       !edgeAxesOnly || spec.row === bottomRows.get(spec.col)
                     }
                     showYAxis={!edgeAxesOnly || spec.col === 0}
+                    showTitle={!headers}
                     showTooltip={!withReadout}
                     load={loadAll && index < SNAPSHOT_MAX_PANELS}
                     isCompact={isCompact}

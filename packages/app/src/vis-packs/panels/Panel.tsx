@@ -10,9 +10,11 @@ import {
   useState,
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { FiMaximize2 } from 'react-icons/fi';
 
 import { useDataContext } from '../../providers/DataProvider';
 import { formatBytes, getValueSize } from '../utils';
+import { toUnicodeScripts } from '../view-hints/attrs';
 import { isAffordable } from '../view-hints/hooks';
 import { renderMarkup } from '../view-hints/markup';
 import { type PanelDataset, type PanelSpec } from './models';
@@ -27,6 +29,7 @@ interface Props extends PanelProps {
   showXAxis: boolean; // e.g. only along the bottom edge of a grid
   showYAxis: boolean; // e.g. only along the left edge
   showTooltip: boolean; // e.g. not when the linked cursor's readout replaces it
+  showTitle: boolean; // else a button to open it in a corner (e.g. facet grid, with headers)
   load: boolean; // even out of view (e.g. for a snapshot of all panels)
   onOpen?: (spec: PanelSpec) => void; // e.g. in the normal single view
 }
@@ -73,10 +76,12 @@ function Panel(props: Props) {
     showXAxis,
     showYAxis,
     showTooltip,
+    showTitle,
     load,
     onOpen,
   } = props;
   const { dataset, mapping, title, linkKey } = spec;
+  const plainTitle = toUnicodeScripts(title);
 
   const dataContext = useDataContext();
   const [elem, setElem] = useState<HTMLElement | null>(null);
@@ -147,21 +152,35 @@ function Panel(props: Props) {
       aria-label={title}
       data-empty={isEmpty || undefined}
     >
-      <h3 className={styles.panelTitle}>
-        {onOpen ? (
-          <button
-            type="button"
-            className={styles.openBtn}
-            onClick={() => onOpen(spec)}
-            title="Open in a single view"
-          >
-            {renderMarkup(title)}
-          </button>
-        ) : (
-          renderMarkup(title)
-        )}
-      </h3>
+      {showTitle && (
+        <h3 className={styles.panelTitle} title={plainTitle}>
+          {onOpen ? (
+            <button
+              type="button"
+              className={styles.openBtn}
+              onClick={() => onOpen(spec)}
+              title={`${plainTitle} (open in a single view)`}
+            >
+              {renderMarkup(title)}
+            </button>
+          ) : (
+            renderMarkup(title)
+          )}
+        </h3>
+      )}
       {renderContent()}
+      {!showTitle && onOpen && (
+        <button
+          type="button"
+          className={styles.openCorner}
+          onClick={() => onOpen(spec)}
+          aria-label={`Open ${plainTitle}`}
+          title={`Open ${plainTitle}`}
+          data-snapshot-ignore // cf. `SNAPSHOT_IGNORE_ATTR`
+        >
+          <FiMaximize2 />
+        </button>
+      )}
     </section>
   );
 }

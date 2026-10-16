@@ -168,6 +168,19 @@ test('show small multiples over two dimensions', async () => {
     'k = 1, p = 0',
   ]);
 
+  // Facet grid: rows and columns labelled once, along the edges (no panel titles)
+  expect(
+    [...document.querySelectorAll('[class*="_rowHeader_"]')].map(
+      (elem) => elem.textContent,
+    ),
+  ).toEqual(['k = 0', 'k = 1', 'k = 2', 'k = 3']);
+  expect(
+    [...document.querySelectorAll('[class*="_colHeader_"]')].map(
+      (elem) => elem.textContent,
+    ),
+  ).toEqual(['p = 0', 'p = 1', 'p = 2']);
+  expect(document.querySelectorAll('section h3')).toHaveLength(0);
+
   // NaN where p > k: blank panels
   await expect.poll(countEmptyPanels).toBe(3);
   await expect.poll(countColorBars).toBe(1); // shared domain
@@ -215,7 +228,7 @@ test('slice small multiples along the other dimensions', async () => {
 test('open a slice of small multiples in the single view', async () => {
   const { user } = await renderApp('/view_hints/multiples');
 
-  await user.click(page.getByRole('button', { name: 'k = 2, p = 1' }));
+  await user.click(page.getByRole('button', { name: 'Open k = 2, p = 1' }));
   await expect.poll(getSelectedVisTab).toBe(Vis.Heatmap);
   await expect
     .element(page.getByRole('slider', { name: 'k' }))

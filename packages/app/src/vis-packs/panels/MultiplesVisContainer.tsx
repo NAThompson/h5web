@@ -80,6 +80,20 @@ function MultiplesVisContainer(props: VisContainerProps) {
   );
   const rows = Math.ceil(cells.length / cols);
 
+  const getIndexLabel = useCallback(
+    (k: number, index: number) => {
+      const dim = multiplesDims[k];
+      const scale = dimScales[dim];
+      return formatIndexLabel(
+        dimLabels[dim] ?? `D${dim}`,
+        index,
+        scale?.value,
+        scale?.sliceLabels,
+      );
+    },
+    [multiplesDims, dimScales, dimLabels],
+  );
+
   const specs = useMemo(
     () =>
       cells.map(({ indices, row, col }): PanelSpec => ({
@@ -88,32 +102,24 @@ function MultiplesVisContainer(props: VisContainerProps) {
         hint,
         kind,
         mapping: insertIndices(subMapping, multiplesDims, indices),
-        title: indices
-          .map((index, k) => {
-            const dim = multiplesDims[k];
-            const scale = dimScales[dim];
-            return formatIndexLabel(
-              dimLabels[dim] ?? `D${dim}`,
-              index,
-              scale?.value,
-              scale?.sliceLabels,
-            );
-          })
-          .join(', '),
+        title: indices.map((index, k) => getIndexLabel(k, index)).join(', '),
         row,
         col,
         linkKey: 'multiples',
       })),
-    [
-      cells,
-      entity,
-      hint,
-      kind,
-      subMapping,
-      multiplesDims,
-      dimScales,
-      dimLabels,
-    ],
+    [cells, entity, hint, kind, subMapping, multiplesDims, getIndexLabel],
+  );
+
+  // Two dimensions: a facet grid, with the index of each row and column once, along its edges
+  const headers = useMemo(
+    () =>
+      sizes.length === 2
+        ? {
+            rows: Array.from({ length: rows }, (_, i) => getIndexLabel(0, i)),
+            cols: Array.from({ length: cols }, (_, i) => getIndexLabel(1, i)),
+          }
+        : undefined,
+    [sizes.length, rows, cols, getIndexLabel],
   );
 
   // Labels of the axes, shared by all panels
@@ -193,6 +199,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
         linkCursor={settings.linkCursor}
         edgeAxesOnly
         axisLabels={axisLabels}
+        headers={headers}
         onOpen={setActiveVis && onOpen}
       />
       <OverlayNotes

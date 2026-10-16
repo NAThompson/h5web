@@ -225,7 +225,7 @@ test('export all panels of a scrolled grid', async () => {
   );
   expect(doc.querySelectorAll('image')).toHaveLength(9); // 12 panels, 3 blank (NaN)
   expect(getTexts(doc)).toEqual(
-    expect.arrayContaining(['k = 0, p = 0', 'k = 3, p = 2']),
+    expect.arrayContaining(['k = 0', 'k = 3', 'p = 0', 'p = 2']),
   );
   expect(root.style.cssText).toBe(cssText); // restored
 }, 30_000); // panels drawn and snapshotted (slow in the full suite)

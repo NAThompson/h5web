@@ -5,20 +5,23 @@ interface Props {
   labels: { x?: string; y?: string };
   rows: number;
   cols: number;
+  start: [number, number]; // grid row and column of the first panel
   visibleSize: [number, number]; // of the grid's area: labels stay in view as it scrolls
 }
 
-/* Axis labels of all panels, once: x under the grid, y to its left (first column and last row) */
+/* Axis labels of all panels, once: x under the grid, y to its left (first column and last row
+ * of the grid) */
 function SharedAxisLabels(props: Props) {
-  const { labels, rows, cols, visibleSize } = props;
+  const { labels, rows, cols, start, visibleSize } = props;
   const [width, height] = visibleSize;
+  const [firstRow, firstCol] = start;
   return (
     <>
       {labels.y && (
         <p
           className={styles.yLabel}
           style={{
-            gridRow: `1 / span ${rows}`,
+            gridRow: `${firstRow} / span ${rows}`,
             gridColumn: 1,
             maxHeight: height,
           }}
@@ -30,8 +33,8 @@ function SharedAxisLabels(props: Props) {
         <p
           className={styles.xLabel}
           style={{
-            gridRow: rows + 1,
-            gridColumn: `2 / span ${cols}`,
+            gridRow: firstRow + rows,
+            gridColumn: `${firstCol} / span ${cols}`,
             maxWidth: width,
           }}
         >

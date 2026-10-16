@@ -28,6 +28,7 @@
 }
 
 .panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -47,6 +48,11 @@
 }
 
 .openBtn {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
   padding: 0;
   border: none;
   background: none;
@@ -58,6 +64,57 @@
 .openBtn:hover,
 .openBtn:focus-visible {
   text-decoration: underline;
+}
+
+/* Opens the panel, in its top-right corner (above the plot): shown on hover */
+.openCorner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  padding: 1px;
+  border: none;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.panel:hover > .openCorner,
+.openCorner:focus-visible {
+  opacity: 0.7;
+}
+
+.openCorner:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Facet grid: index of each column above it, of each row to its left */
+.colHeader,
+.rowHeader {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  font-size: 0.875em;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.colHeader {
+  align-self: end;
+}
+
+.rowHeader {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 
 .placeholder {
