@@ -160,16 +160,26 @@ export function getBottomRows(
   return bottomRows;
 }
 
-/* Heatmap panels whose colours can be shared: same colour scale and map (else the colour bar of
- * the group could differ from some of them) */
+/* Heatmap panels whose colours can be shared: same colour scale and map, and same values and
+ * colours beyond the domain on the colour bar (else the colour bar of the group, as its first
+ * member's, could differ from some of them) */
 export function getColorGroup(spec: PanelSpec): string | undefined {
   if (spec.kind !== 'heatmap') {
     return undefined;
   }
   const { scaleType = ScaleType.Linear, colorMap, invertColorMap } = spec.hint;
+  const { valueTransform, belowColor, aboveColor } = spec.hint;
   const threshold =
     scaleType === ScaleType.SymLog ? spec.hint.symlogThreshold : undefined;
-  return [scaleType, colorMap, invertColorMap, threshold].join('|');
+  return [
+    scaleType,
+    colorMap,
+    invertColorMap,
+    threshold,
+    valueTransform,
+    belowColor,
+    aboveColor,
+  ].join('|');
 }
 
 /* Smallest domain containing the given ones (`undefined` if none) */

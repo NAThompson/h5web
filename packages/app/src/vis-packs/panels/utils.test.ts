@@ -164,6 +164,8 @@ describe('getColorGroup', () => {
     expect(
       group('heatmap', { scaleType: ScaleType.SymLog, symlogThreshold: 2 }),
     ).not.toBe(group('heatmap', { scaleType: ScaleType.SymLog }));
+    expect(group('heatmap', { valueTransform: 'exp10' })).not.toBe(linear); // colour bar values
+    expect(group('heatmap', { aboveColor: 'red' })).not.toBe(linear);
     expect(group('line', {})).toBeUndefined();
   });
 });
