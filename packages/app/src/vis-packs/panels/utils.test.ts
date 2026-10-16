@@ -1,9 +1,13 @@
+import { ScaleType } from '@h5web/shared/vis-models';
 import { describe, expect, it } from 'vitest';
 
+import { type ViewHint } from '../view-hints/models';
+import { type PanelSpec } from './models';
 import {
   combineDomains,
   formatIndexLabel,
   getBottomRows,
+  getColorGroup,
   getGridSize,
   getMultiplesGrid,
   getPanelMapping,
@@ -142,5 +146,24 @@ describe('getBottomRows', () => {
       1: 1,
       2: 0,
     });
+  });
+});
+
+function group(kind: PanelSpec['kind'], hint: Partial<ViewHint>) {
+  return getColorGroup({ kind, hint } as PanelSpec);
+}
+
+describe('getColorGroup', () => {
+  it('group heatmaps by colour scale and map', () => {
+    const linear = group('heatmap', {});
+    expect(group('heatmap', { scaleType: ScaleType.Linear })).toBe(linear);
+    expect(group('heatmap', { scaleType: ScaleType.Log })).not.toBe(linear);
+    expect(group('heatmap', { colorMap: 'Inferno' })).not.toBe(linear);
+    expect(group('heatmap', { invertColorMap: true })).not.toBe(linear);
+    expect(group('heatmap', { symlogThreshold: 2 })).toBe(linear); // not symlog
+    expect(
+      group('heatmap', { scaleType: ScaleType.SymLog, symlogThreshold: 2 }),
+    ).not.toBe(group('heatmap', { scaleType: ScaleType.SymLog }));
+    expect(group('line', {})).toBeUndefined();
   });
 });

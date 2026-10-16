@@ -1,7 +1,7 @@
 import { type Axis, type DimensionMapping } from '@h5web/lib';
-import { type Domain } from '@h5web/shared/vis-models';
+import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 
-import { type PanelKind } from './models';
+import { type PanelKind, type PanelSpec } from './models';
 
 export const MAX_PANELS = 1024; // more would take too long to fetch and draw
 
@@ -157,6 +157,18 @@ export function getBottomRows(
     bottomRows.set(col, Math.max(row, bottomRows.get(col) ?? 0));
   });
   return bottomRows;
+}
+
+/* Heatmap panels whose colours can be shared: same colour scale and map (else the colour bar of
+ * the group could differ from some of them) */
+export function getColorGroup(spec: PanelSpec): string | undefined {
+  if (spec.kind !== 'heatmap') {
+    return undefined;
+  }
+  const { scaleType = ScaleType.Linear, colorMap, invertColorMap } = spec.hint;
+  const threshold =
+    scaleType === ScaleType.SymLog ? spec.hint.symlogThreshold : undefined;
+  return [scaleType, colorMap, invertColorMap, threshold].join('|');
 }
 
 /* Smallest domain containing the given ones (`undefined` if none) */

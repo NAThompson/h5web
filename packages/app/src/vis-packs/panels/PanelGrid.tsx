@@ -13,7 +13,7 @@ import { type PanelColors } from './PanelContent';
 import styles from './Panels.module.css';
 import SharedAxisLabels from './SharedAxisLabels';
 import SharedColorBar from './SharedColorBar';
-import { combineDomains, getBottomRows } from './utils';
+import { combineDomains, getBottomRows, getColorGroup } from './utils';
 
 const DOMAIN_UPDATE_DELAY = 150; // ms: domains of panels loading together are combined at once
 const PENDING_COLORS: PanelColors = { domain: [0, 1] }; // until the first panel of a group loads
@@ -52,13 +52,6 @@ function getTracks(
     { length: count },
     (_, i) => `${size + (extraIndices.includes(i) ? extra : 0)}px`,
   ).join(' ');
-}
-
-/* Heatmap panels whose colours can be shared: same colour scale */
-function getColorGroup(spec: PanelSpec): string | undefined {
-  return spec.kind === 'heatmap'
-    ? (spec.hint.scaleType ?? ScaleType.Linear)
-    : undefined;
 }
 
 /* Shared domain of a group of panels, and colour map (e.g. diverging if it spans the centre),
