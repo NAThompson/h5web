@@ -121,3 +121,8 @@ export function getSnapshotFilename(
 
   return `${base || 'snapshot'}.${extension}`;
 }
+
+/* File name with the extension of the format, replacing an image extension (not other dots, e.g. `run 1.5 K`) */
+export function withExtension(filename: string, extension: string): string {
+  return `${filename.replace(/\.(?:pdf|png|svg)$/iu, '')}.${extension}`;
+}

@@ -9,6 +9,7 @@ import {
   MAX_CANVAS_SIDE,
   parseLinearGradient,
   splitTopLevel,
+  withExtension,
 } from './utils';
 
 describe('splitTopLevel', () => {
@@ -111,5 +112,14 @@ describe('getSnapshotFilename', () => {
     expect(getSnapshotFilename('..hidden')).toBe('hidden.png');
     expect(getSnapshotFilename('')).toBe('snapshot.png');
     expect(getSnapshotFilename(undefined)).toBe('snapshot.png');
+  });
+});
+
+describe('withExtension', () => {
+  it('should replace an image extension, else append one', () => {
+    expect(withExtension('plot.png', 'svg')).toBe('plot.svg');
+    expect(withExtension('plot.PDF', 'png')).toBe('plot.png');
+    expect(withExtension('run 1.5 K', 'svg')).toBe('run 1.5 K.svg');
+    expect(withExtension('plot', 'pdf')).toBe('plot.pdf');
   });
 });

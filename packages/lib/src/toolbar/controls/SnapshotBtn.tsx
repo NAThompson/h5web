@@ -3,7 +3,10 @@ import { MdCameraAlt } from 'react-icons/md';
 
 import { exportSnapshot, findVisElement } from '../../vis/snapshot/render';
 import { exportPdfSnapshot, exportSvgSnapshot } from '../../vis/snapshot/svg';
-import { getSnapshotFilename } from '../../vis/snapshot/utils';
+import {
+  getSnapshotFilename,
+  withExtension,
+} from '../../vis/snapshot/utils';
 import ActionMenu from './ActionMenu';
 import { download } from './utils';
 
@@ -57,7 +60,7 @@ function SnapshotBtn(props: Props) {
             : format === 'pdf'
               ? exportPdfSnapshot(elem)
               : exportSnapshot(elem, { scale }),
-        filename?.replace(/(\.[^.]*)?$/u, `.${format}`) ??
+        (filename && withExtension(filename, format)) ??
           getSnapshotFilename(elem.getAttribute('aria-label') ?? '', format),
       );
       setStatus('idle');
