@@ -21,6 +21,7 @@ import MetadataViewer from './metadata-viewer/MetadataViewer';
 import { useDataContext } from './providers/DataProvider';
 import Sidebar from './Sidebar';
 import VisConfigProvider from './VisConfigProvider';
+import { SelectPathContext } from './visualizer/navigation';
 import Visualizer from './visualizer/Visualizer';
 
 const SIDEBAR_ID = 'h5w-sidebar';
@@ -139,7 +140,9 @@ function App(props: Props) {
                         onSelectPath={onSelectPath}
                       />
                     ) : (
-                      <Visualizer path={selectedPath} />
+                      <SelectPathContext value={onSelectPath}>
+                        <Visualizer path={selectedPath} />
+                      </SelectPathContext>
                     )}
                   </Suspense>
                 </ErrorBoundary>

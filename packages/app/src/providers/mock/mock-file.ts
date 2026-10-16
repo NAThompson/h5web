@@ -1664,6 +1664,59 @@ export function makeMockFile(): GroupWithChildren {
           valueId: 'twoD',
           attributes: [scalarAttr('H5WEB_vis', 'volume')],
         }),
+        // Panels side by side: the same field twice, their difference and a line, linked and
+        // sliced together along `generation` (`missing` is skipped with a note)
+        group(
+          'panels',
+          [
+            ...(
+              [
+                ['field', 'panels_field', 'ψ'],
+                ['field_half', 'panels_field_half', 'ψ/2'],
+              ] as const
+            ).map(([name, valueId, longName]) =>
+              withDimScales(
+                array(name, {
+                  valueId,
+                  attributes: [
+                    scalarAttr('long_name', longName),
+                    scalarAttr('H5WEB_colormap', 'auto'),
+                  ],
+                }),
+                {
+                  scales: [
+                    ['/view_hints/generation'],
+                    ['/view_hints/theta'],
+                    ['/view_hints/alpha'],
+                  ],
+                },
+              ),
+            ),
+            withDimScales(
+              array('difference', {
+                valueId: 'panels_difference',
+                attributes: [
+                  scalarAttr('H5WEB_scale', 'log'),
+                  scalarAttr('H5WEB_title', '|ψ − ψ/2|'),
+                ],
+              }),
+              { scales: [['/view_hints/theta'], ['/view_hints/alpha']] },
+            ),
+            withDimScales(array('profile', { valueId: 'psi_axis' }), {
+              scales: [['/view_hints/alpha']],
+            }),
+          ],
+          {
+            attributes: [
+              scalarAttr(
+                'H5WEB_panels',
+                'field field_half difference profile missing',
+              ),
+              arrayAttr('H5WEB_layout', [2, 2], { type: intType(true, 32) }),
+              intAttr('H5WEB_symmetric', 1),
+            ],
+          },
+        ),
       ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),

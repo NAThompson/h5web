@@ -33,6 +33,8 @@ import {
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
+import { type PanelVisOptions } from '../../panels/models';
+import PanelLayer from '../../panels/PanelLayer';
 import { useStableDomain } from '../../playback-range';
 import { toUnicodeScripts } from '../../view-hints/attrs';
 import {
@@ -78,6 +80,7 @@ interface Props {
   probe?: { point?: ProbePoint; onProbe: (point: ProbePoint) => void }; // stacks
   specialColors?: SpecialColorsHint; // e.g. of NaN
   valueTransform?: ValueTransform; // values are logarithms: ±∞ (e.g. log of 0) drawn as NaN
+  panel?: PanelVisOptions; // one of several panels (e.g. small multiples)
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -101,6 +104,7 @@ function MappedHeatmapVis(props: Props) {
     probe,
     specialColors = {},
     valueTransform,
+    panel,
   } = props;
 
   const {
@@ -257,8 +261,18 @@ function MappedHeatmapVis(props: Props) {
           belowColor={specialColors.belowColor}
           aboveColor={specialColors.aboveColor}
           valueTransform={valueTransform}
+          showColorBar={panel?.showColorBar}
         >
-          <KeepZoom visKey="heatmap" />
+          <PanelLayer
+            panel={panel}
+            data={{
+              dataArray,
+              abscissas: abscissaParams.value,
+              ordinates: ordinateParams.value,
+            }}
+          >
+            <KeepZoom visKey="heatmap" />
+          </PanelLayer>
           {contours.regular && (
             <ContourLines {...contours.regular} {...contourAxes} />
           )}

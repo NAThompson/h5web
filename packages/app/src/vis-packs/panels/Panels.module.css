@@ -1,0 +1,176 @@
+.root {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.canvas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.canvasArea {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.grid {
+  display: grid;
+  place-content: safe center; /* when smaller than the area (else from the start: all scrollable) */
+  gap: 0.5rem;
+  min-width: 100%;
+  min-height: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.panelTitle {
+  flex: none;
+  margin: 0 0 0.25rem;
+  font-size: 0.875em;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.openBtn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.openBtn:hover,
+.openBtn:focus-visible {
+  text-decoration: underline;
+}
+
+.placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--secondary-dark, #ccc);
+  color: var(--secondary-darker, #888);
+  font-size: 0.875em;
+  font-style: italic;
+}
+
+.placeholder[data-empty] {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.placeholder[data-empty]:hover::after {
+  content: '—';
+}
+
+.panel[data-empty] > .panelTitle {
+  opacity: 0.3;
+}
+
+/* Shared axis labels, beside the grid (those of the panels hidden, keeping their space) */
+.grid[data-shared-labels] :global(.visx-axis-label) {
+  visibility: hidden;
+}
+
+.xLabel,
+.yLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.yLabel {
+  position: sticky; /* in view as the grid scrolls */
+  top: 0;
+  align-self: start;
+  height: 100%;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.xLabel {
+  position: sticky;
+  left: 0;
+  justify-self: start;
+  width: 100%;
+}
+
+.readout {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  height: 1.5rem;
+  margin: 0;
+  font-size: 0.875em;
+  line-height: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.colorBars {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  padding: 0 0.5rem;
+}
+
+.colorBars > * {
+  flex: 1;
+  max-height: 30rem;
+}
+
+.cursor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cursor > line {
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.cursor > circle {
+  fill: rgba(0, 0, 0, 0.7);
+}
+
+.cursorValue {
+  position: absolute;
+  transform: translate(6px, calc(-100% - 4px));
+  padding: 0 0.25rem;
+  border-radius: 2px;
+  background-color: rgba(255, 255, 255, 0.85);
+  color: #000;
+  font-size: 0.75em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.fallback {
+  composes: fallback from '../../utils.module.css';
+}

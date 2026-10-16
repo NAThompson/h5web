@@ -37,6 +37,8 @@ import {
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
 import { formatDType, unpackNumArray } from '../../netcdf/utils';
+import { type PanelVisOptions } from '../../panels/models';
+import PanelLayer from '../../panels/PanelLayer';
 import { useStableDomain } from '../../playback-range';
 import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useEnvelopes } from '../../view-hints/envelope';
@@ -101,6 +103,7 @@ interface Props {
   dataWidth?: number;
   legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
   nanColor?: string; // of the marks of values that can't be drawn (e.g. 0 in log scale)
+  panel?: PanelVisOptions; // one of several panels (e.g. small multiples)
 }
 
 /* Drawn along with the dataset (`H5WEB_series` and overlays of a hint) */
@@ -159,6 +162,7 @@ function MappedLineVis(props: Props) {
     dataWidth,
     legend,
     nanColor,
+    panel,
   } = props;
   const { series, references, legendEntries } = extras;
 
@@ -444,7 +448,12 @@ function MappedLineVis(props: Props) {
         markUnplottable
         unplottableColor={nanColor}
       >
-        <KeepZoom visKey="line" xOnly />
+        <PanelLayer
+          panel={panel}
+          data={{ dataArray, abscissas: abscissaParams.value }}
+        >
+          <KeepZoom visKey="line" xOnly />
+        </PanelLayer>
         {references.length > 0 && <ReferenceLayer shapes={references} />}
       </LineVis>
     </>

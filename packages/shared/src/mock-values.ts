@@ -690,6 +690,35 @@ export const mockValues = {
       [2, 21],
     ),
   cma_sigma: () => ndarray(range(0, 5).map((g) => 2 / (g + 1))),
+  // Panels: ψ over generations (5 x 21 x 21), ψ/2, and their difference at generation 0
+  panels_field: () =>
+    ndarray(
+      range(0, 5 * 21 * 21).map(
+        (i) =>
+          (Math.floor(i / 441) + 1) *
+          Math.sin(i % 21) *
+          Math.cos((i % 441) / 21),
+      ),
+      [5, 21, 21],
+    ),
+  panels_field_half: () =>
+    ndarray(
+      range(0, 5 * 21 * 21).map(
+        (i) =>
+          ((Math.floor(i / 441) + 1) *
+            Math.sin(i % 21) *
+            Math.cos((i % 441) / 21)) /
+          2,
+      ),
+      [5, 21, 21],
+    ),
+  panels_difference: () =>
+    ndarray(
+      range(0, 21 * 21).map(
+        (i) => Math.abs(Math.sin(i % 21) * Math.cos(i / 21)) / 2 + 1e-3,
+      ),
+      [21, 21],
+    ),
   cma_landscapes: () => {
     const { data } = twoD();
     return ndarray(

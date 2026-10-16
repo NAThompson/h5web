@@ -30,6 +30,8 @@ import {
   NxDataVis,
   type NxDataVisDef,
 } from '../vis-packs/nexus/visualizations';
+import { hasPanelsAttr } from '../vis-packs/panels/hint';
+import { PANELS_VIS } from '../vis-packs/panels/visualizations';
 import {
   findHintVis,
   getHintSafely,
@@ -77,6 +79,9 @@ async function resolvePath(
     return null;
   }
 
+  // `H5WEB_panels`: datasets side by side, by default (over NeXus)
+  const isPanels = hasPanelsAttr(entity);
+
   if (await isNxNoteGroup(entity, dataContext)) {
     return { entity, supportedVis: [NX_NOTE_VIS] };
   }
@@ -116,13 +121,18 @@ async function resolvePath(
       const hintVis = findHintVis(hint, supportedVis);
       return {
         entity,
-        supportedVis,
-        primaryVis:
-          hintVis ??
-          findPrimaryVis(supportedVis, interpretation, signal, axisDatasets),
+        supportedVis: isPanels ? [PANELS_VIS, ...supportedVis] : supportedVis,
+        primaryVis: isPanels
+          ? PANELS_VIS
+          : (hintVis ??
+            findPrimaryVis(supportedVis, interpretation, signal, axisDatasets)),
         notes: getHintVisNotes(hint, hintVis),
       };
     }
+  }
+
+  if (isPanels) {
+    return { entity, supportedVis: [PANELS_VIS], primaryVis: PANELS_VIS };
   }
 
   const nxDefaultPath =

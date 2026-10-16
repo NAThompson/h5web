@@ -196,6 +196,26 @@ export function useDimMappingState(opts: {
   return [currentMapping, setMapping, currentMultiDim, setMultiDim];
 }
 
+/* Set the mapping of a dataset's dimensions before opening it (e.g. at a panel's slice) */
+export function useSetDimMapping(): (
+  dims: number[],
+  axesCount: number,
+  mapping: DimensionMapping,
+) => void {
+  const store = useContext(StoreContext);
+  return useCallback(
+    (dims, axesCount, mapping) =>
+      store.setState({
+        dims,
+        axesCount,
+        lockedDimsCount: 0,
+        mapping,
+        multiDim: undefined,
+      }),
+    [store],
+  );
+}
+
 export function usePlaybackSettingsState(): [
   PlaybackSettings,
   (settings: PlaybackSettings) => void,
