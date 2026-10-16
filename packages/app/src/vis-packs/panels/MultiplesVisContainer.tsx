@@ -4,7 +4,7 @@ import {
   assertDataset,
   assertNumericLikeType,
 } from '@h5web/shared/guards';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useDimMappingState, useSetDimMapping } from '../../dim-mapping-store';
@@ -17,7 +17,7 @@ import { useViewHint } from '../view-hints/hooks';
 import OverlayNotes from '../view-hints/OverlayNotes';
 import { getPanelKind } from './hint';
 import { type PanelSpec } from './models';
-import PanelGrid from './PanelGrid';
+import PanelGrid, { type PanelGridHandle } from './PanelGrid';
 import PanelsToolbar, { type PanelsSettings } from './PanelsToolbar';
 import {
   formatIndexLabel,
@@ -27,6 +27,7 @@ import {
   insertIndices,
   insertSelectionIndices,
   MAX_PANELS,
+  SNAPSHOT_MAX_PANELS,
 } from './utils';
 
 /* Small multiples: a panel per index of one or two dimensions (`H5WEB_multiples_dim`; default:
@@ -157,6 +158,8 @@ function MultiplesVisContainer(props: VisContainerProps) {
     [dims, axesCount, kind, setActiveVis, setDimMapping],
   );
 
+  const gridRef = useRef<PanelGridHandle>(null);
+
   return (
     <>
       {toolbarContainer &&
@@ -165,6 +168,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
             settings={settings}
             withSharedDomain={kind === 'heatmap'}
             onChange={setSettings}
+            onBeforeSnapshot={async () => gridRef.current?.prepareSnapshot()}
           />,
           toolbarContainer,
         )}
@@ -179,6 +183,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
         onChange={setSubMapping}
       />
       <PanelGrid
+        ref={gridRef}
         className={visualizerStyles.vis}
         specs={specs}
         rows={rows}
@@ -195,6 +200,9 @@ function MultiplesVisContainer(props: VisContainerProps) {
           ...hint.notes,
           ...(count > MAX_PANELS
             ? [`only the first ${MAX_PANELS} of ${count} panels`]
+            : []),
+          ...(specs.length > SNAPSHOT_MAX_PANELS
+            ? [`snapshots load only the first ${SNAPSHOT_MAX_PANELS} panels`]
             : []),
         ]}
       />

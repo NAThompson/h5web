@@ -114,6 +114,13 @@
   width: 100%;
 }
 
+/* Snapshots of all panels: labels along the whole grid, not in view */
+:global([data-snapshot]) .xLabel,
+:global([data-snapshot]) .yLabel {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .readout {
   flex: none;
   display: flex;

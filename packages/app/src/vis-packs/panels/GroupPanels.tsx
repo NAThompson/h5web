@@ -3,7 +3,7 @@ import {
   type DimensionMapping,
   getSliceSelection,
 } from '@h5web/lib';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useDimMappingState, useSetDimMapping } from '../../dim-mapping-store';
@@ -15,9 +15,14 @@ import { useSlicingProps } from '../slicing';
 import OverlayNotes from '../view-hints/OverlayNotes';
 import { type ResolvedPanel, type ResolvedPanels } from './hint';
 import { type PanelSpec } from './models';
-import PanelGrid from './PanelGrid';
+import PanelGrid, { type PanelGridHandle } from './PanelGrid';
 import PanelsToolbar, { type PanelsSettings } from './PanelsToolbar';
-import { getGridSize, getPanelAxes, getPanelMapping } from './utils';
+import {
+  getGridSize,
+  getPanelAxes,
+  getPanelMapping,
+  SNAPSHOT_MAX_PANELS,
+} from './utils';
 
 /* Panels with the same axes: same kind, and same dimension scales (or lengths) on the axes */
 export function getLinkKey(
@@ -141,6 +146,8 @@ function GroupPanels(props: Props) {
     [selectPath, setDimMapping],
   );
 
+  const gridRef = useRef<PanelGridHandle>(null);
+
   return (
     <>
       {toolbarContainer &&
@@ -149,6 +156,7 @@ function GroupPanels(props: Props) {
             settings={settings}
             withSharedDomain={panels.some(({ kind }) => kind === 'heatmap')}
             onChange={setSettings}
+            onBeforeSnapshot={async () => gridRef.current?.prepareSnapshot()}
           />,
           toolbarContainer,
         )}
@@ -163,6 +171,7 @@ function GroupPanels(props: Props) {
         onChange={setRefMapping}
       />
       <PanelGrid
+        ref={gridRef}
         className={visualizerStyles.vis}
         specs={specs}
         rows={rows}
@@ -179,6 +188,9 @@ function GroupPanels(props: Props) {
       <OverlayNotes
         notes={[
           ...notes,
+          ...(specs.length > SNAPSHOT_MAX_PANELS
+            ? [`snapshots load only the first ${SNAPSHOT_MAX_PANELS} panels`]
+            : []),
           ...panels.flatMap(({ dataset, hint: panelHint }) =>
             panelHint.notes.map((note) => `${dataset.name}: ${note}`),
           ),

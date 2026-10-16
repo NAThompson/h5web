@@ -27,6 +27,7 @@ interface Props extends PanelProps {
   showXAxis: boolean; // e.g. only along the bottom edge of a grid
   showYAxis: boolean; // e.g. only along the left edge
   showTooltip: boolean; // e.g. not when the linked cursor's readout replaces it
+  load: boolean; // even out of view (e.g. for a snapshot of all panels)
   onOpen?: (spec: PanelSpec) => void; // e.g. in the normal single view
 }
 
@@ -72,13 +73,14 @@ function Panel(props: Props) {
     showXAxis,
     showYAxis,
     showTooltip,
+    load,
     onOpen,
   } = props;
   const { dataset, mapping, title, linkKey } = spec;
 
   const dataContext = useDataContext();
   const [elem, setElem] = useState<HTMLElement | null>(null);
-  const inView = useInView(elem);
+  const inView = useInView(elem) || load;
 
   const panelOptions = useMemo(
     () => ({
@@ -116,7 +118,9 @@ function Panel(props: Props) {
       return <Placeholder>could not be loaded</Placeholder>;
     }
     if (value === undefined) {
-      return <Placeholder>{inView ? 'Loading…' : ''}</Placeholder>;
+      return (
+        <Placeholder isPending={inView}>{inView ? 'Loading…' : ''}</Placeholder>
+      );
     }
     if (isEmpty) {
       return <Placeholder isEmpty />; // blank: the shape of populated panels stands out
@@ -126,7 +130,7 @@ function Panel(props: Props) {
         fallback={<Placeholder>could not be shown</Placeholder>}
         resetKeys={[value]}
       >
-        <Suspense fallback={<Placeholder>Loading…</Placeholder>}>
+        <Suspense fallback={<Placeholder isPending>Loading…</Placeholder>}>
           <VisPanelContext value={panelOptions}>
             <PanelContent {...props} value={value} />
           </VisPanelContext>

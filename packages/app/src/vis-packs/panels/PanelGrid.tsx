@@ -1,7 +1,15 @@
 import { getAxisOffsets, MultiVisCanvas } from '@h5web/lib';
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { useMeasure } from '@react-hookz/web';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { type ViewHint } from '../view-hints/models';
 import { getColorSuggestions } from '../view-hints/suggestions';
@@ -13,7 +21,12 @@ import { type PanelColors } from './PanelContent';
 import styles from './Panels.module.css';
 import SharedAxisLabels from './SharedAxisLabels';
 import SharedColorBar from './SharedColorBar';
-import { combineDomains, getBottomRows, getColorGroup } from './utils';
+import {
+  combineDomains,
+  getBottomRows,
+  getColorGroup,
+  SNAPSHOT_MAX_PANELS,
+} from './utils';
 
 const DOMAIN_UPDATE_DELAY = 150; // ms: domains of panels loading together are combined at once
 const PENDING_COLORS: PanelColors = { domain: [0, 1] }; // until the first panel of a group loads
@@ -25,6 +38,39 @@ const LABEL_SIZE = 24; // px: shared axis labels
 const GAP = 8; // px, between panels and around the grid
 const TITLE_HEIGHT = 24; // px
 const AXES = getAxisOffsets({ left: true, bottom: true }); // with labels
+const SNAPSHOT_TIMEOUT = 30_000; // ms: to load the panels out of view
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
+/* Once the panels in `root` have loaded (or after a timeout) and are drawn */
+async function whenLoaded(root: HTMLElement, start = performance.now()) {
+  await delay(50);
+  if (
+    root.querySelector('[data-pending]') &&
+    performance.now() - start < SNAPSHOT_TIMEOUT
+  ) {
+    await whenLoaded(root, start);
+    return;
+  }
+  await delay(DOMAIN_UPDATE_DELAY); // shared domains of the panels
+  await nextFrame();
+  await nextFrame();
+}
+
+export interface PanelGridHandle {
+  /* Load all panels, also those out of view (the first `SNAPSHOT_MAX_PANELS`), and wait for them */
+  prepareSnapshot: () => Promise<void>;
+}
 
 /* Size of the panels (square, besides their title and axes along the edges of the grid): as large
  * as fit the available area, else as the columns fit its width (the grid then scrolls down) */
@@ -90,6 +136,7 @@ interface Props {
   axisLabels?: { x?: string; y?: string }; // shared by all panels: once, beside the grid
   onOpen?: (spec: PanelSpec) => void;
   className?: string;
+  ref?: Ref<PanelGridHandle>;
 }
 
 /* Panels in a grid, drawn in a single canvas, with a colour bar per shared domain */
@@ -107,7 +154,25 @@ function PanelGrid(props: Props) {
     axisLabels,
     onOpen,
     className = '',
+    ref,
   } = props;
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [loadAll, setLoadAll] = useState(false);
+  useImperativeHandle(
+    ref,
+    () => ({
+      prepareSnapshot: async () => {
+        setLoadAll(true);
+        await nextFrame(); // panels loading
+        await nextFrame();
+        if (rootRef.current) {
+          await whenLoaded(rootRef.current);
+        }
+      },
+    }),
+    [],
+  );
 
   // Data domains of the panels, combined once those loading together have reported theirs
   const domains = useRef(new Map<string, Domain>());
@@ -188,7 +253,11 @@ function PanelGrid(props: Props) {
   const colOffset = labelSize > 0 ? 1 : 0; // after the shared y label
 
   return (
-    <div className={`${styles.root} ${className}`}>
+    <div
+      ref={rootRef}
+      className={`${styles.root} ${className}`}
+      data-snapshot-root // cf. `SNAPSHOT_ROOT_ATTR`: grid and colour bars
+    >
       <div className={styles.canvas}>
         {withReadout && (
           <CursorReadout store={cursorStore} axisLabels={axisLabels ?? {}} />
@@ -225,7 +294,7 @@ function PanelGrid(props: Props) {
                   visibleSize={[width - 2 * GAP, height - 2 * GAP]}
                 />
               )}
-              {specs.map((spec) => {
+              {specs.map((spec, index) => {
                 const group = getColorGroup(spec);
                 return (
                   <Panel
@@ -245,6 +314,7 @@ function PanelGrid(props: Props) {
                     }
                     showYAxis={!edgeAxesOnly || spec.col === 0}
                     showTooltip={!withReadout}
+                    load={loadAll && index < SNAPSHOT_MAX_PANELS}
                     isCompact={isCompact}
                     onDataDomainChange={onDataDomainChange}
                     onOpen={onOpen}

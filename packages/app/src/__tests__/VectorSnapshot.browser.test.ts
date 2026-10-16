@@ -1,4 +1,8 @@
-import { exportPdfSnapshot, renderSvgSnapshot } from '@h5web/lib';
+import {
+  exportPdfSnapshot,
+  findVisElement,
+  renderSvgSnapshot,
+} from '@h5web/lib';
 import { assertDefined, assertNonNull } from '@h5web/shared/guards';
 import { expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -143,4 +147,85 @@ test('download SVG and PDF from snapshot menu', async () => {
   expect(
     clickSpy.mock.contexts.map((a) => (a as HTMLAnchorElement).download),
   ).toEqual(['NeXus_2D.svg', 'NeXus_2D.pdf']);
+});
+
+function getPanelElement(title: string): HTMLElement {
+  const panel = page
+    .getByRole('region', { name: title, exact: true })
+    .element();
+  return panel as HTMLElement;
+}
+
+test('export panels with their titles, shared colour bars and vector lines', async () => {
+  await renderApp('/view_hints/panels');
+  await expect
+    .poll(() => document.querySelectorAll('section figure').length)
+    .toBe(4);
+
+  // The whole grid, with its colour bars, not the shared canvas
+  const root = findVisElement(getPanelElement('ψ'));
+  assertDefined(root);
+  expect(root).toHaveAttribute('data-snapshot-root');
+
+  // Each heatmap panel as an image in its plot area, the line panel as a path
+  const doc = await exportSvgWhen(
+    root,
+    (svg) =>
+      svg.querySelectorAll('image').length === 3 &&
+      [...svg.querySelectorAll('path[fill="none"]')].some((p) =>
+        /^M[\d.]+ [\d.]+L/u.test(p.getAttribute('d') ?? ''),
+      ),
+  );
+  const rootRect = root.getBoundingClientRect();
+  const plot = getPanelElement('ψ').querySelector('canvas, [class*="r3fRoot"]');
+  assertNonNull(plot);
+  const plotRect = plot.getBoundingClientRect();
+  const image = doc.querySelector('image');
+  assertNonNull(image);
+  expect(image.parentElement?.getAttribute('transform')).toBe(
+    `translate(${Math.round((plotRect.x - rootRect.x) * 100) / 100} ${
+      Math.round((plotRect.y - rootRect.y) * 100) / 100
+    })`,
+  );
+
+  const texts = getTexts(doc);
+  expect(texts).toEqual(expect.arrayContaining(['ψ', 'profile']));
+  expect(doc.querySelectorAll('linearGradient')).toHaveLength(2); // shared colour bars
+});
+
+test('export all panels of a scrolled grid', async () => {
+  const { user } = await renderApp('/view_hints/multiples');
+  const createSpy = vi.spyOn(URL, 'createObjectURL');
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+  const root = document.querySelector<HTMLElement>('[data-snapshot-root]');
+  assertNonNull(root);
+  root.style.cssText = 'flex: none; height: 240px;'; // panels out of view
+  const { cssText } = root.style;
+  const scroller = root.querySelector('[data-panel-scroller]');
+  assertNonNull(scroller);
+  await expect
+    .poll(() => scroller.scrollHeight > scroller.clientHeight + 100)
+    .toBe(true);
+
+  await user.click(page.getByRole('button', { name: 'Toggle sidebar' }));
+  await user.click(page.getByRole('button', { name: 'Snapshot' }));
+  await user.click(page.getByRole('button', { name: 'Save as SVG' }));
+  await expect
+    .poll(() => createSpy.mock.calls.length, { timeout: 10_000 })
+    .toBe(1);
+
+  const blob = createSpy.mock.calls[0][0] as Blob;
+  const doc = new DOMParser().parseFromString(
+    await blob.text(),
+    'image/svg+xml',
+  );
+  expect(Number(doc.documentElement.getAttribute('height'))).toBeGreaterThan(
+    root.getBoundingClientRect().height + 100,
+  );
+  expect(doc.querySelectorAll('image')).toHaveLength(9); // 12 panels, 3 blank (NaN)
+  expect(getTexts(doc)).toEqual(
+    expect.arrayContaining(['k = 0, p = 0', 'k = 3, p = 2']),
+  );
+  expect(root.style.cssText).toBe(cssText); // restored
 });

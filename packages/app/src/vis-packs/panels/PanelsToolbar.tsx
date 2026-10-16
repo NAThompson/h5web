@@ -14,10 +14,11 @@ interface Props {
   settings: PanelsSettings;
   withSharedDomain: boolean; // heatmap panels
   onChange: (settings: PanelsSettings) => void;
+  onBeforeSnapshot?: () => Promise<void>; // e.g. load panels out of view
 }
 
 function PanelsToolbar(props: Props) {
-  const { settings, withSharedDomain, onChange } = props;
+  const { settings, withSharedDomain, onChange, onBeforeSnapshot } = props;
   const { linkAxes, linkCursor, isDomainShared } = settings;
   const visArea = useVisArea();
 
@@ -45,7 +46,9 @@ function PanelsToolbar(props: Props) {
         value={linkCursor}
         onToggle={() => onChange({ ...settings, linkCursor: !linkCursor })}
       />
-      {visArea && <SnapshotBtn target={visArea} />}
+      {visArea && (
+        <SnapshotBtn target={visArea} beforeSnapshot={onBeforeSnapshot} />
+      )}
     </Toolbar>
   );
 }

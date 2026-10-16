@@ -455,3 +455,24 @@ test('list multi-plotted slices in legend with their colours', async () => {
   expect(marks[0].style.color).toBe(toRgb(interpolateViridis(0)));
   expect(marks[19].style.color).toBe(toRgb(interpolateViridis(0.85)));
 });
+
+test('export each panel of a grid at its place, with titles', async () => {
+  await renderApp('/view_hints/panels');
+  await expect
+    .poll(() => document.querySelectorAll('section figure').length)
+    .toBe(4);
+  const root = document.querySelector<HTMLElement>('[data-snapshot-root]');
+  assertNonNull(root);
+
+  // Heatmap panels drawn in their plot areas (from their own scenes, not the shared canvas)
+  const plots = [...root.querySelectorAll('section [class*="r3fRoot"]')];
+  expect(plots).toHaveLength(4);
+  await expect
+    .poll(async () => {
+      const img = await decodePng(await exportSnapshot(root, { scale: 1 }));
+      return plots
+        .slice(0, 3)
+        .every((plot) => countInk(img, getRegion(root, plot)) > 1000);
+    })
+    .toBe(true);
+});

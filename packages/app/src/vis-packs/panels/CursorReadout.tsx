@@ -20,7 +20,12 @@ function CursorReadout(props: Props) {
 
   const { title, x, y, value } = cursor;
   return (
-    <p className={styles.readout} role="status" aria-label="Cursor">
+    <p
+      className={styles.readout}
+      role="status"
+      aria-label="Cursor"
+      data-snapshot-ignore // cf. `SNAPSHOT_IGNORE_ATTR`
+    >
       <span>{renderMarkup(title)}</span>
       <span>
         {`${axisLabels.x ?? 'x'} = ${formatTooltipVal(x)}, ${axisLabels.y ?? 'y'} = ${formatTooltipVal(y)}`}
