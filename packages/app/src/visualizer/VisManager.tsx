@@ -7,6 +7,7 @@ import { FetchConfirmationProvider } from '../vis-packs/fetch-confirmation';
 import { type VisDef } from '../vis-packs/models';
 import { EntityNotesContext } from '../vis-packs/view-hints/OverlayNotes';
 import { useActiveVis } from './hooks';
+import { ActiveVisContext } from './navigation';
 import { VisAreaContext } from './vis-area';
 import VisSelector from './VisSelector';
 import styles from './Visualizer.module.css';
@@ -66,7 +67,16 @@ function VisManager(props: Props) {
         <VisAreaContext value={visAreaElem}>
           <FetchConfirmationProvider scope={activeVis.name}>
             <EntityNotesContext value={notes}>
-              <Container entity={entity} toolbarContainer={visBarElem} />
+              <ActiveVisContext
+                value={(name) => {
+                  const index = supportedVis.findIndex((v) => v.name === name);
+                  if (index !== -1) {
+                    onVisChange(index);
+                  }
+                }}
+              >
+                <Container entity={entity} toolbarContainer={visBarElem} />
+              </ActiveVisContext>
             </EntityNotesContext>
           </FetchConfirmationProvider>
         </VisAreaContext>

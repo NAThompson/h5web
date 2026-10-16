@@ -719,6 +719,23 @@ export const mockValues = {
       ),
       [21, 21],
     ),
+  // ψ_{k,p}(θ, α) for k < 4, p < 3: NaN where p > k
+  multiples_k: () => ndarray(range(0, 4)),
+  multiples_p: () => ndarray(range(0, 3)),
+  multiples: () =>
+    ndarray(
+      range(0, 4 * 3 * 21 * 21).map((i) => {
+        const [k, p, j] = [
+          Math.floor(i / 1323),
+          Math.floor(i / 441) % 3,
+          i % 441,
+        ];
+        return p > k
+          ? Number.NaN
+          : (k + 1) * Math.sin(((p + 1) * (j % 21)) / 4) * Math.cos(j / 21 / 4);
+      }),
+      [4, 3, 21, 21],
+    ),
   cma_landscapes: () => {
     const { data } = twoD();
     return ndarray(

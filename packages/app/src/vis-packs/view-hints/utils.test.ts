@@ -274,6 +274,31 @@ describe('parseViewHint', () => {
     });
   });
 
+  it('read one or two dimensions of small multiples', () => {
+    const dimNames = [['k'], ['p'], ['theta'], ['alpha']];
+    expect(
+      hint(
+        { H5WEB_multiples_dim: 'k p', H5WEB_multiples_columns: { int: 3 } },
+        dimNames,
+      ),
+    ).toMatchObject({ multiplesDims: [0, 1], multiplesColumns: 3, notes: [] });
+    expect(
+      hint({ H5WEB_multiples_dim: { int: 1 } }, dimNames).multiplesDims,
+    ).toEqual([1]);
+    expect(
+      hint({ H5WEB_multiples_dim: { int: 9 } }, dimNames).multiplesDims,
+    ).toBeUndefined(); // beyond the rank
+    expect(
+      hint({ H5WEB_multiples_dim: 'k p' }, [['k'], ['p']]).multiplesDims,
+    ).toBeUndefined(); // no dimension left for the panels
+    ['k k', 'k p theta', 'k time'].forEach((val) => {
+      expect(hint({ H5WEB_multiples_dim: val }, dimNames)).toMatchObject({
+        multiplesDims: undefined,
+        notes: ['ignored invalid "H5WEB_multiples_dim"'],
+      });
+    });
+  });
+
   it('use symmetric domain unless a domain is given', () => {
     expect(hint({ H5WEB_symmetric: { int: 1 } }).domain).toBe('symmetric');
     expect(

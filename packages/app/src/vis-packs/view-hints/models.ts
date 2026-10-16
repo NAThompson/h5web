@@ -128,6 +128,10 @@ export interface ViewHint {
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
   playbackDim?: number; // dimension played by default (e.g. walked past empty slices on load)
+  multiplesDims?: number[]; // small multiples: a panel per index of these dimensions (rows, cols)
+  multiplesColumns?: number; // small multiples of one dimension: panels per row
+  linkAxes?: boolean; // panels: zoom and pan together (default: true)
+  linkCursor?: boolean; // panels: crosshair at the same coordinates in every panel (default: true)
   nanColor?: string; // CSS colour of NaN / ignored values (3D: drawn on the floor, not as holes)
   belowColor?: string; // CSS colour of values below the colour domain (default: saturate)
   aboveColor?: string;

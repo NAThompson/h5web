@@ -19,6 +19,10 @@ function countColorBars(): number {
   return document.querySelectorAll('[class*="_colorBar_"]').length;
 }
 
+function countEmptyPanels(): number {
+  return document.querySelectorAll('section[data-empty]').length;
+}
+
 function getCursorValues(): string[] {
   return [
     ...document.querySelectorAll('[data-testid="panel-cursor-value"]'),
@@ -130,4 +134,74 @@ test('open a panel in the single view from its title', async () => {
     .element(page.getByRole('figure', { name: '|ψ − ψ/2|' }))
     .toBeVisible();
   expect(getSelectedVisTab()).toBe(Vis.Heatmap);
+});
+
+test('show small multiples over two dimensions', async () => {
+  await renderApp('/view_hints/multiples');
+
+  expect(getSelectedVisTab()).toBe(Vis.Multiples);
+  await expect.poll(() => getPanelTitles().length).toBe(12); // 4 k x 3 p
+  expect(getPanelTitles().slice(0, 4)).toEqual([
+    'k = 0, p = 0',
+    'k = 0, p = 1',
+    'k = 0, p = 2',
+    'k = 1, p = 0',
+  ]);
+
+  // NaN where p > k: blank panels
+  await expect.poll(countEmptyPanels).toBe(3);
+  await expect.poll(countColorBars).toBe(1); // shared domain
+  expect(document.querySelectorAll('canvas')).toHaveLength(1);
+  expect(page.getByRole('slider')).toHaveLength(0); // both other dimensions on axes
+
+  // Axis labels once, beside the grid
+  await expect
+    .poll(() =>
+      [
+        ...document.querySelectorAll(
+          '[class*="_yLabel_"], [class*="_xLabel_"]',
+        ),
+      ].map((elem) => elem.textContent),
+    )
+    .toEqual(['theta', 'alpha']);
+
+  // Linked cursor: crosshairs, and the hovered panel's value in a readout (no tooltip)
+  await hoverPanel('k = 2, p = 1');
+  const readout = page.getByRole('status', { name: 'Cursor' });
+  await expect.element(readout).toHaveTextContent(/k = 2, p = 1/u);
+  await expect
+    .poll(
+      () => document.querySelectorAll('[data-testid="panel-cursor"]').length,
+    )
+    .toBe(9);
+});
+
+test('slice small multiples along the other dimensions', async () => {
+  const { user } = await renderApp('/view_hints/multiples_k');
+
+  await expect
+    .poll(getPanelTitles)
+    .toEqual(['k = 0', 'k = 1', 'k = 2', 'k = 3']);
+  // `H5WEB_multiples_columns`: two per row
+  expect(getPanel('k = 2').element()).toHaveStyle({ gridRow: '2' });
+
+  const slider = page.getByRole('slider', { name: 'p' });
+  await expect.element(slider).toBeVisible();
+  await user.click(slider);
+  await userEvent.keyboard('{ArrowUp}{ArrowUp}'); // p = 2: NaN for k < 2
+  await expect.poll(countEmptyPanels).toBe(2);
+});
+
+test('open a slice of small multiples in the single view', async () => {
+  const { user } = await renderApp('/view_hints/multiples');
+
+  await user.click(page.getByRole('button', { name: 'k = 2, p = 1' }));
+  await expect.poll(getSelectedVisTab).toBe(Vis.Heatmap);
+  await expect
+    .element(page.getByRole('slider', { name: 'k' }))
+    .toHaveAttribute('aria-valuenow', '2');
+  expect(page.getByRole('slider', { name: 'p' })).toHaveAttribute(
+    'aria-valuenow',
+    '1',
+  );
 });

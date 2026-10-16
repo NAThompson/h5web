@@ -301,6 +301,38 @@ function readDim(
   });
 }
 
+/* One or two distinct dimensions, leaving one or more for the panels' axes */
+function isMultiplesDims(dims: number[], rank: number): boolean {
+  return (
+    dims.length <= 2 &&
+    dims.length < rank &&
+    new Set(dims).size === dims.length &&
+    dims.every((dim) => Number.isInteger(dim) && dim >= 0 && dim < rank)
+  );
+}
+
+/* Dimensions of small multiples (`H5WEB_multiples_dim`): one or two, space-separated in a string
+ * (same forms as `readDim`), or indices */
+function readMultiplesDims(
+  reader: AttrReader,
+  entity: Entity,
+  dimNames: string[][],
+): number[] | undefined {
+  const name = 'H5WEB_multiples_dim';
+  const attr = findAttribute(entity, name);
+  if (attr && hasNumericType(attr)) {
+    return reader.nums(name, (arr) => isMultiplesDims(arr, dimNames.length));
+  }
+  return reader.oneOf(name, (val) => {
+    const dims = splitNames(val).map((dimName) =>
+      dimNames.findIndex((names) => names.includes(dimName)),
+    );
+    return dims.length > 0 && isMultiplesDims(dims, dimNames.length)
+      ? dims
+      : undefined;
+  });
+}
+
 function isLevels(arr: number[]): boolean {
   return arr.length > 0 && arr.every(Number.isFinite);
 }
@@ -401,6 +433,13 @@ export function parseViewHint(
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
     playbackDim: readDim(read, 'H5WEB_playback_dim', entity, dimNames),
+    multiplesDims: readMultiplesDims(read, entity, dimNames),
+    multiplesColumns: read.num(
+      'H5WEB_multiples_columns',
+      (v) => Number.isInteger(v) && v > 0,
+    ),
+    linkAxes: read.bool('H5WEB_link_axes'),
+    linkCursor: read.bool('H5WEB_link_cursor'),
     nanColor: toRgbaColor(read.str('H5WEB_nan_color', isCssColor)),
     belowColor: toRgbaColor(read.str('H5WEB_below_color', isCssColor)),
     aboveColor: toRgbaColor(read.str('H5WEB_above_color', isCssColor)),

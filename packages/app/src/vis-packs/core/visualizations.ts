@@ -19,11 +19,13 @@ import {
   FiImage,
   FiMap,
 } from 'react-icons/fi';
-import { MdGesture, MdLandscape } from 'react-icons/md';
+import { MdGesture, MdLandscape, MdViewModule } from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
 import { type VisDef } from '../models';
+import MultiplesVisContainer from '../panels/MultiplesVisContainer';
+import { getHintSafely } from '../view-hints/utils';
 import ComplexCurveVisContainer from './complex/ComplexCurveVisContainer';
 import { ComplexCurveConfigProvider } from './complex/curve-config';
 import {
@@ -65,6 +67,7 @@ export enum Vis {
   Volume = 'Volume',
   Curve = 'Curve',
   Surface = 'Surface',
+  Multiples = 'Multiples',
 }
 
 export interface CoreVisDef extends VisDef {
@@ -178,6 +181,26 @@ export const CORE_VIS = {
         hasMinDims(dataset, 2) &&
         hasNumericLikeType(dataset)
       );
+    },
+  },
+
+  // Small multiples of `H5WEB_multiples_dim`, the default vis then (cf. `findHintVis`)
+  [Vis.Multiples]: {
+    name: Vis.Multiples,
+    Icon: MdViewModule,
+    Container: MultiplesVisContainer,
+    canBePreferredFor: () => false, // may fetch many slices
+    supportsDataset: async (dataset, dataContext) => {
+      if (
+        !hasArrayShape(dataset) ||
+        !hasMinDims(dataset, 2) ||
+        !hasNumericLikeType(dataset) ||
+        hasComplexType(dataset)
+      ) {
+        return false;
+      }
+      const hint = await getHintSafely(dataset, dataContext);
+      return hint.multiplesDims !== undefined;
     },
   },
 

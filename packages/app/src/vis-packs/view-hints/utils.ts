@@ -42,6 +42,7 @@ const DIM_ATTRS = [
   'H5WEB_multi_dim',
   'H5WEB_probe_dim',
   'H5WEB_playback_dim',
+  'H5WEB_multiples_dim',
 ];
 
 /* Hint of a dataset, or of an NXdata group (falling back to its signal's), from their `H5WEB_*`
@@ -233,6 +234,10 @@ export function findHintVis<T extends VisDef>(
   hint: ViewHint,
   supportedVis: T[],
 ): T | undefined {
+  const multiples = supportedVis.find((v) => v.name === 'Multiples');
+  if (hint.multiplesDims && multiples) {
+    return multiples; // `H5WEB_vis` is then the view of each panel
+  }
   if (!hint.vis) {
     return undefined;
   }

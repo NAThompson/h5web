@@ -1717,6 +1717,48 @@ export function makeMockFile(): GroupWithChildren {
             ],
           },
         ),
+        // Small multiples of ψ_{k,p}: NaN where p > k (empty panels)
+        array('k', {
+          valueId: 'multiples_k',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'k'),
+          ],
+        }),
+        array('p', {
+          valueId: 'multiples_p',
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'p'),
+          ],
+        }),
+        ...(
+          [
+            ['multiples', 'k p', []],
+            ['multiples_k', 'k', [intAttr('H5WEB_multiples_columns', 2)]],
+          ] as const
+        ).map(([name, dims, attributes]) =>
+          withDimScales(
+            array(name, {
+              valueId: 'multiples',
+              attributes: [
+                scalarAttr('long_name', 'ψ_{k,p}'),
+                scalarAttr('H5WEB_multiples_dim', dims),
+                scalarAttr('H5WEB_colormap', 'auto'),
+                intAttr('H5WEB_symmetric', 1),
+                ...attributes,
+              ],
+            }),
+            {
+              scales: [
+                ['/view_hints/k'],
+                ['/view_hints/p'],
+                ['/view_hints/theta'],
+                ['/view_hints/alpha'],
+              ],
+            },
+          ),
+        ),
       ]),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),

@@ -128,28 +128,22 @@ export function insertSelectionIndices(
   return insertAt(parts, multiplesDims, indices.map(String)).join(',');
 }
 
-/* Indices of the panels of small multiples along one or two dimensions, with their places in
- * the grid: rows along the first dimension, columns along the second; one dimension: `columns`
- * per row (default: near-square) */
+/* Panels of small multiples along one or two dimensions, with their places in the grid: rows along
+ * the first dimension, columns along the second; one dimension: `cols` per row. Only the first
+ * `max` panels. */
 export function getMultiplesGrid(
   sizes: number[],
-  columns?: number,
+  cols: number,
+  max: number,
 ): { indices: number[]; row: number; col: number }[] {
-  if (sizes.length === 2) {
-    const [rows, cols] = sizes;
-    return Array.from({ length: rows * cols }, (_, i) => ({
-      indices: [Math.floor(i / cols), i % cols],
-      row: Math.floor(i / cols),
-      col: i % cols,
-    }));
-  }
-  const [count] = sizes;
-  const cols = columns ?? getGridSize(count)[1];
-  return Array.from({ length: count }, (_, i) => ({
-    indices: [i],
-    row: Math.floor(i / cols),
-    col: i % cols,
-  }));
+  const count = Math.min(
+    sizes.reduce((acc, size) => acc * size, 1),
+    max,
+  );
+  return Array.from({ length: count }, (_, i) => {
+    const [row, col] = [Math.floor(i / cols), i % cols];
+    return { indices: sizes.length === 2 ? [row, col] : [i], row, col };
+  });
 }
 
 /* Smallest domain containing the given ones (`undefined` if none) */

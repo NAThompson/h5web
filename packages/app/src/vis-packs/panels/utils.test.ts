@@ -87,12 +87,15 @@ describe('small multiples', () => {
   });
 
   it('lay out panels in rows and columns of the multiples dimensions', () => {
-    expect(getMultiplesGrid([2, 3]).at(-1)).toEqual({
+    expect(getMultiplesGrid([2, 3], 3, 100).at(-1)).toEqual({
       indices: [1, 2],
       row: 1,
       col: 2,
     });
-    expect(getMultiplesGrid([5], 2).map(({ row, col }) => [row, col])).toEqual([
+    expect(getMultiplesGrid([1000, 1000], 1000, 5)).toHaveLength(5); // capped
+    expect(
+      getMultiplesGrid([5], 2, 100).map(({ row, col }) => [row, col]),
+    ).toEqual([
       [0, 0],
       [0, 1],
       [1, 0],
