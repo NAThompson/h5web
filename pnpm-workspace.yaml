@@ -16,7 +16,7 @@ resolvePeersFromWorkspaceRoot: false
 
 # Approve specific build scripts
 allowBuilds:
-  core-js: false
+  core-js: false # of jspdf: pnpm install fails on unlisted build scripts
   cypress: true
   esbuild: true
   unrs-resolver: true
