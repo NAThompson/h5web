@@ -329,18 +329,21 @@ function LineVis(props: PropsWithChildren<Props>) {
           }}
         />
 
-        <DataCurve
-          abscissas={abscissas}
-          ordinates={dataArray.data}
-          errors={errorsArray?.data}
-          showErrors={showErrors}
-          color={curveColor}
-          width={dataWidth}
-          curveType={curveType}
-          ignoreValue={ignoreValue}
-          interpolation={interpolation}
-          visible={visible}
-        />
+        {/* Drawn after the auxiliaries (`groupOrder`), so as not to be hidden by them */}
+        <group renderOrder={1}>
+          <DataCurve
+            abscissas={abscissas}
+            ordinates={dataArray.data}
+            errors={errorsArray?.data}
+            showErrors={showErrors}
+            color={curveColor}
+            width={dataWidth}
+            curveType={curveType}
+            ignoreValue={ignoreValue}
+            interpolation={interpolation}
+            visible={visible}
+          />
+        </group>
 
         {auxiliaries.map(
           ({ array, label, errors, color, visible: auxVisible, ...aux }, i) => (
