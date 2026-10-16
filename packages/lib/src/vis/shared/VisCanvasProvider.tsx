@@ -68,7 +68,7 @@ function VisCanvasProvider(props: PropsWithChildren<Props>) {
   } = props;
 
   const { width, height } = useThree((state) => state.size);
-  const canvasSize = { width, height };
+  const canvasSize = useMemo(() => ({ width, height }), [width, height]); // stable for effects
   const canvasRatio = width / height;
 
   const visSize = getSizeToFit(canvasSize, visRatio);
