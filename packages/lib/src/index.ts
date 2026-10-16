@@ -280,7 +280,11 @@ export type {
   H5WebGeometry,
 } from './vis/models';
 
-export type { AuxiliaryParams, LegendEntry } from './vis/line/models';
+export type {
+  AuxiliaryParams,
+  LegendEntry,
+  LegendObstacle,
+} from './vis/line/models';
 export type { D3Interpolator, ColorMap } from './vis/heatmap/models';
 export type { ScatterAxisParams } from './vis/scatter/models';
 

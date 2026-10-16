@@ -47,6 +47,7 @@ import {
   CurveType,
   Interpolation,
   type LegendEntry,
+  type LegendObstacle,
   type TooltipData,
 } from './models';
 import UnplottableMarks, { getMarkedCurves } from './UnplottableMarks';
@@ -80,6 +81,7 @@ interface Props extends ClassStyleAttrs {
   showLegend?: boolean; // legend of the curves, else only in snapshots
   valueTransform?: ValueTransform; // values are logarithms: y ticks as powers, real values in tooltips
   legendEntries?: LegendEntry[]; // after the curves (e.g. of children)
+  legendObstacles?: LegendObstacle[]; // reference lines and bands the legend avoids covering
   markUnplottable?: boolean; // mark values that can't be drawn (e.g. 0 in log scale) on the edge
   unplottableColor?: string; // of the marks (default: colour of their curve)
 }
@@ -112,6 +114,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     showLegend = false,
     valueTransform,
     legendEntries = [],
+    legendObstacles,
     markUnplottable,
     unplottableColor,
     className = '',
@@ -209,6 +212,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           range: [0, 1],
         }),
         box,
+        legendObstacles,
       ),
     [
       markedCurves,
@@ -217,6 +221,7 @@ function LineVis(props: PropsWithChildren<Props>) {
       abscissaDomain,
       scaleType,
       dataDomain,
+      legendObstacles,
     ],
   );
 

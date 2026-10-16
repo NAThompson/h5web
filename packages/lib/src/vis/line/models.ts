@@ -39,6 +39,12 @@ export interface LegendEntry {
   isBand?: boolean;
 }
 
+/* Reference line (`range` of one value) or band across the canvas, which the legend avoids */
+export interface LegendObstacle {
+  axis: 'x' | 'y'; // of its values
+  range: [number, number];
+}
+
 export enum Interpolation {
   Linear = 'Linear',
   Constant = 'Constant',

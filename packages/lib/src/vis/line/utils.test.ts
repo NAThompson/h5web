@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { type LegendObstacle } from './models';
 import { getLegendCorner, getPchipSlopes } from './utils';
 
 // Irregularly spaced, non-monotonic data with flat runs
@@ -110,5 +111,31 @@ describe('getLegendCorner', () => {
     expect(
       getLegendCorner([0, 0.5, 1], [curve], identity, identity, tall),
     ).toBe('bottom-right');
+  });
+
+  it('should avoid reference lines and bands', () => {
+    const curve = [0.5, 0.5, 0.5]; // in no corner
+    const vline: LegendObstacle = { axis: 'x', range: [0.9, 0.9] };
+    const hline: LegendObstacle = { axis: 'y', range: [0.1, 0.1] };
+    function getWith(...obstacles: LegendObstacle[]): string {
+      return getLegendCorner(
+        [0, 0.5, 1],
+        [curve],
+        identity,
+        identity,
+        undefined,
+        obstacles,
+      );
+    }
+
+    expect(getWith(vline)).toBe('top-left');
+    expect(getWith(vline, hline)).toBe('top-left');
+    // A band covering both left corners outweighs a line in the top-right corner
+    const band: LegendObstacle = { axis: 'x', range: [0, 0.3] };
+    expect(getWith(band, { ...hline, range: [0.9, 0.9] })).toBe('bottom-right');
+    // Not shown (e.g. non-positive on a log axis): ignored
+    expect(getWith({ ...vline, range: [Number.NaN, Number.NaN] })).toBe(
+      'top-right',
+    );
   });
 });

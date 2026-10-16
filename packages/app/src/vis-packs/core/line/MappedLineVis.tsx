@@ -6,6 +6,7 @@ import {
   INTERPOLATORS,
   KeepZoom,
   type LegendEntry,
+  type LegendObstacle,
   LineVis,
   useCombinedDomain,
   useDomain,
@@ -368,6 +369,16 @@ function MappedLineVis(props: Props) {
       ignoreValue: curve.ignoreValue ?? ignoreNone, // not the signal's
     })),
   ];
+  // Reference lines and bands, which the legend avoids covering
+  const legendObstacles = useMemo(
+    () =>
+      references.map(({ kind, axis, values }): LegendObstacle => ({
+        axis,
+        range: [values[0], kind === 'band' ? values[1] : values[0]],
+      })),
+    [references],
+  );
+
   // Same curves while unchanged, for their unplottable marks and the legend's corner
   const auxiliaries = useStableObjects([...curveAuxiliaries, ...extraCurves]);
 
@@ -429,6 +440,7 @@ function MappedLineVis(props: Props) {
         testid={dimMapping.toString()}
         valueTransform={valueTransform}
         legendEntries={legendEntries}
+        legendObstacles={legendObstacles}
         markUnplottable
         unplottableColor={nanColor}
       >

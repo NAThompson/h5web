@@ -3,6 +3,8 @@ import { type ThreeEvent } from '@react-three/fiber';
 import { range } from 'd3-array';
 import { useMemo } from 'react';
 
+import { type LegendObstacle } from './models';
+
 export function getAxisValues(
   rawValues: NumArray | undefined,
   axisLength: number,
@@ -166,18 +168,40 @@ function crossesRect(
   return tMin <= tMax;
 }
 
-/* Corner of the plot whose legend box covers the fewest curve points and segments (top right if
- * several) */
+/* How much a rectangle covers a reference line (1) or band (1 to 5, by overlap), else 0 */
+function getObstacleCover(
+  { axis, range: ends }: LegendObstacle,
+  rect: Rect,
+  toRelative: (val: number) => number,
+): number {
+  const [lo, hi] = ends.map(toRelative).sort((a, b) => a - b);
+  const [r0, r1] = axis === 'x' ? [rect.x0, rect.x1] : [rect.y0, rect.y1];
+  const overlap = Math.min(hi, r1) - Math.max(lo, r0); // NaN if not shown (e.g. on a log axis)
+  return overlap >= 0 ? 1 + (4 * overlap) / (r1 - r0) : 0; // line: overlap of 0
+}
+
+/* Corner of the plot whose legend box covers the fewest curve points and segments, and reference
+ * lines and bands, which weigh more (top right if several) */
 export function getLegendCorner(
   abscissas: NumArray,
   curves: NumArray[],
   toRelativeX: (val: number) => number, // to [0, 1]
   toRelativeY: (val: number) => number,
   box: LegendBox = CORNER_BOX,
+  obstacles: LegendObstacle[] = [],
 ): string {
   const rects = LEGEND_CORNERS.map((corner) => getCornerRect(corner, box));
   const counts = [0, 0, 0, 0];
   const xs = Array.from(abscissas, toRelativeX);
+
+  // A covered reference line weighs as a tenth of the curve points (at least 10); a band more
+  const weight = Math.max(10, (abscissas.length * curves.length) / 10);
+  for (const obstacle of obstacles) {
+    const toRelative = obstacle.axis === 'x' ? toRelativeX : toRelativeY;
+    for (const [k, rect] of rects.entries()) {
+      counts[k] += weight * getObstacleCover(obstacle, rect, toRelative);
+    }
+  }
 
   for (const ordinates of curves) {
     let prev: [number, number] | undefined;
