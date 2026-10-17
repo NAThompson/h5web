@@ -13,7 +13,12 @@ import visualizerStyles from '../../visualizer/Visualizer.module.css';
 import { useCachedDimScales, useDimInfo } from '../dimscales/hooks';
 import { type VisContainerProps } from '../models';
 import { useSlicingProps } from '../slicing';
-import { useViewHint } from '../view-hints/hooks';
+import {
+  getOverlayLegend,
+  useResolvedOverlays,
+  useViewHint,
+} from '../view-hints/hooks';
+import OverlayLegend from '../view-hints/OverlayLegend';
 import OverlayNotes from '../view-hints/OverlayNotes';
 import { getPanelKind } from './hint';
 import { type PanelSpec } from './models';
@@ -40,6 +45,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
 
   const { dims } = entity.shape;
   const hint = useViewHint(entity);
+  const resolved = useResolvedOverlays(entity, hint); // shared with the panels (same query)
   const multiplesDims = useMemo(
     () => hint.multiplesDims ?? [0],
     [hint.multiplesDims],
@@ -214,6 +220,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
             : []),
         ]}
       />
+      <OverlayLegend items={getOverlayLegend(hint, resolved?.overlays ?? [])} />
     </>
   );
 }

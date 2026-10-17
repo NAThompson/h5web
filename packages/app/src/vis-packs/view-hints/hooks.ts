@@ -238,6 +238,33 @@ export interface LinkedOverlays {
   extraSlider?: Omit<ComponentProps<typeof LinkedDimMapper>, 'children'>;
 }
 
+/* Legend of the labelled overlays of a hint (not reference lines), unless the hint hides it */
+export function getOverlayLegend(
+  hint: ViewHint,
+  overlays: ResolvedOverlays['overlays'],
+): LegendItem[] {
+  if (hint.legend === false) {
+    return [];
+  }
+  return uniqueLegendItems(
+    overlays.flatMap(({ hint: overlay }) => {
+      const label =
+        overlay.legendLabel ??
+        (overlay.labelMode === 'inline' ? undefined : overlay.label);
+      return label && overlay.kind !== 'text' && !isReference(overlay)
+        ? [
+            {
+              label,
+              color: overlay.color ?? 'white',
+              kind: overlay.kind === 'points' ? 'points' : 'line',
+              dash: overlay.dash ?? false,
+            },
+          ]
+        : [];
+    }),
+  );
+}
+
 /* Overlays declared by a hint, sliced along the dimension that links them to the base dataset:
  * one of its dimensions (sliced by its own slider), or an extra slider */
 export function useLinkedOverlays(
@@ -281,26 +308,7 @@ export function useLinkedOverlays(
   const allOverlays = resolved?.overlays ?? [];
   const overlays = allOverlays.filter(({ hint: o }) => !isReference(o));
   const references = allOverlays.filter(({ hint: o }) => isReference(o));
-  const legend: LegendItem[] =
-    hint.legend === false
-      ? []
-      : uniqueLegendItems(
-          overlays.flatMap(({ hint: overlay }) => {
-            const label =
-              overlay.legendLabel ??
-              (overlay.labelMode === 'inline' ? undefined : overlay.label);
-            return label && overlay.kind !== 'text'
-              ? [
-                  {
-                    label,
-                    color: overlay.color ?? 'white',
-                    kind: overlay.kind === 'points' ? 'points' : 'line',
-                    dash: overlay.dash ?? false,
-                  },
-                ]
-              : [];
-          }),
-        );
+  const legend = getOverlayLegend(hint, overlays);
 
   return {
     shapes,
