@@ -23,6 +23,25 @@ interface Props {
 }
 
 const PADDING = 2; // CSS pixels around text, to avoid clipping antialiased edges
+const SCRIPT_SCALE = 0.7; // font size of sub/superscripts relative to the text's
+const SCRIPT_SHIFT = { sub: 0.25, super: -0.35 }; // baseline shift, in font sizes
+
+/* Runs of text, with `_{…}` and `^{…}` as subscripts and superscripts (e.g. `r_{12}`) */
+export function parseScripts(
+  text: string,
+): { str: string; shift?: 'sub' | 'super' }[] {
+  return text
+    .split(/([\^_]\{[^}]*\})/u)
+    .filter((part) => part.length > 0)
+    .map((part) =>
+      /^[\^_]\{.*\}$/u.test(part)
+        ? {
+            str: part.slice(2, -1),
+            shift: part.startsWith('_') ? 'sub' : 'super',
+          }
+        : { str: part },
+    );
+}
 
 export interface LabelUserData {
   isLabel: true;
@@ -91,28 +110,43 @@ function TextSprite(props: Props) {
   const dpr = useThree((state) => state.viewport.dpr);
 
   const { texture, width, height } = useMemo(() => {
-    const font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    const runs = parseScripts(text);
+    const hasScripts = runs.some((run) => run.shift);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    if (ctx) {
-      ctx.font = font;
+    function getFont(shift?: 'sub' | 'super'): string {
+      const size = shift ? fontSize * SCRIPT_SCALE : fontSize;
+      return `${fontWeight} ${size}px ${fontFamily}`;
     }
+    const runWidths = runs.map(({ str, shift }) => {
+      if (!ctx) {
+        return str.length * fontSize;
+      }
+      ctx.font = getFont(shift);
+      return ctx.measureText(str).width;
+    });
 
-    const textWidth = ctx?.measureText(text).width ?? text.length * fontSize;
+    const textWidth = runWidths.reduce((sum, w) => sum + w, 0);
     const cssWidth = Math.ceil(textWidth) + PADDING * 2;
-    const cssHeight = Math.ceil(fontSize * 1.3) + PADDING * 2;
+    const cssHeight =
+      Math.ceil(fontSize * (hasScripts ? 1.8 : 1.3)) + PADDING * 2; // room for scripts
 
     canvas.width = Math.max(cssWidth * dpr, 1);
     canvas.height = Math.max(cssHeight * dpr, 1);
 
     if (ctx) {
-      ctx.scale(dpr, dpr);
-      ctx.font = font; // resizing the canvas resets the context
+      ctx.scale(dpr, dpr); // resizing the canvas resets the context
       ctx.fillStyle = color;
-      ctx.textAlign = 'center';
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, cssWidth / 2, cssHeight / 2);
+      let x = (cssWidth - textWidth) / 2;
+      runs.forEach(({ str, shift }, i) => {
+        ctx.font = getFont(shift);
+        const dy = shift ? SCRIPT_SHIFT[shift] * fontSize : 0;
+        ctx.fillText(str, x, cssHeight / 2 + dy);
+        x += runWidths[i];
+      });
     }
 
     const tex = new CanvasTexture(canvas);

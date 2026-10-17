@@ -60,7 +60,8 @@ interface Props extends ClassStyleAttrs {
   title?: ReactNode;
   abscissaParams?: AxisParams;
   ordinateParams?: AxisParams;
-  valueLabel?: string;
+  valueLabel?: string; // `_{…}`/`^{…}` drawn as sub/superscripts on the 3D axis
+  colorBarLabel?: ReactNode; // default: `valueLabel`
   flipXAxis?: boolean;
   flipYAxis?: boolean;
   keepRatio?: boolean;
@@ -96,6 +97,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     abscissaParams = {},
     ordinateParams = {},
     valueLabel,
+    colorBarLabel = valueLabel,
     flipXAxis = false,
     flipYAxis = false,
     keepRatio = true,
@@ -350,7 +352,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       scaleType={legend.scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
-      colorBarLabel={colorArray ? undefined : valueLabel} // colour shows the height
+      colorBarLabel={colorArray ? undefined : colorBarLabel} // colour shows the height
       belowColor={belowColor}
       aboveColor={aboveColor}
     >

@@ -36,7 +36,6 @@ import { formatDType, unpackNumArray } from '../../netcdf/utils';
 import { type PanelVisOptions } from '../../panels/models';
 import PanelLayer from '../../panels/PanelLayer';
 import { useStableDomain } from '../../playback-range';
-import { toUnicodeScripts } from '../../view-hints/attrs';
 import {
   type ContourSource,
   useSymlogThreshold,
@@ -219,7 +218,8 @@ function MappedHeatmapVis(props: Props) {
           className={visualizerStyles.vis}
           dataArray={dataArray}
           title={renderMarkup(title)}
-          valueLabel={toUnicodeScripts(valueLabel)} // plain text in 3D
+          valueLabel={valueLabel}
+          colorBarLabel={renderMarkup(valueLabel)}
           domain={safeDomain}
           colorMap={colorMap}
           scaleType={visScaleType}
