@@ -534,6 +534,7 @@ export function parseOverlay(
       const mode = val.toLowerCase();
       return mode === 'inline' || mode === 'legend' ? mode : undefined;
     }),
+    legendLabel: read.str('H5WEB_legend_label'),
     dash: read.bool('H5WEB_dash'),
     halo: read.bool('H5WEB_halo'),
     stroke: read.str('H5WEB_stroke'),

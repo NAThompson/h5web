@@ -214,6 +214,19 @@ export interface LegendItem {
   dash: boolean;
 }
 
+/* Legend items without repeats (e.g. one entry for several overlays of a kind) */
+export function uniqueLegendItems(items: LegendItem[]): LegendItem[] {
+  return items.filter(
+    (item, i) =>
+      items.findIndex((other) => getLegendKey(other) === getLegendKey(item)) ===
+      i,
+  );
+}
+
+export function getLegendKey({ label, color, kind, dash }: LegendItem): string {
+  return [label, color, kind, dash].join('|');
+}
+
 export interface LinkedOverlays {
   shapes: OverlayShapes | undefined;
   notes: string[];
@@ -271,19 +284,22 @@ export function useLinkedOverlays(
   const legend: LegendItem[] =
     hint.legend === false
       ? []
-      : overlays.flatMap(({ hint: overlay }) =>
-          overlay.label &&
-          overlay.labelMode !== 'inline' &&
-          overlay.kind !== 'text'
-            ? [
-                {
-                  label: overlay.label,
-                  color: overlay.color ?? 'white',
-                  kind: overlay.kind === 'points' ? 'points' : 'line',
-                  dash: overlay.dash ?? false,
-                },
-              ]
-            : [],
+      : uniqueLegendItems(
+          overlays.flatMap(({ hint: overlay }) => {
+            const label =
+              overlay.legendLabel ??
+              (overlay.labelMode === 'inline' ? undefined : overlay.label);
+            return label && overlay.kind !== 'text'
+              ? [
+                  {
+                    label,
+                    color: overlay.color ?? 'white',
+                    kind: overlay.kind === 'points' ? 'points' : 'line',
+                    dash: overlay.dash ?? false,
+                  },
+                ]
+              : [];
+          }),
         );
 
   return {

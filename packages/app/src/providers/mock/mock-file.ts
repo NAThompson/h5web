@@ -1142,6 +1142,7 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_columns', 'alpha theta'),
             scalarAttr('H5WEB_label', 'e–e'),
             scalarAttr('H5WEB_label_mode', 'Inline'),
+            scalarAttr('H5WEB_legend_label', 'coalescence'), // in legend too
           ],
         }),
         scalar('theta_0', 'θ = 0', {

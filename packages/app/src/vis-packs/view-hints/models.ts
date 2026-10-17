@@ -36,6 +36,7 @@ interface OverlayBase {
   width?: number; // line width in CSS pixels
   label?: string; // in the legend, or next to the overlay with `labelMode: "inline"`
   labelMode?: 'legend' | 'inline';
+  legendLabel?: string; // legend entry regardless of `label` (alike entries shown once)
   dash?: boolean; // dashed lines
   halo?: boolean; // contrasting halo around lines, points and text (default: true)
   stroke?: string; // CSS colour of point outlines

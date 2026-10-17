@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { ContourMode } from '../core/heatmap/models';
 import { type VisDef } from '../models';
 import { parseViewHint, toUnicodeScripts } from './attrs';
+import { uniqueLegendItems } from './hooks';
 import { HintVis, type OverlayHint } from './models';
 import {
   getColorSuggestions,
@@ -618,5 +619,19 @@ describe('colour map and domain', () => {
     expect(findHintVis(hint({ H5WEB_vis: 'complex_heatmap' }), [heatmap])).toBe(
       heatmap,
     );
+  });
+});
+
+describe('uniqueLegendItems', () => {
+  it('show alike legend items once', () => {
+    const item = {
+      label: 'a',
+      color: 'red',
+      kind: 'line',
+      dash: false,
+    } as const;
+    expect(
+      uniqueLegendItems([item, { ...item }, { ...item, dash: true }, item]),
+    ).toEqual([item, { ...item, dash: true }]);
   });
 });

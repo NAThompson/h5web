@@ -314,6 +314,7 @@ test('apply title, auto colour map, legend, texts, inline labels', async () => {
   const legend = page.getByRole('list', { name: 'Overlays' });
   await expect.element(legend).toHaveTextContent('e–n'); // inline label not in legend
   expect(legend).not.toHaveTextContent('e–e');
+  expect(legend).toHaveTextContent('coalescence'); // `H5WEB_legend_label`
 
   await expect // overlays drawn once the canvas is measured
     .poll(() =>
