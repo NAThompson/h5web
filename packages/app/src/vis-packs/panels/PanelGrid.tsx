@@ -2,6 +2,7 @@ import { getAxisOffsets, MultiVisCanvas } from '@h5web/lib';
 import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { useMeasure } from '@react-hookz/web';
 import {
+  type ReactNode,
   type Ref,
   useCallback,
   useEffect,
@@ -146,6 +147,7 @@ interface Props {
   edgeAxesOnly: boolean; // axes only along the left and bottom edges of the grid (compact)
   axisLabels?: { x?: string; y?: string }; // shared by all panels: once, beside the grid
   headers?: { rows: string[]; cols: string[] }; // facet grid: instead of panel titles
+  footer?: ReactNode; // below the grid (e.g. legend of overlays)
   onOpen?: (spec: PanelSpec) => void;
   className?: string;
   ref?: Ref<PanelGridHandle>;
@@ -166,6 +168,7 @@ function PanelGrid(props: Props) {
     edgeAxesOnly,
     axisLabels,
     headers,
+    footer,
     onOpen,
     className = '',
     ref,
@@ -369,6 +372,7 @@ function PanelGrid(props: Props) {
             </div>
           </MultiVisCanvas>
         </div>
+        {footer}
       </div>
       {isDomainShared && groupColors.size > 0 && (
         <div className={styles.colorBars}>

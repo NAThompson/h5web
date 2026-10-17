@@ -207,6 +207,12 @@ function MultiplesVisContainer(props: VisContainerProps) {
         edgeAxesOnly
         axisLabels={axisLabels}
         headers={headers}
+        footer={
+          <OverlayLegend
+            items={getOverlayLegend(hint, resolved?.overlays ?? [])}
+            inline
+          />
+        }
         onOpen={setActiveVis && onOpen}
       />
       <OverlayNotes
@@ -220,7 +226,6 @@ function MultiplesVisContainer(props: VisContainerProps) {
             : []),
         ]}
       />
-      <OverlayLegend items={getOverlayLegend(hint, resolved?.overlays ?? [])} />
     </>
   );
 }

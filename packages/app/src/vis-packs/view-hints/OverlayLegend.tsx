@@ -4,17 +4,21 @@ import styles from './ViewHints.module.css';
 
 interface Props {
   items: LegendItem[];
+  inline?: boolean; // in the flow (e.g. below a grid of panels), not over the plot
 }
 
 /* Legend of the labelled overlays of a `H5WEB_*` view hint */
 function OverlayLegend(props: Props) {
-  const { items } = props;
+  const { items, inline = false } = props;
   if (items.length === 0) {
     return null;
   }
 
   return (
-    <ul className={styles.legend} aria-label="Overlays">
+    <ul
+      className={inline ? styles.legendInline : styles.legend}
+      aria-label="Overlays"
+    >
       {items.map((item) => {
         const { label, color, kind, dash } = item;
         return (
