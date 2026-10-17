@@ -6,8 +6,10 @@ import {
   BufferAttribute,
   BufferGeometry,
   type Camera,
+  Color,
   type Group,
   type Sprite,
+  SRGBColorSpace,
   Vector3,
   type Vector3Tuple,
 } from 'three';
@@ -55,17 +57,44 @@ const Z_LABEL_OFFSET = 0.05; // along both X and Y, i.e. diagonally away from th
 const TICK_FONT_SIZE = 11;
 const LABEL_FONT_SIZE = 13;
 
+/* Whether the canvas is inverted back to normal colours (`filter: invert()`, e.g. in dark mode)
+ * while the rest of the vis isn't: colours drawn in it are then not inverted like the page's */
+function isReinverted(canvas: HTMLElement): boolean {
+  let count = 0;
+  for (
+    let elem: HTMLElement | null = canvas;
+    elem && elem.dataset.keepCanvasColors === undefined;
+    elem = elem.parentElement
+  ) {
+    count += getComputedStyle(elem).filter.includes('invert') ? 1 : 0;
+  }
+  return count % 2 === 1;
+}
+
+function invertColor(color: string): string {
+  const { r, g, b } = new Color(color).getRGB(
+    { r: 0, g: 0, b: 0 },
+    SRGBColorSpace,
+  );
+  return new Color().setRGB(1 - r, 1 - g, 1 - b, SRGBColorSpace).getStyle();
+}
+
 function readTheme(elem: HTMLElement): Theme {
   const style = getComputedStyle(elem);
+  const reinverted = isReinverted(elem);
   function get(name: string, fallback: string): string {
     return style.getPropertyValue(name).trim() || fallback;
   }
+  function getColor(name: string, fallback: string): string {
+    const color = get(name, fallback);
+    return reinverted ? invertColor(color) : color;
+  }
 
   return {
-    tickLabels: get('--h5w-tickLabels--color', '#333'),
-    axisLabels: get('--h5w-axisLabels--color', '#333'),
-    ticks: get('--h5w-ticks--color', 'gray'),
-    grid: get('--h5w-grid--color', 'gray'),
+    tickLabels: getColor('--h5w-tickLabels--color', '#333'),
+    axisLabels: getColor('--h5w-axisLabels--color', '#333'),
+    ticks: getColor('--h5w-ticks--color', 'gray'),
+    grid: getColor('--h5w-grid--color', 'gray'),
     gridOpacity: Number(get('--h5w-grid--opacity', '0.33')),
     fontFamily: style.fontFamily || 'sans-serif',
   };
@@ -99,7 +128,13 @@ function useTheme(elem: HTMLElement): Theme {
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'style', 'data-theme'],
+      attributeFilter: [
+        'class',
+        'style',
+        'data-theme',
+        'data-color-scheme', // e.g. VS Code extension, which inverts the page in dark mode
+        'data-vscode-theme-kind',
+      ],
       subtree: true,
     });
 
