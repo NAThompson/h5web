@@ -1167,7 +1167,10 @@ export function makeMockFile(): GroupWithChildren {
         // `H5WEB_ticks = "pi"` on a dimension scale: axis ticks at multiples of π
         array('alpha_pi', {
           valueId: 'psi_axis',
-          attributes: [scalarAttr('H5WEB_ticks', 'Pi')],
+          attributes: [
+            scalarAttr('H5WEB_ticks', 'Pi'),
+            scalarAttr('units', 'rad'), // left off the axis label
+          ],
         }),
         withDimScales(array('psi_pi', { valueId: 'psi' }), {
           scales: [['/view_hints/theta'], ['/view_hints/alpha_pi']],

@@ -27,6 +27,15 @@ import {
 import { createAttrReader, toUnicodeScripts } from '../view-hints/attrs';
 import { getDatasetLabels, getScaleLabels } from './slice-labels';
 
+const RADIANS = /^\s*rad(?:ian)?s?\s*$/iu;
+
+/* Label of a dimension with the `units` of its scale, except radians on ticks at multiples of π */
+function withUnit(base: string, unit?: string, ticks?: AxisTicks): string {
+  return unit && !(ticks === 'pi' && RADIANS.test(unit))
+    ? `${base} (${unit})`
+    : base;
+}
+
 export interface DimScale {
   label?: string;
   name?: string; // short name of the dimension, e.g. for sliders: its label, else its scale's name
@@ -95,7 +104,7 @@ export async function getDimScales(
         toUnicodeScripts(longName) || label || name || scaleDataset.name;
 
       return {
-        label: unit ? `${base} (${unit})` : base,
+        label: withUnit(base, unit, ticks),
         name: label || name || scaleDataset.name,
         value,
         unit,

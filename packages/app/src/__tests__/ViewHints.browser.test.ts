@@ -376,6 +376,8 @@ test('put ticks at multiples of π on axes whose dimension scale says so', async
     .poll(() => getTickLabels('abscissa'))
     .toEqual(expect.arrayContaining(['0', 'π/2', 'π']));
   expect(getTickLabels('ordinate')).toContain('0.5'); // `theta` has no `H5WEB_ticks`
+  const abscissa = await getAxis('abscissa');
+  expect(abscissa.getByText('alpha_pi', { exact: true })).toBeVisible(); // no "(rad)"
 
   await selectExplorerNode('line_pi');
   await expect
