@@ -99,6 +99,7 @@ function VolumeVisContainer(props: VisContainerProps) {
                   dims={volumeDims}
                   title={hint.title}
                   symlogThreshold={hint.symlogThreshold}
+                  valueTransform={hint.valueTransform}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   axisValues={axisValues.slice(-3)}

@@ -2,7 +2,7 @@ import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 
 import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
-import { type VisScaleType } from '../models';
+import { type ValueTransform, type VisScaleType } from '../models';
 import styles from './VolumeVis.module.css';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   scaleType: VisScaleType;
   colorMap: ColorMap;
   invertColorMap: boolean;
+  valueTransform: ValueTransform | undefined;
   showVolume: boolean;
   gradientDomain: Domain | undefined;
   gradientLabel: string | undefined;
@@ -22,6 +23,7 @@ function VolumeLegend(props: Props) {
     scaleType,
     colorMap,
     invertColorMap,
+    valueTransform,
     showVolume,
     gradientDomain,
     gradientLabel = '|∇f|',
@@ -35,6 +37,7 @@ function VolumeLegend(props: Props) {
           scaleType={scaleType}
           colorMap={colorMap}
           invertColorMap={invertColorMap}
+          valueTransform={valueTransform}
           withBounds
         />
       )}

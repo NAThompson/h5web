@@ -220,6 +220,7 @@ function MappedHeatmapVis(props: Props) {
           title={renderMarkup(title)}
           valueLabel={valueLabel}
           colorBarLabel={renderMarkup(valueLabel)}
+          valueTransform={valueTransform}
           domain={safeDomain}
           colorMap={colorMap}
           scaleType={visScaleType}

@@ -433,6 +433,14 @@ test('label logarithms as powers', async () => {
     .poll(getColorBarTicks)
     .toEqual(expect.arrayContaining(['2⁻⁸', '2⁰']));
   expect(getColorBarTicks()).not.toContain('−8');
+
+  // Colour bar of the 3D surface too
+  await user.click(page.getByRole('combobox', { name: /SymLog/u }));
+  await user.click(page.getByRole('option', { name: 'Linear', exact: true }));
+  await user.click(page.getByRole('button', { name: 'Show as 3D surface' }));
+  await expect
+    .poll(getColorBarTicks)
+    .toEqual(expect.arrayContaining(['2⁻⁸', '2⁰']));
 });
 
 /* Tooltip of a line plot at sample `index` of `count` (abscissas are indices) */

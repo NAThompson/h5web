@@ -4,7 +4,11 @@ import { type Vector3Tuple } from 'three';
 
 import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
-import { type ClassStyleAttrs, type VisScaleType } from '../models';
+import {
+  type ClassStyleAttrs,
+  type ValueTransform,
+  type VisScaleType,
+} from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
 import { getTextContent } from '../utils';
 import Headlight from './Headlight';
@@ -28,6 +32,7 @@ interface Props extends ClassStyleAttrs {
   colorMap: ColorMap;
   invertColorMap: boolean;
   colorBarLabel?: ReactNode;
+  valueTransform?: ValueTransform; // values are logarithms: colour bar as powers
   belowColor?: string; // shown at the ends of the colour bar
   aboveColor?: string;
   headlight?: boolean; // light follows camera, rather than lighting the box from above
@@ -46,6 +51,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     colorMap,
     invertColorMap,
     colorBarLabel,
+    valueTransform,
     belowColor,
     aboveColor,
     headlight = false,
@@ -98,6 +104,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
         invertColorMap={invertColorMap}
         withBounds
         label={colorBarLabel}
+        valueTransform={valueTransform}
         belowColor={belowColor}
         aboveColor={aboveColor}
       />

@@ -313,6 +313,10 @@ test('colour volumes on the scale of the hint', async () => {
     .element(page.getByRole('combobox', { name: 'SymLog' }))
     .toBeVisible();
   await expect.poll(countColorBarPowers).toBeGreaterThanOrEqual(4);
+
+  // Logarithms (`H5WEB_value_transform`): powers, not exponents
+  await selectExplorerNode('volume_exp10');
+  await expect.poll(countColorBarPowers).toBeGreaterThanOrEqual(3);
 });
 
 /* Pixels of the volume's colour at the top of the colour map (e.g. maxima in MIP mode) */

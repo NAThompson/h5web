@@ -6,6 +6,7 @@ import {
   useSafeDomain,
   useVisDomain,
   useVolumeDomain,
+  type ValueTransform,
   VolumeVis,
 } from '@h5web/lib';
 import {
@@ -29,7 +30,10 @@ import {
 } from '../../netcdf/hooks';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
-import { useSymlogThreshold } from '../../view-hints/hooks';
+import {
+  useSymlogThreshold,
+  useTransformIgnoreValue,
+} from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
@@ -50,6 +54,7 @@ interface Props {
   withPhysicalAspect?: boolean;
   axisUnit?: string;
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
+  valueTransform?: ValueTransform; // values are logarithms: ±∞ (e.g. log of 0) ignored
 }
 
 function MappedVolumeVis(props: Props) {
@@ -64,6 +69,7 @@ function MappedVolumeVis(props: Props) {
     axisUnit,
     title,
     symlogThreshold,
+    valueTransform,
   } = props;
   const {
     customDomain,
@@ -83,7 +89,10 @@ function MappedVolumeVis(props: Props) {
   const numArray = useToNumArray(useUnpackedNumArray(value, packing));
   const dataArray = useBaseArray(numArray, dims);
 
-  const ignoreValue = useIgnoreValue(dataset);
+  const ignoreValue = useTransformIgnoreValue(
+    useIgnoreValue(dataset),
+    valueTransform,
+  );
   // During playback of a volume sequence (NX Volume), use range of whole sequence when affordable
   const dataDomain =
     useStableDomain(
@@ -181,6 +190,7 @@ function MappedVolumeVis(props: Props) {
         colorMap={colorMap}
         scaleType={visScaleType}
         invertColorMap={invertColorMap}
+        valueTransform={valueTransform}
         mode={mode}
         opacity={opacity}
         threshold={threshold}

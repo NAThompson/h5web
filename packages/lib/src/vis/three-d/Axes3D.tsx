@@ -18,6 +18,7 @@ import { type AxisTicks, type VisScaleType } from '../models';
 import {
   createScale,
   formatPiTick,
+  getCustomTicks,
   getScaleTickValues,
   getTickFormatter,
 } from '../utils';
@@ -30,7 +31,7 @@ export interface Axis3DConfig {
   scaleType?: VisScaleType; // Z axis only
   label?: string; // X and Y axes are labelled `x` and `y` by default; Z axis is not labelled by default
   flip?: boolean; // X and Y axes only
-  ticks?: AxisTicks; // X and Y axes only
+  ticks?: AxisTicks; // Z axis: powers only (values are logarithms)
 }
 
 interface Props {
@@ -307,12 +308,20 @@ function Axes3D(props: Props) {
     );
     // Flat box (e.g. planar curve): no Z axis to annotate
     const zCount = Math.max(Math.round(zHeight * 8), 2);
+    const zCustom = getCustomTicks(
+      zConfig.ticks === 'pi' ? undefined : zConfig.ticks,
+      scaleType,
+      valueDomain,
+      zCount,
+    );
+    const formatZ = zCustom?.format ?? formatTick;
     const zTicks =
       zHeight > 0
-        ? (
+        ? (zCustom?.values ??
+          (
             getScaleTickValues(scaleType, valueDomain, zCount) ??
             zScale.ticks(zCount)
-          ).filter((val) => zFormatter(val) !== '')
+          ).filter((val) => zFormatter(val) !== ''))
         : [];
 
     const xNear = (sx * w) / 2;
@@ -380,7 +389,7 @@ function Axes3D(props: Props) {
       }
       texts.push({
         key: `z${val}`,
-        text: formatTick(val),
+        text: formatZ(val),
         position: [xNear + sx * Z_LABEL_OFFSET, yFar - sy * Z_LABEL_OFFSET, z],
         outward: [sx, -sy, 0], // diagonally away from the corner, and from the surface
         priority: PRIORITY.valueTick,

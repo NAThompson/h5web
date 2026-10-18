@@ -11,6 +11,7 @@ import { type ColorMap } from '../heatmap/models';
 import {
   type AxisParams,
   type ClassStyleAttrs,
+  type ValueTransform,
   type VisScaleType,
 } from '../models';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
@@ -62,6 +63,7 @@ interface Props extends ClassStyleAttrs {
   ordinateParams?: AxisParams;
   valueLabel?: string; // `_{…}`/`^{…}` drawn as sub/superscripts on the 3D axis
   colorBarLabel?: ReactNode; // default: `valueLabel`
+  valueTransform?: ValueTransform; // values are logarithms: heights and colours shown as powers
   flipXAxis?: boolean;
   flipYAxis?: boolean;
   keepRatio?: boolean;
@@ -98,6 +100,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     ordinateParams = {},
     valueLabel,
     colorBarLabel = valueLabel,
+    valueTransform,
     flipXAxis = false,
     flipYAxis = false,
     keepRatio = true,
@@ -232,8 +235,11 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
 
   // Colour bar shows the field used for colours
   const legend = useMemo(
-    () => colorField ?? { domain, scaleType },
-    [colorField, domain, scaleType],
+    () =>
+      colorField
+        ? { ...colorField, valueTransform: undefined }
+        : { domain, scaleType, valueTransform },
+    [colorField, domain, scaleType, valueTransform],
   );
 
   // Children (e.g. overlays) are drawn in the data coordinates of the surface
@@ -338,8 +344,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   ]);
 
   const valueConfig = useMemo<Axis3DConfig>(
-    () => ({ domain, scaleType, label: valueLabel }),
-    [domain, scaleType, valueLabel],
+    () => ({ domain, scaleType, label: valueLabel, ticks: valueTransform }),
+    [domain, scaleType, valueLabel, valueTransform],
   );
 
   return (
@@ -353,6 +359,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       colorMap={colorMap}
       invertColorMap={invertColorMap}
       colorBarLabel={colorArray ? undefined : colorBarLabel} // colour shows the height
+      valueTransform={legend.valueTransform}
       belowColor={belowColor}
       aboveColor={aboveColor}
     >

@@ -994,6 +994,18 @@ export function makeMockFile(): GroupWithChildren {
           ],
         }),
         dataset(
+          'volume_exp10',
+          arrayShape([12, 12, 12]),
+          floatType(),
+          DECADES.map(Math.log10),
+          {
+            attributes: [
+              scalarAttr('H5WEB_vis', 'volume'),
+              scalarAttr('H5WEB_value_transform', 'exp10'),
+            ],
+          },
+        ),
+        dataset(
           'volume_symlog',
           arrayShape([12, 12, 12]),
           floatType(),

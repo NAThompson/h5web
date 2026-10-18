@@ -14,7 +14,11 @@ import {
 import { BoxGeometry, EdgesGeometry } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
-import { type ClassStyleAttrs, type VisScaleType } from '../models';
+import {
+  type ClassStyleAttrs,
+  type ValueTransform,
+  type VisScaleType,
+} from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
 import { getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
@@ -41,6 +45,7 @@ interface Props extends ClassStyleAttrs {
   scaleType?: VisScaleType; // e.g. symlog with its constant
   colorMap?: ColorMap;
   invertColorMap?: boolean;
+  valueTransform?: ValueTransform; // values are logarithms: colour bar as powers
   mode?: VolumeRenderMode;
   opacity?: number;
   threshold?: number;
@@ -73,6 +78,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     colorMap = 'Inferno',
     scaleType = ScaleType.Linear,
     invertColorMap = false,
+    valueTransform,
     mode = VolumeRenderMode.DVR,
     opacity = 0.25,
     threshold = 0.1,
@@ -185,6 +191,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
         scaleType={scaleType}
         colorMap={colorMap}
         invertColorMap={invertColorMap}
+        valueTransform={valueTransform}
         showVolume={showVolume}
         gradientDomain={
           isoColorMode === IsoColorMode.Gradient && isosurfaces.length > 0
