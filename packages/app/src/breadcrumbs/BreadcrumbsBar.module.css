@@ -68,3 +68,7 @@
 .crumbButton:not(:hover, :focus-visible, [data-copied]) > .copyIcon {
   display: none;
 }
+
+:global([data-plot-only]) .bar {
+  display: none;
+}

@@ -1,8 +1,10 @@
 import '@h5web/lib'; // eslint-disable-line import-x/no-duplicates -- make sure lib styles come first in CSS bundle
 
-import { KeepZoomProvider } from '@h5web/lib'; // eslint-disable-line import-x/no-duplicates
-import { Suspense, useState } from 'react';
+import { Btn, KeepZoomProvider } from '@h5web/lib'; // eslint-disable-line import-x/no-duplicates
+import { useEventListener } from '@react-hookz/web';
+import { Suspense, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { FiMinimize } from 'react-icons/fi';
 import {
   Group,
   Panel,
@@ -34,8 +36,9 @@ interface Props {
   getFeedbackURL?: (context: FeedbackContext) => string;
   disableDarkMode?: boolean;
   propagateErrors?: boolean;
-  /* Full screen where the Fullscreen API is unavailable (e.g. maximise the editor of a VS Code webview) */
-  onToggleFullscreen?: () => void;
+  /* Where the Fullscreen API is unavailable (e.g. VS Code webview), the full-screen button shows
+   * the plot alone (Escape to exit) and calls this, e.g. for the host to hide its own UI */
+  onToggleFullscreen?: (isFullscreen: boolean) => void;
 }
 
 function App(props: Props) {
@@ -71,6 +74,25 @@ function App(props: Props) {
       : false,
   );
 
+  // Plot alone, when the host provides full screen (cf. `onToggleFullscreen`)
+  const [isPlotOnly, setPlotOnly] = useState(false);
+  const wasSidebarOpen = useRef(false);
+  function togglePlotOnly(isNowPlotOnly: boolean) {
+    setPlotOnly(isNowPlotOnly);
+    if (isNowPlotOnly) {
+      wasSidebarOpen.current = isSidebarOpen;
+      sidebarPanelRef.current?.collapse();
+    } else if (wasSidebarOpen.current) {
+      sidebarPanelRef.current?.expand();
+    }
+    onToggleFullscreen?.(isNowPlotOnly);
+  }
+  useEventListener(globalThis, 'keydown', (evt: KeyboardEvent) => {
+    if (isPlotOnly && evt.key === 'Escape') {
+      togglePlotOnly(false);
+    }
+  });
+
   return (
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
@@ -88,6 +110,7 @@ function App(props: Props) {
         data-fullscreen-root
         data-allow-dark-mode={disableDarkMode ? undefined : ''}
         data-sidebar-collapsed={!isSidebarOpen || undefined}
+        data-plot-only={isPlotOnly || undefined}
       >
         <Panel
           id={SIDEBAR_ID}
@@ -112,9 +135,20 @@ function App(props: Props) {
         <Separator className={styles.splitter} />
 
         <Panel id={MAIN_AREA_ID} className={styles.mainArea}>
+          {isPlotOnly && (
+            <Btn
+              className={styles.exitPlotOnly}
+              Icon={FiMinimize}
+              iconOnly
+              label="Exit full screen"
+              onClick={() => togglePlotOnly(false)}
+            />
+          )}
           <BreadcrumbsBar
             path={selectedPath}
-            onToggleFullscreen={onToggleFullscreen}
+            onToggleFullscreen={
+              onToggleFullscreen && (() => togglePlotOnly(true))
+            }
             isSidebarOpen={isSidebarOpen}
             isInspecting={isInspecting}
             onToggleSidebar={() => {

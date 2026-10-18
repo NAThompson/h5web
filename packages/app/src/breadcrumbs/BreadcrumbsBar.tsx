@@ -1,5 +1,5 @@
 import { Btn, LinkBtn, Separator, ToggleBtn, ToggleGroup } from '@h5web/lib';
-import { useEventListener, useRerender, useToggle } from '@react-hookz/web';
+import { useEventListener, useRerender } from '@react-hookz/web';
 import {
   FiMaximize,
   FiMessageCircle,
@@ -20,7 +20,7 @@ interface Props {
   onChangeInspecting: (b: boolean) => void;
   onSelectPath: (path: string) => void;
   getFeedbackURL?: (context: FeedbackContext) => string;
-  onToggleFullscreen?: () => void;
+  onToggleFullscreen?: () => void; // where the Fullscreen API is unavailable
 }
 
 function BreadcrumbsBar(props: Props) {
@@ -36,8 +36,7 @@ function BreadcrumbsBar(props: Props) {
   } = props;
 
   const { filepath } = useDataContext();
-  const [isHostFullscreen, toggleHostFullscreen] = useToggle(false);
-  const isFullscreen = !!document.fullscreenElement || isHostFullscreen;
+  const isFullscreen = !!document.fullscreenElement;
 
   const rerender = useRerender();
   useEventListener(document, 'fullscreenchange', rerender);
@@ -78,9 +77,8 @@ function BreadcrumbsBar(props: Props) {
           iconOnly
           label="Go full screen"
           onClick={() => {
-            if (!document.fullscreenEnabled && onToggleFullscreen) {
-              onToggleFullscreen();
-              toggleHostFullscreen();
+            if (!document.fullscreenEnabled) {
+              onToggleFullscreen?.();
             } else if (!document.fullscreenElement) {
               void document
                 .querySelector('[data-fullscreen-root]')

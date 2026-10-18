@@ -150,8 +150,27 @@
 }
 
 .mainArea {
+  position: relative;
   display: flex;
   flex-direction: column;
+}
+
+/* Plot alone (cf. `onToggleFullscreen`): no explorer, breadcrumbs nor toolbars */
+.root[data-plot-only] .splitter {
+  display: none;
+}
+
+.exitPlotOnly {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  z-index: 10;
+  opacity: 0.4;
+}
+
+.exitPlotOnly:hover,
+.exitPlotOnly:focus-visible {
+  opacity: 1;
 }
 
 .fallbackBar {

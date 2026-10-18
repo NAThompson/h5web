@@ -13,6 +13,10 @@
   background-color: var(--secondary-light-bg);
 }
 
+:global([data-plot-only]) .visBar {
+  display: none;
+}
+
 .visArea {
   flex: 1;
   min-height: 0;
