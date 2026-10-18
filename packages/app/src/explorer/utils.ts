@@ -6,7 +6,13 @@ import {
   isDatatype,
   isGroup,
 } from '@h5web/shared/guards';
-import { type ChildEntity, type Group } from '@h5web/shared/hdf5-models';
+import {
+  type AttributeValues,
+  type ChildEntity,
+  type Entity,
+  type Group,
+  type GroupWithChildren,
+} from '@h5web/shared/hdf5-models';
 import { queryOptions } from '@tanstack/react-query';
 import { type KeyboardEvent } from 'react';
 import { type IconType } from 'react-icons';
@@ -22,7 +28,10 @@ import { RxDotFilled } from 'react-icons/rx';
 import { TbCube, TbTimeline } from 'react-icons/tb';
 
 import { type DataContextValue } from '../providers/DataProvider';
+import { getCoordinatePaths } from '../vis-packs/core/geometry/utils';
+import { isPhonyScaleName } from '../vis-packs/dimscales/utils';
 import { getNxClass } from '../vis-packs/nexus/utils';
+import { createAttrReader, splitNames } from '../vis-packs/view-hints/attrs';
 import { getNxDefaultPath } from '../visualizer/utils';
 
 const DATASET_ICONS = [RxDotFilled, TbTimeline, PiGridFourBold, TbCube];
@@ -144,5 +153,139 @@ async function needsNxBadge(
 
   return dataContext.queryClient.query(
     nxBadgeQuery(defaultEntity, dataContext),
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
+export function auxRolesQuery(
+  group: GroupWithChildren,
+  dataContext: DataContextValue,
+) {
+  return queryOptions({
+    queryKey: [dataContext.filepath, 'auxRoles', group.path] as const,
+    queryFn: async () => getAuxRoles(group, dataContext),
+  });
+}
+
+interface Referrer {
+  entity: Entity;
+  values?: AttributeValues;
+}
+
+function readStr({ entity, values }: Referrer, name: string) {
+  return values && createAttrReader(entity, values, []).str(name);
+}
+
+/* Role of a child of a group that is auxiliary data, if it is: `H5WEB_role`, else dimension
+ * scale, else listed in a sibling's CF `coordinates` or in `H5WEB_overlays`, else overlay data
+ * (`H5WEB_geometry`) that nothing lists */
+function getAuxRole(
+  child: Referrer,
+  referenced: Map<string, string>,
+): string | undefined {
+  const role = readStr(child, 'H5WEB_role')?.toLowerCase();
+  if (role === 'axis' || role === 'auxiliary' || role === 'data') {
+    return role === 'data' ? undefined : role;
+  }
+
+  if (readStr(child, 'CLASS') === 'DIMENSION_SCALE') {
+    return isPhonyScaleName(readStr(child, 'NAME'))
+      ? 'netCDF dimension (not a variable)'
+      : 'axis (dimension scale)';
+  }
+
+  return (
+    referenced.get(child.entity.path) ??
+    (child.entity.attributes.some(({ name }) => name === 'H5WEB_geometry')
+      ? 'overlay'
+      : undefined)
+  );
+}
+
+/**
+ * Roles of the children of a group that are auxiliary data (muted in the explorer), by name.
+ * `H5WEB_overlays` is looked for on the group, its children and its siblings (overlays often live
+ * in a subgroup), `coordinates` on its children. Only the attribute values of entities that have
+ * one of these attributes are fetched (cached, as for the visualizations).
+ */
+export async function getAuxRoles(
+  group: GroupWithChildren,
+  dataContext: DataContextValue,
+): Promise<Map<string, string>> {
+  const { queryClient, queries } = dataContext;
+
+  async function tryQuery<T>(query: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await query();
+    } catch {
+      return undefined; // e.g. network error: nothing muted
+    }
+  }
+
+  async function toReferrer(entity: Entity, names: string[]) {
+    const hasAttr = entity.attributes.some((attr) => names.includes(attr.name));
+    const values = hasAttr
+      ? await tryQuery(async () =>
+          queryClient.query(queries.attrValues(entity)),
+        )
+      : undefined;
+    return { entity, values };
+  }
+
+  const parentPath = group.path.slice(0, group.path.lastIndexOf('/')) || '/';
+  const parent =
+    group.path === '/'
+      ? undefined
+      : await tryQuery(async () =>
+          queryClient.query(queries.entity(parentPath)),
+        );
+
+  const [children, others] = await Promise.all([
+    Promise.all(
+      group.children.map(async (child) =>
+        toReferrer(child, [
+          'H5WEB_role',
+          'CLASS',
+          'coordinates',
+          'H5WEB_overlays',
+        ]),
+      ),
+    ),
+    Promise.all(
+      [group, ...(parent && isGroup(parent) ? parent.children : [])].map(
+        async (entity) => toReferrer(entity, ['H5WEB_overlays']),
+      ),
+    ),
+  ]);
+
+  // Paths resolved like CF `coordinates`, kept if they name a child of the group
+  const childPaths = new Set(children.map(({ entity }) => entity.path));
+  const referenced = new Map<string, string>();
+  const refs = [
+    ...[...children, ...others].map((ref) => ['H5WEB_overlays', ref] as const),
+    ...children.map((ref) => ['coordinates', ref] as const),
+  ];
+  for (const [attr, ref] of refs) {
+    const anchor = isGroup(ref.entity)
+      ? `${ref.entity.path}/.`
+      : ref.entity.path;
+    for (const name of splitNames(readStr(ref, attr) ?? '')) {
+      const path = getCoordinatePaths(anchor, name).find((p) =>
+        childPaths.has(p),
+      );
+      if (path) {
+        referenced.set(
+          path,
+          attr === 'coordinates' ? 'auxiliary coordinate' : 'overlay',
+        );
+      }
+    }
+  }
+
+  return new Map(
+    children.flatMap((child) => {
+      const role = getAuxRole(child, referenced);
+      return role ? [[child.entity.name, role] as const] : [];
+    }),
   );
 }

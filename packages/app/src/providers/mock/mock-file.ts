@@ -1524,7 +1524,10 @@ export function makeMockFile(): GroupWithChildren {
         }),
         array('band_no_axis', {
           valueId: 'ref_band_x',
-          attributes: [scalarAttr('H5WEB_geometry', 'band')],
+          attributes: [
+            scalarAttr('H5WEB_geometry', 'band'),
+            scalarAttr('H5WEB_role', 'data'), // not muted in the explorer
+          ],
         }),
         array('line_references', {
           valueId: 'convergence',
@@ -1678,7 +1681,10 @@ export function makeMockFile(): GroupWithChildren {
         }),
         array('volume_flat', {
           valueId: 'twoD',
-          attributes: [scalarAttr('H5WEB_vis', 'volume')],
+          attributes: [
+            scalarAttr('H5WEB_vis', 'volume'),
+            scalarAttr('H5WEB_role', 'auxiliary'), // muted in the explorer
+          ],
         }),
         // Panels side by side: the same field twice, their difference and a line, linked and
         // sliced together along `generation` (`missing` is skipped with a note)

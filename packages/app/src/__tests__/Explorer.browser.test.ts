@@ -266,3 +266,34 @@ test('show spinner when group metadata is slow to fetch', async () => {
     .element(page.getByLabelText('Loading group metadata...'))
     .not.toBeInTheDocument();
 });
+
+test('mute auxiliary datasets: axes, coordinates and overlays', async () => {
+  await renderApp('/view_hints/line_references');
+
+  const titles = {
+    series_k: 'axis (dimension scale)',
+    phony_5: 'netCDF dimension (not a variable)',
+    tolerance: 'overlay', // listed in `H5WEB_overlays` of `line_references`
+    point: 'overlay', // also listed by `nx_overlay` group (`../point`)
+    volume_flat: 'auxiliary', // `H5WEB_role`
+  };
+  await expect.element(getExplorerItem('series_k')).toHaveAttribute('title'); // roles of the group are found at once
+  for (const [name, title] of Object.entries(titles)) {
+    expect(getExplorerItem(name)).toHaveAttribute('title', title);
+    expect(getExplorerItem(name)).toHaveAttribute('data-muted');
+  }
+
+  // Data: `H5WEB_series` members, and `H5WEB_role = "data"`
+  for (const name of ['series_fit', 'series_bound', 'band_no_axis']) {
+    expect(getExplorerItem(name)).not.toHaveAttribute('data-muted');
+  }
+});
+
+test('mute CF auxiliary coordinates', async () => {
+  await renderApp('/geometry/knot_speed');
+
+  await expect
+    .element(getExplorerItem('knot_x'))
+    .toHaveAttribute('title', 'auxiliary coordinate');
+  expect(getExplorerItem('knot_speed')).not.toHaveAttribute('data-muted');
+});

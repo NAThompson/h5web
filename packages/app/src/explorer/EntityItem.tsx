@@ -27,13 +27,14 @@ import {
 interface Props {
   path: string;
   entity: ChildEntity;
+  auxRole?: string; // e.g. "overlay": muted, to set off the data
   level: number;
   selectedPath: string;
   onSelect: (path: string) => void;
 }
 
 function EntityItem(props: Props) {
-  const { path, entity, level, selectedPath, onSelect } = props;
+  const { path, entity, auxRole, level, selectedPath, onSelect } = props;
   const isSelected = path === selectedPath;
 
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -114,6 +115,8 @@ function EntityItem(props: Props) {
         ref={btnRef}
         className={styles.btn}
         type="button"
+        title={auxRole}
+        data-muted={auxRole ? '' : undefined}
         role="treeitem"
         aria-expanded={isGroup(entity) ? isExpanded : undefined}
         aria-selected={isSelected}

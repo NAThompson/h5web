@@ -38,6 +38,11 @@
   font-weight: bold;
 }
 
+/* Auxiliary data (axes, coordinates, overlays) */
+.btn[data-muted]:not(:hover, :focus-visible, [aria-selected='true']) > * {
+  opacity: 0.55;
+}
+
 .fileBtn {
   composes: btn;
   height: var(--toolbar-height);
