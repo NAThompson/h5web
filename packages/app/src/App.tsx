@@ -34,6 +34,8 @@ interface Props {
   getFeedbackURL?: (context: FeedbackContext) => string;
   disableDarkMode?: boolean;
   propagateErrors?: boolean;
+  /* Full screen where the Fullscreen API is unavailable (e.g. maximise the editor of a VS Code webview) */
+  onToggleFullscreen?: () => void;
 }
 
 function App(props: Props) {
@@ -43,6 +45,7 @@ function App(props: Props) {
     getFeedbackURL,
     disableDarkMode,
     propagateErrors,
+    onToggleFullscreen,
   } = props;
 
   const [selectedPath, setSelectedPath] = useState<string>(initialPath);
@@ -111,6 +114,7 @@ function App(props: Props) {
         <Panel id={MAIN_AREA_ID} className={styles.mainArea}>
           <BreadcrumbsBar
             path={selectedPath}
+            onToggleFullscreen={onToggleFullscreen}
             isSidebarOpen={isSidebarOpen}
             isInspecting={isInspecting}
             onToggleSidebar={() => {
