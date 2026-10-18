@@ -291,13 +291,6 @@ export async function getHintSafely(
   }
 }
 
-/* Notes about a hint in a vis that draws no overlays (e.g. volume, NeXus line) */
-export function getHintNotes(hint: ViewHint): string[] {
-  return hint.overlayPaths.length > 0
-    ? [...hint.notes, 'overlays are not drawn in this view']
-    : hint.notes;
-}
-
 /* Note about overlay features not drawn on 3D surfaces, if the overlays use any */
 export function getNotesIn3D(overlays: OverlayHint[]): string[] {
   const unsupported = [

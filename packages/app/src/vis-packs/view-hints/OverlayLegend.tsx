@@ -27,6 +27,7 @@ function OverlayLegend(props: Props) {
               className={styles.legendSwatch}
               viewBox="0 0 20 12"
               aria-hidden
+              data-keep-colors
             >
               {kind === 'points' ? (
                 <circle cx={10} cy={6} r={4} fill={color} stroke="#202020" />

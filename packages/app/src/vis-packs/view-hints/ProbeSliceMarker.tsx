@@ -17,7 +17,11 @@ function ProbeSliceMarker(props: { x: number; y: number }) {
     <DataToHtml points={points}>
       {(pt) => (
         <Html>
-          <svg className={styles.svg} data-testid="probe-slice">
+          <svg
+            className={styles.svg}
+            data-testid="probe-slice"
+            data-keep-colors
+          >
             <line
               x1={pt.x}
               x2={pt.x}

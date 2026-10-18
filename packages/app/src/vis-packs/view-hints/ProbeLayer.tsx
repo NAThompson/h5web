@@ -98,7 +98,7 @@ function ProbeLayer(props: Props) {
     <DataToHtml points={points}>
       {(pt) => (
         <Html>
-          <svg className={styles.svg}>
+          <svg className={styles.svg} data-keep-colors>
             <circle
               data-testid="probe-marker"
               cx={pt.x}

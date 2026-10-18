@@ -33,7 +33,11 @@ function ReferenceLayer(props: Props) {
 
   return (
     <Html overflowCanvas>
-      <svg className={styles.referenceSvg} data-testid="references">
+      <svg
+        className={styles.referenceSvg}
+        data-testid="references"
+        data-keep-colors
+      >
         {shapes.map(
           ({ kind, axis, color, width: lineWidth, dash, label }, i) => {
             const [a, b] = positions[i];

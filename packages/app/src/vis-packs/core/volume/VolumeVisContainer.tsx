@@ -17,7 +17,6 @@ import { getDimScaleNotes } from '../../view-hints/axis-scales';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getVolumeSuggestions } from '../../view-hints/suggestions';
-import { getHintNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useSuggestedIsoLevels, useVolumeConfig } from './config';
@@ -111,9 +110,7 @@ function VolumeVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes
-        notes={[...getHintNotes(hint), ...getDimScaleNotes(dimScales)]}
-      />
+      <OverlayNotes notes={[...hint.notes, ...getDimScaleNotes(dimScales)]} />
     </>
   );
 }

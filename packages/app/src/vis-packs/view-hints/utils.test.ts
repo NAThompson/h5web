@@ -18,7 +18,6 @@ import {
 import {
   findHintVis,
   formatLabel,
-  getHintNotes,
   getHintVisNotes,
   getNotesIn3D,
   getValueLabel,
@@ -468,13 +467,6 @@ describe('formatLabel', () => {
 });
 
 describe('notes', () => {
-  it('note overlays in visualizations without overlays', () => {
-    expect(getHintNotes(hint({ H5WEB_overlays: 'c' }))).toEqual([
-      'overlays are not drawn in this view',
-    ]);
-    expect(getHintNotes(hint({ H5WEB_vis: 'line' }))).toEqual([]);
-  });
-
   it('note overlay features not drawn in 3D', () => {
     const curve: OverlayHint = { kind: 'curve', curve: 'c', trail: false };
     const text: OverlayHint = {

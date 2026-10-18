@@ -217,7 +217,7 @@ function OverlayLayer2D(props: Props) {
         {(...htmlPts) => (
           // Not clipped by the canvas, so shapes on the edges of the domain are drawn whole
           <Html overflowCanvas>
-            <svg className={styles.svg}>
+            <svg className={styles.svg} data-keep-colors>
               <g data-testid="overlays">
                 {shapes.lines.map((line, i) => {
                   const pts = htmlPts.slice(
