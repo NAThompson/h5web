@@ -26,6 +26,7 @@ export enum HintVis {
   Scatter = 'scatter', // NeXus scatter, or points (cf. `core/scatter/source.ts`)
   Scatter3D = 'scatter3d', // point cloud
   Compound = 'compound',
+  Vector = 'vector', // cf. `VECTOR_VIS` (datasets and groups)
 }
 
 interface OverlayBase {

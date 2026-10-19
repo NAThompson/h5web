@@ -36,6 +36,9 @@ import { isNurbsGroup, isNurbsMultiPatchGroup } from '../vis-packs/nurbs/utils';
 import { NURBS_BASIS_VIS, NURBS_VIS } from '../vis-packs/nurbs/visualizations';
 import { hasPanelsAttr } from '../vis-packs/panels/hint';
 import { PANELS_VIS } from '../vis-packs/panels/visualizations';
+import { getVectorRank, isVectorGroup } from '../vis-packs/vector/utils';
+import { VECTOR_VIS } from '../vis-packs/vector/visualizations';
+import { HintVis } from '../vis-packs/view-hints/models';
 import {
   findHintVis,
   getHintSafely,
@@ -63,13 +66,17 @@ async function resolvePath(
   const entity = await queryClient.query(queries.entity(path));
 
   if (isDataset(entity)) {
-    const supportedVis = await getSupportedCoreVis(entity, dataContext);
-    if (supportedVis.length === 0) {
+    const coreVis = await getSupportedCoreVis(entity, dataContext);
+    if (coreVis.length === 0) {
       return null;
     }
 
     // `H5WEB_*` view hint takes precedence over heuristics (points of CF `featureType = "point"`)
     const hint = await getHintSafely(entity, dataContext);
+    const supportedVis =
+      hint.vis === HintVis.Vector && getVectorRank(entity)
+        ? [VECTOR_VIS, ...coreVis.filter(({ name }) => name !== Vis.Volume)] // components are no axis
+        : coreVis;
     const primaryVis = findHintVis(hint, supportedVis);
     return {
       entity,
@@ -106,6 +113,10 @@ async function resolvePath(
       supportedVis,
       primaryVis: findHintVis(hint, supportedVis),
     };
+  }
+
+  if (await isVectorGroup(entity, dataContext)) {
+    return { entity, supportedVis: [VECTOR_VIS], primaryVis: VECTOR_VIS };
   }
 
   // `H5WEB_panels`: datasets side by side, by default (over NeXus)

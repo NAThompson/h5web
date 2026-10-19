@@ -228,6 +228,7 @@ const VIS_NAMES: Record<HintVis, string[]> = {
   [HintVis.Scatter]: ['Scatter', 'NX Scatter'],
   [HintVis.Scatter3D]: ['Scatter 3D', 'Scatter'], // 2D without z
   [HintVis.Compound]: ['Compound'],
+  [HintVis.Vector]: ['Vector'],
 };
 
 /* Supported visualization asked for by the hint, if any */
