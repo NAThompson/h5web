@@ -1,21 +1,36 @@
-import { Separator, SnapshotBtn, ToggleBtn, Toolbar } from '@h5web/lib';
+import {
+  type ColorMap,
+  ColorMapSelector,
+  Separator,
+  SnapshotBtn,
+  ToggleBtn,
+  Toolbar,
+} from '@h5web/lib';
 import { assertGroup, hasArrayShape, isDataset } from '@h5web/shared/guards';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MdGridOn, MdTimeline } from 'react-icons/md';
+import {
+  MdGridOn,
+  MdLineStyle,
+  MdOutlineViewInAr,
+  MdTimeline,
+} from 'react-icons/md';
 
 import { useVisArea } from '../../visualizer/vis-area';
 import visualizerStyles from '../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../models';
 import VisBoundary from '../VisBoundary';
 import NurbsFetcher from './NurbsFetcher';
+import NurbsSurfaceFetcher from './NurbsSurfaceFetcher';
+import { isNurbsSurfaceGroup } from './utils';
 
-/* NURBS curve of a group with `H5WEB_geometry = "nurbs"` */
+/* NURBS curve or surface of a group with `H5WEB_geometry = "nurbs"` */
 function NurbsVisContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
   assertGroup(entity);
 
   // 3D curves are drawn by `Curve3DVis`, without control points
+  const isSurface = isNurbsSurfaceGroup(entity);
   const points = entity.children.find(({ name }) => name === 'control_points');
   const is3D =
     points && isDataset(points) && hasArrayShape(points)
@@ -24,25 +39,57 @@ function NurbsVisContainer(props: VisContainerProps) {
 
   const visArea = useVisArea();
   const [showControlPolygon, setShowControlPolygon] = useState(false);
+  const [showKnotLines, setShowKnotLines] = useState(false);
+  const [showAxes, setShowAxes] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
+  const [colorMap, setColorMap] = useState<ColorMap>('Viridis');
+  const [invertColorMap, setInvertColorMap] = useState(false);
 
   return (
     <>
       {toolbarContainer &&
         createPortal(
           <Toolbar>
-            {!is3D && (
+            {isSurface && (
+              <>
+                <ColorMapSelector
+                  value={colorMap}
+                  onValueChange={setColorMap}
+                  invert={invertColorMap}
+                  onInversionChange={() => setInvertColorMap(!invertColorMap)}
+                />
+                <Separator />
+              </>
+            )}
+            {(isSurface || !is3D) && (
               <ToggleBtn
-                label="Control points"
+                label={isSurface ? 'Control net' : 'Control points'}
                 Icon={MdTimeline}
                 value={showControlPolygon}
                 onToggle={() => setShowControlPolygon(!showControlPolygon)}
               />
             )}
+            {isSurface && (
+              <>
+                <ToggleBtn
+                  label="Knot lines"
+                  Icon={MdLineStyle}
+                  value={showKnotLines}
+                  onToggle={() => setShowKnotLines(!showKnotLines)}
+                />
+                <ToggleBtn
+                  label="Axes"
+                  Icon={MdOutlineViewInAr}
+                  value={showAxes}
+                  onToggle={() => setShowAxes(!showAxes)}
+                />
+              </>
+            )}
             <ToggleBtn
               label="Grid"
               Icon={MdGridOn}
               value={showGrid}
+              disabled={!showAxes && isSurface}
               onToggle={() => setShowGrid(!showGrid)}
             />
             <Separator />
@@ -52,12 +99,25 @@ function NurbsVisContainer(props: VisContainerProps) {
         )}
 
       <VisBoundary>
-        <NurbsFetcher
-          className={visualizerStyles.vis}
-          group={entity}
-          showControlPolygon={showControlPolygon}
-          showGrid={showGrid}
-        />
+        {isSurface ? (
+          <NurbsSurfaceFetcher
+            className={visualizerStyles.vis}
+            group={entity}
+            colorMap={colorMap}
+            invertColorMap={invertColorMap}
+            showControlNet={showControlPolygon}
+            showKnotLines={showKnotLines}
+            showAxes={showAxes}
+            showGrid={showGrid}
+          />
+        ) : (
+          <NurbsFetcher
+            className={visualizerStyles.vis}
+            group={entity}
+            showControlPolygon={showControlPolygon}
+            showGrid={showGrid}
+          />
+        )}
       </VisBoundary>
     </>
   );

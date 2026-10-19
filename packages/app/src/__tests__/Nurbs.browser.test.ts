@@ -178,3 +178,91 @@ test('show error for invalid knots', async () => {
     )
     .toBeVisible();
 });
+
+test('visualize periodic 3D NURBS curve, coloured by parameter', async () => {
+  await renderApp('/nurbs/trefoil_3d');
+  const figure = getFigure('trefoil_3d');
+  await expect.element(figure).toBeVisible();
+  await expect.element(figure.getByText('u', { exact: true })).toBeVisible(); // colour bar
+});
+
+test('visualize NURBS surface with WebGPU', async () => {
+  const { frames } = captureGpuFrames();
+  await renderApp('/nurbs/torus');
+  expect(getVisTabs()).toEqual(['NURBS']);
+
+  const figure = getFigure('torus');
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
+  await expect
+    .poll(() => figure.element().querySelector('canvas[data-drawn]'))
+    .not.toBeNull();
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
+
+  // WebGPU canvas under the WebGL one (axes, control net)
+  const canvases = figure.element().querySelectorAll('canvas');
+  expect(canvases).toHaveLength(2);
+  expect(canvases[0]).toHaveAttribute('data-drawn');
+});
+
+test('draw WebGPU surface again for snapshots', async () => {
+  const { frames } = captureGpuFrames();
+  await renderApp('/nurbs/sphere');
+
+  const figure = getFigure('sphere');
+  await expect
+    .poll(() => figure.element().querySelector('canvas[data-drawn]'))
+    .not.toBeNull();
+
+  const count = frames.length;
+  await exportSnapshot(figure.element() as HTMLElement);
+  expect(frames.length).toBeGreaterThan(count);
+  await expect(frames.at(-1)).resolves.toBeGreaterThan(10_000);
+});
+
+test('toggle control net, knot lines and axes of NURBS surface', async () => {
+  const { user } = await renderApp('/nurbs/wave');
+  await expect
+    .element(getFigure('wave'))
+    .toHaveAttribute('data-renderer', 'webgpu');
+
+  for (const name of ['Control net', 'Knot lines']) {
+    const btn = page.getByRole('button', { name });
+    await expect.element(btn).toHaveAttribute('aria-pressed', 'false');
+    await user.click(btn);
+    await expect.element(btn).toHaveAttribute('aria-pressed', 'true');
+  }
+
+  const axesBtn = page.getByRole('button', { name: 'Axes' });
+  await expect.element(axesBtn).toHaveAttribute('aria-pressed', 'true');
+  await user.click(axesBtn);
+  await expect
+    .element(page.getByRole('button', { name: 'Grid' }))
+    .toBeDisabled();
+});
+
+test('fall back to WebGL for NURBS surface without WebGPU', async () => {
+  Object.defineProperty(navigator, 'gpu', {
+    value: undefined,
+    configurable: true,
+  });
+  const { user } = await renderApp('/nurbs/saddle');
+
+  const figure = getFigure('saddle');
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgl');
+  expect(figure.element().querySelectorAll('canvas')).toHaveLength(1);
+  await user.click(page.getByRole('button', { name: 'Knot lines' })); // drawn as lines
+  await expect.element(figure).toBeVisible();
+});
+
+test('show error for invalid knots of NURBS surface', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  await renderApp('/nurbs/bad_surface_knots');
+
+  await expect
+    .element(
+      page.getByText(
+        'Invalid NURBS surface: Expected 11 knots along v (control points + degree + 1), got 2',
+      ),
+    )
+    .toBeVisible();
+});

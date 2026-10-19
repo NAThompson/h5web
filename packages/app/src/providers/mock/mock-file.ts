@@ -130,6 +130,99 @@ function nurbs(
   );
 }
 
+// Trefoil knot, periodic: cubic with uniform knots, first 3 control points repeated at the end
+const TREFOIL_POINTS = Array.from({ length: 15 }, (_, i) => {
+  const t = (2 * Math.PI * (i % 12)) / 12;
+  return [
+    Math.sin(t) + 2 * Math.sin(2 * t),
+    Math.cos(t) - 2 * Math.cos(2 * t),
+    -Math.sin(3 * t),
+  ];
+});
+
+// NURBS surfaces: profiles `(r, z)` revolved around `z` with the circle (`u` around)
+function revolve(profile: number[][], weights: number[]) {
+  return {
+    points: CIRCLE_POINTS.map(([cx, cy]) =>
+      profile.map(([r, z]) => [r * cx, r * cy, z]),
+    ),
+    weights: CIRCLE_WEIGHTS.map((wu) => weights.map((wv) => wu * wv)),
+  };
+}
+const SPHERE = revolve(
+  [
+    [0, -1],
+    [1, -1],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ],
+  [1, Math.SQRT1_2, 1, Math.SQRT1_2, 1],
+);
+const TORUS = revolve(
+  CIRCLE_POINTS.map(([x, y]) => [2 + x / 2, y / 2]),
+  CIRCLE_WEIGHTS,
+);
+// Bicubic B-spline with non-uniform knots
+const WAVE_POINTS = Array.from({ length: 6 }, (_, i) =>
+  Array.from({ length: 7 }, (__, j) => [
+    i,
+    j,
+    Math.sin(i * 1.3) * Math.cos(j * 0.9) * (1 + j / 4),
+  ]),
+);
+
+function nurbsSurface(
+  name: string,
+  degrees: number[], // one for both directions, or `u` and `v`
+  points: number[][][],
+  knots: number[][],
+  weights?: number[][],
+) {
+  const [nu, nv] = [points.length, points[0].length];
+  return group(
+    name,
+    [
+      dataset(
+        'control_points',
+        arrayShape([nu, nv, 3]),
+        floatType(64),
+        points.flat(2),
+      ),
+      ...knots.map((values, i) =>
+        dataset(
+          i === 0 ? 'knots_u' : 'knots_v',
+          arrayShape([values.length]),
+          floatType(64),
+          values,
+        ),
+      ),
+      ...(weights
+        ? [
+            dataset(
+              'weights',
+              arrayShape([nu, nv]),
+              floatType(64),
+              weights.flat(),
+            ),
+          ]
+        : []),
+    ],
+    {
+      attributes: [
+        scalarAttr('H5WEB_geometry', 'nurbs'),
+        ...(degrees.length === 1
+          ? [scalarAttr('degree', degrees[0], { type: intType(true, 32) })]
+          : degrees.map((degree, i) =>
+              scalarAttr(i === 0 ? 'degree_u' : 'degree_v', degree, {
+                type: intType(true, 32),
+              }),
+            )),
+      ],
+    },
+  );
+}
+
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
     isRoot: true,
@@ -1103,6 +1196,47 @@ export function makeMockFile(): GroupWithChildren {
         nurbs('nonuniform', 3, KINKED_POINTS, KINKED_KNOTS),
         nurbs('helix_3d', 2, HELIX_POINTS, HELIX_KNOTS, HELIX_WEIGHTS),
         nurbs('bad_knots', 2, CIRCLE_POINTS, [...CIRCLE_KNOTS].reverse()),
+        nurbs('trefoil_3d', 3, TREFOIL_POINTS, indices(19)),
+        nurbsSurface(
+          'sphere',
+          [2, 2],
+          SPHERE.points,
+          [CIRCLE_KNOTS, [0, 0, 0, 0.5, 0.5, 1, 1, 1]],
+          SPHERE.weights,
+        ),
+        nurbsSurface(
+          'torus',
+          [2, 2],
+          TORUS.points,
+          [CIRCLE_KNOTS, CIRCLE_KNOTS],
+          TORUS.weights,
+        ),
+        nurbsSurface('wave', [3], WAVE_POINTS, [
+          [0, 0, 0, 0, 0.2, 0.5, 1, 1, 1, 1],
+          [0, 0, 0, 0, 1, 1.5, 3, 4, 4, 4, 4],
+        ]),
+        nurbsSurface(
+          'saddle',
+          [1],
+          [
+            [
+              [-1, -1, 1],
+              [-1, 1, -1],
+            ],
+            [
+              [1, -1, -1],
+              [1, 1, 1],
+            ],
+          ],
+          [
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+          ],
+        ),
+        nurbsSurface('bad_surface_knots', [3], WAVE_POINTS, [
+          [0, 0, 0, 0, 0.2, 0.5, 1, 1, 1, 1],
+          [0, 1],
+        ]),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects

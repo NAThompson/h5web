@@ -21,30 +21,46 @@ export async function isNurbsGroup(
   return geometry?.toLowerCase() === 'nurbs';
 }
 
+/* Child dataset `name` of a NURBS group, if any, checked to be numeric with given rank */
+function findNumDataset(
+  group: GroupWithChildren,
+  name: string,
+  rank: number,
+): NumDataset | undefined {
+  const child = group.children.find((entity) => entity.name === name);
+  if (!child) {
+    return undefined;
+  }
+  if (
+    !isDataset(child) ||
+    !hasArrayShape(child) ||
+    !hasNumericType(child) ||
+    child.shape.dims.length !== rank
+  ) {
+    throw new Error(`Expected "${name}" to be a ${rank}D numeric dataset`);
+  }
+  return child;
+}
+
+/* Surface if its control points are a grid: `(nu, nv, 3)` */
+export function isNurbsSurfaceGroup(group: GroupWithChildren): boolean {
+  const points = group.children.find(({ name }) => name === 'control_points');
+  return (
+    !!points &&
+    isDataset(points) &&
+    hasArrayShape(points) &&
+    points.shape.dims.length === 3
+  );
+}
+
 /* Datasets of a NURBS group, with the shapes they need (counts are checked with the values) */
 export function getNurbsDatasets(group: GroupWithChildren): {
   points: NumDataset;
   weights: NumDataset | undefined;
   knots: NumDataset;
 } {
-  function find(name: string, rank: number): NumDataset | undefined {
-    const child = group.children.find((entity) => entity.name === name);
-    if (!child) {
-      return undefined;
-    }
-    if (
-      !isDataset(child) ||
-      !hasArrayShape(child) ||
-      !hasNumericType(child) ||
-      child.shape.dims.length !== rank
-    ) {
-      throw new Error(`Expected "${name}" to be a ${rank}D numeric dataset`);
-    }
-    return child;
-  }
-
-  const points = find('control_points', 2);
-  const knots = find('knots', 1);
+  const points = findNumDataset(group, 'control_points', 2);
+  const knots = findNumDataset(group, 'knots', 1);
   if (!points || !knots) {
     throw new Error('Expected "control_points" and "knots" datasets');
   }
@@ -56,5 +72,41 @@ export function getNurbsDatasets(group: GroupWithChildren): {
     );
   }
 
-  return { points, weights: find('weights', 1), knots };
+  return { points, weights: findNumDataset(group, 'weights', 1), knots };
+}
+
+/* Datasets of a NURBS surface group: control points `(nu, nv, 3)`, weights `(nu, nv)` */
+export function getNurbsSurfaceDatasets(group: GroupWithChildren): {
+  points: NumDataset;
+  weights: NumDataset | undefined;
+  knotsU: NumDataset;
+  knotsV: NumDataset;
+} {
+  const points = findNumDataset(group, 'control_points', 3);
+  const knotsU = findNumDataset(group, 'knots_u', 1);
+  const knotsV = findNumDataset(group, 'knots_v', 1);
+  if (!points || !knotsU || !knotsV) {
+    throw new Error(
+      'Expected "control_points", "knots_u" and "knots_v" datasets',
+    );
+  }
+
+  const [nu, nv, dims] = points.shape.dims;
+  if (dims !== 3) {
+    throw new Error(
+      `Expected "control_points" of shape (nu, nv, 3), got (${points.shape.dims.join(', ')})`,
+    );
+  }
+
+  const weights = findNumDataset(group, 'weights', 2);
+  if (
+    weights &&
+    (weights.shape.dims[0] !== nu || weights.shape.dims[1] !== nv)
+  ) {
+    throw new Error(
+      `Expected "weights" of shape (${nu}, ${nv}), got (${weights.shape.dims.join(', ')})`,
+    );
+  }
+
+  return { points, weights, knotsU, knotsV };
 }

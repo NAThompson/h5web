@@ -9,3 +9,12 @@
   ); /* above axis grid, below SVG overlay */
   pointer-events: none;
 }
+
+.gpuSurfaceCanvas {
+  position: absolute; /* below the WebGL canvas, made `position: relative` */
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}

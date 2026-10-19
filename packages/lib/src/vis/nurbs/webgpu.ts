@@ -5,8 +5,8 @@ const WORKGROUP_SIZE = 64;
 
 // `GPUBufferUsage` flags, missing from TypeScript's DOM types
 const COPY_DST = 0x08;
-const UNIFORM = 0x40;
-const STORAGE = 0x80;
+export const UNIFORM = 0x40;
+export const STORAGE = 0x80;
 
 /* `evaluateNurbs` (A2.2 + A4.1) for each sample, in homogeneous coordinates */
 const EVALUATE_WGSL = /* wgsl */ `
@@ -223,11 +223,11 @@ export class NurbsGpuRenderer {
       );
     });
 
-    this.params = this.createBuffer(16, UNIFORM);
-    this.points = this.createBuffer(homogeneous, STORAGE);
-    this.knots = this.createBuffer(Float32Array.from(knots), STORAGE);
-    this.spanTable = this.createBuffer(spans.length * 12, STORAGE);
-    this.view = this.createBuffer(48, UNIFORM);
+    this.params = createBuffer(device, 16, UNIFORM);
+    this.points = createBuffer(device, homogeneous, STORAGE);
+    this.knots = createBuffer(device, Float32Array.from(knots), STORAGE);
+    this.spanTable = createBuffer(device, spans.length * 12, STORAGE);
+    this.view = createBuffer(device, 48, UNIFORM);
 
     device.queue.writeBuffer(
       this.params,
@@ -254,7 +254,8 @@ export class NurbsGpuRenderer {
 
     if (!this.samples || this.samples.size < this.sampleCount * 16) {
       this.samples?.destroy();
-      this.samples = this.createBuffer(
+      this.samples = createBuffer(
+        device,
         2 ** Math.ceil(Math.log2(this.sampleCount * 16)), // room to zoom in
         STORAGE,
       );
@@ -351,19 +352,21 @@ export class NurbsGpuRenderer {
       buffer?.destroy();
     }
   }
+}
 
-  private createBuffer(
-    sizeOrData: number | Float32Array,
-    usage: number,
-  ): GPUBuffer {
-    const isData = typeof sizeOrData !== 'number';
-    const buffer = this.device.createBuffer({
-      size: Math.max(isData ? sizeOrData.byteLength : sizeOrData, 16),
-      usage: usage | COPY_DST, // eslint-disable-line no-bitwise -- usage flags
-    });
-    if (isData) {
-      this.device.queue.writeBuffer(buffer, 0, sizeOrData);
-    }
-    return buffer;
+/* Buffer of given size or with given data (writable, e.g. by `queue.writeBuffer`) */
+export function createBuffer(
+  device: GPUDevice,
+  sizeOrData: number | Float32Array | Uint32Array,
+  usage: number,
+): GPUBuffer {
+  const isData = typeof sizeOrData !== 'number';
+  const buffer = device.createBuffer({
+    size: Math.max(isData ? sizeOrData.byteLength : sizeOrData, 16),
+    usage: usage | COPY_DST, // eslint-disable-line no-bitwise -- usage flags
+  });
+  if (isData) {
+    device.queue.writeBuffer(buffer, 0, sizeOrData);
   }
+  return buffer;
 }

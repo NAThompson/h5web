@@ -1,12 +1,6 @@
 import { type Domain } from '@h5web/shared/vis-models';
 import { getBounds } from '@h5web/shared/vis-utils';
-import {
-  type PropsWithChildren,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { type PropsWithChildren, type ReactNode, useMemo } from 'react';
 
 import DefaultInteractions, {
   type DefaultInteractionsConfig,
@@ -19,10 +13,11 @@ import { CurveType } from '../line/models';
 import { type Aspect, type ClassStyleAttrs } from '../models';
 import VisCanvas from '../shared/VisCanvas';
 import { extendDomain, getTextContent } from '../utils';
+import { useGpuDevice } from './hooks';
 import { getKnotSpans, type NurbsCurve } from './nurbs';
 import NurbsCpuLine from './NurbsCpuLine';
 import NurbsGpuLine from './NurbsGpuLine';
-import { MAX_GPU_DEGREE, requestGpuDevice } from './webgpu';
+import { MAX_GPU_DEGREE } from './webgpu';
 
 interface Props extends ClassStyleAttrs {
   curve: NurbsCurve; // planar (`dims: 2`), valid (cf. `getNurbsError`)
@@ -141,38 +136,6 @@ function NurbsVis(props: PropsWithChildren<Props>) {
 function getExtent(values: Float64Array): Domain {
   const { min, max } = getBounds(values) ?? { min: 0, max: 0 };
   return min < max ? [min, max] : [min - 1, max + 1];
-}
-
-/* WebGPU device, `null` without WebGPU or if not `enabled` (`undefined` until known);
- * requested again if lost, then `null` if lost again */
-function useGpuDevice(enabled: boolean): GPUDevice | null | undefined {
-  const [device, setDevice] = useState<GPUDevice | null>();
-  const [lossCount, setLossCount] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    function isActive(): boolean {
-      return !controller.signal.aborted;
-    }
-    void (async () => {
-      const dev = enabled && lossCount < 2 ? await requestGpuDevice() : null;
-      if (!isActive()) {
-        return;
-      }
-      setDevice(dev);
-
-      if (dev) {
-        await dev.lost;
-        if (isActive()) {
-          setDevice(undefined);
-          setLossCount((count) => count + 1);
-        }
-      }
-    })();
-    return () => controller.abort();
-  }, [enabled, lossCount]);
-
-  return device;
 }
 
 export type { Props as NurbsVisProps };

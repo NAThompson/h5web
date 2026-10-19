@@ -36,6 +36,7 @@ interface Props extends ClassStyleAttrs {
   belowColor?: string; // shown at the ends of the colour bar
   aboveColor?: string;
   headlight?: boolean; // light follows camera, rather than lighting the box from above
+  renderer?: string; // as `data-renderer`, e.g. `webgpu`
 }
 
 /**
@@ -55,6 +56,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     belowColor,
     aboveColor,
     headlight = false,
+    renderer,
     children,
     className = '',
     style,
@@ -68,6 +70,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
       style={style}
       aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
+      data-renderer={renderer}
     >
       <div className={styles.main}>
         {title && <p className={styles.title}>{title}</p>}

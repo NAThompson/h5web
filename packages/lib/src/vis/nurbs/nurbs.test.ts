@@ -122,7 +122,7 @@ describe('getNurbsError', () => {
       'Expected at least 5 control points for degree 4',
     );
     expect(getNurbsError({ ...ARCH, knots: [0, 0, 0, 0, 0, 0, 0] })).toBe(
-      "Knots must increase between knots 2 and 4 (the curve's domain)",
+      'Knots must increase between knots 2 and 4 (the domain)',
     );
     expect(
       getNurbsError({

@@ -2,6 +2,7 @@ import {
   Curve3DVis,
   getKnotSpans,
   getNurbsError,
+  getSpanSteps,
   type NurbsCurve,
   NurbsVis,
   sampleNurbs,
@@ -63,16 +64,16 @@ function NurbsFetcher(props: Props) {
       return undefined;
     }
     const spans = getKnotSpans(curve);
-    const samples = sampleNurbs(
-      curve,
-      spans,
-      new Uint32Array(spans.length).fill(SEGMENTS_PER_SPAN_3D),
-    );
-    return [0, 1, 2].map((d) => samples.filter((_, i) => i % 3 === d));
+    const counts = new Uint32Array(spans.length).fill(SEGMENTS_PER_SPAN_3D);
+    const samples = sampleNurbs(curve, spans, counts);
+    return {
+      coords: [0, 1, 2].map((d) => samples.filter((_, i) => i % 3 === d)),
+      params: getSpanSteps(spans, counts).params, // coloured by `u`
+    };
   }, [curve]);
 
   if (samples3D) {
-    const [x, y, z] = samples3D;
+    const [x, y, z] = samples3D.coords;
     return (
       <Curve3DVis
         className={className}
@@ -80,6 +81,12 @@ function NurbsFetcher(props: Props) {
         x={x}
         y={y}
         z={z}
+        values={samples3D.params}
+        domain={[
+          curve.knots[curve.degree],
+          curve.knots[curve.knots.length - curve.degree - 1],
+        ]}
+        colorBarLabel="u"
         xLabel="x"
         yLabel="y"
         showGrid={showGrid}

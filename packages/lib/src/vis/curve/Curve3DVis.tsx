@@ -29,6 +29,7 @@ interface Props extends ClassStyleAttrs {
   z?: NumArray; // curve lies in the `z = 0` plane if not provided
   values?: NumArray; // scalar field along the curve, used for colouring; defaults to point indices
   domain?: Domain; // defaults to domain of `values`
+  colorBarLabel?: ReactNode;
   colorMap?: ColorMap;
   scaleType?: VisScaleType;
   invertColorMap?: boolean;
@@ -55,6 +56,7 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
     z,
     values,
     domain,
+    colorBarLabel,
     colorMap = 'Viridis',
     scaleType = ScaleType.Linear,
     invertColorMap = false,
@@ -150,6 +152,7 @@ function Curve3DVis(props: PropsWithChildren<Props>) {
       scaleType={scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
+      colorBarLabel={colorBarLabel}
       headlight
     >
       <CurveMesh
