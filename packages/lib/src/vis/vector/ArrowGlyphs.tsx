@@ -1,4 +1,4 @@
-import { type Domain } from '@h5web/shared/vis-models';
+import { type Domain, ScaleType } from '@h5web/shared/vis-models';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import {
@@ -14,7 +14,15 @@ import {
 } from 'three';
 
 import { type ColorMap } from '../heatmap/models';
-import { getColorMapTexture, getInterpolator } from '../heatmap/utils';
+import {
+  getColorMapTexture,
+  getInterpolator,
+  getShaderScale,
+  GLSL_LOG1P,
+  GLSL_SCALE,
+  scaleDomain,
+} from '../heatmap/utils';
+import { type VisScaleType } from '../models';
 import { useVisCanvasContext } from '../shared/VisCanvasProvider';
 import {
   createSvgElement,
@@ -22,6 +30,7 @@ import {
   SVG_DRAWER_KEY,
 } from '../snapshot/svgScene';
 import { fmt } from '../snapshot/svgUtils';
+import { createScale } from '../utils';
 import {
   ARROW_SHAPE,
   getArrowGrid,
@@ -39,6 +48,7 @@ export interface ArrowColorMap {
   colorMap: ColorMap;
   invertColorMap: boolean;
   domain: Domain; // of the magnitude
+  scaleType?: VisScaleType; // as the colour bar (default: linear)
 }
 
 interface Props {
@@ -53,8 +63,11 @@ interface Props {
 
 const HALO_WIDTH = 1;
 
-const VERTEX_SHADER = /* glsl */ `
+// Magnitude to colour-map coordinate as in `HeatmapMaterial` (scale, then domain, then gamma)
+function getVertexShader(scaleType: ScaleType): string {
+  return /* glsl */ `
   ${GLSL_SAMPLE_FIELD}
+  ${GLSL_LOG1P}
   ${GLSL_GLYPH}
 
   in vec4 glyph;
@@ -68,8 +81,15 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uniformLength;
   uniform vec3 shape; // shaft width, head width, head length (px)
   uniform float outline;
-  uniform vec2 magDomain;
+  uniform vec2 magDomain; // scaled
+  uniform float gammaExponent;
+  uniform float symlogConstant;
   out float vParam;
+
+  const float oneOverLog10 = 0.43429448190325176;
+  float scale(float value) {
+    return ${GLSL_SCALE[scaleType] ?? 'value'};
+  }
 
   void main() {
     vec2 world = gridOrigin + cell * gridStep;
@@ -90,9 +110,11 @@ const VERTEX_SHADER = /* glsl */ `
     vec2 offset = glyphOffset(glyph, len, shape, outline);
     vec2 pos = world + (dir * offset.x + vec2(-dir.y, dir.x) * offset.y) * worldPerPx;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 0.0, 1.0);
-    vParam = clamp((length(uv) - magDomain.x) / (magDomain.y - magDomain.x), 0.0, 1.0);
+    float t = clamp((scale(length(uv)) - magDomain.x) / (magDomain.y - magDomain.x), 0.0, 1.0);
+    vParam = pow(isnan(t) ? 0.0 : t, gammaExponent);
   }
 `;
+}
 
 const FRAGMENT_SHADER = /* glsl */ `
   uniform sampler2D colorMap;
@@ -189,6 +211,12 @@ function ArrowGlyphs(props: Props) {
   const solidColor = typeof color === 'string' ? color : undefined;
   const colorMap = typeof color === 'string' ? undefined : color.colorMap;
   const invertColorMap = typeof color !== 'string' && color.invertColorMap;
+  const visScaleType =
+    typeof color === 'string'
+      ? ScaleType.Linear
+      : (color.scaleType ?? ScaleType.Linear);
+  const [scaleType, gammaExponent, symlogConstant] =
+    getShaderScale(visScaleType);
   const colorMapTexture = useMemo(
     () => colorMap && getColorMapTexture(colorMap, invertColorMap),
     [colorMap, invertColorMap],
@@ -212,6 +240,8 @@ function ArrowGlyphs(props: Props) {
         ARROW_SHAPE.headLength,
       ),
       magDomain: new Vector2(0, 1),
+      gammaExponent: 1,
+      symlogConstant: 1,
     };
     function create(outline: number, solid: string | undefined) {
       const uniforms = Object.fromEntries(
@@ -226,7 +256,7 @@ function ArrowGlyphs(props: Props) {
       return new ShaderMaterial({
         glslVersion: GLSL3,
         uniforms,
-        vertexShader: VERTEX_SHADER,
+        vertexShader: getVertexShader(scaleType),
         fragmentShader: FRAGMENT_SHADER,
         depthTest: false,
       });
@@ -235,7 +265,7 @@ function ArrowGlyphs(props: Props) {
       arrows: create(0, solidColor),
       halo: halo ? create(HALO_WIDTH, halo) : undefined,
     };
-  }, [textures, colorMapTexture, solidColor, halo]);
+  }, [textures, colorMapTexture, solidColor, halo, scaleType]);
   useEffect(
     () => () => {
       materials.arrows.dispose();
@@ -272,7 +302,11 @@ function ArrowGlyphs(props: Props) {
       uniforms.maxLength.value = Math.min(maxLength, 1e6);
       uniforms.uniformLength.value = uniformLength;
       if (typeof color !== 'string') {
-        (uniforms.magDomain.value as Vector2).set(...color.domain);
+        (uniforms.magDomain.value as Vector2).set(
+          ...scaleDomain(color.domain, scaleType, symlogConstant),
+        );
+        uniforms.gammaExponent.value = gammaExponent;
+        uniforms.symlogConstant.value = symlogConstant;
       }
     }
   });
@@ -289,6 +323,14 @@ function ArrowGlyphs(props: Props) {
       typeof color === 'string'
         ? undefined
         : getInterpolator(color.colorMap, color.invertColorMap);
+    const colorScale =
+      typeof color === 'string'
+        ? undefined
+        : createScale(visScaleType, {
+            domain: color.domain,
+            range: [0, 1],
+            clamp: true,
+          });
     const halos: string[] = [];
     const byColor = new Map<string, string[]>();
     const [wx, wy] = [camera.scale.x, camera.scale.y];
@@ -323,15 +365,17 @@ function ArrowGlyphs(props: Props) {
           );
         }
         let css = typeof color === 'string' ? color : '';
-        if (interpolator && typeof color !== 'string') {
-          const [d0, d1] = color.domain;
-          const t = Math.min(Math.max((mag - d0) / (d1 - d0), 0), 1);
+        if (interpolator && colorScale) {
+          const t = colorScale(mag) || 0; // e.g. 0 on a log scale: `NaN`
           css = interpolator(Math.round(t * 63) / 63); // a path per colour
         }
-        byColor.set(css, [
-          ...(byColor.get(css) ?? []),
-          arrowPath([world, [dx, dy]], len, [wx, wy], 0, toPx),
-        ]);
+        const path = arrowPath([world, [dx, dy]], len, [wx, wy], 0, toPx);
+        const parts = byColor.get(css);
+        if (parts) {
+          parts.push(path);
+        } else {
+          byColor.set(css, [path]);
+        }
       }
     }
 

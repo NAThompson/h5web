@@ -1,6 +1,6 @@
 import { renderSvgSnapshot, sampleField } from '@h5web/lib';
 import { assertNonNull } from '@h5web/shared/guards';
-import { expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 
 import {
@@ -43,6 +43,15 @@ async function selectOption(label: string, option: string): Promise<void> {
     page.getByRole('option', { name: option, exact: true }),
   );
 }
+
+// Leave room for the whole toolbar, so no control moves to the overflow menu
+beforeEach(async () => {
+  await page.viewport(2560, 1080);
+});
+
+afterEach(async () => {
+  await page.viewport(1920, 1080);
+});
 
 const isWhite = (r: number, g: number, b: number) =>
   r > 250 && g > 250 && b > 250;
@@ -197,4 +206,71 @@ test('show 3D fields as arrows in a box', async () => {
   await expect
     .poll(() => countPixels((r, g, b, a) => a > 0))
     .toBeGreaterThan(2000);
+});
+
+test('offer no Volume tab for vector datasets', async () => {
+  const { selectExplorerNode } = await renderApp('/vector/vortex');
+  expect(getVisTabs()).toEqual(['Vector', 'Matrix', 'Line', 'Heatmap']);
+
+  await selectExplorerNode('abc_flow'); // (nz, ny, nx, 3)
+  await expect.poll(getSelectedVisTab).toBe('Vector');
+  expect(getVisTabs()).not.toContain('Volume');
+});
+
+test('apply view hints of vector groups on first open', async () => {
+  await renderApp('/vector/components');
+  await expect.element(page.getByText('Blues', { exact: true })).toBeVisible();
+});
+
+test('show the magnitude if the background dataset is unusable', async () => {
+  await renderApp('/vector/bad_background');
+  await expect
+    .element(page.getByRole('combobox', { name: /^Background/u }))
+    .toHaveTextContent('Magnitude');
+  await expect.poll(getColorBarLabel).toBe('|v| (m/s)');
+  await expect
+    .element(page.getByRole('note', { name: 'View hint notes' }))
+    .toHaveTextContent('"nowhere" is not a numeric dataset');
+});
+
+test('offer no log or sqrt scale for signed backgrounds', async () => {
+  await renderApp('/vector/dipole'); // `H5WEB_scale = "log"`
+  await expect
+    .element(page.getByRole('combobox', { name: 'Log' }))
+    .toBeVisible();
+
+  await selectOption('Background', 'Curl');
+  await userEvent.click(page.getByRole('combobox', { name: 'Linear' }));
+  expect(
+    page.getByRole('option', { name: 'Log', exact: true }).elements(),
+  ).toHaveLength(0);
+  expect(page.getByRole('option', { name: 'Sqrt' }).elements()).toHaveLength(0);
+  await userEvent.keyboard('{Escape}');
+
+  await selectOption('Background', 'Magnitude');
+  await expect
+    .element(page.getByRole('combobox', { name: 'Log' }))
+    .toBeVisible();
+});
+
+test('colour arrows by magnitude on the scale of the colour bar', async () => {
+  await renderApp('/vector/dipole'); // `H5WEB_scale = "log"`
+  await selectOption('Background', 'None');
+  const figure = document.querySelector('figure');
+  assertNonNull(figure);
+  function countColors(): number {
+    const svg = renderSvgSnapshot(figure as HTMLElement);
+    return new Set(
+      [...svg.querySelectorAll('path[fill]')]
+        .filter((p) => (p.getAttribute('d')?.match(/Z/gu) ?? []).length > 0)
+        .map((p) => p.getAttribute('fill')),
+    ).size;
+  }
+
+  // 1/r² field: most arrows at the low end of a linear scale, spread on a log scale
+  await expect.poll(countColors).toBeGreaterThan(30);
+  const logColors = countColors();
+  await userEvent.click(page.getByRole('combobox', { name: 'Log' }));
+  await userEvent.click(page.getByRole('option', { name: 'Linear' }));
+  await expect.poll(countColors).toBeLessThan(logColors / 2);
 });

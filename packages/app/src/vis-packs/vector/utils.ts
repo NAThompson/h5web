@@ -1,4 +1,14 @@
-import { VectorBackground, VectorStyle } from '@h5web/lib';
+import {
+  type Domain,
+  getCurl2D,
+  getDivergence,
+  getDomain,
+  getMagnitude,
+  VectorBackground,
+  type VectorField2D,
+  type VectorField3D,
+  VectorStyle,
+} from '@h5web/lib';
 import {
   hasArrayShape,
   hasNumericType,
@@ -9,22 +19,27 @@ import {
   type ArrayShape,
   type AttributeValues,
   type Dataset,
+  type Entity,
   type Group,
   type NumericType,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
+import { type ColorScaleType, type NumArray } from '@h5web/shared/vis-models';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
 import {
   type DataContextValue,
   useDataContext,
 } from '../../providers/DataProvider';
-import { findScalarStrAttr, getAttributeValue } from '../../utils';
+import { hasAttribute } from '../../utils';
 import {
   createGeometryContext,
   resolveCoordinate,
 } from '../core/geometry/utils';
-import { toNumbers } from '../view-hints/attrs';
+import { extendDomain } from '../playback-range';
+import { createAttrReader } from '../view-hints/attrs';
+import { HintVis } from '../view-hints/models';
+import { getHintSafely } from '../view-hints/utils';
 
 export type NumDataset = Dataset<ArrayShape, NumericType>;
 
@@ -80,35 +95,29 @@ export function getVectorRank(dataset: ProvidedEntity): 2 | 3 | undefined {
   return undefined;
 }
 
-/* Whether a group has `H5WEB_vis = "vector"` (case-insensitive) */
+/* Whether a group has `H5WEB_vis = "vector"`, read as in datasets' view hints (which are then
+ * in cache, cf. `useViewHint`) */
 export async function isVectorGroup(
-  group: Group,
+  group: ProvidedEntity,
   dataContext: DataContextValue,
 ): Promise<boolean> {
-  const attr = findScalarStrAttr(group, 'H5WEB_vis');
-  if (!attr) {
+  if (!hasAttribute(group, 'H5WEB_vis')) {
     return false;
   }
-  try {
-    const value = await getAttributeValue(group, attr, dataContext);
-    return value.trim().toLowerCase() === 'vector';
-  } catch {
-    return false;
-  }
-}
-
-function readString(values: AttributeValues, name: string): string | undefined {
-  const value: unknown = values[name];
-  const str: unknown = Array.isArray(value) ? value[0] : value;
-  return typeof str === 'string' && str.trim() ? str.trim() : undefined;
+  const hint = await getHintSafely(group, dataContext);
+  return hint.vis === HintVis.Vector;
 }
 
 /* Vector settings of an entity's attributes; invalid values are ignored with a note */
-export function parseVectorHint(values: AttributeValues): VectorHint {
+export function parseVectorHint(
+  entity: Entity,
+  values: AttributeValues,
+): VectorHint {
   const notes: string[] = [];
   const hint: VectorHint = { notes };
+  const read = createAttrReader(entity, values, notes);
 
-  const style = readString(values, 'H5WEB_vector_style')?.toLowerCase();
+  const style = read.str('H5WEB_vector_style')?.toLowerCase();
   if (style !== undefined) {
     if (STYLES.has(style)) {
       hint.style = style as VectorStyle;
@@ -117,7 +126,7 @@ export function parseVectorHint(values: AttributeValues): VectorHint {
     }
   }
 
-  const background = readString(values, 'H5WEB_vector_background');
+  const background = read.str('H5WEB_vector_background');
   if (background !== undefined) {
     const key = background.toLowerCase();
     if (BACKGROUNDS.has(key)) {
@@ -128,20 +137,16 @@ export function parseVectorHint(values: AttributeValues): VectorHint {
     }
   }
 
-  const length = readString(values, 'H5WEB_arrow_length')?.toLowerCase();
+  const length = read.str('H5WEB_arrow_length')?.toLowerCase();
   if (length === 'uniform' || length === 'magnitude') {
     hint.uniformArrows = length === 'uniform';
   } else if (length !== undefined) {
     notes.push(`"H5WEB_arrow_length" "${length}" is not valid`);
   }
 
-  if (values.H5WEB_arrow_density !== undefined) {
-    const density = toNumbers(values.H5WEB_arrow_density)?.[0] ?? Number.NaN;
-    if (density > 0 && Number.isFinite(density)) {
-      hint.arrowDensity = Math.min(Math.max(density, 0.5), 20);
-    } else {
-      notes.push('"H5WEB_arrow_density" must be a positive number');
-    }
+  const density = read.num('H5WEB_arrow_density', (v) => v > 0);
+  if (density !== undefined) {
+    hint.arrowDensity = Math.min(Math.max(density, 0.5), 20);
   }
 
   return hint;
@@ -154,7 +159,8 @@ export async function resolveVectorGroup(
   values: AttributeValues,
   dataContext: DataContextValue,
 ): Promise<VectorSource> {
-  const paths = COMPONENT_ATTRS.map((name) => readString(values, name));
+  const read = createAttrReader(group, values, []);
+  const paths = COMPONENT_ATTRS.map((name) => read.str(name));
   if (!paths[0] || !paths[1]) {
     throw new Error('Vector groups need "H5WEB_u" and "H5WEB_v"');
   }
@@ -211,19 +217,81 @@ export async function resolveBackground(
   }
 }
 
-/* Interleaved components of a slice (…, 2|3) split into one array per component */
+/* Interleaved components of a slice (…, 2|3) split into one array per component (`count`
+ * vectors from the `start`-th one) */
 export function splitComponents(
   value: ArrayLike<number | bigint>,
   rank: number,
+  start = 0,
+  count = value.length / rank - start,
 ): Float32Array[] {
-  const count = value.length / rank;
   const out = Array.from({ length: rank }, () => new Float32Array(count));
+  const offset = start * rank;
   for (let i = 0; i < count; i += 1) {
     for (let c = 0; c < rank; c += 1) {
-      out[c][i] = Number(value[i * rank + c]);
+      out[c][i] = Number(value[offset + i * rank + c]);
     }
   }
   return out;
+}
+
+export function is3DField(
+  field: VectorField2D | VectorField3D,
+): field is VectorField3D {
+  return 'w' in field;
+}
+
+/* Scalar under the field (3D: magnitude, colouring the arrows; none: still colours them) */
+export function getVectorBackground(
+  field: VectorField2D | VectorField3D,
+  kind: VectorBackground,
+  dataset: NumArray | undefined,
+): NumArray | undefined {
+  const { u, v } = field;
+  if (is3DField(field)) {
+    return getMagnitude(u, v, field.w);
+  }
+  switch (kind) {
+    case VectorBackground.None:
+    case VectorBackground.Magnitude:
+      return getMagnitude(u, v);
+    case VectorBackground.Divergence:
+      return getDivergence(field);
+    case VectorBackground.Curl:
+      return getCurl2D(field);
+    case VectorBackground.Dataset:
+      return dataset;
+    default:
+      return undefined;
+  }
+}
+
+/* Domain of the background over a sequence of slices of a dataset-form field (interleaved
+ * components, slice after slice, on the grid of `field`); none for a background dataset (not
+ * part of the sequence) */
+export function getSequenceDomain(
+  sequence: ArrayLike<number | bigint>,
+  field: VectorField2D | VectorField3D,
+  kind: VectorBackground,
+  scaleType: ColorScaleType,
+): Domain | undefined {
+  if (kind === VectorBackground.Dataset) {
+    return undefined;
+  }
+  const rank = is3DField(field) ? 3 : 2;
+  const count = field.u.length;
+  let domain: Domain | undefined;
+  for (
+    let start = 0;
+    (start + count) * rank <= sequence.length;
+    start += count
+  ) {
+    const [u, v, w] = splitComponents(sequence, rank, start, count);
+    const slice = rank === 3 ? { ...field, u, v, w } : { ...field, u, v };
+    const values = getVectorBackground(slice, kind, undefined);
+    domain = extendDomain(domain, values && getDomain(values, { scaleType }));
+  }
+  return domain;
 }
 
 /* Axis of `n` samples: the dimension scale's values, else indices */
@@ -249,7 +317,7 @@ async function resolveVector(
 ): Promise<ResolvedVector> {
   const { queryClient, queries } = dataContext;
   const values = await queryClient.query(queries.attrValues(entity));
-  const hint = parseVectorHint(values);
+  const hint = parseVectorHint(entity, values);
 
   let source: VectorSource;
   if (isDataset(entity)) {

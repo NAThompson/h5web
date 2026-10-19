@@ -235,6 +235,20 @@ describe('getEvenlySpacedStreamlines', () => {
     }
   });
 
+  it('should keep within the point budget, the current line included', () => {
+    const axis = linspace(-1, 1, 65);
+    const field = makeField(axis, axis, (x, y) => [-y, x]);
+    const map = { ax: 200, bx: 0, ay: 200, by: 0 };
+    const lines = getEvenlySpacedStreamlines(field, {
+      map,
+      separation: 20,
+      maxPoints: 100,
+    });
+    const count = lines.reduce((sum, line) => sum + line.length / 2, 0);
+    expect(count).toBeGreaterThan(50);
+    expect(count).toBeLessThanOrEqual(100 + 2 * lines.length); // seeds and closing points
+  });
+
   it('should place arrowheads along lines', () => {
     const arrows = getStreamlineArrows([[0, 0, 10, 0, 10, 10]], 6);
     expect(arrows.map(({ x, y }) => [x, y])).toEqual([

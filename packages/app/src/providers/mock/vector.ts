@@ -198,6 +198,7 @@ export function makeVectorGroup(): GroupWithChildren {
           scalarAttr('H5WEB_u', 'u'),
           scalarAttr('H5WEB_v', 'v'),
           scalarAttr('H5WEB_vector_background', 'pressure'),
+          scalarAttr('H5WEB_colormap', 'Blues'),
           scalarAttr('long_name', 'Taylor–Green vortex'),
         ],
       },
@@ -229,6 +230,17 @@ export function makeVectorGroup(): GroupWithChildren {
     dataset('abc_flow', arrayShape([16, 16, 16, 3]), floatType(), abcFlow(), {
       attributes: vectorAttrs('ABC flow', 'm/s'),
     }),
+    dataset(
+      'bad_background',
+      arrayShape([4, 5, 2]),
+      floatType(),
+      linspace(0, 1, 40),
+      {
+        attributes: vectorAttrs('v', 'm/s', {
+          H5WEB_vector_background: 'nowhere',
+        }),
+      },
+    ),
     dataset(
       'not_a_field',
       arrayShape([4, 5]),

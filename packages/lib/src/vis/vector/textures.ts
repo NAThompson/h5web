@@ -50,6 +50,11 @@ function strided(n: number, stride: number): number[] {
   return indices;
 }
 
+/* Stride such that `strided` keeps at most `maxSize` samples (the last one is appended) */
+function getStride(n: number, maxSize: number): number {
+  return n <= maxSize ? 1 : Math.ceil((n - 1) / (maxSize - 1));
+}
+
 /* Field as textures for `GLSL_SAMPLE_FIELD`; axes longer than the GPU's maximum texture size are
  * subsampled */
 export function getFieldTextures(
@@ -58,8 +63,8 @@ export function getFieldTextures(
 ): FieldTextures {
   const { xs, ys, u, v } = field;
   const [nx, ny] = [xs.length, ys.length];
-  const ii = strided(nx, Math.ceil(nx / maxSize));
-  const jj = strided(ny, Math.ceil(ny / maxSize));
+  const ii = strided(nx, getStride(nx, maxSize));
+  const jj = strided(ny, getStride(ny, maxSize));
 
   const data = new Float32Array(ii.length * jj.length * 4);
   jj.forEach((j, row) => {

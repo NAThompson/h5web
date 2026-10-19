@@ -1,4 +1,8 @@
-import { DimensionMapper, getSliceSelection } from '@h5web/lib';
+import {
+  DimensionMapper,
+  getSliceSelection,
+  VectorBackground,
+} from '@h5web/lib';
 
 import { useDimMappingState } from '../../dim-mapping-store';
 import { type ValueQueryParams } from '../../providers/models';
@@ -36,6 +40,11 @@ function VectorFieldVis(props: VisContainerProps) {
   });
   const selection = getSliceSelection(dimMapping);
 
+  // Background dataset: on the grid of the field (with its leading dimensions)
+  const gridDims = isDatasetForm ? dims.slice(0, -1) : dims;
+  const isOnGrid =
+    !!background && background.shape.dims.join(',') === gridDims.join(',');
+
   const hint = useViewHint(entity);
   const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(base);
   const config = useVectorConfig(
@@ -48,13 +57,12 @@ function VectorFieldVis(props: VisContainerProps) {
           { unit: dimUnits.at(isDatasetForm ? -3 : -2) },
         ),
     },
-    vectorHint,
+    // Unusable background dataset (noted): magnitude
+    isOnGrid || vectorHint.background !== VectorBackground.Dataset
+      ? vectorHint
+      : { ...vectorHint, background: undefined },
   );
 
-  // Background dataset: on the grid of the field (with its leading dimensions)
-  const gridDims = isDatasetForm ? dims.slice(0, -1) : dims;
-  const isOnGrid =
-    !!background && background.shape.dims.join(',') === gridDims.join(',');
   const notes = [
     ...hint.notes,
     ...vectorHint.notes,
@@ -129,6 +137,7 @@ function VectorFieldVis(props: VisContainerProps) {
                 labels={getSpatialLabels(axisLabels, dims, isDatasetForm)}
                 config={config}
                 toolbarContainer={toolbarContainer}
+                isDatasetForm={isDatasetForm}
               />
             )}
           />

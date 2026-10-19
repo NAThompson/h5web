@@ -108,8 +108,9 @@ function VectorVis(props: PropsWithChildren<Props>) {
     [background, magnitude, shape[0], shape[1]], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const arrowColor = useMemo(
-    () => (background ? LINE_COLOR : { colorMap, invertColorMap, domain }),
-    [background, colorMap, invertColorMap, domain],
+    () =>
+      background ? LINE_COLOR : { colorMap, invertColorMap, domain, scaleType },
+    [background, colorMap, invertColorMap, domain, scaleType],
   );
 
   const spacing = 100 / arrowDensity;

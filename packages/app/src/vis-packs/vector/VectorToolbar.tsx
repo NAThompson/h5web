@@ -11,7 +11,7 @@ import {
   VectorBackground,
   VectorStyle,
 } from '@h5web/lib';
-import { COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
+import { type ColorScaleType } from '@h5web/shared/vis-models';
 import {
   MdAspectRatio,
   MdGridOn,
@@ -48,6 +48,8 @@ interface Props {
   backgrounds: VectorBackground[];
   datasetLabel?: string; // name of the background dataset, if any
   planeSize?: number; // 3D: samples along the chosen plane's axis
+  scaleType: ColorScaleType; // applied (e.g. linear for signed backgrounds)
+  scaleTypes: ColorScaleType[]; // available ones
 }
 
 function VectorToolbar(props: Props) {
@@ -60,6 +62,8 @@ function VectorToolbar(props: Props) {
     backgrounds,
     datasetLabel,
     planeSize = 1,
+    scaleType,
+    scaleTypes,
   } = props;
   const visArea = useVisArea();
   const styles = is3D
@@ -156,7 +160,7 @@ function VectorToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={config.customDomain}
-        scaleType={config.scaleType}
+        scaleType={scaleType}
         onCustomDomainChange={config.setCustomDomain}
       />
       <Separator />
@@ -170,9 +174,9 @@ function VectorToolbar(props: Props) {
         <>
           <Separator />
           <ScaleSelector
-            value={config.scaleType}
+            value={scaleType}
             onScaleChange={config.setScaleType}
-            options={COLOR_SCALE_TYPES}
+            options={scaleTypes}
           />
         </>
       )}

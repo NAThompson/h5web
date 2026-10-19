@@ -1,10 +1,7 @@
 import {
   type ColorMap,
   type Domain,
-  getCurl2D,
-  getDivergence,
   getDomain,
-  getMagnitude,
   useSafeDomain,
   useVisDomain,
   VectorBackground,
@@ -14,7 +11,12 @@ import {
   VectorVis,
   VectorVis3D,
 } from '@h5web/lib';
-import { type NumArray, ScaleType } from '@h5web/shared/vis-models';
+import {
+  COLOR_SCALE_TYPES,
+  type ColorScaleType,
+  type NumArray,
+  ScaleType,
+} from '@h5web/shared/vis-models';
 import ndarray from 'ndarray';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -23,6 +25,7 @@ import visualizerStyles from '../../visualizer/Visualizer.module.css';
 import { useStableDomain } from '../playback-range';
 import { renderMarkup } from '../view-hints/markup';
 import { type VectorConfig } from './config';
+import { getSequenceDomain, getVectorBackground, is3DField } from './utils';
 import VectorToolbar from './VectorToolbar';
 
 interface Props {
@@ -34,15 +37,15 @@ interface Props {
   labels: [string?, string?, string?]; // x, y, z axes
   config: VectorConfig;
   toolbarContainer: HTMLDivElement | undefined;
+  isDatasetForm: boolean; // sequences of slices (playback range) hold all components
 }
 
 const DIVERGING: ColorMap = 'RdBu';
 
-function is3DField(
-  field: VectorField2D | VectorField3D,
-): field is VectorField3D {
-  return 'w' in field;
-}
+// Signed backgrounds: no scale undefined for negative values
+const SIGNED_SCALE_TYPES: ColorScaleType[] = COLOR_SCALE_TYPES.filter(
+  (type) => type !== ScaleType.Log && type !== ScaleType.Sqrt,
+);
 
 function getSymmetric(domain: Domain | undefined): Domain | undefined {
   if (!domain) {
@@ -50,33 +53,6 @@ function getSymmetric(domain: Domain | undefined): Domain | undefined {
   }
   const max = Math.max(Math.abs(domain[0]), Math.abs(domain[1])) || 1;
   return [-max, max];
-}
-
-/* Scalar under the field and the label of its colour bar */
-function useBackground(
-  field: VectorField2D | VectorField3D,
-  kind: VectorBackground,
-  dataset: NumArray | undefined,
-): NumArray | undefined {
-  return useMemo(() => {
-    const { u, v } = field;
-    if (is3DField(field)) {
-      return getMagnitude(u, v, field.w); // colours the arrows
-    }
-    switch (kind) {
-      case VectorBackground.None:
-      case VectorBackground.Magnitude:
-        return getMagnitude(u, v); // none: still colours the arrows
-      case VectorBackground.Divergence:
-        return getDivergence(field);
-      case VectorBackground.Curl:
-        return getCurl2D(field);
-      case VectorBackground.Dataset:
-        return dataset;
-      default:
-        return undefined;
-    }
-  }, [field, kind, dataset]);
 }
 
 function getBackgroundLabel(
@@ -106,14 +82,21 @@ function MappedVectorVis(props: Props) {
     labels,
     config,
     toolbarContainer,
+    isDatasetForm,
   } = props;
 
   const is3D = is3DField(field);
   const kind = is3D ? VectorBackground.Magnitude : config.background;
   const isSigned =
     kind === VectorBackground.Divergence || kind === VectorBackground.Curl;
-  const scaleType = is3D ? ScaleType.Linear : config.scaleType; // 3D: linear colours
-  const values = useBackground(field, kind, datasetBackground);
+  const scaleType =
+    is3D || (isSigned && !SIGNED_SCALE_TYPES.includes(config.scaleType))
+      ? ScaleType.Linear // 3D: linear colours
+      : config.scaleType;
+  const values = useMemo(
+    () => getVectorBackground(field, kind, datasetBackground),
+    [field, kind, datasetBackground],
+  );
 
   const frameDomain = useMemo(() => {
     const domain = values && getDomain(values, { scaleType });
@@ -122,7 +105,18 @@ function MappedVectorVis(props: Props) {
   const dataDomain = useStableDomain(
     frameDomain,
     `vector-${kind}-${scaleType}`,
-    () => undefined, // ranges seen so far while playing
+    (sequence) => {
+      // Only the first component is fetched for groups: ranges seen so far while playing
+      const domain = isDatasetForm
+        ? getSequenceDomain(
+            sequence as ArrayLike<number>,
+            field,
+            kind,
+            scaleType,
+          )
+        : undefined;
+      return isSigned ? getSymmetric(domain) : domain;
+    },
   ) ?? [0, 1];
   const visDomain = useVisDomain(config.customDomain, dataDomain);
   const [domain] = useSafeDomain(visDomain, dataDomain, scaleType);
@@ -150,16 +144,20 @@ function MappedVectorVis(props: Props) {
     [values, kind, shape[0], shape[1]], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const plane =
+  const planeSize =
     is3D && config.plane
-      ? {
-          axis: config.plane,
-          index: Math.min(
-            config.planeIndex,
-            { x: field.xs, y: field.ys, z: field.zs }[config.plane].length - 1,
-          ),
-        }
-      : undefined;
+      ? { x: field.xs, y: field.ys, z: field.zs }[config.plane].length
+      : 1;
+  const plane = useMemo(
+    () =>
+      is3D && config.plane
+        ? {
+            axis: config.plane,
+            index: Math.min(config.planeIndex, planeSize - 1),
+          }
+        : undefined,
+    [is3D, config.plane, config.planeIndex, planeSize],
+  );
 
   return (
     <>
@@ -173,11 +171,9 @@ function MappedVectorVis(props: Props) {
             is3D={is3D}
             backgrounds={backgrounds}
             datasetLabel={backgroundName}
-            planeSize={
-              is3D && config.plane
-                ? { x: field.xs, y: field.ys, z: field.zs }[config.plane].length
-                : 1
-            }
+            planeSize={planeSize}
+            scaleType={scaleType}
+            scaleTypes={isSigned ? SIGNED_SCALE_TYPES : COLOR_SCALE_TYPES}
           />,
           toolbarContainer,
         )}

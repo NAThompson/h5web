@@ -464,13 +464,14 @@ export function getEvenlySpacedStreamlines(
     ) {
       return undefined;
     }
-    const own: number[] = []; // points of this line, tested only against others
+    let traced = 0; // points of this line (tested only against others), within the budget
     function accept(x: number, y: number): boolean {
-      return (
+      const ok =
         inRegion(x, y) &&
         grid.isFree(x, y, dTest) &&
-        pointCount + own.length / 2 < maxPoints
-      );
+        pointCount + traced < maxPoints;
+      traced += ok ? 1 : 0;
+      return ok;
     }
     const opts2 = { step, maxLength, map, accept };
     const fwd = traceStreamline(field, toData(...seed), 1, opts2);
@@ -484,7 +485,6 @@ export function getEvenlySpacedStreamlines(
       line.push(bwd[k], bwd[k + 1]);
     }
     line.push(...fwd);
-    own.push(...line);
     if (line.length < 6) {
       return undefined; // a point or a single step: no line
     }
@@ -496,10 +496,16 @@ export function getEvenlySpacedStreamlines(
     return line;
   }
 
-  // Seeds next to drawn lines, line by line (breadth first)
+  // Seeds next to drawn lines, line by line (breadth first); each line is spread once (seeds
+  // that failed then would fail again: the grid only fills up)
+  let spreadCount = 0;
   function spread(): void {
-    for (let n = 0; n < lines.length && pointCount < maxPoints; n += 1) {
-      const line = lines[n];
+    for (
+      ;
+      spreadCount < lines.length && pointCount < maxPoints;
+      spreadCount += 1
+    ) {
+      const line = lines[spreadCount];
       const stride = Math.max(2, Math.round(separation / step) * 2);
       for (let k = 0; k + 3 < line.length; k += stride) {
         const [px, py] = [line[k], line[k + 1]];
