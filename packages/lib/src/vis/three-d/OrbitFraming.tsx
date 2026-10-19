@@ -1,13 +1,12 @@
 import { useThree } from '@react-three/fiber';
-import { type RefObject, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { PerspectiveCamera, Vector3, type Vector3Tuple } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-import { getFramingDistance } from './utils';
+import { getFramingDistance, RESET_VIEW_EVENT } from './utils';
 
 interface Props {
   boxSize: Vector3Tuple;
-  resetRef: RefObject<(() => void) | undefined>;
 }
 
 // Look at the box from the front-left, slightly from above (z is up)
@@ -26,7 +25,7 @@ function getBoxRadius(w: number, h: number, zHeight: number): number {
 }
 
 function OrbitFraming(props: Props) {
-  const { boxSize, resetRef } = props;
+  const { boxSize } = props;
   const [w, h, zHeight] = boxSize;
 
   const camera = useThree((state) => state.camera);
@@ -148,9 +147,11 @@ function OrbitFraming(props: Props) {
     invalidate();
   }, [camera, w, h, zHeight, invalidate]);
 
+  // "Reset view" (`ResetViewBtn`)
   useEffect(() => {
-    resetRef.current = frame;
-  }, [resetRef, frame]);
+    domElement.addEventListener(RESET_VIEW_EVENT, frame);
+    return () => domElement.removeEventListener(RESET_VIEW_EVENT, frame);
+  }, [domElement, frame]);
 
   return null;
 }

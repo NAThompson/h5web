@@ -2,6 +2,7 @@ import {
   ColorMapSelector,
   type Domain,
   DomainWidget,
+  ResetViewBtn,
   ScaleSelector,
   Separator,
   SnapshotBtn,
@@ -112,6 +113,7 @@ function ParamSurfaceToolbar(props: Props) {
       />
       <Separator />
 
+      <ResetViewBtn target={visArea} />
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

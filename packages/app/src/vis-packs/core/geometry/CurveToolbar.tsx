@@ -5,6 +5,7 @@ import {
   DomainWidget,
   Menu,
   RadioGroup,
+  ResetViewBtn,
   ScaleSelector,
   Separator,
   SnapshotBtn,
@@ -107,6 +108,7 @@ function CurveToolbar(props: Props) {
       </Menu>
       <Separator />
 
+      <ResetViewBtn target={visArea} />
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

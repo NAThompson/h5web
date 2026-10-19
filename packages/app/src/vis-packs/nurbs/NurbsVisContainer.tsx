@@ -1,6 +1,7 @@
 import {
   ColorMapSelector,
   DomainWidget,
+  ResetViewBtn,
   ScaleType,
   Selector,
   Separator,
@@ -122,6 +123,7 @@ function NurbsVisContainer(props: VisContainerProps) {
               onToggle={() => setShowGrid(!showGrid)}
             />
             <Separator />
+            {is3D && <ResetViewBtn target={visArea} />}
             <SnapshotBtn target={visArea} />
           </Toolbar>,
           toolbarContainer,

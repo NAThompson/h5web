@@ -7,7 +7,7 @@ import { NxDataVis } from '../vis-packs/nexus/visualizations';
 
 // Leave room for the whole volume toolbar, so no control moves to the overflow menu
 beforeEach(async () => {
-  await page.viewport(2560, 1080);
+  await page.viewport(2880, 1080);
 });
 
 afterEach(async () => {
@@ -30,6 +30,7 @@ test('open NXdata with a 3D signal and an axis on every dimension as a volume', 
 
   // Same controls as the core Volume vis, including isosurfaces
   expect(page.getByRole('button', { name: 'Show volume' })).toBeVisible();
+  expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible();
   expect(
     page.getByRole('radiogroup', { name: 'Rendering mode' }),
   ).toBeVisible();

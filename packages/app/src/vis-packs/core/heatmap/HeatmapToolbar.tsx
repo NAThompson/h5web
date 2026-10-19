@@ -4,6 +4,7 @@ import {
   type Domain,
   DomainWidget,
   ExportMenu,
+  ResetViewBtn,
   ScaleSelector,
   Separator,
   SnapshotBtn,
@@ -292,6 +293,7 @@ function HeatmapToolbar(props: Props) {
         <ExportMenu isSlice={isSlice} entries={exportEntries} />
       )}
 
+      {showSurface && <ResetViewBtn target={visArea} />}
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

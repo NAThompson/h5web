@@ -3,6 +3,8 @@ import { type RefObject, useEffect } from 'react';
 import { PerspectiveCamera } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+import { RESET_VIEW_EVENT } from '../three-d/utils';
+
 interface Props {
   interactingRef: RefObject<boolean>;
 }
@@ -45,12 +47,17 @@ function VolumeControls(props: Props) {
     controls.addEventListener('start', handleStart);
     controls.addEventListener('change', handleChange);
     controls.addEventListener('end', handleEnd);
+    function handleReset() {
+      controls.reset(); // to the state saved on creation (`ResetViewBtn`)
+    }
+    domElement.addEventListener(RESET_VIEW_EVENT, handleReset);
     invalidate();
 
     return () => {
       controls.removeEventListener('start', handleStart);
       controls.removeEventListener('change', handleChange);
       controls.removeEventListener('end', handleEnd);
+      domElement.removeEventListener(RESET_VIEW_EVENT, handleReset);
       controls.dispose();
     };
   }, [camera, domElement, invalidate, interactingRef]);

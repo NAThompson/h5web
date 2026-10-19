@@ -1,5 +1,5 @@
 import { type Domain } from '@h5web/shared/vis-models';
-import { type PropsWithChildren, type ReactNode, useRef } from 'react';
+import { type PropsWithChildren, type ReactNode } from 'react';
 import { type Vector3Tuple } from 'three';
 
 import ColorBar from '../heatmap/ColorBar';
@@ -43,7 +43,7 @@ interface Props extends ClassStyleAttrs {
 
 /**
  * Layout shared by 3D visualizations: title, canvas with lights and orbit controls framing
- * the box, "Reset view" button and colour bar. Scene content is passed as children.
+ * the box (cf. `ResetViewBtn`) and colour bar. Scene content is passed as children.
  */
 function Vis3DLayout(props: PropsWithChildren<Props>) {
   const {
@@ -65,8 +65,6 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     className = '',
     style,
   } = props;
-
-  const resetRef = useRef<() => void>(undefined);
 
   return (
     <figure
@@ -91,17 +89,9 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
                 />
               </>
             )}
-            <OrbitFraming boxSize={boxSize} resetRef={resetRef} />
+            <OrbitFraming boxSize={boxSize} />
             {children}
           </R3FCanvas>
-          <button
-            className={styles.resetBtn}
-            type="button"
-            data-snapshot-ignore
-            onClick={() => resetRef.current?.()}
-          >
-            <span className={styles.btnLike}>Reset view</span>
-          </button>
           {overlay}
         </div>
       </div>

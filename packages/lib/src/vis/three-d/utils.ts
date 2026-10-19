@@ -23,6 +23,9 @@ import {
   SCALES_VALID_MINS,
 } from '../utils';
 
+/* Event sent to the canvas of a 3D visualization by `ResetViewBtn` */
+export const RESET_VIEW_EVENT = 'h5web-reset-view';
+
 const LUT_SIZE = 256;
 
 /* Colour of vertices whose value cannot be coloured (e.g. `NaN`, or negative in log scale), in linear RGB */

@@ -3,6 +3,7 @@ import {
   type Domain,
   DomainWidget,
   Menu,
+  ResetViewBtn,
   ScaleSelector,
   Separator,
   SnapshotBtn,
@@ -142,6 +143,7 @@ function PointsToolbar(props: Props) {
       </Menu>
       <Separator />
 
+      {is3D && <ResetViewBtn target={visArea} />}
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

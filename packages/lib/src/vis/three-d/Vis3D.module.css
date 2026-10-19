@@ -27,7 +27,7 @@
 }
 
 .canvasArea {
-  position: relative; /* for reset button */
+  position: relative; /* for overlays */
   flex: 1;
   display: flex;
   min-height: 0;
@@ -41,22 +41,4 @@
 
 .canvas:active {
   cursor: grabbing;
-}
-
-.resetBtn {
-  composes: btn from '../../toolbar/utils.module.css';
-  position: absolute;
-  top: 0;
-  right: 0;
-  padding: 0.5rem;
-  font-size: 0.75em;
-}
-
-.btnLike {
-  composes: btnLike from '../../toolbar/utils.module.css';
-  height: 1.625rem;
-  background-color: rgba(255, 255, 255, 0.7);
-  box-shadow:
-    rgba(0, 0, 0, 0.1) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.1) 0px 4px 11px;
 }

@@ -2,6 +2,7 @@ import {
   ColorMapSelector,
   type Domain,
   DomainWidget,
+  ResetViewBtn,
   ScaleSelector,
   Selector,
   Separator,
@@ -162,6 +163,7 @@ function VolumeToolbar(props: Props) {
         </>
       )}
 
+      <ResetViewBtn target={visArea} />
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

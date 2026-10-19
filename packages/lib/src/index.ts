@@ -346,6 +346,8 @@ export { mockValues } from '@h5web/shared/mock-values';
 // Undocumented and/or experimental
 export { default as SnapshotBtn } from './toolbar/controls/SnapshotBtn';
 export type { SnapshotBtnProps } from './toolbar/controls/SnapshotBtn';
+export { default as ResetViewBtn } from './toolbar/controls/ResetViewBtn';
+export type { ResetViewBtnProps } from './toolbar/controls/ResetViewBtn';
 export {
   renderSnapshot,
   exportSnapshot,

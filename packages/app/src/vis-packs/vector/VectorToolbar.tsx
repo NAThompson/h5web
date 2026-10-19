@@ -2,6 +2,7 @@ import {
   ColorMapSelector,
   type Domain,
   DomainWidget,
+  ResetViewBtn,
   ScaleSelector,
   Selector,
   Separator,
@@ -204,6 +205,7 @@ function VectorToolbar(props: Props) {
         onToggle={() => config.setShowGrid(!config.showGrid)}
       />
       <Separator />
+      {is3D && <ResetViewBtn target={visArea} />}
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

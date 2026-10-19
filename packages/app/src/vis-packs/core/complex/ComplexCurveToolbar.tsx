@@ -6,6 +6,7 @@ import {
   DomainWidget,
   Menu,
   RadioGroup,
+  ResetViewBtn,
   ScaleSelector,
   Separator,
   SnapshotBtn,
@@ -140,6 +141,7 @@ function ComplexCurveToolbar(props: Props) {
       </Menu>
       <Separator />
 
+      <ResetViewBtn target={visArea} />
       <SnapshotBtn target={visArea} />
     </Toolbar>
   );

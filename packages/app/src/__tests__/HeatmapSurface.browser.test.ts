@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 
 import { getSelectedVisTab, getVisTabs, renderApp } from '../test-utils';
@@ -66,6 +66,23 @@ test(
     expect(surfaceBtn()).toHaveAttribute('aria-pressed', 'false');
     expect(resetViewBtn()).not.toBeInTheDocument();
     expect(heightSlider()).not.toBeInTheDocument();
+  },
+  SURFACE_TEST_TIMEOUT,
+);
+
+test(
+  'reset 3D view from the toolbar',
+  async () => {
+    const { user } = await renderApp('/arrays/twoD');
+    await user.click(surfaceBtn());
+    await expect.element(resetViewBtn()).toBeVisible();
+
+    // Toolbar is outside the figure: button sends `h5web-reset-view` to its canvas
+    const canvas = page.getByRole('figure').element().querySelector('canvas');
+    const onReset = vi.fn<() => void>();
+    canvas?.addEventListener('h5web-reset-view', onReset);
+    await user.click(resetViewBtn());
+    expect(onReset).toHaveBeenCalledOnce();
   },
   SURFACE_TEST_TIMEOUT,
 );

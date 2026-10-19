@@ -16,7 +16,7 @@ const SURFACE_TEST_TIMEOUT = 20_000;
 
 // Wide enough for the whole 3D toolbar to fit, so no control moves to the overflow menu after switching
 beforeEach(async () => {
-  await page.viewport(2560, 1080);
+  await page.viewport(2880, 1080);
 });
 
 afterEach(async () => {

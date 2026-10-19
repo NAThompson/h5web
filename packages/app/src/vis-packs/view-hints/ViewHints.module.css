@@ -72,7 +72,7 @@
   align-self: start;
   justify-self: start;
   z-index: 1;
-  margin: 2.5rem 0 0 4.5rem; /* below the title, right of the y axis (3D: clear of "Reset view") */
+  margin: 2.5rem 0 0 4.5rem; /* below the title, right of the y axis */
   padding: 0.25rem 0.5rem;
   list-style: none;
   background-color: rgb(128 128 128 / 75%);
