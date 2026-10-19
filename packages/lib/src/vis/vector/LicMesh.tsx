@@ -171,6 +171,10 @@ function LicMesh(props: Props) {
   );
   useEffect(() => () => material.dispose(), [material]);
 
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => {
+    invalidate();
+  }, [invalidate, ax, bx, ay, by]);
   useFrame(() => {
     (material.uniforms.dataToWorld.value as Vector4).set(ax, bx, ay, by);
     (material.uniforms.worldPerPx.value as Vector2).set(

@@ -185,12 +185,13 @@ function ArrowGlyphs(props: Props) {
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
 
+  // Solid colour or colour map: materials don't depend on the magnitude domain (a uniform)
+  const solidColor = typeof color === 'string' ? color : undefined;
+  const colorMap = typeof color === 'string' ? undefined : color.colorMap;
+  const invertColorMap = typeof color !== 'string' && color.invertColorMap;
   const colorMapTexture = useMemo(
-    () =>
-      typeof color === 'string'
-        ? undefined
-        : getColorMapTexture(color.colorMap, color.invertColorMap),
-    [color],
+    () => colorMap && getColorMapTexture(colorMap, invertColorMap),
+    [colorMap, invertColorMap],
   );
   useEffect(() => () => colorMapTexture?.dispose(), [colorMapTexture]);
 
@@ -231,10 +232,10 @@ function ArrowGlyphs(props: Props) {
       });
     }
     return {
-      arrows: create(0, typeof color === 'string' ? color : undefined),
+      arrows: create(0, solidColor),
       halo: halo ? create(HALO_WIDTH, halo) : undefined,
     };
-  }, [textures, colorMapTexture, color, halo]);
+  }, [textures, colorMapTexture, solidColor, halo]);
   useEffect(
     () => () => {
       materials.arrows.dispose();
@@ -243,7 +244,11 @@ function ArrowGlyphs(props: Props) {
     [materials],
   );
 
-  // Uniforms only: no work per arrow on the CPU
+  // Uniforms only: no work per arrow on the CPU; render again when they change (on demand)
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => {
+    invalidate();
+  }, [invalidate, pxPerUnit, maxLength, uniformLength, color, ax, bx, ay, by]);
   useFrame(() => {
     const grid = getArrowGrid(
       [camera.position.x, camera.position.y],

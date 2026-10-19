@@ -66,6 +66,18 @@ test('visualize dataset with `H5WEB_vis = "vector"`', async () => {
     .element(page.getByRole('combobox', { name: /^Style/u }))
     .toHaveTextContent('Streamlines');
   await expect.poll(getColorBarLabel).toContain('ω');
+
+  // Streamlines (and their arrowheads) export as vector paths
+  const figure = document.querySelector('figure');
+  assertNonNull(figure);
+  await expect
+    .poll(
+      () =>
+        renderSvgSnapshot(figure as HTMLElement).querySelectorAll(
+          'path[fill="none"][stroke-width="1.25"]',
+        ).length,
+    )
+    .toBeGreaterThan(0);
 });
 
 test('switch background and update colour-bar label', async () => {
