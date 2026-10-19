@@ -37,6 +37,8 @@ interface Props extends ClassStyleAttrs {
   aboveColor?: string;
   headlight?: boolean; // light follows camera, rather than lighting the box from above
   renderer?: string; // as `data-renderer`, e.g. `webgpu`
+  showColorBar?: boolean; // e.g. not for points of a single colour
+  overlay?: ReactNode; // HTML over the canvas, e.g. tooltip or legend
 }
 
 /**
@@ -57,6 +59,8 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     aboveColor,
     headlight = false,
     renderer,
+    showColorBar = true,
+    overlay,
     children,
     className = '',
     style,
@@ -98,19 +102,22 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
           >
             <span className={styles.btnLike}>Reset view</span>
           </button>
+          {overlay}
         </div>
       </div>
-      <ColorBar
-        domain={domain}
-        scaleType={scaleType}
-        colorMap={colorMap}
-        invertColorMap={invertColorMap}
-        withBounds
-        label={colorBarLabel}
-        valueTransform={valueTransform}
-        belowColor={belowColor}
-        aboveColor={aboveColor}
-      />
+      {showColorBar && (
+        <ColorBar
+          domain={domain}
+          scaleType={scaleType}
+          colorMap={colorMap}
+          invertColorMap={invertColorMap}
+          withBounds
+          label={colorBarLabel}
+          valueTransform={valueTransform}
+          belowColor={belowColor}
+          aboveColor={aboveColor}
+        />
+      )}
     </figure>
   );
 }

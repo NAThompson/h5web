@@ -3,6 +3,8 @@ export { default as MatrixVis } from './vis/matrix/MatrixVis';
 export { default as LineVis } from './vis/line/LineVis';
 export { default as HeatmapVis } from './vis/heatmap/HeatmapVis';
 export { default as ScatterVis } from './vis/scatter/ScatterVis';
+export { default as ScatterPlotVis } from './vis/scatter/ScatterPlotVis';
+export { default as Scatter3DVis } from './vis/scatter/Scatter3DVis';
 export { default as VolumeVis } from './vis/volume/VolumeVis';
 export { default as SurfaceVis } from './vis/surface/SurfaceVis';
 export { default as Curve3DVis } from './vis/curve/Curve3DVis';
@@ -14,6 +16,8 @@ export type { MatrixVisProps } from './vis/matrix/MatrixVis';
 export type { LineVisProps } from './vis/line/LineVis';
 export type { HeatmapVisProps } from './vis/heatmap/HeatmapVis';
 export type { ScatterVisProps } from './vis/scatter/ScatterVis';
+export type { ScatterPlotVisProps } from './vis/scatter/ScatterPlotVis';
+export type { Scatter3DVisProps } from './vis/scatter/Scatter3DVis';
 export type { VolumeVisProps } from './vis/volume/VolumeVis';
 export {
   IsoColorMode,

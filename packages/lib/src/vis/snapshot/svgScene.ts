@@ -69,6 +69,7 @@ type Mvp = (x: number, y: number, z: number) => Point | undefined;
 type SceneState = Pick<RootState, 'scene' | 'camera' | 'size' | 'gl'>;
 
 const GLYPH_TYPE_KEY = 'glyphType'; // in `userData` of `GlyphMaterial`
+const MAX_VECTOR_GLYPHS = 200_000; // more glyphs (e.g. point clouds) are drawn in the raster
 
 function isLineSegments2(obj: Object3D): obj is LineSegments2 {
   return 'isLineSegments2' in obj && obj.isLineSegments2 === true;
@@ -83,7 +84,11 @@ function isVectorizable(obj: Object3D, material: Material): boolean {
   return (
     isLineSegments2(obj) ||
     ('isLineSegments' in obj && obj.isLineSegments === true) ||
-    ('isPoints' in obj && obj.isPoints === true && !!getGlyphType(material))
+    ('isPoints' in obj &&
+      obj.isPoints === true &&
+      !!getGlyphType(material) &&
+      (obj as Points).geometry.getAttribute('position').count <=
+        MAX_VECTOR_GLYPHS)
   );
 }
 
@@ -346,7 +351,23 @@ function lineSegmentsToSvg(
     : undefined;
 }
 
-/* Glyphs of `GlyphMaterial`, one path per colour; sizes are in device pixels */
+/* Opacity of translucent glyphs (cf. `PointCloud`); `undefined` if opaque */
+function getOpacity({ uniforms }: ShaderMaterial): number | undefined {
+  const opacity = Number(uniforms.opacity?.value ?? 1); // eslint-disable-line @typescript-eslint/no-unnecessary-condition
+  return opacity < 1 ? opacity : undefined;
+}
+
+function getGlyphSize(
+  index: number,
+  size: number,
+  pointSizes: BufferAttribute | undefined,
+  dpr: number,
+): number {
+  return pointSizes ? pointSizes.getX(index) * size * dpr : size;
+}
+
+/* Glyphs of `GlyphMaterial`, one path per colour; sizes are in device pixels, or per point in CSS
+ * pixels (`pointSize` attribute, scaled by `size`, cf. `PointCloud`; `0` hides a point) */
 function glyphsToSvg(
   obj: Points,
   material: ShaderMaterial,
@@ -370,16 +391,22 @@ function glyphsToSvg(
     ? (obj.geometry.getAttribute('color') as BufferAttribute | undefined)
     : undefined;
 
+  const pointSizes = obj.geometry.getAttribute('pointSize') as
+    BufferAttribute | undefined;
+  const opacity = getOpacity(material);
+
   const toPx = getMvp(state, obj);
   const { width, height } = state.size;
-  const half = size / 2;
   const byColor = new Map<string, string[]>();
   const color = new Vector3();
 
   for (let i = 0; i < positions.count; i++) {
+    const glyphSize = getGlyphSize(i, size, pointSizes, dpr);
+    const half = glyphSize / 2;
     const p = toPx(positions.getX(i), positions.getY(i), positions.getZ(i));
     if (
       !p ||
+      glyphSize <= 0 ||
       p[0] < -half ||
       p[1] < -half ||
       p[0] > width + half ||
@@ -397,7 +424,7 @@ function glyphsToSvg(
     }
 
     const y = fmt(p[1]);
-    const [l, t, s] = [fmt(p[0] - half), fmt(p[1] - half), fmt(size)];
+    const [l, t, s] = [fmt(p[0] - half), fmt(p[1] - half), fmt(glyphSize)];
     const d = {
       [GlyphType.Circle]: `M${l} ${y}a${fmt(half)} ${fmt(half)} 0 1 0 ${s} 0a${fmt(half)} ${fmt(half)} 0 1 0 -${s} 0z`,
       [GlyphType.Square]: `M${l} ${t}h${s}v${s}h-${s}z`,
@@ -421,6 +448,7 @@ function glyphsToSvg(
       ...(isStroked
         ? { fill: 'none', stroke: css, 'stroke-width': 1 / dpr }
         : { fill: css }),
+      'fill-opacity': opacity,
     }),
   );
 }
