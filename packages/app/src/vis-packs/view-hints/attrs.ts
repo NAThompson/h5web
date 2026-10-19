@@ -336,6 +336,10 @@ function readMultiplesDims(
 function isLevels(arr: number[]): boolean {
   return arr.length > 0 && arr.every(Number.isFinite);
 }
+export function isScatterHint(vis: HintVis | undefined): boolean {
+  return vis === HintVis.Scatter || vis === HintVis.Scatter3D;
+}
+
 /* Unchecked where CSS is not available (e.g. unit tests in Node) */
 export function isCssColor(val: string): boolean {
   return typeof CSS === 'undefined' || CSS.supports('color', val);
@@ -386,7 +390,6 @@ export function parseViewHint(
   const vis = read.oneOf('H5WEB_vis', (val) =>
     HINT_VIS.get(toKey(val) as HintVis),
   );
-  const isScatter = vis === HintVis.Scatter || vis === HintVis.Scatter3D;
 
   return {
     vis,
@@ -433,7 +436,7 @@ export function parseViewHint(
     envelope: readEnvelope(read),
     curveLabel: read.str('H5WEB_label'),
     // Scatter: path of colour values, or colour of all points (cf. `core/scatter/source.ts`)
-    curveColor: isScatter
+    curveColor: isScatterHint(vis)
       ? undefined
       : toRgbaColor(read.str('H5WEB_color', isCssColor)),
     curveWidth: read.num('H5WEB_width', isPos),

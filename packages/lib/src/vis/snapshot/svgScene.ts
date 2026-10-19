@@ -366,6 +366,20 @@ function getGlyphSize(
   return pointSizes ? pointSizes.getX(index) * size * dpr : size;
 }
 
+/* One path per colour of `[colour, path]` glyphs */
+function groupByColor(glyphs: [string, string][]): [string, string][] {
+  const byColor = new Map<string, string[]>();
+  for (const [css, d] of glyphs) {
+    const list = byColor.get(css);
+    if (list) {
+      list.push(d);
+    } else {
+      byColor.set(css, [d]);
+    }
+  }
+  return [...byColor].map(([css, parts]) => [css, parts.join('')]);
+}
+
 /* Glyphs of `GlyphMaterial`, one path per colour; sizes are in device pixels, or per point in CSS
  * pixels (`pointSize` attribute, scaled by `size`, cf. `PointCloud`; `0` hides a point) */
 function glyphsToSvg(
@@ -397,7 +411,7 @@ function glyphsToSvg(
 
   const toPx = getMvp(state, obj);
   const { width, height } = state.size;
-  const byColor = new Map<string, string[]>();
+  const glyphs: [string, string][] = [];
   const color = new Vector3();
 
   for (let i = 0; i < positions.count; i++) {
@@ -432,19 +446,16 @@ function glyphsToSvg(
       [GlyphType.Cap]: `M${l} ${y}h${s}`,
     }[glyphType];
 
-    const list = byColor.get(css);
-    if (list) {
-      list.push(d);
-    } else {
-      byColor.set(css, [d]);
-    }
+    glyphs.push([css, d]); // in drawing order
   }
 
+  // Translucent glyphs one path each, so that overlaps get denser as on the canvas
   const isStroked =
     glyphType === GlyphType.Cross || glyphType === GlyphType.Cap;
-  return [...byColor].map(([css, parts]) =>
+  const paths = opacity === undefined ? groupByColor(glyphs) : glyphs;
+  return paths.map(([css, d]) =>
     createSvgElement('path', {
-      d: parts.join(''),
+      d,
       ...(isStroked
         ? { fill: 'none', stroke: css, 'stroke-width': 1 / dpr }
         : { fill: css }),

@@ -1,8 +1,8 @@
 import { type Domain } from '@h5web/shared/vis-models';
-import { formatNumber } from '@h5web/shared/vis-utils';
+import { formatTick, needsPowerTicks } from '@h5web/shared/vis-utils';
 
 import styles from './ScatterVis.module.css';
-import { getSizePx } from './utils';
+import { getSizeLegendValues, getSizePx } from './utils';
 
 interface Props {
   label?: string;
@@ -11,32 +11,34 @@ interface Props {
   sizeScale: number;
 }
 
-/** Diameters of points of the smallest, middle and largest size values. */
+/** Diameters of points of the smallest, middle and largest size values (rounded alike). */
 function SizeLegend(props: Props) {
   const { label, domain, range, sizeScale } = props;
-  const [min, max] = domain;
-  const values = min === max ? [min] : [min, (min + max) / 2, max];
+  const values = getSizeLegendValues(domain);
+  const powers = needsPowerTicks(values.map((value) => ({ value })));
 
   return (
     <div className={styles.sizeLegend} role="group" aria-label="Size legend">
-      {label && <span>{label}</span>}
-      {values.map((val) => {
-        const diameter = getSizePx(val, domain, range) * sizeScale;
-        return (
-          <span key={val} className={styles.sizeItem}>
-            <svg width={diameter + 2} height={diameter + 2} aria-hidden>
-              <circle
-                cx={diameter / 2 + 1}
-                cy={diameter / 2 + 1}
-                r={diameter / 2}
-                fill="gray"
-                fillOpacity={0.6}
-              />
-            </svg>
-            {formatNumber(val, 3)}
-          </span>
-        );
-      })}
+      {label && <span className={styles.sizeLabel}>{label}</span>}
+      <div className={styles.sizeItems}>
+        {values.map((val) => {
+          const diameter = getSizePx(val, domain, range) * sizeScale;
+          return (
+            <span key={val} className={styles.sizeItem}>
+              <svg width={diameter + 2} height={diameter + 2} aria-hidden>
+                <circle
+                  cx={diameter / 2 + 1}
+                  cy={diameter / 2 + 1}
+                  r={diameter / 2}
+                  fill="gray"
+                  fillOpacity={0.6}
+                />
+              </svg>
+              {formatTick(val, undefined, powers)}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

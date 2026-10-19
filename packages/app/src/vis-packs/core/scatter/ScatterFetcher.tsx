@@ -1,11 +1,12 @@
 import { type ProvidedEntity } from '@h5web/shared/hdf5-models';
-import { type NumArray } from '@h5web/shared/vis-models';
-import { type ReactNode, useMemo } from 'react';
+import { type IgnoreValue, type NumArray } from '@h5web/shared/vis-models';
+import { type ReactNode } from 'react';
 
 import { useValues } from '../../../hooks';
 import LargeValueGuard from '../../LargeValueGuard';
 import { useIgnoreValues, usePackings } from '../../netcdf/hooks';
-import { toCoordinateArray } from '../geometry/hooks';
+import { type Packing } from '../../netcdf/utils';
+import { splitVertices, toCoordinateArray } from '../geometry/hooks';
 import { type NumDataset } from '../geometry/utils';
 import { useScatterSource } from './hooks';
 import {
@@ -24,14 +25,43 @@ interface Props {
   render: (source: ScatterSource, data: ScatterData) => ReactNode;
 }
 
-/* Column of an (n, k) array, as a typed array (no per-point objects) */
-function getColumn(arr: NumArray, column: number, k: number): NumArray {
-  const count = Math.floor(arr.length / k);
-  const out = new Float64Array(count);
-  for (let i = 0; i < count; i += 1) {
-    out[i] = arr[i * k + column];
+interface Prepared {
+  packing: Packing | undefined;
+  ignoreValue: IgnoreValue | undefined;
+  array: NumArray; // unpacked (NetCDF), invalid values as `NaN`
+  columns?: NumArray[]; // of an (n, k) array, split once
+}
+
+/* Per fetched value (stable in the query cache), so that re-renders (e.g. toolbar clicks) give
+ * the same arrays and the point buffers are not rebuilt */
+const prepared = new WeakMap<object, Prepared>();
+
+function getChannelArray(
+  value: Parameters<typeof toCoordinateArray>[0],
+  packing: Packing | undefined,
+  ignoreValue: IgnoreValue | undefined,
+  def: ChannelDef,
+): NumArray {
+  let entry = prepared.get(value);
+  if (
+    !entry ||
+    entry.packing !== packing ||
+    entry.ignoreValue !== ignoreValue
+  ) {
+    entry = {
+      packing,
+      ignoreValue,
+      array: toCoordinateArray(value, packing, ignoreValue),
+    };
+    prepared.set(value, entry);
   }
-  return out;
+  if (def.column === undefined) {
+    return entry.array;
+  }
+  if (!entry.columns) {
+    entry.columns = splitVertices(entry.array, def.dataset.shape.dims[1]);
+  }
+  return entry.columns[def.column];
 }
 
 function getChannelDefs(source: ScatterSource): [string, ChannelDef][] {
@@ -67,29 +97,20 @@ function ScatterValues(props: {
   const packings = usePackings(datasets);
   const ignoreValues = useIgnoreValues(datasets);
 
-  // Unpacked (NetCDF), invalid values as `NaN`, per dataset
-  const arrays = useMemo(
-    () =>
-      new Map(
-        datasets.map((dataset, i) => [
-          dataset.path,
-          toCoordinateArray(values[dataset.path], packings[i], ignoreValues[i]),
-        ]),
-      ),
-    [datasets, values, packings, ignoreValues],
-  );
-
-  const data = useMemo(() => {
-    const entries = getChannelDefs(source).map(([channel, def]) => {
-      const arr = arrays.get(def.dataset.path) ?? [];
-      const { dims } = def.dataset.shape;
+  const data = Object.fromEntries(
+    getChannelDefs(source).map(([channel, def]) => {
+      const i = datasets.findIndex(({ path }) => path === def.dataset.path);
       return [
         channel,
-        def.column === undefined ? arr : getColumn(arr, def.column, dims[1]),
+        getChannelArray(
+          values[def.dataset.path],
+          packings[i],
+          ignoreValues[i],
+          def,
+        ),
       ];
-    });
-    return Object.fromEntries(entries) as ScatterData;
-  }, [source, arrays]);
+    }),
+  ) as ScatterData;
 
   return render(source, data);
 }

@@ -48,6 +48,13 @@ function hint(attrs: Record<string, AttrVal>, dimNames: string[][] = []) {
 }
 
 describe('parseViewHint', () => {
+  it('leave `H5WEB_color` of points to their source (dataset name or CSS colour)', () => {
+    const scatter = hint({ H5WEB_vis: 'scatter', H5WEB_color: 'cluster' });
+    expect(scatter.curveColor).toBeUndefined();
+    expect(scatter.notes).toEqual([]);
+    expect(hint({ H5WEB_color: 'red' }).curveColor).toBe('red'); // line colour, as is in Node
+  });
+
   it('parse known attributes', () => {
     expect(
       hint({

@@ -1,9 +1,9 @@
+import { assertDefined } from '@h5web/shared/guards';
 import {
   type Attribute,
   type GroupWithChildren,
 } from '@h5web/shared/hdf5-models';
-import { assertDefined } from '@h5web/shared/guards';
-import { assertMockAttribute } from '@h5web/shared/mock-utils';
+import { assertMockAttribute, scalarAttr } from '@h5web/shared/mock-utils';
 import { describe, expect, it } from 'vitest';
 
 import { makeMockFile } from '../../../providers/mock/mock-file';
@@ -114,6 +114,17 @@ describe('findScatterSource', () => {
 
     await expect(find('/scatter/xy')).resolves.toBeUndefined();
     await expect(find('/scatter/xy', HintVis.Heatmap)).resolves.toBeUndefined();
+  });
+
+  it('fall back to columns of hinted (n, k) dataset with CF coordinates', async () => {
+    const columns = findMockEntity(root, '/scatter/columns');
+    assertDefined(columns);
+    const withCoords = {
+      ...columns,
+      attributes: [...columns.attributes, scalarAttr('coordinates', 'a b')],
+    };
+    const source = await findScatterSource(withCoords, HintVis.Scatter, ctx);
+    expect(source?.form).toBe('columns');
   });
 
   it('read colour of all points and point size', async () => {

@@ -14,6 +14,7 @@ import { hasAttribute } from '../../../utils';
 import {
   createAttrReader,
   isCssColor,
+  isScatterHint,
   splitNames,
   toRgbaColor,
 } from '../../view-hints/attrs';
@@ -70,10 +71,6 @@ export interface ScatterSource {
 
 export const POINT_FEATURE_TYPE = 'point';
 const MAX_POINT_SIZE = 100; // CSS pixels
-
-export function isScatterHint(vis: HintVis | undefined): boolean {
-  return vis === HintVis.Scatter || vis === HintVis.Scatter3D;
-}
 
 /**
  * Channel of each column from `H5WEB_scatter_columns`: space-separated, one per column, among
@@ -457,8 +454,11 @@ export async function findScatterSource(
   if (!isNumDataset(entity)) {
     return undefined;
   }
-  if (hasAttribute(entity, COORDINATES_ATTR)) {
-    return findCoordinatesSource(entity, isHinted, ctx);
+  const coordinatesSource =
+    hasAttribute(entity, COORDINATES_ATTR) &&
+    (await findCoordinatesSource(entity, isHinted, ctx));
+  if (coordinatesSource) {
+    return coordinatesSource;
   }
   return isHinted
     ? findColumnsSource(entity, hintVis === HintVis.Scatter3D, ctx)

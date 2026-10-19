@@ -18,12 +18,24 @@ import { useVisArea } from '../../../visualizer/vis-area';
 import { BASE_INTERACTIONS, SURFACE_INTERACTIONS } from '../utils';
 import { type ScatterConfig } from './config';
 
-const SIZE_SCALES = ['0.5', '1', '1.5', '2', '3'];
-const SIZE_LABELS = Object.fromEntries(SIZE_SCALES.map((s) => [s, `×${s}`]));
-const OPACITIES = ['1', '0.5', '0.2', '0.05'];
-const OPACITY_LABELS = Object.fromEntries(
-  OPACITIES.map((o) => [o, `${Math.round(Number(o) * 100)} %`]),
-);
+const SIZE_SCALES = [0.5, 1, 1.5, 2, 3];
+const OPACITIES = [1, 0.5, 0.2, 0.05];
+
+/* Options as strings, with the current value (e.g. from `H5WEB_point_opacity`) among them */
+function getOptions(
+  values: number[],
+  current: number,
+  format: (val: number) => string,
+): { options: string[]; labels: Record<string, string> } {
+  const all = values.includes(current) ? values : [...values, current];
+  const sorted = all.toSorted((a, b) =>
+    values[0] < values[1] ? a - b : b - a,
+  );
+  return {
+    options: sorted.map(String),
+    labels: Object.fromEntries(sorted.map((val) => [String(val), format(val)])),
+  };
+}
 
 interface Props {
   dataDomain: Domain | undefined; // without colour values: no colour controls
@@ -59,6 +71,12 @@ function PointsToolbar(props: Props) {
     setKeepRatio,
     setShowAxes,
   } = config;
+  const sizes = getOptions(SIZE_SCALES, sizeScale, (val) => `×${val}`);
+  const opacities = getOptions(
+    OPACITIES,
+    opacity,
+    (val) => `${Math.round(val * 100)} %`,
+  );
 
   return (
     <Toolbar interactions={is3D ? SURFACE_INTERACTIONS : BASE_INTERACTIONS}>
@@ -134,16 +152,16 @@ function PointsToolbar(props: Props) {
         <RadioGroup
           name="pointsize"
           label="Size"
-          options={SIZE_SCALES}
-          optionsLabels={SIZE_LABELS}
+          options={sizes.options}
+          optionsLabels={sizes.labels}
           value={String(sizeScale)}
           onChange={(val) => setSizeScale(Number(val))}
         />
         <RadioGroup
           name="pointopacity"
           label="Opacity"
-          options={OPACITIES}
-          optionsLabels={OPACITY_LABELS}
+          options={opacities.options}
+          optionsLabels={opacities.labels}
           value={String(opacity)}
           onChange={(val) => setOpacity(Number(val))}
         />

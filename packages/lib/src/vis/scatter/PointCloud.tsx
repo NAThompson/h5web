@@ -113,12 +113,16 @@ function PointCloud(props: Props) {
   );
   useEffect(() => () => material.dispose(), [material]);
 
+  const isTranslucent = opacity < 1;
+  useLayoutEffect(() => {
+    material.transparent = isTranslucent;
+    material.depthWrite = !isTranslucent; // translucent points must not hide each other
+    material.needsUpdate = true; // uniforms below need no update of the program
+  }, [material, isTranslucent]);
+
   useLayoutEffect(() => {
     material.uniforms.size.value = sizeScale;
     material.uniforms.opacity.value = opacity;
-    material.transparent = opacity < 1;
-    material.depthWrite = opacity >= 1; // translucent points must not hide each other
-    material.needsUpdate = true;
     invalidate();
   }, [material, sizeScale, opacity, invalidate]);
 

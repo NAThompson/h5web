@@ -16,10 +16,12 @@ export type Rgb255 = [number, number, number];
 /** Map a value to [0, 1] along an axis (`NaN` if it cannot be placed, e.g. ≤ 0 in log scale). */
 export type UnitScale = (val: number) => number;
 
-/** Linear map of a domain to [0, 1]; flat domains map to the middle. */
+/** Linear map of a domain to [0, 1]; flat domains map finite values to the middle. */
 export function getLinearUnitScale([min, max]: Domain): UnitScale {
   const extent = max - min;
-  return extent === 0 ? () => 0.5 : (val) => (val - min) / extent;
+  return extent === 0
+    ? (val) => (Number.isFinite(val) ? 0.5 : Number.NaN)
+    : (val) => (val - min) / extent;
 }
 
 /**
@@ -143,6 +145,19 @@ export function getSizePx(
   return Math.sqrt(minPx ** 2 + clamped * (maxPx ** 2 - minPx ** 2));
 }
 
+/** Values of the size legend: smallest, middle and largest size values, rounded alike to a tenth
+ * of their spacing (e.g. `0 0.5 1` rather than `6.05×10⁻⁶ 0.5 1`). */
+export function getSizeLegendValues([min, max]: Domain): number[] {
+  if (min === max) {
+    return [min];
+  }
+  const unit = 10 ** (Math.floor(Math.log10((max - min) / 2)) - 1);
+  const values = [min, (min + max) / 2, max].map((val) =>
+    Number((Math.round(val / unit) * unit).toPrecision(12)),
+  );
+  return [...new Set(values)];
+}
+
 export interface PointSizeOptions {
   basePx: number; // without size values
   values?: NumArray; // size channel
@@ -154,7 +169,8 @@ export interface PointSizeOptions {
 
 /**
  * Diameters of the points in CSS pixels; `0` hides points that cannot be placed (`NaN`
- * position), coloured (`NaN` colour without NaN colour) or sized (`NaN` size).
+ * position), coloured (`NaN` colour without NaN colour) or sized (non-finite size, also when no
+ * size is finite).
  */
 export function getPointSizes(
   positions: Float32Array,
@@ -173,10 +189,13 @@ export function getPointSizes(
     const val = values?.[i];
     if (!isPlaced || !isColored) {
       sizes[i] = 0;
-    } else if (val === undefined || !domain) {
+    } else if (!values) {
       sizes[i] = basePx;
     } else {
-      sizes[i] = Number.isFinite(val) ? getSizePx(val, domain, range) : 0;
+      sizes[i] =
+        val !== undefined && Number.isFinite(val) && domain
+          ? getSizePx(val, domain, range)
+          : 0;
     }
   }
 
@@ -338,6 +357,7 @@ export function findProjectedPoint(
     if (
       Math.hypot(sx - px, sy - py) <= radius &&
       depth >= -1 &&
+      depth <= 1 && // within the near and far planes
       depth < pickedDepth
     ) {
       picked = i;

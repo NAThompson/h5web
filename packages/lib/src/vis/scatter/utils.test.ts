@@ -8,6 +8,7 @@ import {
   getLinearUnitScale,
   getPointColors,
   getPointSizes,
+  getSizeLegendValues,
   getSizePx,
   getUnitPositions,
 } from './utils';
@@ -21,6 +22,11 @@ describe('getUnitPositions', () => {
       [getLinearUnitScale([0, 10]), getLinearUnitScale([5, 5])],
     );
     expect([...positions]).toEqual([0, 0.5, 0, 1, 0.5, 0]); // flat domain: middle
+
+    // Missing coordinates stay missing, also along a flat axis
+    const flat = getLinearUnitScale([5, 5]);
+    expect(flat(Number.NaN)).toBeNaN();
+    expect(flat(Infinity)).toBeNaN();
   });
 });
 
@@ -75,6 +81,15 @@ describe('getPointSizes', () => {
     });
     expect([...sizes]).toEqual([2, 0, 0]);
     expect(getSizePx(1, [0, 1], [2, 12])).toBeCloseTo(12);
+
+    // No finite size: hidden as with some finite sizes, not shown at the default size
+    const noFinite = getPointSizes(positions, {
+      basePx: 4,
+      values: [Number.NaN, Number.NaN, Number.NaN],
+      domain: undefined,
+      range: [2, 12],
+    });
+    expect([...noFinite]).toEqual([0, 0, 0]);
     expect(getSizePx(0.5, [0, 1], [2, 12]) ** 2).toBeCloseTo((4 + 144) / 2);
   });
 });
@@ -112,5 +127,23 @@ describe('findProjectedPoint', () => {
     expect(
       findProjectedPoint(positions, mvp, [20, 20], [100, 100], params),
     ).toBeUndefined();
+
+    // Beyond the far plane: clipped, so not picked
+    const far = Float32Array.from([0, 0, 1.5]);
+    expect(
+      findProjectedPoint(far, mvp, [50, 50], [100, 100], {
+        ...params,
+        sizes: Float32Array.from([4]),
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('getSizeLegendValues', () => {
+  it('round smallest, middle and largest values alike', () => {
+    expect(getSizeLegendValues([6.05e-6, 1])).toEqual([0, 0.5, 1]);
+    expect(getSizeLegendValues([3, 16])).toEqual([3, 9.5, 16]);
+    expect(getSizeLegendValues([0.123, 0.456])).toEqual([0.12, 0.29, 0.46]);
+    expect(getSizeLegendValues([2, 2])).toEqual([2]);
   });
 });

@@ -4,7 +4,11 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 
 import { getSelectedVisTab, getVisTabs, renderApp } from '../test-utils';
+import { toCoordinateArray } from '../vis-packs/core/geometry/hooks';
 import { Vis } from '../vis-packs/core/visualizations';
+
+// Spy on preparation of fetched values (each call allocates arrays that get uploaded)
+vi.mock(import('../vis-packs/core/geometry/hooks'), { spy: true });
 
 /* Creating a WebGL context is slow with SwiftShader (cf. `HeatmapSurface.browser.test.ts`) */
 const TEST_TIMEOUT = 20_000;
@@ -91,6 +95,28 @@ test(
 );
 
 test(
+  'keep point buffers and show hinted opacity on toolbar clicks',
+  async () => {
+    await renderApp('/scatter/two_d');
+    await expect
+      .element(page.getByRole('figure', { name: 'two_d' }))
+      .toBeVisible();
+    const calls = vi.mocked(toCoordinateArray).mock.calls.length;
+    expect(calls).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: 'Grid' }).click(); // re-render
+    await page.getByRole('button', { name: 'Points' }).click();
+    expect(toCoordinateArray).toHaveBeenCalledTimes(calls);
+
+    // `H5WEB_point_opacity = 0.3`: not a preset, but shown as current option
+    await expect
+      .element(page.getByRole('radio', { name: '30 %' }))
+      .toBeChecked();
+  },
+  TEST_TIMEOUT,
+);
+
+test(
   'show values at CF point coordinates in 3D by default',
   async () => {
     const { user } = await renderApp('/scatter/cf_points');
@@ -155,13 +181,13 @@ test(
     await vi.waitFor(() => {
       expect(document.querySelector('figure canvas')).not.toBeNull();
     });
-    expect(await hoverCentre()).toBeUndefined();
+    await expect(hoverCentre()).resolves.toBeUndefined();
 
     await user.click(page.getByRole('tab', { name: Vis.Scatter, exact: true }));
     await expect
       .element(page.getByRole('figure', { name: 'tiny_nan' }))
       .toBeVisible();
-    expect(await hoverCentre()).toBeUndefined();
+    await expect(hoverCentre()).resolves.toBeUndefined();
   },
   TEST_TIMEOUT,
 );
@@ -197,8 +223,27 @@ test(
     const arcs = paths.flatMap(
       (path) => path.getAttribute('d')?.match(/a[\d.]+ /gu) ?? [],
     );
-    expect(arcs.length).toBe(2 * 400); // two arcs per circle
+    expect(arcs).toHaveLength(2 * 400); // two arcs per circle
     expect(new Set(arcs).size).toBeGreaterThan(10);
+  },
+  TEST_TIMEOUT,
+);
+
+test(
+  'export translucent points one path each, so that overlaps get denser',
+  async () => {
+    await renderApp('/scatter/two_d'); // `H5WEB_point_opacity = 0.3`
+    const svg = await exportSvgWhen(
+      'two_d',
+      (doc) => doc.querySelectorAll('path[fill^="rgb"]').length > 0,
+    );
+
+    const paths = [...svg.querySelectorAll('path[fill^="rgb"]')];
+    expect(paths.length).toBeGreaterThan(300);
+    for (const path of paths) {
+      expect(path.getAttribute('d')?.match(/a[\d.]+ /gu)).toHaveLength(2); // one circle
+      expect(path.getAttribute('fill-opacity')).toBe('0.3');
+    }
   },
   TEST_TIMEOUT,
 );

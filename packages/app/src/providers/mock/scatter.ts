@@ -145,6 +145,7 @@ export function makeScatterGroup(): GroupWithChildren {
         H5WEB_vis: 'scatter',
         H5WEB_color: 'crimson',
         H5WEB_point_size: 6,
+        H5WEB_point_opacity: 0.3, // not among the toolbar's options
       },
     ),
     withAttrs(floats('lon', stations.lon), { units: 'degrees_east' }),
