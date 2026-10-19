@@ -17,11 +17,12 @@ import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from './utils';
 
 interface Props {
   requests: ValueQueryParams[]; // all values about to be fetched
+  alternative?: { label: string; onSelect: () => void }; // e.g. back to slices of a projection
 }
 
 /* Ask user for confirmation before fetching very large values */
 function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
-  const { requests, children } = props;
+  const { requests, alternative, children } = props;
 
   const dataContext = useDataContext();
   const queryCache = dataContext.queryClient.getQueryCache();
@@ -75,6 +76,15 @@ function LargeValueGuard(props: PropsWithChildren<Props>): ReactNode {
       >
         Load anyway?
       </button>
+      {alternative && (
+        <button
+          className={styles.loadBtn}
+          type="button"
+          onClick={alternative.onSelect}
+        >
+          {alternative.label}
+        </button>
+      )}
     </div>
   );
 }

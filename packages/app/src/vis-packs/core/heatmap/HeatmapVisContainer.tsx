@@ -1,4 +1,4 @@
-import { DimensionMapper, type Domain, getSliceSelection } from '@h5web/lib';
+import { DimensionMapper, type Domain } from '@h5web/lib';
 import {
   assertArrayShape,
   assertDataset,
@@ -36,7 +36,10 @@ import VisBoundary from '../../VisBoundary';
 import { guessKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
 import { useHeatmapConfig } from './config';
+import { useHeatmapProjection } from './hooks';
 import MappedHeatmapVis from './MappedHeatmapVis';
+import { getProjectedTitle, getProjectedValueLabel } from './projection';
+import ProjectionControl from './ProjectionControl';
 
 function HeatmapVisContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
@@ -85,17 +88,30 @@ function HeatmapVisContainer(props: VisContainerProps) {
       dataDomain,
     ),
   );
-  const selection = getSliceSelection(dimMapping);
+
+  // Projection: a sliced dimension reduced (e.g. max over it) instead of sliced, fetched whole
+  const {
+    projection,
+    label: projectionLabel,
+    selection: fetchSelection,
+    mapMapping,
+    mapping: projectedMapping,
+    controlProps,
+    guardAlternative,
+  } = useHeatmapProjection(hint, dimMapping, dimLabels);
 
   // Overlays declared by the hint, sliced along a linked dimension (e.g. `generation`)
-  const overlays = useLinkedOverlays(entity, hint, dimMapping);
+  // (not of a projected link dimension: no index to slice them at)
+  const overlays = useLinkedOverlays(entity, hint, projectedMapping);
   const contourOf = useContourSource(entity, hint, dimMapping);
   const { extraSlider } = overlays;
 
   // Probe: values of a clicked pixel along a sliced dimension
   const [probePoint, setProbePoint] = useState<ProbePoint>();
   const [chosenProbeDim, setChosenProbeDim] = useState<number>();
-  const probeDim = getProbeDim(dimMapping, chosenProbeDim ?? hint.probeDim);
+  const probeDim = projection // not of projections
+    ? undefined
+    : getProbeDim(dimMapping, chosenProbeDim ?? hint.probeDim);
   const showProbe =
     config.probe &&
     !config.surface &&
@@ -108,6 +124,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
     dimMapping,
     {
       withPlaybackRange: true,
+      mapMapping, // projection: values of the projected dimension whole
       getExtraRequests: overlays.getSliceRequests,
       skipEmpty: hint.playbackSkipEmpty,
       playbackDefaults: hint.playback,
@@ -126,6 +143,9 @@ function HeatmapVisContainer(props: VisContainerProps) {
       dimMapping={dimMapping}
       {...slicingProps}
       onChange={setDimMapping}
+      withPlaybackControls={slicingProps.withPlaybackControls && !projection} // sequence range of slices
+      projectedDim={projection?.dim}
+      projectionLabel={projection?.kind}
     />
   );
 
@@ -138,12 +158,13 @@ function HeatmapVisContainer(props: VisContainerProps) {
       )}
       <VisBoundary
         resetKey={dimMapping}
-        isSlice={selection !== undefined}
-        playbackRange={playbackRange}
+        isSlice={fetchSelection !== undefined}
+        playbackRange={projection ? undefined : playbackRange} // range of slices: not of projections
       >
         <ValueFetcher
           dataset={entity}
-          selection={selection}
+          selection={fetchSelection}
+          guardAlternative={guardAlternative}
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
@@ -156,8 +177,14 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   axisValues={axisValues}
                   axisTicks={axisTicks}
                   axisScales={config.surface ? undefined : axisScales}
-                  title={hint.title ?? entity.name}
-                  valueLabel={hint.valueLabel}
+                  title={getProjectedTitle(
+                    hint.title ?? entity.name,
+                    projectionLabel,
+                  )}
+                  valueLabel={getProjectedValueLabel(
+                    hint.valueLabel,
+                    projectionLabel,
+                  )}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   overlays={overlays.shapes}
@@ -165,7 +192,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
                   specialColors={hint}
                   valueTransform={hint.valueTransform}
                   onDataDomainChange={setDataDomain}
-                  contourSource={contourOf.source}
+                  contourSource={projection ? undefined : contourOf.source} // other dataset: not projected
                   emphasisStyle={{
                     width: hint.contourEmphasizeWidth,
                     color: hint.contourEmphasizeColor,
@@ -174,6 +201,21 @@ function HeatmapVisContainer(props: VisContainerProps) {
                     probeDim === undefined
                       ? undefined
                       : { point: probePoint, onProbe: setProbePoint }
+                  }
+                  projection={projection}
+                  projectionControl={
+                    controlProps && (
+                      <ProjectionControl
+                        {...controlProps}
+                        onChange={(kind) => {
+                          if (kind) {
+                            // Playback range of slices doesn't apply to projections
+                            slicingProps.onPlayingDimChange(undefined);
+                          }
+                          controlProps.onChange(kind);
+                        }}
+                      />
+                    )
                   }
                 />
               )}

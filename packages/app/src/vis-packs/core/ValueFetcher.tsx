@@ -4,7 +4,7 @@ import {
   type ScalarShape,
   type Value,
 } from '@h5web/shared/hdf5-models';
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 
 import { useValue } from '../../hooks';
 import LargeValueGuard from '../LargeValueGuard';
@@ -13,15 +13,19 @@ interface Props<D extends Dataset> {
   dataset: D;
   selection?: string; // for slice-by-slice fetching
   render: (val: Value<D>) => ReactNode;
+  guardAlternative?: ComponentProps<typeof LargeValueGuard>['alternative'];
 }
 
 function ValueFetcher<D extends Dataset<ArrayShape | ScalarShape>>(
   props: Props<D>,
 ): ReactNode {
-  const { dataset, selection } = props;
+  const { dataset, selection, guardAlternative } = props;
 
   return (
-    <LargeValueGuard requests={[{ dataset, selection }]}>
+    <LargeValueGuard
+      requests={[{ dataset, selection }]}
+      alternative={guardAlternative}
+    >
       <ValueRenderer {...props} />
     </LargeValueGuard>
   );

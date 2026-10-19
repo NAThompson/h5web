@@ -48,6 +48,9 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   onPlaybackSettingsChange?: (settings: PlaybackSettings) => void;
   // Playback: note about the value range in use (e.g. when the whole sequence's range is unknown)
   playbackRangeHint?: string;
+  // Dimension reduced instead of sliced (e.g. maximum over it), shown without a slider
+  projectedDim?: number;
+  projectionLabel?: string; // e.g. `max`
 }
 
 function DimensionMapper(props: Props) {
@@ -74,6 +77,8 @@ function DimensionMapper(props: Props) {
     playbackSettings: controlledSettings,
     onPlaybackSettingsChange,
     playbackRangeHint,
+    projectedDim,
+    projectionLabel = 'projected',
     ...htmlProps
   } = props;
 
@@ -175,6 +180,25 @@ function DimensionMapper(props: Props) {
         {dimMapping.map((val, index) => {
           if (typeof val !== 'number') {
             return undefined;
+          }
+
+          if (index === projectedDim) {
+            const dimLabel = dimLabels?.[index] ?? `D${index}`;
+            return (
+              <div
+                key={index} // eslint-disable-line react/no-array-index-key
+                className={styles.projected}
+                role="group"
+                aria-label={`${dimLabel} projected`}
+                title={dimHints?.[index]}
+              >
+                <span className={styles.projectedLabel}>{dimLabel}</span>
+                <span className={styles.projectedValue}>{projectionLabel}</span>
+                <span className={styles.projectedRange}>
+                  over 0:{dims[index] - 1}
+                </span>
+              </div>
+            );
           }
 
           function withMapping(newVal: number): DimensionMapping {

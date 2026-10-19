@@ -18,6 +18,7 @@ import {
   type ExportEntry,
   ScaleType,
 } from '@h5web/shared/vis-models';
+import { type ReactNode } from 'react';
 import {
   MdAspectRatio,
   MdGridOn,
@@ -52,6 +53,7 @@ interface Props {
   customContourLevels?: number[];
   onCustomContourLevelsChange?: (levels: number[]) => void;
   withProbe?: boolean; // probe pixels of a stack
+  projectionControl?: ReactNode; // stacks: reduce a dimension instead of slicing it
 }
 
 /**
@@ -119,6 +121,7 @@ function HeatmapToolbar(props: Props) {
     customContourLevels = [],
     onCustomContourLevelsChange = () => {},
     withProbe,
+    projectionControl,
   } = props;
   const {
     showGrid,
@@ -242,6 +245,13 @@ function HeatmapToolbar(props: Props) {
             emphasis={config.contourEmphasis}
             onEmphasisChange={config.setContourEmphasis}
           />
+          <Separator />
+        </>
+      )}
+
+      {projectionControl && (
+        <>
+          {projectionControl}
           <Separator />
         </>
       )}

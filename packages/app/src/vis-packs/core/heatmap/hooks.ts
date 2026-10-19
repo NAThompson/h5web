@@ -3,6 +3,7 @@ import {
   type DimensionMapping,
   getContourLevels,
   getLevelColors,
+  getSliceSelection,
   useDomain,
   useSlicedDimsAndMapping,
   type VisScaleType,
@@ -14,7 +15,7 @@ import {
   ScaleType,
 } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   useIgnoreValues,
@@ -23,11 +24,21 @@ import {
 } from '../../netcdf/hooks';
 import { withoutEmphasized } from '../../view-hints/contours';
 import { type ContourSource } from '../../view-hints/hooks';
+import { type ViewHint } from '../../view-hints/models';
 import { getHaloColor } from '../../view-hints/OverlayLayer2D';
 import { useMappedArray, useToNumArray } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { type HeatmapConfig } from './config';
 import { ContourColorMode, ContourMode } from './models';
+import {
+  getProjectionAxis,
+  getProjectionDim,
+  getProjectionLabel,
+  getProjectionSelection,
+  type HeatmapProjection,
+  projectArray,
+} from './projection';
+import { type ProjectionControlProps } from './ProjectionControl';
 
 const DEFAULT_CONTOUR_WIDTH = 1.5; // as `ContourLines`
 const DEFAULT_EMPHASIS_COLOR = 'black'; // crisp on light parts of the image, e.g. 0 on diverging maps
@@ -156,6 +167,98 @@ export function useHeatmapContours(
             lineWidth: emphasisStyle.width ?? 2 * DEFAULT_CONTOUR_WIDTH,
             withHalo: true,
             haloColor: getHaloColor(emphasisColor),
+          }
+        : undefined,
+  };
+}
+
+/* Values of a heatmap stack with the projected dimension reduced (cf. `getProjectionSelection`),
+ * i.e. with the dimensions of a slice; as is without projection. Memoised: computed again only
+ * for new values or a new projection (about 40 ms for 256³ values) */
+export function useProjectedArray(
+  values: NumArray,
+  dims: number[],
+  dimMapping: DimensionMapping,
+  projection: HeatmapProjection | undefined,
+  ignoreValue: IgnoreValue | undefined,
+): NumArray {
+  const { kind, dim } = projection ?? {};
+  return useMemo(() => {
+    if (kind === undefined || dim === undefined) {
+      return values;
+    }
+    const fetchedDims = dims.filter(
+      (_, i) => i === dim || typeof dimMapping[i] !== 'number',
+    );
+    return projectArray(
+      values,
+      fetchedDims,
+      getProjectionAxis(dimMapping, dim),
+      kind,
+      ignoreValue,
+    );
+  }, [values, dims, dimMapping, kind, dim, ignoreValue]);
+}
+
+interface HeatmapProjectionState {
+  projection: HeatmapProjection | undefined; // `undefined`: slices
+  label: string | undefined; // what was done, e.g. `max over time`
+  selection: string | undefined; // of the values to fetch (projected dimension whole)
+  mapMapping: ((mapping: DimensionMapping) => DimensionMapping) | undefined; // likewise, to prefetch
+  mapping: DimensionMapping; // projected dimension as on an axis (`null`), e.g. for overlays
+  controlProps: ProjectionControlProps | undefined; // only if a dimension is sliced
+  // Projection too large to load: back to slices from the guard (shown instead of the toolbar)
+  guardAlternative: { label: string; onSelect: () => void } | undefined;
+}
+
+/* Projection of a stack, hinted (`H5WEB_projection`, `H5WEB_projection_dim`) then chosen in the
+ * toolbar: of the chosen dimension while it is sliced, else of the first sliced dimension */
+export function useHeatmapProjection(
+  hint: ViewHint,
+  dimMapping: DimensionMapping,
+  dimLabels: (string | undefined)[],
+): HeatmapProjectionState {
+  const [kind, setKind] = useState(hint.projection);
+  const [chosenDim, setChosenDim] = useState(hint.projectionDim);
+
+  const dim = getProjectionDim(dimMapping, chosenDim);
+  const projection = kind && dim !== undefined ? { kind, dim } : undefined;
+  const projectedDim = projection?.dim;
+  const mapping = useMemo(
+    () => dimMapping.map((val, i) => (i === projectedDim ? null : val)),
+    [dimMapping, projectedDim],
+  );
+  const slicedDims = dimMapping.flatMap((val, i) =>
+    typeof val === 'number' ? [{ dim: i, label: dimLabels[i] ?? `D${i}` }] : [],
+  );
+
+  return {
+    projection,
+    selection: projection
+      ? getProjectionSelection(dimMapping, projection.dim)
+      : getSliceSelection(dimMapping),
+    mapMapping:
+      projection &&
+      ((m) => m.map((val, i) => (i === projection.dim ? null : val))),
+    mapping,
+    label:
+      projection &&
+      getProjectionLabel(
+        projection.kind,
+        dimLabels[projection.dim] ?? `D${projection.dim}`,
+      ),
+    guardAlternative: projection && {
+      label: 'Show slices instead',
+      onSelect: () => setKind(undefined),
+    },
+    controlProps:
+      slicedDims.length > 0
+        ? {
+            value: kind,
+            dim,
+            dims: slicedDims,
+            onChange: setKind,
+            onDimChange: setChosenDim,
           }
         : undefined,
   };

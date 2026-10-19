@@ -53,3 +53,21 @@ test('wait for confirmation before playing through large slices', async () => {
     .toBeGreaterThan(0);
   await playBtn.click();
 });
+
+test('go back to slices when a projection is too large to load', async () => {
+  // Slices of 60 bytes, whole stack of 240 bytes
+  await renderApp({
+    initialPath: '/view_hints/projection_max',
+    waitForLoaders: false,
+  });
+  await expect
+    .element(page.getByText(/too large to be loaded automatically/u))
+    .toBeVisible();
+  expect(page.getByRole('combobox', { name: 'Max' })).not.toBeInTheDocument(); // no toolbar
+
+  await page.getByRole('button', { name: 'Show slices instead' }).click();
+  await expect
+    .element(page.getByRole('figure', { name: 'projection_max' }))
+    .toBeVisible();
+  expect(page.getByRole('slider', { name: 'kappa' })).toBeVisible(); // sliced again
+});

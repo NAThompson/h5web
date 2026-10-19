@@ -22,7 +22,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { type Domain } from '@h5web/shared/vis-models';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -57,7 +57,12 @@ import {
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type HeatmapConfig } from './config';
 import HeatmapToolbar from './HeatmapToolbar';
-import { type EmphasisStyle, useHeatmapContours } from './hooks';
+import {
+  type EmphasisStyle,
+  useHeatmapContours,
+  useProjectedArray,
+} from './hooks';
+import { type HeatmapProjection } from './projection';
 
 interface Props {
   dataset: Dataset<ArrayShape, NumericLikeType>;
@@ -80,6 +85,9 @@ interface Props {
   specialColors?: SpecialColorsHint; // e.g. of NaN
   valueTransform?: ValueTransform; // values are logarithms: ±∞ (e.g. log of 0) drawn as NaN
   panel?: PanelVisOptions; // one of several panels (e.g. small multiples)
+  /* Dimension reduced instead of sliced: `value` holds it whole (cf. `getProjectionSelection`) */
+  projection?: HeatmapProjection;
+  projectionControl?: ReactNode; // in the toolbar
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -104,6 +112,8 @@ function MappedHeatmapVis(props: Props) {
     specialColors = {},
     valueTransform,
     panel,
+    projection,
+    projectionControl,
   } = props;
 
   const {
@@ -128,10 +138,16 @@ function MappedHeatmapVis(props: Props) {
   );
   const packing = usePacking(dataset);
 
-  const numArray = useToNumArray(useUnpackedNumArray(value, packing));
+  const { dims } = dataset.shape;
+  const numArray = useProjectedArray(
+    useToNumArray(useUnpackedNumArray(value, packing)),
+    dims,
+    dimMapping,
+    projection,
+    ignoreValue,
+  );
   const numAxisArrays = useToNumArrays(axisValues);
 
-  const { dims } = dataset.shape;
   const mappingArgs = useSlicedDimsAndMapping(dims, dimMapping);
   const dataArray = useMappedArray(numArray, ...mappingArgs);
 
@@ -202,13 +218,14 @@ function MappedHeatmapVis(props: Props) {
             isSlice={selection !== undefined}
             withSurface={canShowSurface}
             config={config}
-            exportEntries={exportEntries}
+            exportEntries={projection ? undefined : exportEntries} // of values, not projections
             autoContourLevels={contours.autoLevels}
             customContourLevels={contours.customLevels}
             onCustomContourLevelsChange={(levels) =>
               setContourLevels(dataset.path, levels)
             }
             withProbe={!!probe}
+            projectionControl={projectionControl}
           />,
           toolbarContainer,
         )}

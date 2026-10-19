@@ -88,6 +88,12 @@ const ORTHO = indices(6 * 8 * 10).map(
 const ORTHO_STACK = indices(2 * 6 * 8 * 10).map(
   (i) => 1000 * Math.floor(i / 480) + ORTHO[i % 480],
 );
+// Projections: value at (κ, row, col) is 10 (κ + 1) + row + col / 10, NaN at (3, 0, 0)
+const PROJECTION_STACK = indices(60).map((i) =>
+  i === 45
+    ? Number.NaN
+    : 10 * (Math.floor(i / 15) + 1) + Math.floor((i % 15) / 5) + (i % 5) / 10,
+);
 
 // NURBS curves (`H5WEB_geometry = "nurbs"`): exact unit circle, from 9 points on a square
 // prettier-ignore
@@ -2063,6 +2069,35 @@ export function makeMockFile(): GroupWithChildren {
           floatType(),
           ORTHO_STACK,
           { attributes: [scalarAttr('H5WEB_vis', 'orthoslices')] },
+        ),
+        // Projections of a heatmap stack along κ, ignoring NaN
+        withDimScales(
+          dataset(
+            'projection_max',
+            arrayShape([4, 3, 5]),
+            floatType(),
+            PROJECTION_STACK,
+            {
+              attributes: [
+                scalarAttr('H5WEB_projection', 'max'),
+                intAttr('H5WEB_keep_ratio', 0), // pixels fill the canvas
+              ],
+            },
+          ),
+          { scales: [['/view_hints/kappa'], [], []] },
+        ),
+        dataset(
+          'projection_mean',
+          arrayShape([4, 3, 5]),
+          floatType(),
+          PROJECTION_STACK,
+          {
+            attributes: [
+              scalarAttr('H5WEB_projection', 'mean'),
+              intAttr('H5WEB_projection_dim', 0),
+              intAttr('H5WEB_keep_ratio', 0),
+            ],
+          },
         ),
         // Panels side by side: the same field twice, their difference and a line, linked and
         // sliced together along `generation` (`missing` is skipped with a note)
