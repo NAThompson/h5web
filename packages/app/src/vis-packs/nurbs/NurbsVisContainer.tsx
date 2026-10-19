@@ -29,13 +29,14 @@ function NurbsVisContainer(props: VisContainerProps) {
   const { entity, toolbarContainer } = props;
   assertGroup(entity);
 
-  // 3D curves are drawn by `Curve3DVis`, without control points
+  // Surfaces and 3D curves are drawn in a box
   const isSurface = isNurbsSurfaceGroup(entity);
   const points = entity.children.find(({ name }) => name === 'control_points');
   const is3D =
-    points && isDataset(points) && hasArrayShape(points)
+    isSurface ||
+    (points && isDataset(points) && hasArrayShape(points)
       ? points.shape.dims[1] === 3
-      : false;
+      : false);
 
   const visArea = useVisArea();
   const [showControlPolygon, setShowControlPolygon] = useState(false);
@@ -50,7 +51,7 @@ function NurbsVisContainer(props: VisContainerProps) {
       {toolbarContainer &&
         createPortal(
           <Toolbar>
-            {isSurface && (
+            {is3D && (
               <>
                 <ColorMapSelector
                   value={colorMap}
@@ -61,35 +62,33 @@ function NurbsVisContainer(props: VisContainerProps) {
                 <Separator />
               </>
             )}
-            {(isSurface || !is3D) && (
+            <ToggleBtn
+              label={isSurface ? 'Control net' : 'Control points'}
+              Icon={MdTimeline}
+              value={showControlPolygon}
+              onToggle={() => setShowControlPolygon(!showControlPolygon)}
+            />
+            {isSurface && (
               <ToggleBtn
-                label={isSurface ? 'Control net' : 'Control points'}
-                Icon={MdTimeline}
-                value={showControlPolygon}
-                onToggle={() => setShowControlPolygon(!showControlPolygon)}
+                label="Knot lines"
+                Icon={MdLineStyle}
+                value={showKnotLines}
+                onToggle={() => setShowKnotLines(!showKnotLines)}
               />
             )}
-            {isSurface && (
-              <>
-                <ToggleBtn
-                  label="Knot lines"
-                  Icon={MdLineStyle}
-                  value={showKnotLines}
-                  onToggle={() => setShowKnotLines(!showKnotLines)}
-                />
-                <ToggleBtn
-                  label="Axes"
-                  Icon={MdOutlineViewInAr}
-                  value={showAxes}
-                  onToggle={() => setShowAxes(!showAxes)}
-                />
-              </>
+            {is3D && (
+              <ToggleBtn
+                label="Axes"
+                Icon={MdOutlineViewInAr}
+                value={showAxes}
+                onToggle={() => setShowAxes(!showAxes)}
+              />
             )}
             <ToggleBtn
               label="Grid"
               Icon={MdGridOn}
               value={showGrid}
-              disabled={!showAxes && isSurface}
+              disabled={!showAxes && is3D}
               onToggle={() => setShowGrid(!showGrid)}
             />
             <Separator />
@@ -114,7 +113,10 @@ function NurbsVisContainer(props: VisContainerProps) {
           <NurbsFetcher
             className={visualizerStyles.vis}
             group={entity}
+            colorMap={colorMap}
+            invertColorMap={invertColorMap}
             showControlPolygon={showControlPolygon}
+            showAxes={showAxes}
             showGrid={showGrid}
           />
         )}

@@ -9,6 +9,7 @@ export { default as Curve3DVis } from './vis/curve/Curve3DVis';
 export { default as ParamSurfaceVis } from './vis/param-surface/ParamSurfaceVis';
 export { default as NurbsVis } from './vis/nurbs/NurbsVis';
 export { default as NurbsSurfaceVis } from './vis/nurbs/NurbsSurfaceVis';
+export { default as NurbsCurve3DVis } from './vis/nurbs/NurbsCurve3DVis';
 export type { MatrixVisProps } from './vis/matrix/MatrixVis';
 export type { LineVisProps } from './vis/line/LineVis';
 export type { HeatmapVisProps } from './vis/heatmap/HeatmapVis';
@@ -42,6 +43,7 @@ export type { Curve3DVisProps } from './vis/curve/Curve3DVis';
 export type { ParamSurfaceVisProps } from './vis/param-surface/ParamSurfaceVis';
 export type { NurbsVisProps } from './vis/nurbs/NurbsVis';
 export type { NurbsSurfaceVisProps } from './vis/nurbs/NurbsSurfaceVis';
+export type { NurbsCurve3DVisProps } from './vis/nurbs/NurbsCurve3DVis';
 export type { KnotVector, NurbsCurve, NurbsSurface } from './vis/nurbs/nurbs';
 export {
   getKnotSpans,
@@ -50,7 +52,6 @@ export {
   getNurbsSurfaceError,
   getSpanSteps,
   sampleBasis,
-  sampleNurbs,
 } from './vis/nurbs/nurbs';
 export { SurfaceRepresentation } from './vis/param-surface/models';
 

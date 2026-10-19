@@ -139,16 +139,31 @@ test('request WebGPU device again if lost', async () => {
   await expect.poll(async () => frames.at(-1)).toBeGreaterThan(1000);
 });
 
-test('fall back to WebGL without WebGPU', async () => {
+const NO_WEBGPU_ERROR =
+  "NURBS rendering needs WebGPU, which this browser doesn't provide";
+
+function removeWebGpu() {
   Object.defineProperty(navigator, 'gpu', {
     value: undefined,
     configurable: true,
   });
-  await renderApp('/nurbs/nonuniform');
+}
 
-  const figure = getFigure('nonuniform');
-  await expect.element(figure).toHaveAttribute('data-renderer', 'webgl');
-  expect(figure.element().querySelectorAll('canvas')).toHaveLength(1); // WebGL canvas only
+test('show error without WebGPU', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  removeWebGpu();
+  await renderApp('/nurbs/nonuniform');
+  await expect.element(page.getByText(NO_WEBGPU_ERROR)).toBeVisible();
+});
+
+test('show error for degree above WebGPU maximum', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  await renderApp('/nurbs/high_degree');
+  await expect
+    .element(
+      page.getByText('Degree 9 is above the maximum of 7 for WebGPU rendering'),
+    )
+    .toBeVisible();
 });
 
 test('toggle control points', async () => {
@@ -160,12 +175,21 @@ test('toggle control points', async () => {
   await expect.element(btn).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('visualize 3D NURBS curve', async () => {
-  await renderApp('/nurbs/helix_3d');
-  await expect.element(getFigure('helix_3d')).toBeVisible();
-  expect(
-    page.getByRole('button', { name: 'Control points' }),
-  ).not.toBeInTheDocument(); // not drawn in 3D
+test('toggle control points and axes of 3D NURBS curve', async () => {
+  const { user } = await renderApp('/nurbs/helix_3d');
+  await expect
+    .element(getFigure('helix_3d'))
+    .toHaveAttribute('data-renderer', 'webgpu');
+
+  const btn = page.getByRole('button', { name: 'Control points' });
+  await expect.element(btn).toHaveAttribute('aria-pressed', 'false');
+  await user.click(btn);
+  await expect.element(btn).toHaveAttribute('aria-pressed', 'true');
+
+  await user.click(page.getByRole('button', { name: 'Axes' }));
+  await expect
+    .element(page.getByRole('button', { name: 'Grid' }))
+    .toBeDisabled();
 });
 
 test('show error for invalid knots', async () => {
@@ -179,11 +203,37 @@ test('show error for invalid knots', async () => {
     .toBeVisible();
 });
 
-test('visualize periodic 3D NURBS curve, coloured by parameter', async () => {
+test('visualize periodic 3D NURBS curve with WebGPU, coloured by parameter', async () => {
+  const { frames } = captureGpuFrames();
   await renderApp('/nurbs/trefoil_3d');
+
   const figure = getFigure('trefoil_3d');
-  await expect.element(figure).toBeVisible();
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
+  await expect
+    .poll(() => figure.element().querySelector('canvas[data-drawn]'))
+    .not.toBeNull();
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(1000);
   await expect.element(figure.getByText('u', { exact: true })).toBeVisible(); // colour bar
+
+  // WebGPU canvas over the WebGL one (axes, control points)
+  const canvases = figure.element().querySelectorAll('canvas');
+  expect(canvases).toHaveLength(2);
+  expect(canvases[1]).toHaveAttribute('data-drawn');
+});
+
+test('draw WebGPU 3D curve again for snapshots', async () => {
+  const { frames } = captureGpuFrames();
+  await renderApp('/nurbs/trefoil_3d');
+
+  const figure = getFigure('trefoil_3d');
+  await expect
+    .poll(() => figure.element().querySelector('canvas[data-drawn]'))
+    .not.toBeNull();
+
+  const count = frames.length;
+  await exportSnapshot(figure.element() as HTMLElement);
+  expect(frames.length).toBeGreaterThan(count);
+  await expect(frames.at(-1)).resolves.toBeGreaterThan(1000);
 });
 
 test('visualize NURBS surface with WebGPU', async () => {
@@ -225,12 +275,12 @@ test('toggle control net, knot lines and axes of NURBS surface', async () => {
     .element(getFigure('wave'))
     .toHaveAttribute('data-renderer', 'webgpu');
 
-  for (const name of ['Control net', 'Knot lines']) {
-    const btn = page.getByRole('button', { name });
-    await expect.element(btn).toHaveAttribute('aria-pressed', 'false');
-    await user.click(btn);
-    await expect.element(btn).toHaveAttribute('aria-pressed', 'true');
-  }
+  const netBtn = page.getByRole('button', { name: 'Control net' });
+  const knotsBtn = page.getByRole('button', { name: 'Knot lines' });
+  await user.click(netBtn);
+  await user.click(knotsBtn);
+  await expect.element(netBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect.element(knotsBtn).toHaveAttribute('aria-pressed', 'true');
 
   const axesBtn = page.getByRole('button', { name: 'Axes' });
   await expect.element(axesBtn).toHaveAttribute('aria-pressed', 'true');
@@ -240,18 +290,11 @@ test('toggle control net, knot lines and axes of NURBS surface', async () => {
     .toBeDisabled();
 });
 
-test('fall back to WebGL for NURBS surface without WebGPU', async () => {
-  Object.defineProperty(navigator, 'gpu', {
-    value: undefined,
-    configurable: true,
-  });
-  const { user } = await renderApp('/nurbs/saddle');
-
-  const figure = getFigure('saddle');
-  await expect.element(figure).toHaveAttribute('data-renderer', 'webgl');
-  expect(figure.element().querySelectorAll('canvas')).toHaveLength(1);
-  await user.click(page.getByRole('button', { name: 'Knot lines' })); // drawn as lines
-  await expect.element(figure).toBeVisible();
+test('show error for NURBS surface without WebGPU', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  removeWebGpu();
+  await renderApp('/nurbs/saddle');
+  await expect.element(page.getByText(NO_WEBGPU_ERROR)).toBeVisible();
 });
 
 test('show error for invalid knots of NURBS surface', async () => {

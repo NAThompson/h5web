@@ -1206,6 +1206,12 @@ export function makeMockFile(): GroupWithChildren {
         nurbs('bad_knots', 2, CIRCLE_POINTS, [...CIRCLE_KNOTS].reverse()),
         nurbs('trefoil_3d', 3, TREFOIL_POINTS, indices(19)),
         nurbs(
+          'high_degree',
+          9,
+          [...KINKED_POINTS, [8, 1], [9, 2]],
+          [...indices(10).fill(0), ...indices(10).fill(1)],
+        ),
+        nurbs(
           'bspline_curve',
           3,
           BSPLINE_POINTS,

@@ -11,7 +11,7 @@
 }
 
 .gpuSurfaceCanvas {
-  position: absolute; /* below the WebGL canvas, made `position: relative` */
+  position: absolute; /* under the WebGL canvas made `position: relative` (surfaces), else over it */
   left: 0;
   top: 0;
   width: 100%;

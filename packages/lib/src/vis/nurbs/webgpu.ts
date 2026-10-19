@@ -8,7 +8,7 @@ const COPY_DST = 0x08;
 export const UNIFORM = 0x40;
 export const STORAGE = 0x80;
 
-/* `evaluateNurbs` (A2.2 + A4.1) for each sample, in homogeneous coordinates */
+/* `evaluateNurbs` (A2.2 + A4.1) for each sample, in homogeneous coordinates, with `u` in `.w` */
 const EVALUATE_WGSL = /* wgsl */ `
   struct Params { degree: u32, spanCount: u32, sampleCount: u32 }
   struct Span { knot: u32, first: u32, count: u32 } // \`count\` samples from sample \`first\`
@@ -57,51 +57,7 @@ const EVALUATE_WGSL = /* wgsl */ `
     for (var j = 0u; j <= params.degree; j++) {
       point += basis[j] * points[k - params.degree + j];
     }
-    samples[i] = vec4f(point.xyz / point.w, 1.0);
-  }
-`;
-
-/* Each chord between consecutive samples as a quad of constant width on screen */
-const DRAW_WGSL = /* wgsl */ `
-  struct View {
-    scale: vec2f, // device pixels per unit
-    offset: vec2f, // device pixels from centre of canvas (y up) of origin of samples
-    halfSize: vec2f, // half size of canvas in device pixels
-    width: f32, // in device pixels
-    color: vec4f, // premultiplied
-  }
-
-  struct Varyings {
-    @builtin(position) position: vec4f,
-    @location(0) across: f32, // device pixels from centre line
-  }
-
-  @group(0) @binding(0) var<uniform> view: View;
-  @group(0) @binding(1) var<storage, read> samples: array<vec4f>;
-
-  @vertex
-  fn vertexMain(@builtin(vertex_index) v: u32, @builtin(instance_index) chord: u32) -> Varyings {
-    let a = samples[chord].xy * view.scale + view.offset;
-    let b = samples[chord + 1u].xy * view.scale + view.offset;
-    let len = length(b - a);
-    let dir = select(vec2f(1.0, 0.0), (b - a) / len, len > 1e-6);
-    let normal = vec2f(-dir.y, dir.x);
-    let half = 0.5 * view.width + 1.0; // one more pixel to antialias edges
-
-    // Two triangles; ends overlap the next chords' to cover the joins
-    var ends = array(0.0, 1.0, 0.0, 0.0, 1.0, 1.0);
-    var sides = array(-1.0, -1.0, 1.0, 1.0, -1.0, 1.0);
-    let along = mix(a - dir * half, b + dir * half, ends[v]);
-
-    var out: Varyings;
-    out.position = vec4f((along + normal * half * sides[v]) / view.halfSize, 0.0, 1.0);
-    out.across = half * sides[v];
-    return out;
-  }
-
-  @fragment
-  fn fragmentMain(in: Varyings) -> @location(0) vec4f {
-    return view.color * clamp(0.5 * view.width + 0.5 - abs(in.across), 0.0, 1.0);
+    samples[i] = vec4f(point.xyz / point.w, u);
   }
 `;
 
@@ -139,95 +95,45 @@ async function forgetOnLoss(device: GPUDevice): Promise<void> {
   devicePromise = undefined;
 }
 
-export interface GpuView {
-  scale: [number, number];
-  offset: [number, number];
-  size: [number, number]; // of canvas in device pixels
-  width: number;
-  color: [number, number, number, number]; // premultiplied
-}
-
 /*
- * Draws a 2D NURBS curve in a WebGPU canvas: control points, knots and weights stay on the GPU,
- * where a compute shader evaluates the curve into samples whenever the number of samples of
- * the spans changes (i.e. on zoom), and a render pass draws the chords between them.
+ * Samples of a NURBS curve (2D or 3D), evaluated by a compute shader whenever the number of
+ * samples of the spans changes: control points, knots and weights stay on the GPU.
  * Coordinates are relative to `origin`, to keep precision in `f32`.
  */
-export class NurbsGpuRenderer {
-  private readonly context: GPUCanvasContext;
-  private readonly format = navigator.gpu.getPreferredCanvasFormat();
-  private readonly evaluatePipeline: GPUComputePipeline;
-  private readonly drawPipeline: GPURenderPipeline;
+export class NurbsCurveSampler {
+  public samples?: GPUBuffer; // `x, y, z, u` per sample; replaced when more are needed
+  public sampleCount = 0;
+  private readonly pipeline: GPUComputePipeline;
   private readonly params: GPUBuffer;
   private readonly points: GPUBuffer;
   private readonly knots: GPUBuffer;
   private readonly spanTable: GPUBuffer;
-  private readonly view: GPUBuffer;
-  private samples?: GPUBuffer;
-  private drawBindGroup?: GPUBindGroup;
-  private sampleCount = 0;
   private counts?: Uint32Array;
 
   public constructor(
     private readonly device: GPUDevice,
-    private readonly canvas: HTMLCanvasElement,
     curve: NurbsCurve,
     private readonly spans: KnotSpan[],
-    origin: [number, number],
+    origin: number[],
   ) {
-    const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
-    if (!context) {
-      throw new Error('Expected WebGPU canvas context');
-    }
-    this.context = context;
-    context.configure({
-      device,
-      format: this.format,
-      alphaMode: 'premultiplied',
-    });
-
-    this.evaluatePipeline = device.createComputePipeline({
+    this.pipeline = device.createComputePipeline({
       layout: 'auto',
       compute: { module: device.createShaderModule({ code: EVALUATE_WGSL }) },
-    });
-
-    const drawModule = device.createShaderModule({ code: DRAW_WGSL });
-    this.drawPipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: { module: drawModule },
-      fragment: {
-        module: drawModule,
-        targets: [
-          {
-            format: this.format,
-            blend: {
-              color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
-              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
-            },
-          },
-        ],
-      },
     });
 
     const { degree, dims, points, weights, knots } = curve;
     const homogeneous = new Float32Array(weights.length * 4);
     weights.forEach((w, i) => {
-      homogeneous.set(
-        [
-          (points[i * dims] - origin[0]) * w,
-          (points[i * dims + 1] - origin[1]) * w,
-          0,
-          w,
-        ],
-        i * 4,
+      const xyz = [0, 1, 2].map((d) =>
+        d < dims ? (points[i * dims + d] - (origin[d] ?? 0)) * w : 0,
       );
+      homogeneous.set([...xyz, w], i * 4);
     });
 
     this.params = createBuffer(device, 16, UNIFORM);
     this.points = createBuffer(device, homogeneous, STORAGE);
     this.knots = createBuffer(device, Float32Array.from(knots), STORAGE);
     this.spanTable = createBuffer(device, spans.length * 12, STORAGE);
-    this.view = createBuffer(device, 48, UNIFORM);
 
     device.queue.writeBuffer(
       this.params,
@@ -259,13 +165,6 @@ export class NurbsGpuRenderer {
         2 ** Math.ceil(Math.log2(this.sampleCount * 16)), // room to zoom in
         STORAGE,
       );
-      this.drawBindGroup = device.createBindGroup({
-        layout: this.drawPipeline.getBindGroupLayout(0),
-        entries: [this.view, this.samples].map((buffer, binding) => ({
-          binding,
-          resource: { buffer },
-        })),
-      });
     }
 
     device.queue.writeBuffer(this.spanTable, 0, table);
@@ -273,11 +172,11 @@ export class NurbsGpuRenderer {
 
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
-    pass.setPipeline(this.evaluatePipeline);
+    pass.setPipeline(this.pipeline);
     pass.setBindGroup(
       0,
       device.createBindGroup({
-        layout: this.evaluatePipeline.getBindGroupLayout(0),
+        layout: this.pipeline.getBindGroupLayout(0),
         entries: [
           this.params,
           this.points,
@@ -292,61 +191,12 @@ export class NurbsGpuRenderer {
     device.queue.submit([encoder.finish()]);
   }
 
-  /* Flags the canvas with `data-drawn` once drawn (e.g. for tests) */
-  public async draw(view: GpuView): Promise<void> {
-    const { device } = this;
-    const { scale, offset, size, width, color } = view;
-
-    device.queue.writeBuffer(
-      this.view,
-      0,
-      Float32Array.from([
-        ...scale,
-        ...offset,
-        size[0] / 2,
-        size[1] / 2,
-        width,
-        0,
-        ...color,
-      ]),
-    );
-
-    this.redraw();
-    await device.queue.onSubmittedWorkDone();
-    this.canvas.dataset.drawn = '';
-  }
-
-  /* Draws again with the last view, e.g. right before copying the canvas */
-  public redraw(): void {
-    const { device, drawBindGroup } = this;
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: this.context.getCurrentTexture().createView(),
-          clearValue: [0, 0, 0, 0],
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ],
-    });
-    if (drawBindGroup && this.sampleCount > 1) {
-      pass.setPipeline(this.drawPipeline);
-      pass.setBindGroup(0, drawBindGroup);
-      pass.draw(6, this.sampleCount - 1);
-    }
-    pass.end();
-    device.queue.submit([encoder.finish()]);
-  }
-
   public dispose(): void {
-    this.context.unconfigure();
     for (const buffer of [
       this.params,
       this.points,
       this.knots,
       this.spanTable,
-      this.view,
       this.samples,
     ]) {
       buffer?.destroy();

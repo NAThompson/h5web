@@ -24,18 +24,18 @@ export function getPixelsPerUnit(
 }
 
 /*
- * Control points of a surface (world coordinates) on screen, in device pixels from the centre,
- * and their weights times clip-space `w`: the perspective projection of a NURBS surface is the
- * NURBS surface of those (cf. `getSurfaceSampleCounts`). Points behind the camera are moved
- * onto its near plane, so their spans get the most steps.
+ * Control points of a 3D curve or surface (world coordinates) on screen, in device pixels from
+ * the centre, and their weights times clip-space `w`: the perspective projection of a NURBS is
+ * the NURBS of those (cf. `getSurfaceSampleCounts`). Points behind the camera are moved onto
+ * its near plane, so their spans get the most steps.
  */
 export function projectControlPoints(
-  surface: NurbsSurface,
+  nurbs: Pick<NurbsSurface, 'points' | 'weights'>,
   viewProjection: Matrix4,
   size: [number, number],
   near: number,
 ): { points: Float64Array; weights: Float64Array } {
-  const { points, weights } = surface;
+  const { points, weights } = nurbs;
   const e = viewProjection.elements;
   const projected = new Float64Array(weights.length * 2);
   const projectedWeights = new Float64Array(weights.length);

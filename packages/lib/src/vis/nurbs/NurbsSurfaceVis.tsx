@@ -4,15 +4,12 @@ import { type PropsWithChildren, type ReactNode, useMemo } from 'react';
 
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs } from '../models';
-import ParamSurfaceMesh from '../param-surface/ParamSurfaceMesh';
 import { buildParamSurfaceBuffers } from '../param-surface/utils';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
 import {
   getBoxSize,
-  getColorParams,
   getExtentDomain,
   getLinearColorLut,
-  getVertexColors,
   getWorldTransform,
 } from '../three-d/utils';
 import Vis3DLayout from '../three-d/Vis3DLayout';
@@ -28,11 +25,9 @@ import {
 import NurbsControlNet from './NurbsControlNet';
 import NurbsDepthMesh from './NurbsDepthMesh';
 import NurbsGpuSurface from './NurbsGpuSurface';
-import NurbsKnotLines from './NurbsKnotLines';
-import { MAX_GPU_DEGREE } from './webgpu';
 
-/* Without WebGPU, the surface is sampled once, as if the box were this many pixels wide; this
- * also gives the extent of the surface, and the copy hiding WebGL content behind it */
+/* The surface is also sampled once on the CPU, as if the box were this many pixels wide, for its
+ * extent (axes, colour domain) and the depth-only copy hiding WebGL content behind it */
 const NOMINAL_PIXELS = 1000;
 const CONTROL_NET_COLOR = '#d6266e';
 
@@ -52,8 +47,8 @@ interface Props extends ClassStyleAttrs {
 }
 
 /*
- * NURBS surface in a 3D box with orbit controls, evaluated with WebGPU (compute shader, finer as
- * the camera gets closer) if available, else on the CPU and drawn with WebGL.
+ * NURBS surface in a 3D box with orbit controls, evaluated and drawn with WebGPU (compute shader,
+ * finer as the camera gets closer). Throws without WebGPU (cf. `useGpuDevice`).
  */
 function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
   const {
@@ -74,7 +69,7 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
     style,
   } = props;
 
-  const device = useGpuDevice(Math.max(...surface.degrees) <= MAX_GPU_DEGREE);
+  const device = useGpuDevice(Math.max(...surface.degrees));
   const spans = useMemo(
     () =>
       getKnotVectors(surface).map((vec) => getKnotSpans(vec)) as [
@@ -84,7 +79,7 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
     [surface],
   );
 
-  const { counts, rows, cols, coords, controlCoords } = useMemo(() => {
+  const { rows, cols, coords, controlCoords } = useMemo(() => {
     const { points } = surface;
     const control = [0, 1, 2].map((d) => points.filter((_, i) => i % 3 === d));
     const longest = Math.max(
@@ -101,7 +96,6 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
     );
     const samples = sampleNurbsSurface(surface, spans, sampleCounts);
     return {
-      counts: sampleCounts,
       rows: sampleCounts[0].reduce((acc, n) => acc + n, 1),
       cols: sampleCounts[1].reduce((acc, n) => acc + n, 1),
       coords: [0, 1, 2].map((d) => samples.filter((_, i) => i % 3 === d)),
@@ -149,14 +143,6 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
     () => getLinearColorLut(colorMap, invertColorMap),
     [colorMap, invertColorMap],
   );
-  const colors = useMemo(
-    () =>
-      getVertexColors(
-        getColorParams(coords[2], zDomain, ScaleType.Linear),
-        colorLut,
-      ),
-    [coords, zDomain, colorLut],
-  );
 
   const [xConfig, yConfig, zConfig] = useMemo<Axis3DConfig[]>(
     () => [
@@ -178,7 +164,7 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
       colorMap={colorMap}
       invertColorMap={invertColorMap}
       colorBarLabel={zLabel}
-      renderer={device === undefined ? undefined : device ? 'webgpu' : 'webgl'}
+      renderer={device && 'webgpu'}
     >
       {device && (
         <>
@@ -191,23 +177,6 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
             showKnotLines={showKnotLines}
           />
           <NurbsDepthMesh positions={buffers.positions} index={buffers.index} />
-        </>
-      )}
-      {device === null && (
-        <>
-          <ParamSurfaceMesh
-            buffers={buffers}
-            rows={rows}
-            cols={cols}
-            colors={colors}
-            showSurface
-            showWireframe={false}
-            shading
-            edgeColor="black"
-          />
-          {showKnotLines && (
-            <NurbsKnotLines positions={buffers.positions} counts={counts} />
-          )}
         </>
       )}
       {showControlNet && (

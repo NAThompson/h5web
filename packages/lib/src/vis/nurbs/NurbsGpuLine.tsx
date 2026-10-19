@@ -7,7 +7,7 @@ import { REDRAW } from '../snapshot/utils';
 import { getSegmentCounts } from './nurbs';
 import styles from './NurbsVis.module.css';
 import { getPixelsPerUnit, type NurbsLineProps } from './utils';
-import { type GpuView, NurbsGpuRenderer } from './webgpu';
+import { type GpuView, NurbsGpuRenderer } from './webgpuLine';
 
 interface Props extends NurbsLineProps {
   device: GPUDevice;

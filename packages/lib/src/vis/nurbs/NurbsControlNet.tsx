@@ -8,7 +8,7 @@ const GAP_SIZE = 0.01;
 const POINT_SIZE = 5; // CSS pixels
 
 interface Props {
-  surface: NurbsSurface; // in world coordinates
+  surface: Pick<NurbsSurface, 'shape' | 'points'>; // in world coordinates; curve: `[n, 1]`
   color: string;
 }
 

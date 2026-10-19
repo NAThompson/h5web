@@ -15,9 +15,7 @@ import VisCanvas from '../shared/VisCanvas';
 import { extendDomain, getTextContent } from '../utils';
 import { useGpuDevice } from './hooks';
 import { getKnotSpans, type NurbsCurve } from './nurbs';
-import NurbsCpuLine from './NurbsCpuLine';
 import NurbsGpuLine from './NurbsGpuLine';
-import { MAX_GPU_DEGREE } from './webgpu';
 
 interface Props extends ClassStyleAttrs {
   curve: NurbsCurve; // planar (`dims: 2`), valid (cf. `getNurbsError`)
@@ -33,8 +31,8 @@ interface Props extends ClassStyleAttrs {
 }
 
 /*
- * NURBS curve on 2D axes, evaluated with WebGPU (compute shader) if available, else on the CPU
- * and drawn with WebGL. The WebGPU canvas lies over the WebGL one and follows its camera.
+ * NURBS curve on 2D axes, evaluated and drawn with WebGPU (compute shader), in a canvas over the
+ * WebGL one that follows its camera. Throws without WebGPU (cf. `useGpuDevice`).
  */
 function NurbsVis(props: PropsWithChildren<Props>) {
   const {
@@ -53,7 +51,7 @@ function NurbsVis(props: PropsWithChildren<Props>) {
     style,
   } = props;
 
-  const device = useGpuDevice(curve.degree <= MAX_GPU_DEGREE);
+  const device = useGpuDevice(curve.degree);
 
   // The curve lies within the convex hull of its control points
   const [xs, ys] = useMemo(
@@ -89,9 +87,7 @@ function NurbsVis(props: PropsWithChildren<Props>) {
       style={style}
       aria-label={getTextContent(title) || undefined}
       data-keep-canvas-colors
-      data-renderer={
-        device === undefined ? undefined : device ? 'webgpu' : 'webgl'
-      }
+      data-renderer={device && 'webgpu'}
     >
       <VisCanvas
         title={title}
@@ -120,10 +116,8 @@ function NurbsVis(props: PropsWithChildren<Props>) {
           />
         )}
 
-        {device ? (
+        {device && (
           <NurbsGpuLine device={device} origin={origin} {...lineProps} />
-        ) : (
-          device === null && <NurbsCpuLine {...lineProps} />
         )}
 
         {children}

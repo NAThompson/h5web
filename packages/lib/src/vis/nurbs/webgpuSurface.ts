@@ -2,9 +2,22 @@ import { type KnotSpan, type NurbsSurface } from './nurbs';
 import { createBuffer, MAX_GPU_DEGREE, STORAGE, UNIFORM } from './webgpu';
 
 const WORKGROUP_SIZE = 64;
-const SAMPLE_COUNT = 4; // multisampling, as WebGL's antialiasing
-const DEPTH_FORMAT = 'depth24plus';
+export const SAMPLE_COUNT = 4; // multisampling, as WebGL's antialiasing
+export const DEPTH_FORMAT = 'depth24plus';
 const LUT_SIZE = 256;
+
+/* Linear RGB of the colour map `lut` at `t` in [0, 1], and its conversion to sRGB */
+export const COLOR_WGSL = /* wgsl */ `
+  fn getColor(t: f32) -> vec3f {
+    let x = clamp(t, 0.0, 1.0) * f32(${LUT_SIZE - 1});
+    let i = u32(floor(x));
+    return mix(lut[i], lut[min(i + 1u, ${LUT_SIZE - 1}u)], fract(x)).rgb;
+  }
+
+  fn toSrgb(c: vec3f) -> vec3f {
+    return select(1.055 * pow(c, vec3f(1.0 / 2.4)) - 0.055, 12.92 * c, c <= vec3f(0.0031308));
+  }
+`;
 
 /*
  * Position and normal of the surface at each vertex of the grid (A2.2/A2.3 + A3.5 + A4.4 of
@@ -183,9 +196,7 @@ const DRAW_WGSL = /* wgsl */ `
     return out;
   }
 
-  fn toSrgb(c: vec3f) -> vec3f {
-    return select(1.055 * pow(c, vec3f(1.0 / 2.4)) - 0.055, 12.92 * c, c <= vec3f(0.0031308));
-  }
+  ${COLOR_WGSL}
 
   @fragment
   fn fragmentMain(in: Varyings) -> @location(0) vec4f {
@@ -196,10 +207,7 @@ const DRAW_WGSL = /* wgsl */ `
     let normal = select(n, -n, dot(n, view.camera.xyz - in.world) < 0.0);
 
     let range = view.zRange.y - view.zRange.x;
-    let t = select(0.5, clamp((in.world.z - view.zRange.x) / range, 0.0, 1.0), range > 0.0);
-    let x = t * f32(${LUT_SIZE - 1});
-    let i = u32(floor(x));
-    let albedo = mix(lut[i], lut[min(i + 1u, ${LUT_SIZE - 1}u)], fract(x)).rgb;
+    let albedo = getColor(select(0.5, (in.world.z - view.zRange.x) / range, range > 0.0));
     let ambient = view.light.w;
     var color = albedo * (ambient + (1.0 - ambient) * max(dot(normal, view.light.xyz), 0.0));
 
@@ -241,7 +249,7 @@ export class NurbsSurfaceGpuRenderer {
   private readonly lut: GPUBuffer;
   private vertices?: GPUBuffer;
   private drawBindGroup?: GPUBindGroup;
-  private targets?: { color: GPUTexture; depth: GPUTexture };
+  private targets?: RenderTargets;
   private cellCount = 0;
   private counts?: [Uint32Array, Uint32Array];
 
@@ -302,7 +310,7 @@ export class NurbsSurfaceGpuRenderer {
       STORAGE,
     );
     this.view = createBuffer(device, 112, UNIFORM);
-    this.lut = createBuffer(device, LUT_SIZE * 16, STORAGE);
+    this.lut = createLutBuffer(device);
 
     device.queue.writeBuffer(
       this.params,
@@ -319,13 +327,8 @@ export class NurbsSurfaceGpuRenderer {
     );
   }
 
-  /* Colour map, `LUT_SIZE × 3` linear RGB values (cf. `getLinearColorLut`) */
   public setColorLut(lut: Float32Array): void {
-    const padded = new Float32Array(LUT_SIZE * 4);
-    for (let i = 0; i < LUT_SIZE; i += 1) {
-      padded.set(lut.subarray(i * 3, i * 3 + 3), i * 4);
-    }
-    this.device.queue.writeBuffer(this.lut, 0, padded);
+    writeColorLut(this.device, this.lut, lut);
   }
 
   /* Evaluates the surface again if the spans need other numbers of steps */
@@ -415,17 +418,7 @@ export class NurbsSurfaceGpuRenderer {
       ]),
     );
 
-    const { targets } = this;
-    if (targets?.color.width !== size[0] || targets.color.height !== size[1]) {
-      targets?.color.destroy();
-      targets?.depth.destroy();
-      const desc = { size, sampleCount: SAMPLE_COUNT, usage: 0x10 }; // `RENDER_ATTACHMENT`
-      this.targets = {
-        color: device.createTexture({ ...desc, format: this.format }),
-        depth: device.createTexture({ ...desc, format: DEPTH_FORMAT }),
-      };
-    }
-
+    this.targets = getTargets(device, this.format, size, this.targets);
     this.redraw();
     await device.queue.onSubmittedWorkDone();
     this.canvas.dataset.drawn = '';
@@ -481,4 +474,45 @@ export class NurbsSurfaceGpuRenderer {
     this.targets?.color.destroy();
     this.targets?.depth.destroy();
   }
+}
+
+export function createLutBuffer(device: GPUDevice): GPUBuffer {
+  return createBuffer(device, LUT_SIZE * 16, STORAGE);
+}
+
+/* Colour map, `LUT_SIZE × 3` linear RGB values (cf. `getLinearColorLut`) */
+export function writeColorLut(
+  device: GPUDevice,
+  buffer: GPUBuffer,
+  lut: Float32Array,
+): void {
+  const padded = new Float32Array(LUT_SIZE * 4);
+  for (let i = 0; i < LUT_SIZE; i += 1) {
+    padded.set(lut.subarray(i * 3, i * 3 + 3), i * 4);
+  }
+  device.queue.writeBuffer(buffer, 0, padded);
+}
+
+export interface RenderTargets {
+  color: GPUTexture; // multisampled
+  depth: GPUTexture;
+}
+
+/* Multisampled colour and depth textures of the canvas size, new if `targets` aren't */
+export function getTargets(
+  device: GPUDevice,
+  format: GPUTextureFormat,
+  size: [number, number],
+  targets?: RenderTargets,
+): RenderTargets {
+  if (targets?.color.width === size[0] && targets.color.height === size[1]) {
+    return targets;
+  }
+  targets?.color.destroy();
+  targets?.depth.destroy();
+  const desc = { size, sampleCount: SAMPLE_COUNT, usage: 0x10 }; // `RENDER_ATTACHMENT`
+  return {
+    color: device.createTexture({ ...desc, format }),
+    depth: device.createTexture({ ...desc, format: DEPTH_FORMAT }),
+  };
 }
