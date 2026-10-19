@@ -1,3 +1,4 @@
+import { type NumArray } from '@h5web/shared/vis-models';
 import {
   Box3,
   type BufferAttribute,
@@ -19,7 +20,7 @@ import { LineGeometry as ThreeLineGeometry } from 'three/addons/lines/LineGeomet
 import { type H5WebGeometry } from '../models';
 import { createBufferAttr, Z_OUT } from '../utils';
 import { type LineGeometryParams } from './lineGeometry';
-import { getPchipSlopes } from './utils';
+import { getHermiteExtent, getPchipSlopes } from './utils';
 
 const MAX_SEGMENTS_PER_INTERVAL = 16;
 const MAX_ERROR_PX = 1; // in CSS pixels
@@ -30,13 +31,14 @@ const MAX_ERROR_PX = 1; // in CSS pixels
  * Each interval is one instance of a template of `MAX_SEGMENTS_PER_INTERVAL`
  * line segments, of which only as many as the current zoom needs are drawn.
  * Since `xyz` are the data points themselves, three's raycasting sees the
- * chords between points, and bounds are exact since PCHIP never leaves them.
+ * chords between points, and bounds include any overshoot of the curve beyond them.
  */
 class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
   private readonly length: number;
   private readonly points: BufferAttribute;
   private maxStepX = 0; // largest `|dx|` of any interval
-  private maxStepY = 0; // largest `|dy|` of any interval
+  private maxStepY = 0; // largest height of the curve over any interval
+  private extentY = [Infinity, -Infinity]; // of the curve, with overshoot
 
   public constructor(private readonly params: LineGeometryParams) {
     super();
@@ -72,10 +74,11 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
       ys[index] = ignoreValue?.(value) ? Number.NaN : ordinateScale(value);
     }
 
-    const slopes = getPchipSlopes(xs, ys);
+    const slopes = this.getSlopes(xs, ys);
 
     this.maxStepX = 0;
     this.maxStepY = 0;
+    this.extentY = [Infinity, -Infinity];
     for (let index = 0; index < this.length; index++) {
       if (Number.isFinite(xs[index]) && Number.isFinite(ys[index])) {
         this.points.setXYZW(index, xs[index], ys[index], 0, slopes[index]);
@@ -83,11 +86,20 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
         this.points.setXYZW(index, 0, 0, Z_OUT, 0);
       }
 
-      const dx = Math.abs(xs[index + 1] - xs[index]);
-      const dy = Math.abs(ys[index + 1] - ys[index]);
-      if (Number.isFinite(dx) && Number.isFinite(dy)) {
-        this.maxStepX = Math.max(this.maxStepX, dx);
-        this.maxStepY = Math.max(this.maxStepY, dy);
+      const dx = xs[index + 1] - xs[index];
+      const [low, high] = getHermiteExtent(
+        ys[index],
+        ys[index + 1],
+        slopes[index] * dx,
+        slopes[index + 1] * dx,
+      );
+      if (Number.isFinite(dx) && Number.isFinite(high - low)) {
+        this.maxStepX = Math.max(this.maxStepX, Math.abs(dx));
+        this.maxStepY = Math.max(this.maxStepY, high - low);
+        this.extentY = [
+          Math.min(this.extentY[0], low),
+          Math.max(this.extentY[1], high),
+        ];
       }
     }
   }
@@ -104,12 +116,26 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
 
   // three's versions read `instanceEnd` of the last point past the end of the buffer
   public override computeBoundingBox(): void {
-    this.boundingBox = new Box3().setFromBufferAttribute(this.points);
+    this.boundingBox = this.getBox();
   }
 
   public override computeBoundingSphere(): void {
+    this.boundingSphere = this.getBox().getBoundingSphere(new Sphere());
+  }
+
+  // Slopes `dy/dx` of the interpolant at the points
+  protected getSlopes(xs: NumArray, ys: NumArray): Float64Array {
+    return getPchipSlopes(xs, ys);
+  }
+
+  private getBox(): Box3 {
     const box = new Box3().setFromBufferAttribute(this.points);
-    this.boundingSphere = box.getBoundingSphere(new Sphere());
+    const [low, high] = this.extentY;
+    if (low <= high) {
+      box.min.y = Math.min(box.min.y, low);
+      box.max.y = Math.max(box.max.y, high);
+    }
+    return box;
   }
 
   // Repeats three's single-segment template, numbering the copies with `segment`
@@ -150,6 +176,7 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
 /*
  * PCHIP is monotone on every interval, so each of `n` chords is the diagonal of
  * a box containing its piece of curve: the error is at most `min(width / n, height)`.
+ * Splines may not be, so `height` is that of the curve over the interval, overshoot included.
  * Mirrored by `segmentsForInterval` in the shader.
  */
 function getSegmentCount(widthPx: number, heightPx: number): number {
@@ -179,10 +206,47 @@ export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
           return 0.5 * resolution * clip.xy / clip.w;
         }
 
+        // Cubic Hermite interpolant at fraction \`t\` of the interval
+        float hermiteY(float t) {
+          float width = instanceEnd.x - instanceStart.x;
+          float rise = instanceEnd.y - instanceStart.y;
+          float m0 = instanceStart.w * width;
+          float m1 = instanceEnd.w * width;
+          return instanceStart.y + t * (m0 + t * (3.0 * rise - 2.0 * m0 - m1 + t * (m0 + m1 - 2.0 * rise)));
+        }
+
+        // Lowest and highest \`y\` of the interpolant, as in \`getHermiteExtent\`
+        vec2 hermiteExtent() {
+          float width = instanceEnd.x - instanceStart.x;
+          float rise = instanceEnd.y - instanceStart.y;
+          float m0 = instanceStart.w * width;
+          float b = 3.0 * rise - 2.0 * m0 - instanceEnd.w * width;
+          float c = m0 + instanceEnd.w * width - 2.0 * rise;
+          float disc = b * b - 3.0 * c * m0;
+          vec2 extent = vec2(min(instanceStart.y, instanceEnd.y), max(instanceStart.y, instanceEnd.y));
+          float q = -(b + (b < 0.0 ? -1.0 : 1.0) * sqrt(max(disc, 0.0)));
+          vec2 roots = disc < 0.0 ? vec2(-1.0) : vec2(
+            c != 0.0 ? q / (3.0 * c) : -1.0,
+            q != 0.0 ? m0 / q : -1.0
+          );
+          for (int i = 0; i < 2; i++) {
+            if (roots[i] > 0.0 && roots[i] < 1.0) {
+              float y = hermiteY(roots[i]);
+              extent = vec2(min(extent.x, y), max(extent.y, y));
+            }
+          }
+          return extent;
+        }
+
         // Same rule as \`getSegmentCount\`, for this interval alone
         float segmentsForInterval() {
           vec2 size = abs(toPixels(instanceEnd) - toPixels(instanceStart));
-          if (size.y <= float(${MAX_ERROR_PX})) {
+          vec2 extent = hermiteExtent();
+          float height = abs(
+            toPixels(vec4(instanceStart.x, extent.y, 0.0, 0.0)).y -
+            toPixels(vec4(instanceStart.x, extent.x, 0.0, 0.0)).y
+          );
+          if (height <= float(${MAX_ERROR_PX})) {
             return 1.0;
           }
           return clamp(ceil(size.x / float(${MAX_ERROR_PX})), 1.0, maxSegments);
@@ -198,10 +262,7 @@ export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
           float segments = segmentsForInterval();
           float t = pchipT(offset);
           float width = instanceEnd.x - instanceStart.x;
-          float rise = instanceEnd.y - instanceStart.y;
-          float m0 = instanceStart.w * width;
-          float m1 = instanceEnd.w * width;
-          float y = instanceStart.y + t * (m0 + t * (3.0 * rise - 2.0 * m0 - m1 + t * (m0 + m1 - 2.0 * rise)));
+          float y = hermiteY(t);
 
           // Segments this interval doesn't need are moved out of view, like invalid points
           float z = segment < segments ? min(instanceStart.z, instanceEnd.z) : float(${Z_OUT});

@@ -85,6 +85,12 @@ export const PchipInterpolation = Default.extend({
   },
 });
 
+export const SplineInterpolation = PchipInterpolation.extend({
+  args: {
+    interpolation: Interpolation.Spline,
+  },
+});
+
 export const IgnoreValue = Default.extend({
   args: {
     ignoreValue: (val) => val % 5 === 0,

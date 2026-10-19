@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createScale } from '../utils';
 import LinePchipGeometry, { pchipOnBeforeCompile } from './linePchipGeometry';
+import LineSplineGeometry from './lineSplineGeometry';
 
 // Steps of 1 along x, alternating by 100 along y
 const identity = createScale(ScaleType.Linear, {});
@@ -50,5 +51,26 @@ describe('pchipOnBeforeCompile', () => {
     };
 
     expect(() => pchipOnBeforeCompile(shader)).toThrow(/instanceStart/u);
+  });
+});
+
+describe('LineSplineGeometry', () => {
+  const spline = new LineSplineGeometry({
+    abscissas: Array.from({ length: 1000 }, (_, i) => i),
+    ordinates: Array.from({ length: 1000 }, (_, i) => (i % 2) * 100),
+    abscissaScale: identity,
+    ordinateScale: identity,
+  });
+  spline.update();
+
+  it('should subdivide intervals that overshoot, however flat their chords', () => {
+    expect(geometry.setPixelsPerUnit(new Vector2(1000, 0.01))).toBe(1);
+    expect(spline.setPixelsPerUnit(new Vector2(1000, 0.01))).toBe(16);
+  });
+
+  it('should bound the curve, overshoot included', () => {
+    spline.computeBoundingBox();
+    expect(spline.boundingBox?.min.y).toBeLessThan(0);
+    expect(spline.boundingBox?.max.y).toBeGreaterThan(100);
   });
 });

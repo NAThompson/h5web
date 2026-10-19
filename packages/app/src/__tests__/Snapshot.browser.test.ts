@@ -286,6 +286,20 @@ test('export line with legend for auxiliary signals', async () => {
   expect(countInk(img, getRegion(root, abscissa))).toBeGreaterThan(100);
 });
 
+test('draw line as cubic spline', async () => {
+  const { user } = await renderApp('/arrays/oneD');
+
+  await user.click(page.getByRole('button', { name: 'Aspect' }));
+  const splineRadio = page.getByRole('radio', { name: 'Spline' });
+  await user.click(splineRadio);
+  expect(splineRadio).toBeChecked();
+  await user.click(page.getByRole('button', { name: 'Aspect' })); // close menu
+
+  // Patched shader compiles and draws the curve
+  const root = page.getByRole('figure', { name: 'oneD' }).element();
+  await snapshotWhenRendered(root as HTMLElement);
+});
+
 test('download snapshot from toolbar', async () => {
   const { user } = await renderApp('/nexus/NXdata');
 

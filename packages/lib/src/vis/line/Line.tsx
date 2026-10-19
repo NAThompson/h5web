@@ -17,6 +17,7 @@ import LinePchipGeometry, {
   pchipOnBeforeCompile,
   pchipOnBeforeRender,
 } from './linePchipGeometry';
+import LineSplineGeometry from './lineSplineGeometry';
 import { Interpolation } from './models';
 
 const Line2 = extend(ThreeLine2);
@@ -50,13 +51,17 @@ function Line(props: Props) {
 
   const { abscissaScale, ordinateScale } = useVisCanvasContext();
 
-  const isPchip = interpolation === Interpolation.Pchip;
+  const isPchip =
+    interpolation === Interpolation.Pchip ||
+    interpolation === Interpolation.Spline; // both cubic Hermite
   const Geometry =
     interpolation === Interpolation.Constant
       ? LineConstantGeometry
-      : isPchip
-        ? LinePchipGeometry
-        : LineGeometry;
+      : interpolation === Interpolation.Spline
+        ? LineSplineGeometry
+        : isPchip
+          ? LinePchipGeometry
+          : LineGeometry;
 
   const geometry = useMemo(
     () =>
@@ -79,7 +84,7 @@ function Line(props: Props) {
   return (
     <Line2 geometry={geometry} visible={visible} {...lineProps}>
       <LineMaterial
-        key={interpolation} // recompile shader when switching to/from PCHIP
+        key={interpolation} // recompile shader when switching to/from PCHIP or spline
         color={color}
         linewidth={width}
         dashed={dash}

@@ -1,7 +1,14 @@
+import { ScaleType } from '@h5web/shared/vis-models';
 import { describe, expect, it } from 'vitest';
 
 import { type LegendObstacle } from './models';
-import { getLegendCorner, getPchipSlopes } from './utils';
+import {
+  getHermiteExtent,
+  getLegendCorner,
+  getPchipSlopes,
+  getSplineDomain,
+  getSplineSlopes,
+} from './utils';
 
 // Irregularly spaced, non-monotonic data with flat runs
 const xs = Float64Array.from({ length: 200 }, (_, i) => i + Math.sin(i) ** 2);
@@ -56,6 +63,135 @@ describe('getPchipSlopes', () => {
     expect(slopes.slice(101)).toStrictEqual(
       getPchipSlopes(xs.slice(101), ys.slice(101)),
     );
+  });
+});
+
+// Second derivatives at the start and end of each interval of a cubic Hermite interpolant
+function getCurvatures(
+  abscissas: ArrayLike<number>,
+  values: ArrayLike<number>,
+  slopes: ArrayLike<number>,
+): [number, number][] {
+  return Array.from({ length: abscissas.length - 1 }, (_, i) => {
+    const h = abscissas[i + 1] - abscissas[i];
+    const secant = (values[i + 1] - values[i]) / h;
+    return [
+      (6 * secant - 4 * slopes[i] - 2 * slopes[i + 1]) / h,
+      (-6 * secant + 2 * slopes[i] + 4 * slopes[i + 1]) / h,
+    ];
+  });
+}
+
+describe('getSplineSlopes', () => {
+  it('should match SciPy `CubicSpline` and MATLAB `spline` (not-a-knot)', () => {
+    const slopes = getSplineSlopes([0, 1, 1.5, 4, 5, 7], [0, 2, 1, 1.2, 3, -1]);
+    const expected = [225_829, -48_143, -60_060.5, 53_017, 43_342, -219_566];
+    for (const [i, slope] of expected.entries()) {
+      expect(slopes[i]).toBeCloseTo(slope / 30_525, 10);
+    }
+  });
+
+  it('should reproduce cubic polynomials exactly', () => {
+    const abscissas = [-2, -1.5, 0, 0.3, 1, 2.5, 4];
+    const cubic = abscissas.map((x) => x ** 3 - 2 * x ** 2 + 0.5 * x + 1);
+    const slopes = getSplineSlopes(abscissas, cubic);
+    for (const [i, x] of abscissas.entries()) {
+      expect(slopes[i]).toBeCloseTo(3 * x ** 2 - 4 * x + 0.5, 10);
+    }
+  });
+
+  it.each([
+    ['increasing', xs],
+    ['decreasing', xs.map((x) => -x)],
+  ])(
+    'should be twice continuously differentiable, with %s abscissas',
+    (_, abscissas) => {
+      const curvatures = getCurvatures(
+        abscissas,
+        ys,
+        getSplineSlopes(abscissas, ys),
+      );
+      for (let i = 1; i < curvatures.length; i++) {
+        expect(curvatures[i][0]).toBeCloseTo(curvatures[i - 1][1], 8);
+      }
+    },
+  );
+
+  it('should draw a line through two points and a parabola through three', () => {
+    expect([...getSplineSlopes([1, 3], [0, 4])]).toStrictEqual([2, 2]);
+    const parabola = getSplineSlopes([0, 1, 3], [1, 0, 4]); // SciPy: [-2, 0, 4]
+    expect([...parabola]).toStrictEqual([-2, 0, 4]);
+  });
+
+  it('should treat non-finite values and repeated abscissas as breaks between independent curves', () => {
+    const gap = [...ys.slice(0, 100), Number.NaN, ...ys.slice(101)];
+    const slopes = getSplineSlopes(xs, gap);
+    expect(slopes.slice(0, 100)).toStrictEqual(
+      getSplineSlopes(xs.slice(0, 100), ys.slice(0, 100)),
+    );
+    expect(slopes.slice(101)).toStrictEqual(
+      getSplineSlopes(xs.slice(101), ys.slice(101)),
+    );
+
+    const repeated = getSplineSlopes([0, 1, 2, 2, 3, 5], [0, 1, 0, 3, 4, 2]);
+    expect([...repeated]).toStrictEqual([
+      ...getSplineSlopes([0, 1, 2], [0, 1, 0]),
+      ...getSplineSlopes([2, 3, 5], [3, 4, 2]),
+    ]);
+  });
+
+  it('should join with slope 0 where abscissas reverse direction', () => {
+    const slopes = getSplineSlopes(
+      [0, 1, 2, 3, 2.5, 1, 0],
+      [0, 1, 0, 1, 3, 2, 0],
+    );
+    expect(slopes[3]).toBe(0);
+
+    // Each side is a spline, clamped at the reversal
+    const curvatures = getCurvatures([0, 1, 2, 3], [0, 1, 0, 1], slopes);
+    expect(curvatures[1][0]).toBeCloseTo(curvatures[0][1], 10);
+    expect(curvatures[2][0]).toBeCloseTo(curvatures[1][1], 10);
+  });
+
+  it('should not depend on the direction of the data', () => {
+    const reversed = getSplineSlopes(xs.toReversed(), ys.toReversed());
+    const slopes = getSplineSlopes(xs, ys);
+    for (const [i, slope] of reversed.toReversed().entries()) {
+      expect(slope).toBeCloseTo(slopes[i], 8);
+    }
+  });
+});
+
+describe('getHermiteExtent', () => {
+  it('should include extrema between the ends', () => {
+    expect(getHermiteExtent(0, 0, 1, -1)).toStrictEqual([0, 0.25]);
+    expect(getHermiteExtent(0, 1, 1, 1)).toStrictEqual([0, 1]); // line
+    expect(getHermiteExtent(2, 0, 0, 0)).toStrictEqual([0, 2]); // smoothstep
+  });
+});
+
+describe('getSplineDomain', () => {
+  const abscissas = [0, 1, 1.5, 4, 5, 7];
+  const ordinates = [0, 2, 1, 1.2, 3, -1];
+
+  it('should include overshoot between points', () => {
+    const domain = getSplineDomain(abscissas, ordinates);
+    expect(domain?.[0]).toBe(-1);
+    expect(domain?.[1]).toBeCloseTo(3.460_103_791_7, 8); // SciPy, sampled finely
+  });
+
+  it('should follow the curve as drawn on log scales, and skip ignored values', () => {
+    const domain = getSplineDomain(
+      [...abscissas, 8],
+      [...ordinates.map((y) => 10 ** y), 0], // 0 can't be drawn on a log scale
+      ScaleType.Linear,
+      ScaleType.Log,
+      (val) => val === 10 ** 1.2 || val === 1000,
+    );
+
+    // Parabola through first three points, in log space, peaking at `x = 0.875`
+    expect(domain?.[0]).toBeCloseTo(0.1, 8);
+    expect(domain?.[1]).toBeCloseTo(10 ** (1.75 + (8 / 3) * 0.875 * 0.125), 8);
   });
 });
 

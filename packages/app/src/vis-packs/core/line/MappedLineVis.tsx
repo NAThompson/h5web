@@ -1,8 +1,12 @@
 import {
   type AxisTicks,
   type DimensionMapping,
+  getAxisValues,
+  getCombinedDomain,
   getDomain,
   getSliceSelection,
+  getSplineDomain,
+  Interpolation,
   INTERPOLATORS,
   KeepZoom,
   type LegendEntry,
@@ -14,6 +18,7 @@ import {
   useSlicedDimsAndMapping,
   useVisDomain,
   type ValueTransform,
+  withSymlogConstant,
 } from '@h5web/lib';
 import { isComplexArray } from '@h5web/shared/guards';
 import {
@@ -285,12 +290,61 @@ function MappedLineVis(props: Props) {
     [series, references, yScaleType],
   );
 
+  // Cubic splines overshoot their points: keep their curves in view too
+  const splineDomain = useMemo(() => {
+    if (interpolation !== Interpolation.Spline) {
+      return undefined;
+    }
+    const abscissas = getAxisValues(
+      numAxisArrays[dimMapping.indexOf('x')],
+      dataArray.size,
+    );
+    const curves = [
+      ...(valueVisible ? [dataArray, ...sliceArrays] : []).map((array) => ({
+        array,
+        ignore: ignoreValue,
+      })),
+      ...auxArrays
+        .map((array, i) => ({ array, ignore: auxIgnoreValues[i] }))
+        .filter((_, i) => auxVisible[i]),
+      ...series.map(({ array, ignoreValue: ignore }) => ({ array, ignore })),
+    ];
+    return getCombinedDomain(
+      curves.map(({ array, ignore }) =>
+        getSplineDomain(
+          abscissas,
+          array.data,
+          withSymlogConstant(xScaleType, xSymlogConstant),
+          withSymlogConstant(yScaleType, symlogThreshold),
+          ignore,
+        ),
+      ),
+    );
+  }, [
+    interpolation,
+    numAxisArrays,
+    dimMapping,
+    dataArray,
+    sliceArrays,
+    valueVisible,
+    ignoreValue,
+    auxArrays,
+    auxIgnoreValues,
+    auxVisible,
+    series,
+    xScaleType,
+    xSymlogConstant,
+    yScaleType,
+    symlogThreshold,
+  ]);
+
   const combinedDomain =
     useStableDomain(
       useCombinedDomain([
         valueVisible ? dataDomain : undefined,
         ...auxDomains.filter((_, i) => auxVisible[i]),
         ...extraDomains,
+        splineDomain,
       ]),
       `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}`,
       (sequenceValue) =>

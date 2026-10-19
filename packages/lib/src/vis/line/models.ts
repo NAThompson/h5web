@@ -50,4 +50,5 @@ export enum Interpolation {
   Linear = 'Linear',
   Constant = 'Constant',
   Pchip = 'PCHIP',
+  Spline = 'Spline', // C² cubic, not-a-knot
 }
