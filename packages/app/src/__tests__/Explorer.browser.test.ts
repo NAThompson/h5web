@@ -297,3 +297,43 @@ test('mute CF auxiliary coordinates', async () => {
     .toHaveAttribute('title', 'auxiliary coordinate');
   expect(getExplorerItem('knot_speed')).not.toHaveAttribute('data-muted');
 });
+
+test('mute NeXus axes and uncertainties', async () => {
+  await renderApp('/nexus/spectrum_with_aux');
+
+  await expect
+    .element(getExplorerItem('X'))
+    .toHaveAttribute('title', 'axis (NeXus)');
+  expect(getExplorerItem('errors')).toHaveAttribute('title', 'uncertainties');
+  expect(getExplorerItem('secondary_errors')).toHaveAttribute('data-muted');
+  for (const name of ['twoD', 'secondary', 'tertiary_cplx']) {
+    expect(getExplorerItem(name)).not.toHaveAttribute('data-muted');
+  }
+});
+
+test('mute the datasets that define a NURBS curve', async () => {
+  await renderApp('/nurbs/circle');
+
+  await expect
+    .element(getExplorerItem('control_points'))
+    .toHaveAttribute('title', 'NURBS control points');
+  expect(getExplorerItem('knots')).toHaveAttribute(
+    'title',
+    'NURBS knot vector',
+  );
+  expect(getExplorerItem('weights')).toHaveAttribute('title', 'NURBS weights');
+  expect(getExplorerItem('circle')).not.toHaveAttribute('data-muted');
+});
+
+test('mute the datasets of NURBS patches and the coefficients of fields', async () => {
+  await renderApp('/nurbs/teapot/rim_0/fields');
+  await expect
+    .element(getExplorerItem('knots_u'))
+    .toHaveAttribute('title', 'NURBS knot vector');
+  await expect
+    .element(getExplorerItem('temperature'))
+    .toHaveAttribute('title', 'NURBS field coefficients');
+  for (const name of ['teapot', 'rim_0', 'fields']) {
+    expect(getExplorerItem(name)).not.toHaveAttribute('data-muted');
+  }
+});
