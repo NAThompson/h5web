@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Matrix4, Vector3 } from 'three';
 
 import { REDRAW } from '../snapshot/utils';
+import { AMBIENT_SHARE, LIGHT_POSITION } from '../three-d/Vis3DLayout';
 import {
   getSurfaceSampleCounts,
   type KnotSpan,
@@ -10,9 +11,11 @@ import {
 } from './nurbs';
 import styles from './NurbsVis.module.css';
 import { projectControlPoints } from './utils';
-import { NurbsSurfaceGpuRenderer } from './webgpuSurface';
+import { NurbsSurfaceGpuRenderer, type SurfaceGpuView } from './webgpuSurface';
 
 const KNOT_LINE_WIDTH = 1.5; // CSS pixels
+const { x, y, z } = new Vector3(...LIGHT_POSITION).normalize();
+const LIGHT: SurfaceGpuView['light'] = [x, y, z, AMBIENT_SHARE]; // as `Vis3DLayout`
 
 interface Props {
   device: GPUDevice;
@@ -79,10 +82,7 @@ function NurbsGpuSurface(props: Props) {
 
   useEffect(() => invalidate(), [zRange, showKnotLines, invalidate]);
 
-  const [viewProjection, light] = useMemo(
-    () => [new Matrix4(), new Vector3()],
-    [],
-  );
+  const viewProjection = useMemo(() => new Matrix4(), []);
 
   // Drawn with each frame of the WebGL canvas, so as to follow the orbit controls in sync
   useFrame(({ camera, size, viewport }) => {
@@ -116,18 +116,10 @@ function NurbsGpuSurface(props: Props) {
       getSurfaceSampleCounts(surface, spans, points, weights, 2),
     );
 
-    // As `Headlight`: from above and to the left of the camera, towards the origin
-    const distance = camera.position.length();
-    light
-      .set(-0.4 * distance, 0.55 * distance, 0)
-      .applyQuaternion(camera.quaternion)
-      .add(camera.position)
-      .normalize();
-
     void renderer.draw({
       viewProjection: viewProjection.elements,
       camera: camera.position.toArray(),
-      light: light.toArray(),
+      light: LIGHT,
       zRange,
       knotLines: showKnotLines ? KNOT_LINE_WIDTH * dpr : 0,
       size: [w, h],

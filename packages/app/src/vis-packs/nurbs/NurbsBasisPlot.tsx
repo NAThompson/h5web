@@ -1,21 +1,43 @@
 import {
+  DataCurve,
   getKnotSpans,
   getSpanSteps,
+  INTERPOLATORS,
   type KnotVector,
   LineVis,
   sampleBasis,
 } from '@h5web/lib';
 import { type NumArray } from '@h5web/shared/vis-models';
+import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import ndarray from 'ndarray';
 import { useMemo } from 'react';
 
 import { toUnicodeScripts } from '../view-hints/attrs';
 import { renderSvgMarkup } from '../view-hints/markup';
+import styles from './NurbsBasis.module.css';
+import NurbsBasisLegend, { type BasisLegendEntry } from './NurbsBasisLegend';
 import NurbsKnotMarks from './NurbsKnotMarks';
 
 const SAMPLES_PER_SPAN = 64;
 const MAX_VALUES = 2 ** 22; // fewer samples per span beyond this (many control points)
 const MAX_FUNCTIONS = 256;
+const HEADROOM = 0.25; // above 1, for the legend and knot labels
+
+// d3 `schemeTableau10`, then hues of the Turbo colour map in golden-ratio steps
+// prettier-ignore
+const TABLEAU10 = [
+  '#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f',
+  '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab',
+];
+const GOLDEN_RATIO = (Math.sqrt(5) - 1) / 2;
+const SUM_COLOR = 'gray';
+const interpolateTurbo = INTERPOLATORS.Turbo;
+
+function getBasisColor(i: number): string {
+  return i < TABLEAU10.length
+    ? TABLEAU10[i]
+    : interpolateTurbo(0.1 + 0.8 * ((i * GOLDEN_RATIO) % 1));
+}
 
 interface Props {
   className: string;
@@ -54,44 +76,76 @@ function NurbsBasisPlot(props: Props) {
     const values = sampleBasis(vector, steps, weights);
     return {
       params: steps.params,
-      basis: values.map((arr) => ndarray(arr)),
-      sum: ndarray(
-        steps.params.map((_, s) =>
-          values.reduce((acc, arr) => acc + arr[s], 0),
-        ),
+      basis: values,
+      sum: steps.params.map((_, s) =>
+        values.reduce((acc, arr) => acc + arr[s], 0),
       ),
     };
   }, [vector, weights, count]);
 
   const letter = weights ? 'R' : 'N';
-  const auxiliaries = useMemo(
-    () => [
-      ...basis.slice(1).map((array, i) => ({
-        array,
-        label: toUnicodeScripts(`${letter}_{${i + 1}}`),
-        visible: true,
+  const entries = useMemo(
+    (): BasisLegendEntry[] => [
+      ...basis.map((_, i) => ({
+        label: toUnicodeScripts(`${letter}_{${i}}`) ?? '',
+        color: getBasisColor(i),
       })),
-      ...(showSum
-        ? [{ array: sum, label: 'Σ', dash: true, visible: true }]
-        : []),
+      ...(showSum ? [{ label: 'Σ', color: SUM_COLOR, dash: true }] : []),
     ],
-    [basis, letter, showSum, sum],
+    [basis, letter, showSum],
   );
+  const firstArray = useMemo(() => ndarray(basis[0]), [basis]);
 
   return (
     <LineVis
       className={className}
       title={title}
-      dataArray={basis[0]}
-      dataLabel={toUnicodeScripts(`${letter}_{0}`)}
-      domain={[0, 1]}
+      dataArray={firstArray}
+      dataColor={entries[0].color}
+      domain={[0, 1 + HEADROOM]}
       abscissaParams={{ value: params, label: param }}
       ordinateLabel={renderSvgMarkup(`${letter}_{i,${degree}}(${param})`)}
-      auxiliaries={auxiliaries}
       showGrid={showGrid}
-      showLegend
+      renderTooltip={({ xi }) => (
+        <>
+          {`${param} = ${formatTooltipVal(params[xi])}`}
+          {basis.map(
+            (values, i) =>
+              values[xi] > 0 && (
+                // eslint-disable-next-line react/no-array-index-key
+                <div key={i} className={styles.tooltipItem}>
+                  <span
+                    className={styles.swatch}
+                    data-keep-colors
+                    style={{ color: entries[i].color }}
+                  />
+                  {`${entries[i].label} = ${formatTooltipVal(values[xi])}`}
+                </div>
+              ),
+          )}
+        </>
+      )}
     >
+      {basis.slice(1).map((values, i) => (
+        <DataCurve
+          // eslint-disable-next-line react/no-array-index-key
+          key={i}
+          abscissas={params}
+          ordinates={values}
+          color={entries[i + 1].color}
+        />
+      ))}
+      {showSum && (
+        <DataCurve
+          abscissas={params}
+          ordinates={sum}
+          color={SUM_COLOR}
+          width={2}
+          dash
+        />
+      )}
       <NurbsKnotMarks vector={vector} />
+      <NurbsBasisLegend entries={entries} />
     </LineVis>
   );
 }

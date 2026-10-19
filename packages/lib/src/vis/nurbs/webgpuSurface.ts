@@ -136,18 +136,16 @@ const EVALUATE_WGSL = /* wgsl */ `
 
 /*
  * Two triangles per cell of the grid, lit like \`meshLambertMaterial\` (both sides) with the
- * ambient light and headlight of \`Vis3DLayout\`, coloured by height with the colour map.
+ * ambient and directional lights of \`Vis3DLayout\`, coloured by height with the colour map.
  */
 const DRAW_WGSL = /* wgsl */ `
-  const PI = 3.14159265;
-  const HEADLIGHT = PI - 1.0; // cf. \`Headlight\`, with ambient light 1
   const KNOT_COLOR = vec3f(0.0);
 
   struct Params { degrees: vec2u, countV: u32, sizeV: u32 }
   struct View {
     viewProjection: mat4x4f, // WebGL clip space
     camera: vec4f, // position
-    light: vec4f, // direction to light
+    light: vec4f, // direction to light, share of ambient light
     zRange: vec2f, // heights at ends of colour map
     knotLines: f32, // width in device pixels, 0 to hide
   }
@@ -202,7 +200,8 @@ const DRAW_WGSL = /* wgsl */ `
     let x = t * f32(${LUT_SIZE - 1});
     let i = u32(floor(x));
     let albedo = mix(lut[i], lut[min(i + 1u, ${LUT_SIZE - 1}u)], fract(x)).rgb;
-    var color = albedo * (1.0 + HEADLIGHT * max(dot(normal, view.light.xyz), 0.0)) / PI;
+    let ambient = view.light.w;
+    var color = albedo * (ambient + (1.0 - ambient) * max(dot(normal, view.light.xyz), 0.0));
 
     // Iso-parameter lines at the knots (whole knot coordinates)
     if (view.knotLines > 0.0) {
@@ -218,7 +217,7 @@ const DRAW_WGSL = /* wgsl */ `
 export interface SurfaceGpuView {
   viewProjection: number[]; // column-major, as `Matrix4.elements`
   camera: [number, number, number];
-  light: [number, number, number]; // unit
+  light: [number, number, number, number]; // unit direction, share of ambient light
   zRange: [number, number];
   knotLines: number; // width in device pixels, 0 to hide
   size: [number, number]; // of canvas in device pixels
@@ -410,7 +409,6 @@ export class NurbsSurfaceGpuRenderer {
         ...camera,
         0,
         ...light,
-        0,
         ...zRange,
         knotLines,
         0,

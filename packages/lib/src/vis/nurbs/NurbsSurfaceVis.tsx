@@ -179,7 +179,6 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
       invertColorMap={invertColorMap}
       colorBarLabel={zLabel}
       renderer={device === undefined ? undefined : device ? 'webgpu' : 'webgl'}
-      headlight
     >
       {device && (
         <>

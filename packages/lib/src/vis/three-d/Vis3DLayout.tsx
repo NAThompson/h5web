@@ -19,10 +19,10 @@ import styles from './Vis3D.module.css';
  * `R3FCanvas` already provides an ambient light of intensity 1. Intensities are chosen so that
  * ambient and directional contributions sum to exactly PI: faces facing the light keep the exact
  * colour of the colour map (no clipping), while faces turned away get darker (down to 55%). */
-const AMBIENT_SHARE = 0.55;
+export const AMBIENT_SHARE = 0.55;
 const EXTRA_AMBIENT_INTENSITY = AMBIENT_SHARE * Math.PI - 1;
 const DIRECTIONAL_INTENSITY = (1 - AMBIENT_SHARE) * Math.PI;
-const LIGHT_POSITION: Vector3Tuple = [-0.2, -0.3, 1]; // mostly from above, so flat areas stay faithful
+export const LIGHT_POSITION: Vector3Tuple = [-0.2, -0.3, 1]; // mostly from above, so flat areas stay faithful
 
 interface Props extends ClassStyleAttrs {
   title?: ReactNode;
