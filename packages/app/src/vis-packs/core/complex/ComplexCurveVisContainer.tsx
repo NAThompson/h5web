@@ -12,6 +12,7 @@ import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
+import { getComplexCurveSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useComplexCurveConfig } from './curve-config';
@@ -30,7 +31,7 @@ function ComplexCurveVisContainer(props: VisContainerProps) {
     axesCount: 1,
   });
 
-  const config = useComplexCurveConfig();
+  const config = useComplexCurveConfig(getComplexCurveSuggestions(hint));
   const selection = getSliceSelection(dimMapping);
 
   const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);

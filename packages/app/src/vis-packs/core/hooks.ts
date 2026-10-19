@@ -12,7 +12,6 @@ import {
   type ExportFormat,
   type NumArray,
 } from '@h5web/shared/vis-models';
-import { useToggle } from '@react-hookz/web';
 import { type NdArray } from 'ndarray';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -112,14 +111,14 @@ export function useSuggestion<T>(
   storeValue: T,
   storeSetter: (val: T) => void,
 ): [T, (val: T) => void] {
-  const [isIgnored, ignoreSuggestion] = useToggle();
+  const [isIgnored, setIgnored] = useState(false); // for good once the user changes the setting
 
   const patchedSetter = useCallback(
     (val: T) => {
       storeSetter(val);
-      ignoreSuggestion();
+      setIgnored(true);
     },
-    [storeSetter, ignoreSuggestion],
+    [storeSetter],
   );
 
   if (isIgnored || !isDefined(suggestion)) {

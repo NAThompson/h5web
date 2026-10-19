@@ -7,6 +7,8 @@ import { useComplexCurveConfig } from '../../core/complex/curve-config';
 import MappedComplexCurveVis from '../../core/complex/MappedComplexCurveVis';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import { getComplexCurveSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -32,7 +34,8 @@ function NxComplexCurveContainer(props: VisContainerProps) {
   });
 
   const axisLabels = axisDefs.map((def) => def?.label);
-  const config = useComplexCurveConfig();
+  const hint = useViewHint(entity, signalDef.dataset);
+  const config = useComplexCurveConfig(getComplexCurveSuggestions(hint));
   const { slicingProps, playbackRange } = useNxSlicingProps(
     signalOnly,
     dimMapping,

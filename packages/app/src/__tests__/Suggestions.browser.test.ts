@@ -53,3 +53,15 @@ test('keep a change made before a single suggestion arrives', async () => {
   await rerender({ suggestion: 'log' }); // e.g. `H5WEB_axis_scale` of the x axis' scale
   expect(result.current[0]).toBe('symlog');
 });
+
+test('keep ignoring a single suggestion after several changes', async () => {
+  const { result, act } = await renderHook(() => {
+    const [value, setValue] = useState('amplitude');
+    return useSuggestion('phase-unwrapped', value, setValue);
+  });
+  expect(result.current[0]).toBe('phase-unwrapped');
+
+  await act(() => result.current[1]('amplitude'));
+  await act(() => result.current[1]('phase'));
+  expect(result.current[0]).toBe('phase');
+});

@@ -1,6 +1,6 @@
 import { arrayShape, floatType, intType } from '@h5web/shared/hdf5-utils';
 import { arrayAttr, dataset, scalarAttr } from '@h5web/shared/mock-utils';
-import { ScaleType } from '@h5web/shared/vis-models';
+import { ComplexVisType, ScaleType } from '@h5web/shared/vis-models';
 import { FiMap } from 'react-icons/fi';
 import { describe, expect, it } from 'vitest';
 
@@ -11,6 +11,8 @@ import { uniqueLegendItems } from './hooks';
 import { HintVis, type OverlayHint } from './models';
 import {
   getColorSuggestions,
+  getComplexCurveSuggestions,
+  getComplexLineSuggestions,
   getHeatmapSuggestions,
   getLineDimSuggestions,
   getLineSuggestions,
@@ -426,6 +428,42 @@ describe('suggestions', () => {
         yScaleType: ScaleType.SymLog,
       }).yScaleType,
     ).toBe(ScaleType.SymLog);
+  });
+
+  it('suggest complex type of lines, and y scale for amplitudes only', () => {
+    expect(
+      getComplexLineSuggestions(
+        hint({ H5WEB_complex: 'phase_unwrapped', H5WEB_scale: 'log' }),
+      ),
+    ).toEqual({ complexVisType: ComplexVisType.PhaseUnwrapped });
+    expect(
+      getComplexLineSuggestions(
+        hint({ H5WEB_complex: 'phase_amplitude', H5WEB_scale: 'log' }),
+      ),
+    ).toEqual({
+      xScaleType: undefined,
+      yScaleType: ScaleType.Log,
+      complexVisType: ComplexVisType.Amplitude,
+    });
+    expect(getComplexLineSuggestions(hint({ H5WEB_scale: 'log' }))).toEqual({
+      xScaleType: undefined,
+      yScaleType: ScaleType.Log,
+      complexVisType: ComplexVisType.Amplitude,
+    });
+    expect(
+      getHeatmapSuggestions(hint({ H5WEB_complex: 'phase_unwrapped' }), '/f')
+        .complexVisType,
+    ).toBe(ComplexVisType.Phase);
+  });
+
+  it('colour complex curves by amplitude only if hinted', () => {
+    expect(getComplexCurveSuggestions(hint({}))).toEqual({});
+    expect(
+      getComplexCurveSuggestions(hint({ H5WEB_complex: 'amplitude' })),
+    ).toEqual({ colorBy: ComplexVisType.Amplitude });
+    expect(
+      getComplexCurveSuggestions(hint({ H5WEB_complex: 'phase_unwrapped' })),
+    ).toEqual({ colorBy: ComplexVisType.Phase });
   });
 
   it('suggest dimension on x axis and multi-plotted dimension', () => {

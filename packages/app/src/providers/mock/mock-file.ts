@@ -1397,6 +1397,10 @@ export function makeMockFile(): GroupWithChildren {
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects
       group('view_hints', [
+        array('complex_phase', {
+          valueId: 'oneD_complex',
+          attributes: [scalarAttr('H5WEB_complex', 'phase_unwrapped')],
+        }),
         array('generation', {
           valueId: 'cma_generation',
           attributes: [

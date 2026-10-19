@@ -2,10 +2,12 @@ import { isAxisScaleType } from '@h5web/shared/guards';
 import {
   type AxisScaleType,
   type ComplexHeatmapVisType,
+  type ComplexLineVisType,
   ComplexVisType,
   type Domain,
 } from '@h5web/shared/vis-models';
 
+import { type ComplexCurveConfig } from '../core/complex/curve-config';
 import { type ParamSurfaceConfig } from '../core/geometry/surface-config';
 import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
@@ -14,10 +16,19 @@ import { type DefaultSlice } from '../nexus/models';
 import { HintVis, type ViewHint } from './models';
 import { isSurfaceHint } from './utils';
 
+/* Heatmaps show phase wrapped, line plots don't show phase and amplitude together */
 function toHeatmapComplexType(
   type: ComplexVisType | undefined,
 ): ComplexHeatmapVisType | undefined {
-  return type === ComplexVisType.PhaseUnwrapped ? undefined : type;
+  return type === ComplexVisType.PhaseUnwrapped ? ComplexVisType.Phase : type;
+}
+
+function toLineComplexType(
+  type: ComplexVisType | undefined,
+): ComplexLineVisType | undefined {
+  return type === ComplexVisType.PhaseAmplitude
+    ? ComplexVisType.Amplitude
+    : type;
 }
 
 function getContourSuggestions(
@@ -146,6 +157,42 @@ export function getLineSuggestions(
   return {
     xScaleType: fallbacks.xScaleType,
     yScaleType: yFromScale ?? fallbacks.yScaleType,
+  };
+}
+
+/* Hinted y scale only applies to amplitudes: phases are often negative */
+export function getComplexLineSuggestions(
+  hint: ViewHint,
+  fallbacks: { xScaleType?: AxisScaleType; yScaleType?: AxisScaleType } = {},
+): {
+  xScaleType?: AxisScaleType;
+  yScaleType?: AxisScaleType;
+  complexVisType?: ComplexLineVisType;
+} {
+  // A scale hint without complex type is about amplitudes
+  const complexVisType =
+    toLineComplexType(hint.complex) ??
+    (hint.scaleType ? ComplexVisType.Amplitude : undefined);
+  const isAmplitude =
+    (complexVisType ?? ComplexVisType.Amplitude) === ComplexVisType.Amplitude;
+  return {
+    ...(isAmplitude ? getLineSuggestions(hint, fallbacks) : fallbacks),
+    complexVisType,
+  };
+}
+
+/* Complex curves show phase and amplitude together: colour by amplitude only if hinted */
+export function getComplexCurveSuggestions(
+  hint: ViewHint,
+): Partial<Pick<ComplexCurveConfig, 'colorBy'>> {
+  if (!hint.complex) {
+    return {};
+  }
+  return {
+    colorBy:
+      hint.complex === ComplexVisType.Amplitude
+        ? ComplexVisType.Amplitude
+        : ComplexVisType.Phase,
   };
 }
 

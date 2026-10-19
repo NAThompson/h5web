@@ -12,6 +12,7 @@ import { useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
+import { getComplexLineSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { useLineConfig } from '../line/config';
 import ValueFetcher from '../ValueFetcher';
@@ -30,7 +31,7 @@ function ComplexLineVisContainer(props: VisContainerProps) {
     axesCount: 1,
   });
 
-  const config = useLineConfig();
+  const config = useLineConfig(getComplexLineSuggestions(hint));
   const selection = getSliceSelection(dimMapping);
 
   const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);

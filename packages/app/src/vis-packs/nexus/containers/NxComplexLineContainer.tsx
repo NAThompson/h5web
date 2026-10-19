@@ -8,6 +8,8 @@ import MappedComplexLineVis from '../../core/complex/MappedComplexLineVis';
 import { useLineConfig } from '../../core/line/config';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { useViewHint } from '../../view-hints/hooks';
+import { getComplexLineSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { assertComplexNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -38,12 +40,16 @@ function NxComplexLineContainer(props: VisContainerProps) {
   const [isSignalVisible, setSignalVisible] = useState(true);
   const [auxVisible, setAuxVisible] = useState(auxDefs.map(() => true));
 
-  const config = useLineConfig({
-    xScaleType: silxStyle.axisScaleTypes?.[xDimIndex],
-    yScaleType: isAxisScaleType(silxStyle.signalScaleType)
-      ? silxStyle.signalScaleType
-      : ScaleType.Linear,
-  });
+  // `H5WEB_*` view hint > NeXus `SILX_style`
+  const hint = useViewHint(entity, signalDef.dataset);
+  const config = useLineConfig(
+    getComplexLineSuggestions(hint, {
+      xScaleType: silxStyle.axisScaleTypes?.[xDimIndex],
+      yScaleType: isAxisScaleType(silxStyle.signalScaleType)
+        ? silxStyle.signalScaleType
+        : ScaleType.Linear,
+    }),
+  );
 
   const { slicingProps, playbackRange } = useNxSlicingProps(
     nxData,

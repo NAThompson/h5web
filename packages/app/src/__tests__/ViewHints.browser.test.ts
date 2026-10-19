@@ -46,6 +46,15 @@ test('open the vis declared by the hint, with its settings', async () => {
   expect(page.getByText('Inferno', { exact: true })).toBeVisible();
 });
 
+test('open a complex line plot on the hinted phase', async () => {
+  await renderApp('/view_hints/complex_phase');
+
+  expect(getSelectedVisTab()).toBe(Vis.Line);
+  await expect
+    .element(page.getByRole('combobox', { name: /Phase \(unwrapped\)/u }))
+    .toBeVisible();
+});
+
 test('open a line plot with log axis and all slices plotted', async () => {
   await renderApp('/view_hints/line');
 

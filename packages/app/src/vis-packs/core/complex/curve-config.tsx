@@ -15,6 +15,7 @@ import {
   LineWidth,
 } from '../geometry/config';
 import { type ColorMap } from '../heatmap/models';
+import { useSuggestion } from '../hooks';
 
 export type ComplexCurveColorType =
   ComplexVisType.Amplitude | ComplexVisType.Phase;
@@ -81,6 +82,14 @@ export function ComplexCurveConfigProvider(props: PropsWithChildren) {
   return <StoreContext value={store}>{children}</StoreContext>;
 }
 
-export function useComplexCurveConfig(): ComplexCurveConfig {
-  return useStore(useContext(StoreContext));
+export function useComplexCurveConfig(
+  suggestions: Partial<Pick<ComplexCurveConfig, 'colorBy'>> = {},
+): ComplexCurveConfig {
+  const config = useStore(useContext(StoreContext));
+  const [colorBy, setColorBy] = useSuggestion(
+    suggestions.colorBy,
+    config.colorBy,
+    config.setColorBy,
+  );
+  return { ...config, colorBy, setColorBy };
 }
