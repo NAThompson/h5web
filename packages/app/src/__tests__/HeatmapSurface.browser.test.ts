@@ -160,6 +160,7 @@ test(
 test(
   'keep current slice and 3D mode when switching',
   async () => {
+    await page.viewport(2800, 1080); // tabs of 3D datasets (e.g. Orthoslices) leave less room
     const { user, selectExplorerNode } = await renderApp('/arrays/threeD');
 
     const d0Slider = page.getByRole('slider', { name: 'D0' });

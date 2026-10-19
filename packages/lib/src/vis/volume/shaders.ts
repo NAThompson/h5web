@@ -14,76 +14,23 @@ export const VOLUME_VERTEX_SHADER = /* glsl */ `
   }
 `;
 
-const MODE_DEFINES: Record<VolumeRenderMode, string> = {
-  [VolumeRenderMode.MIP]: 'MODE_MIP',
-  [VolumeRenderMode.DVR]: 'MODE_DVR',
-  [VolumeRenderMode.Iso]: 'MODE_ISO',
-};
-
-/*
- * Single-pass ray marcher. The bounding box is rendered with back faces only,
- * so that rays are cast even when the camera is inside the volume. Rays are
- * marched in texture space ([0, 1]^3) with a step size expressed in voxels,
- * jittered per pixel to hide wood-grain artefacts.
- */
-export function getVolumeFragmentShader(
-  mode: VolumeRenderMode,
-  scaleType: ScaleType,
-  lookups: [x: boolean, y: boolean, z: boolean] = [false, false, false],
+/* `#define`s of the non-uniform axes, for `GLSL_TEX_COORDS` */
+export function getLookupDefines(
+  lookups: [x: boolean, y: boolean, z: boolean],
 ): string {
-  return /* glsl */ `
-    precision highp float;
-    precision highp sampler3D;
+  return ['X', 'Y', 'Z']
+    .filter((_, i) => lookups[i])
+    .map((axis) => `#define LOOKUP_${axis}`)
+    .join('\n');
+}
 
-    #define ${MODE_DEFINES[mode]}
-    ${['X', 'Y', 'Z']
-      .filter((_, i) => lookups[i])
-      .map((axis) => `#define LOOKUP_${axis}`)
-      .join('\n')}
-
-    uniform sampler3D volume;
-    uniform sampler2D colorMap;
-
+/* Texture coordinates of positions in the box, voxels at their coordinates on non-uniform axes */
+export const GLSL_TEX_COORDS = /* glsl */ `
     // Non-uniform axes: relative positions of voxel edges and centres (cf. \`getAxisLookup\`)
     uniform sampler2D xLookup;
     uniform sampler2D yLookup;
     uniform sampler2D zLookup;
     uniform vec3 dims;
-    uniform vec3 stepDims; // voxels per side for the step size: more along non-uniform axes
-
-    uniform float domainMin;
-    uniform float oneOverRange;
-    uniform float gammaExponent;
-    uniform float symlogConstant;
-    uniform float normRevertFactor;
-    uniform float valueOffset;
-
-    uniform float samplesPerVoxel;
-    uniform float opacity;
-    uniform float threshold;
-
-    // Depth of opaque surfaces rendered before the volume (cf. \`SurfaceDepthPass\`)
-    uniform bool hasSurfaceDepth;
-    uniform sampler2D surfaceDepth;
-    uniform vec2 depthTexelSize;
-    uniform mat4 depthToBox; // NDC to box space (inverse model * camera world * inverse projection)
-
-    in vec3 vPosition;
-    flat in vec3 vOrigin;
-    out vec4 fragColor;
-
-    const float oneOverLog10 = 0.43429448190325176;
-    const int MAX_STEPS = 4096;
-
-    bool isSupported(float value) {
-      return ${GLSL_IS_SUPPORTED[scaleType] || 'true'};
-    }
-
-    ${GLSL_LOG1P}
-
-    float scale(float value) {
-      return ${GLSL_SCALE[scaleType] || 'value'};
-    }
 
     // Knot of a lookup table, wrapped onto rows (cf. \`getLookupTexture\`)
     float knot(sampler2D knots, int k) {
@@ -121,6 +68,71 @@ export function getVolumeFragmentShader(
       #endif
       return p;
     }
+`;
+
+const MODE_DEFINES: Record<VolumeRenderMode, string> = {
+  [VolumeRenderMode.MIP]: 'MODE_MIP',
+  [VolumeRenderMode.DVR]: 'MODE_DVR',
+  [VolumeRenderMode.Iso]: 'MODE_ISO',
+};
+
+/*
+ * Single-pass ray marcher. The bounding box is rendered with back faces only,
+ * so that rays are cast even when the camera is inside the volume. Rays are
+ * marched in texture space ([0, 1]^3) with a step size expressed in voxels,
+ * jittered per pixel to hide wood-grain artefacts.
+ */
+export function getVolumeFragmentShader(
+  mode: VolumeRenderMode,
+  scaleType: ScaleType,
+  lookups: [x: boolean, y: boolean, z: boolean] = [false, false, false],
+): string {
+  return /* glsl */ `
+    precision highp float;
+    precision highp sampler3D;
+
+    #define ${MODE_DEFINES[mode]}
+    ${getLookupDefines(lookups)}
+
+    uniform sampler3D volume;
+    uniform sampler2D colorMap;
+    uniform vec3 stepDims; // voxels per side for the step size: more along non-uniform axes
+
+    uniform float domainMin;
+    uniform float oneOverRange;
+    uniform float gammaExponent;
+    uniform float symlogConstant;
+    uniform float normRevertFactor;
+    uniform float valueOffset;
+
+    uniform float samplesPerVoxel;
+    uniform float opacity;
+    uniform float threshold;
+
+    // Depth of opaque surfaces rendered before the volume (cf. \`SurfaceDepthPass\`)
+    uniform bool hasSurfaceDepth;
+    uniform sampler2D surfaceDepth;
+    uniform vec2 depthTexelSize;
+    uniform mat4 depthToBox; // NDC to box space (inverse model * camera world * inverse projection)
+
+    in vec3 vPosition;
+    flat in vec3 vOrigin;
+    out vec4 fragColor;
+
+    const float oneOverLog10 = 0.43429448190325176;
+    const int MAX_STEPS = 4096;
+
+    bool isSupported(float value) {
+      return ${GLSL_IS_SUPPORTED[scaleType] || 'true'};
+    }
+
+    ${GLSL_LOG1P}
+
+    float scale(float value) {
+      return ${GLSL_SCALE[scaleType] || 'value'};
+    }
+
+    ${GLSL_TEX_COORDS}
 
     // Normalized value in [0, 1], or -1 for NaN and values unsupported by the scale
     float sampleVolume(vec3 p) {

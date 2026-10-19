@@ -14,8 +14,10 @@ import {
   getBoxSize,
   getBoxSizeFromAxes,
   getLookupTexture,
+  getPlaneGeometries,
   getStepCount,
   getVolumeTexture,
+  getVoxelCentre,
   remapIsosurface,
   toContiguousArray,
   toNormalizedHalfFloats,
@@ -258,5 +260,33 @@ describe('getBoxSizeFromAxes (non-uniform)', () => {
         ],
       ),
     ).toEqual([4.5, 2, 2]);
+  });
+});
+
+describe('getVoxelCentre', () => {
+  it('should place voxels evenly without lookup', () => {
+    expect(getVoxelCentre(undefined, 0, 4)).toBe(0.125);
+    expect(getVoxelCentre(undefined, 3, 4)).toBe(0.875);
+  });
+
+  it('should place voxels at their coordinates on non-uniform axes', () => {
+    // Edges at -0.5, 0.5, 5.5 and 14.5: centres at (value + 0.5) / 15
+    const lookup = getAxisLookup([0, 1, 10], 3);
+    expect(getVoxelCentre(lookup, 0, 3)).toBeCloseTo(0.5 / 15);
+    expect(getVoxelCentre(lookup, 1, 3)).toBeCloseTo(1.5 / 15);
+    expect(getVoxelCentre(lookup, 2, 3)).toBeCloseTo(10.5 / 15);
+  });
+});
+
+describe('getPlaneGeometries', () => {
+  it('should outline a plane with its four corners, unindexed', () => {
+    const { plane, outline } = getPlaneGeometries(2, 0.25); // normal to z
+    expect(plane.getIndex()?.count).toBe(6);
+    expect(outline.getIndex()).toBeNull();
+    expect(outline.getAttribute('position').count).toBe(4);
+    const zs = Array.from({ length: 4 }, (_, i) =>
+      outline.getAttribute('position').getZ(i),
+    );
+    expect(zs).toStrictEqual([-0.25, -0.25, -0.25, -0.25]);
   });
 });

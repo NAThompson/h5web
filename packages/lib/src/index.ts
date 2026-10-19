@@ -6,6 +6,7 @@ export { default as ScatterVis } from './vis/scatter/ScatterVis';
 export { default as ScatterPlotVis } from './vis/scatter/ScatterPlotVis';
 export { default as Scatter3DVis } from './vis/scatter/Scatter3DVis';
 export { default as VolumeVis } from './vis/volume/VolumeVis';
+export { default as OrthoPlanesVis } from './vis/volume/OrthoPlanesVis';
 export { default as SurfaceVis } from './vis/surface/SurfaceVis';
 export { default as Curve3DVis } from './vis/curve/Curve3DVis';
 export { default as ParamSurfaceVis } from './vis/param-surface/ParamSurfaceVis';
@@ -19,12 +20,14 @@ export type { ScatterVisProps } from './vis/scatter/ScatterVis';
 export type { ScatterPlotVisProps } from './vis/scatter/ScatterPlotVis';
 export type { Scatter3DVisProps } from './vis/scatter/Scatter3DVis';
 export type { VolumeVisProps } from './vis/volume/VolumeVis';
+export type { OrthoPlanesVisProps } from './vis/volume/OrthoPlanesVis';
 export {
   IsoColorMode,
   VolumeQuality,
   VolumeRenderMode,
 } from './vis/volume/models';
-export type { IsosurfaceParams } from './vis/volume/models';
+export type { IsosurfaceParams, OrthoPoint } from './vis/volume/models';
+export { ORTHO_PLANE_COLORS } from './vis/volume/OrthoPlanes';
 export type { IsosurfaceGeometry } from './vis/volume/marchingCubes';
 export {
   useIsosurfaces,
@@ -214,6 +217,7 @@ export {
   createBufferAttr,
   createIndex,
   withSymlogConstant,
+  getRealValue,
 } from './vis/utils';
 
 export {

@@ -25,6 +25,7 @@ import {
   MdLandscape,
   MdScatterPlot,
   MdViewModule,
+  MdViewQuilt,
 } from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
@@ -57,6 +58,8 @@ import { getGeometryKind } from './geometry/hooks';
 import ParamSurfaceVisContainer from './geometry/ParamSurfaceVisContainer';
 import { ParamSurfaceConfigProvider } from './geometry/surface-config';
 import { GeometryKind } from './geometry/utils';
+import { OrthoslicesConfigProvider } from './orthoslices/config';
+import OrthoslicesVisContainer from './orthoslices/OrthoslicesVisContainer';
 import { ScatterConfigProvider } from './scatter/config';
 import { getScatterSource } from './scatter/hooks';
 import Scatter3DVisContainer from './scatter/Scatter3DVisContainer';
@@ -75,6 +78,7 @@ export enum Vis {
   RGB = 'RGB',
   Compound = 'Compound',
   Volume = 'Volume',
+  Orthoslices = 'Orthoslices',
   Curve = 'Curve',
   Surface = 'Surface',
   Multiples = 'Multiples',
@@ -87,6 +91,32 @@ export interface CoreVisDef extends VisDef {
     dataset: Dataset,
     dataContext: DataContextValue,
   ) => Promise<boolean>;
+}
+
+/* Numeric datasets whose last three dimensions form a volume (leading ones are sliced) */
+async function supportsVolume(
+  dataset: Dataset,
+  dataContext: DataContextValue,
+): Promise<boolean> {
+  if (
+    !hasArrayShape(dataset) ||
+    !hasMinDims(dataset, 3) ||
+    !hasNumericType(dataset)
+  ) {
+    return false;
+  }
+
+  // Last three dimensions form the volume (leading ones are sliced): skip empty datasets
+  // (nothing to slice either) and stacks of a single 2D image
+  const { dims } = dataset.shape;
+  if (dims.includes(0) || dims.slice(-3).some((dim) => dim < 2)) {
+    return false;
+  }
+
+  // Leave images to the RGB vis
+  const h5ClassAttr = findScalarStrAttr(dataset, 'CLASS');
+  const h5Class = await getAttributeValue(dataset, h5ClassAttr, dataContext);
+  return h5Class !== 'IMAGE';
 }
 
 export const CORE_VIS = {
@@ -155,31 +185,17 @@ export const CORE_VIS = {
     Container: VolumeVisContainer,
     ConfigProvider: VolumeConfigProvider,
     canBePreferredFor: () => false,
-    supportsDataset: async (dataset, dataContext) => {
-      if (
-        !hasArrayShape(dataset) ||
-        !hasMinDims(dataset, 3) ||
-        !hasNumericType(dataset)
-      ) {
-        return false;
-      }
+    supportsDataset: supportsVolume,
+  },
 
-      // Last three dimensions form the volume (leading ones are sliced): skip empty datasets
-      // (nothing to slice either) and stacks of a single 2D image
-      const { dims } = dataset.shape;
-      if (dims.includes(0) || dims.slice(-3).some((dim) => dim < 2)) {
-        return false;
-      }
-
-      // Leave images to the RGB vis
-      const h5ClassAttr = findScalarStrAttr(dataset, 'CLASS');
-      const h5Class = await getAttributeValue(
-        dataset,
-        h5ClassAttr,
-        dataContext,
-      );
-      return h5Class !== 'IMAGE';
-    },
+  // Three linked planes through a volume (last three dimensions), on demand or when hinted
+  [Vis.Orthoslices]: {
+    name: Vis.Orthoslices,
+    Icon: MdViewQuilt,
+    Container: OrthoslicesVisContainer,
+    ConfigProvider: OrthoslicesConfigProvider,
+    canBePreferredFor: () => false, // fetches the whole volume
+    supportsDataset: supportsVolume, // as volumes
   },
 
   [Vis.Heatmap]: {

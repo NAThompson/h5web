@@ -11,6 +11,7 @@ import { type ComplexCurveConfig } from '../core/complex/curve-config';
 import { type ParamSurfaceConfig } from '../core/geometry/surface-config';
 import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
+import { type OrthoslicesConfig } from '../core/orthoslices/config';
 import { type VolumeConfig } from '../core/volume/config';
 import { type DefaultSlice } from '../nexus/models';
 import { HintVis, type ViewHint } from './models';
@@ -206,6 +207,20 @@ export function getVolumeSuggestions(
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
+  };
+}
+
+/* Colour scale, map and fixed domain as for volumes (`H5WEB_colormap = "auto"` is not resolved:
+ * the domain of the whole volume is not known until loaded), and keep ratio */
+export function getOrthoslicesSuggestions(
+  hint: ViewHint,
+): Partial<OrthoslicesConfig> {
+  return {
+    scaleType: hint.scaleType,
+    colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
+    invertColorMap: hint.invertColorMap,
+    customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
+    keepRatio: hint.keepRatio,
   };
 }
 

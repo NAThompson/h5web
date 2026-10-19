@@ -54,12 +54,19 @@ test('choose most advanced visualization when switching between datasets', async
 test('offer volume vis for 3D datasets without making it the default', async () => {
   const { selectExplorerNode } = await renderApp('/arrays/threeD');
 
-  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.Line, Vis.Volume, Vis.Heatmap]);
+  expect(getVisTabs()).toEqual([
+    Vis.Matrix,
+    Vis.Line,
+    Vis.Volume,
+    Vis.Orthoslices,
+    Vis.Heatmap,
+  ]);
   expect(getSelectedVisTab()).toBe(Vis.Heatmap);
 
   // Images are left to the RGB vis
   await selectExplorerNode('threeD_rgb');
   expect(getVisTabs()).not.toContain(Vis.Volume);
+  expect(getVisTabs()).not.toContain(Vis.Orthoslices);
 });
 
 test('remember preferred visualization when switching between datasets', async () => {

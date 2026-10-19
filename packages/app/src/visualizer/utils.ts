@@ -216,7 +216,8 @@ export function findPrimaryVis(
   );
 }
 
-/* `H5WEB_vis = "vector"` on a dataset of components: vector vis first, no volume (components are no axis) */
+/* `H5WEB_vis = "vector"` on a dataset of components: vector vis first, no volume nor orthoslices
+ * (components are no axis) */
 function withHintedVectorVis(
   dataset: Dataset,
   hint: ViewHint,
@@ -225,8 +226,11 @@ function withHintedVectorVis(
   if (hint.vis !== HintVis.Vector || !getVectorRank(dataset)) {
     return coreVis;
   }
-  const volume = CORE_VIS[Vis.Volume];
-  return [VECTOR_VIS, ...coreVis.filter((vis) => vis !== volume)];
+  const volumes = new Set<CoreVisDef>([
+    CORE_VIS[Vis.Volume],
+    CORE_VIS[Vis.Orthoslices],
+  ]);
+  return [VECTOR_VIS, ...coreVis.filter((vis) => !volumes.has(vis))];
 }
 
 async function getSupportedCoreVis(

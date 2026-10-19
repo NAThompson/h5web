@@ -2,6 +2,8 @@ import { type NumArray } from '@h5web/shared/vis-models';
 import { createArrayFromView } from '@h5web/shared/vis-utils';
 import ndarray, { type NdArray } from 'ndarray';
 import {
+  BufferAttribute,
+  BufferGeometry,
   Data3DTexture,
   DataTexture,
   FloatType,
@@ -103,6 +105,55 @@ export function getAxisLookup(
   }
   const edges = getCellEdges(values, count);
   return getRelativePixels(edges, getPixelCentres(values, edges));
+}
+
+/* Relative position (from 0 to 1) in the box of the centre of voxel `index` along an axis of
+ * `count` voxels: at its coordinate on a non-uniform axis (cf. `getAxisLookup`) */
+export function getVoxelCentre(
+  lookup: Float32Array | undefined,
+  index: number,
+  count: number,
+): number {
+  return lookup ? lookup[2 * index + 1] : (index + 0.5) / count;
+}
+
+/* Corners of the plane normal to `axis` (x, y, z) at relative position `offset` in the unit
+ * box */
+function getPlaneCorners(axis: number, offset: number): Float32Array {
+  const [u, v] = [0, 1, 2].filter((a) => a !== axis);
+  const corners = [
+    [-0.5, -0.5],
+    [0.5, -0.5],
+    [0.5, 0.5],
+    [-0.5, 0.5],
+  ];
+  return Float32Array.from(
+    corners.flatMap(([cu, cv]) => {
+      const pt = [0, 0, 0];
+      pt[axis] = offset - 0.5;
+      pt[u] = cu;
+      pt[v] = cv;
+      return pt;
+    }),
+  );
+}
+
+/* Plane of an orthoslice in the unit box: two triangles, and its outline (the four corners,
+ * not indexed, so that a line loop doesn't draw the triangles' shared diagonal) */
+export function getPlaneGeometries(
+  axis: number,
+  offset: number,
+): { plane: BufferGeometry; outline: BufferGeometry } {
+  const corners = getPlaneCorners(axis, offset);
+  const plane = new BufferGeometry();
+  plane.setAttribute('position', new BufferAttribute(corners, 3));
+  plane.setIndex([0, 1, 2, 0, 2, 3]);
+  const outline = new BufferGeometry();
+  outline.setAttribute(
+    'position',
+    new BufferAttribute(Float32Array.from(corners), 3),
+  );
+  return { plane, outline };
 }
 
 const MAX_STEP_DENSITY = 4; // relative to evenly spaced voxels, to bound the cost of rays

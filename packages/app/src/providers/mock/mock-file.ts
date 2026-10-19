@@ -81,6 +81,14 @@ const DECADES = indices(12 ** 3).map((i) => {
   return 10 ** ((-12 * r2) / (3 * 5.5 ** 2));
 });
 
+// Orthoslices: value at (z, y, x) is 100 z + 10 y + x (and + 1000 t in a stack of volumes)
+const ORTHO = indices(6 * 8 * 10).map(
+  (i) => 100 * Math.floor(i / 80) + 10 * (Math.floor(i / 10) % 8) + (i % 10),
+);
+const ORTHO_STACK = indices(2 * 6 * 8 * 10).map(
+  (i) => 1000 * Math.floor(i / 480) + ORTHO[i % 480],
+);
+
 // NURBS curves (`H5WEB_geometry = "nurbs"`): exact unit circle, from 9 points on a square
 // prettier-ignore
 const CIRCLE_POINTS = [
@@ -2039,6 +2047,23 @@ export function makeMockFile(): GroupWithChildren {
             scalarAttr('H5WEB_role', 'auxiliary'), // muted in the explorer
           ],
         }),
+        // Orthoslices through (z, y, x) = (1, 2, 3), and of a stack of volumes (leading dim sliced)
+        dataset('ortho', arrayShape([6, 8, 10]), floatType(), ORTHO, {
+          attributes: [
+            scalarAttr('H5WEB_vis', 'orthoslices'),
+            arrayAttr('H5WEB_slice_position', [1, 2, 3], {
+              type: intType(true, 32),
+            }),
+            intAttr('H5WEB_keep_ratio', 0), // pixels fill the canvases
+          ],
+        }),
+        dataset(
+          'ortho_stack',
+          arrayShape([2, 6, 8, 10]),
+          floatType(),
+          ORTHO_STACK,
+          { attributes: [scalarAttr('H5WEB_vis', 'orthoslices')] },
+        ),
         // Panels side by side: the same field twice, their difference and a line, linked and
         // sliced together along `generation` (`missing` is skipped with a note)
         group(

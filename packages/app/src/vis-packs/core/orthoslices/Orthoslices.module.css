@@ -1,0 +1,89 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0.5rem 0.5rem 0;
+}
+
+.title {
+  flex: none;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* XY | YZ
+ * XZ | 3D */
+.grid {
+  flex: 1;
+  display: grid;
+  grid-template: 1fr 1fr / 1fr 1fr;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cell {
+  min-width: 0;
+  min-height: 0;
+}
+
+.colorBar {
+  flex: none;
+  display: flex;
+}
+
+.readout {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  height: 1.5rem;
+  margin: 0;
+  font-size: 0.875em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.crosshair {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.crosshair > line {
+  stroke-width: 1.5;
+}
+
+.indexInput {
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
+  white-space: nowrap;
+}
+
+.indexLabel {
+  margin-right: 0.25rem;
+  font-weight: 600;
+}
+
+.indexInput > input {
+  width: 3.5rem;
+  font-variant-numeric: tabular-nums;
+}

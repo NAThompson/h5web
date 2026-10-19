@@ -32,3 +32,6 @@ export type AxisValues = [
   y: NumArray | undefined,
   z: NumArray | undefined,
 ];
+
+/* Voxel indices along x, y and z (i.e. column, row and layer of dimensions `[z, y, x]`) */
+export type OrthoPoint = [x: number, y: number, z: number];
