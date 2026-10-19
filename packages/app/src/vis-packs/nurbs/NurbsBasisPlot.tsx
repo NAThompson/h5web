@@ -22,6 +22,7 @@ const SAMPLES_PER_SPAN = 64;
 const MAX_VALUES = 2 ** 22; // fewer samples per span beyond this (many control points)
 const MAX_FUNCTIONS = 256;
 const HEADROOM = 0.25; // above 1, for the legend and knot labels
+const MAX_LEGEND_FUNCTIONS = 12; // beyond, the tooltip names the functions
 
 // d3 `schemeTableau10`, then hues of the Turbo colour map in golden-ratio steps
 // prettier-ignore
@@ -145,7 +146,11 @@ function NurbsBasisPlot(props: Props) {
         />
       )}
       <NurbsKnotMarks vector={vector} />
-      <NurbsBasisLegend entries={entries} />
+      <NurbsBasisLegend
+        entries={
+          count > MAX_LEGEND_FUNCTIONS ? entries.slice(basis.length) : entries
+        }
+      />
     </LineVis>
   );
 }
