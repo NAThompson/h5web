@@ -42,12 +42,14 @@ export type { Curve3DVisProps } from './vis/curve/Curve3DVis';
 export type { ParamSurfaceVisProps } from './vis/param-surface/ParamSurfaceVis';
 export type { NurbsVisProps } from './vis/nurbs/NurbsVis';
 export type { NurbsSurfaceVisProps } from './vis/nurbs/NurbsSurfaceVis';
-export type { NurbsCurve, NurbsSurface } from './vis/nurbs/nurbs';
+export type { KnotVector, NurbsCurve, NurbsSurface } from './vis/nurbs/nurbs';
 export {
   getKnotSpans,
+  getKnotVectors,
   getNurbsError,
   getNurbsSurfaceError,
   getSpanSteps,
+  sampleBasis,
   sampleNurbs,
 } from './vis/nurbs/nurbs';
 export { SurfaceRepresentation } from './vis/param-surface/models';

@@ -252,6 +252,40 @@ export function sampleNurbs(
   return samples;
 }
 
+/*
+ * Basis functions `N(i,p)` of all `n` control points at each of `params` (in knot spans
+ * `spans`, cf. `getSpanSteps`): `n` arrays, zero outside `[knots[i], knots[i + p + 1]]`. With
+ * `weights`, rational basis functions `R(i,p) = w(i) N(i,p) / Σ w(j) N(j,p)` instead.
+ */
+export function sampleBasis(
+  vector: KnotVector,
+  steps: { params: NumArray; spans: Uint32Array },
+  weights?: NumArray,
+): Float64Array[] {
+  const { degree, knots } = vector;
+  const { params, spans } = steps;
+  const count = knots.length - degree - 1;
+  const values = Array.from(
+    { length: count },
+    () => new Float64Array(params.length),
+  );
+
+  params.forEach((u, s) => {
+    const k = spans[s];
+    const basis = getBasisFunctions(vector, k, u);
+    if (weights) {
+      basis.forEach((val, j) => {
+        basis[j] = val * weights[k - degree + j];
+      });
+    }
+    const sum = weights ? basis.reduce((acc, val) => acc + val, 0) : 1;
+    basis.forEach((val, j) => {
+      values[k - degree + j][s] = val / sum;
+    });
+  });
+  return values;
+}
+
 export interface NurbsSurface {
   degrees: [number, number]; // along `u` and `v`
   shape: [number, number]; // `nu × nv` control points

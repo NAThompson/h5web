@@ -7,7 +7,10 @@ import {
   getKnotSpans,
   getNurbsError,
   getSegmentCounts,
+  getSpanSteps,
+  type KnotVector,
   type NurbsCurve,
+  sampleBasis,
   sampleNurbs,
 } from './nurbs';
 
@@ -163,5 +166,65 @@ describe('getSegmentCounts', () => {
     expect([...getSegmentCounts(line, getKnotSpans(line), [1e6, 1e6])]).toEqual(
       [1],
     );
+  });
+});
+
+describe('sampleBasis', () => {
+  // Cubic, non-uniform knots, knot 2 repeated 3 times
+  const KINKED: KnotVector = {
+    degree: 3,
+    knots: [0, 0, 0, 0, 0.5, 2, 2, 2, 3, 3, 3, 3],
+  };
+  const vectors: KnotVector[] = [CIRCLE, ARCH, KINKED];
+
+  function getSteps(vector: KnotVector) {
+    const spans = getKnotSpans(vector);
+    return getSpanSteps(spans, new Uint32Array(spans.length).fill(50));
+  }
+
+  it('should sum to 1 at every parameter (partition of unity)', () => {
+    vectors.forEach((vector) => {
+      const steps = getSteps(vector);
+      const weights = vector === CIRCLE ? CIRCLE.weights : undefined;
+      [undefined, weights].forEach((ws) => {
+        const basis = sampleBasis(vector, steps, ws);
+        steps.params.forEach((_, s) => {
+          const sum = basis.reduce((acc, values) => acc + values[s], 0);
+          expect(sum).toBeCloseTo(1, 12);
+        });
+      });
+    });
+  });
+
+  it('should vanish outside of `[knots[i], knots[i + p + 1]]` (local support)', () => {
+    vectors.forEach((vector) => {
+      const { degree: p, knots } = vector;
+      const steps = getSteps(vector);
+      sampleBasis(vector, steps).forEach((values, i) => {
+        expect(values.every((val) => val >= 0)).toBe(true);
+        const outside = values.filter(
+          (_, s) =>
+            steps.params[s] < knots[i] || steps.params[s] > knots[i + p + 1],
+        );
+        expect(outside.every((val) => val === 0)).toBe(true);
+      });
+    });
+  });
+
+  it('should be 1 at a knot repeated `degree` times for its control point', () => {
+    const steps = { params: [2], spans: Uint32Array.of(7) };
+    expect(sampleBasis(KINKED, steps).map((values) => values[0])).toEqual([
+      0, 0, 0, 0, 1, 0, 0, 0,
+    ]);
+  });
+
+  it('should weigh rational basis functions', () => {
+    const steps = { params: [0.125], spans: Uint32Array.of(2) };
+    const [n0, n1, n2] = sampleBasis(CIRCLE, steps).map((vals) => vals[0]);
+    const [r0, r1] = sampleBasis(CIRCLE, steps, CIRCLE.weights).map(
+      (vals) => vals[0],
+    );
+    expect(r1).toBeCloseTo((S * n1) / (n0 + S * n1 + n2), 12);
+    expect(r0).toBeCloseTo(n0 / (n0 + S * n1 + n2), 12);
   });
 });

@@ -31,6 +31,7 @@ import { type DataContextValue } from '../providers/DataProvider';
 import { getCoordinatePaths } from '../vis-packs/core/geometry/utils';
 import { isPhonyScaleName } from '../vis-packs/dimscales/utils';
 import { getNxClass } from '../vis-packs/nexus/utils';
+import { isNurbsGeometry } from '../vis-packs/nurbs/utils';
 import { createAttrReader, splitNames } from '../vis-packs/view-hints/attrs';
 import { getNxDefaultPath } from '../visualizer/utils';
 
@@ -197,7 +198,7 @@ function getAuxRole(
   return (
     referenced.get(child.entity.path) ??
     (child.entity.attributes.some(({ name }) => name === 'H5WEB_geometry') &&
-    readStr(child, 'H5WEB_geometry')?.toLowerCase() !== 'nurbs' // drawn on its own
+    !isNurbsGeometry(readStr(child, 'H5WEB_geometry')) // drawn on its own
       ? 'overlay'
       : undefined)
   );

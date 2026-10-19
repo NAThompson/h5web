@@ -93,7 +93,7 @@ test('visualize NURBS group with WebGPU', async () => {
   const { frames } = captureGpuFrames();
   await renderApp('/nurbs/circle');
 
-  expect(getVisTabs()).toEqual(['NURBS']);
+  expect(getVisTabs()).toEqual(['NURBS', 'Basis']);
   expect(getSelectedVisTab()).toBe('NURBS');
 
   // Headless Chromium has a software adapter with `--enable-unsafe-webgpu` (cf. Vitest config)
@@ -189,7 +189,7 @@ test('visualize periodic 3D NURBS curve, coloured by parameter', async () => {
 test('visualize NURBS surface with WebGPU', async () => {
   const { frames } = captureGpuFrames();
   await renderApp('/nurbs/torus');
-  expect(getVisTabs()).toEqual(['NURBS']);
+  expect(getVisTabs()).toEqual(['NURBS', 'Basis']);
 
   const figure = getFigure('torus');
   await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
@@ -265,4 +265,76 @@ test('show error for invalid knots of NURBS surface', async () => {
       ),
     )
     .toBeVisible();
+});
+
+test('visualize B-spline curve and surface', async () => {
+  const { selectExplorerNode } = await renderApp('/nurbs/bspline_curve');
+  expect(getVisTabs()).toEqual(['NURBS', 'Basis']);
+  expect(getSelectedVisTab()).toBe('NURBS');
+  await expect
+    .element(getFigure('bspline_curve'))
+    .toHaveAttribute('data-renderer');
+
+  await selectExplorerNode('bspline_surface');
+  await expect
+    .element(getFigure('bspline_surface'))
+    .toHaveAttribute('data-renderer');
+});
+
+test('show error for weights of B-spline', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  await renderApp('/nurbs/bad_bspline');
+
+  await expect
+    .element(
+      page.getByText('B-splines have no weights; use H5WEB_geometry = "nurbs"'),
+    )
+    .toBeVisible();
+});
+
+test('plot basis functions with knots and their multiplicities', async () => {
+  const { user } = await renderApp('/nurbs/nonuniform');
+  await user.click(page.getByRole('tab', { name: 'Basis' }));
+
+  const figure = getFigure('nonuniform');
+  await expect.element(figure).toBeVisible();
+  await expect.element(figure.getByText('N₇', { exact: true })).toBeVisible(); // legend: 8 points
+  expect(
+    page.getByRole('button', { name: 'Rational' }),
+  ).not.toBeInTheDocument(); // no weights
+
+  // Knots 0, 0.5, 2 and 3, repeated 4, 1, 3 and 4 times
+  const knots = page.getByTestId('knots');
+  expect(knots.element().querySelectorAll('line')).toHaveLength(4);
+  expect(
+    [...knots.element().querySelectorAll('text')].map((el) => el.textContent),
+  ).toEqual(['×4', '×3', '×4']);
+
+  await user.click(page.getByRole('button', { name: 'Sum' }));
+  await expect.element(figure.getByText('Σ', { exact: true })).toBeVisible();
+});
+
+test('toggle rational basis functions of weighted curve', async () => {
+  const { user } = await renderApp('/nurbs/circle');
+  await user.click(page.getByRole('tab', { name: 'Basis' }));
+
+  const figure = getFigure('circle');
+  const btn = page.getByRole('button', { name: 'Rational' });
+  await expect.element(btn).toHaveAttribute('aria-pressed', 'true');
+  await expect.element(figure.getByText('R₀', { exact: true })).toBeVisible();
+
+  await user.click(btn);
+  await expect.element(figure.getByText('N₀', { exact: true })).toBeVisible();
+});
+
+test('plot basis functions of surface along u and v', async () => {
+  const { user } = await renderApp('/nurbs/bspline_surface');
+  await user.click(page.getByRole('tab', { name: 'Basis' }));
+
+  const figure = getFigure('bspline_surface');
+  await expect.element(figure.getByText('N₅', { exact: true })).toBeVisible(); // 6 along u
+  expect(figure.getByText('N₆', { exact: true })).not.toBeInTheDocument();
+
+  await user.click(page.getByRole('radio', { name: 'v' }));
+  await expect.element(figure.getByText('N₆', { exact: true })).toBeVisible(); // 7 along v
 });

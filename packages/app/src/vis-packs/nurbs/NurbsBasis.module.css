@@ -1,0 +1,19 @@
+.knotSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* clipped to the canvas */
+  pointer-events: none;
+}
+
+.knotLine {
+  stroke: currentColor;
+  stroke-opacity: 0.35;
+  stroke-dasharray: 2 3;
+}
+
+.knotLabel {
+  fill: currentColor;
+  font-size: 0.75rem;
+}

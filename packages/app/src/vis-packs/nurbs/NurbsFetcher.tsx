@@ -1,19 +1,14 @@
 import {
   Curve3DVis,
   getKnotSpans,
-  getNurbsError,
   getSpanSteps,
-  type NurbsCurve,
   NurbsVis,
   sampleNurbs,
 } from '@h5web/lib';
 import { type GroupWithChildren } from '@h5web/shared/hdf5-models';
 import { useMemo } from 'react';
 
-import { useAttrValue, useValues } from '../../hooks';
-import { findSingleNumAttr } from '../../utils';
-import { toNumArray } from '../core/utils';
-import { getNurbsDatasets } from './utils';
+import { useNurbsCurve } from './hooks';
 
 const SEGMENTS_PER_SPAN_3D = 64; // 3D curves are sampled once, on the CPU
 
@@ -24,40 +19,11 @@ interface Props {
   showGrid: boolean;
 }
 
-/* Fetch control points, weights, knots and degree of a NURBS group, and check them */
+/* NURBS curve of a group: 2D, or 3D with `Curve3DVis` */
 function NurbsFetcher(props: Props) {
   const { group, className, showControlPolygon, showGrid } = props;
 
-  const { points, weights, knots } = getNurbsDatasets(group);
-  const degreeAttr = findSingleNumAttr(group, 'degree');
-  if (!degreeAttr) {
-    throw new Error('Expected numeric "degree" attribute on group');
-  }
-
-  const degree = useAttrValue(group, degreeAttr);
-  const values = useValues({
-    points,
-    knots,
-    ...(weights && { weights }),
-  });
-
-  const curve = useMemo((): NurbsCurve => {
-    const pointValues = toNumArray(values.points);
-    return {
-      degree: Number(typeof degree === 'object' ? degree[0] : degree),
-      dims: points.shape.dims[1],
-      points: pointValues,
-      weights: values.weights
-        ? toNumArray(values.weights)
-        : new Float64Array(points.shape.dims[0]).fill(1),
-      knots: toNumArray(values.knots),
-    };
-  }, [degree, points, values]);
-
-  const error = getNurbsError(curve);
-  if (error) {
-    throw new Error(`Invalid NURBS curve: ${error}`);
-  }
+  const curve = useNurbsCurve(group);
 
   const samples3D = useMemo(() => {
     if (curve.dims !== 3) {

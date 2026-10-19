@@ -11,15 +11,24 @@ import { findScalarStrAttr, getAttributeValue } from '../../utils';
 
 type NumDataset = Dataset<ArrayShape, NumericType>;
 
-/* Group with `H5WEB_geometry = "nurbs"` */
+/* `H5WEB_geometry` of NURBS groups: "bspline" for non-rational ones (no weights) */
+export function isNurbsGeometry(geometry: string | undefined): boolean {
+  const val = geometry?.toLowerCase();
+  return val === 'nurbs' || val === 'bspline';
+}
+
+/* Group with `H5WEB_geometry = "nurbs"` or `"bspline"` */
 export async function isNurbsGroup(
   group: GroupWithChildren,
   dataContext: DataContextValue,
 ): Promise<boolean> {
   const attr = findScalarStrAttr(group, 'H5WEB_geometry');
   const geometry = await getAttributeValue(group, attr, dataContext);
-  return geometry?.toLowerCase() === 'nurbs';
+  return isNurbsGeometry(geometry);
 }
+
+const BSPLINE_WEIGHTS_ERROR =
+  'B-splines have no weights; use H5WEB_geometry = "nurbs"';
 
 /* Child dataset `name` of a NURBS group, if any, checked to be numeric with given rank */
 function findNumDataset(
@@ -54,7 +63,10 @@ export function isNurbsSurfaceGroup(group: GroupWithChildren): boolean {
 }
 
 /* Datasets of a NURBS group, with the shapes they need (counts are checked with the values) */
-export function getNurbsDatasets(group: GroupWithChildren): {
+export function getNurbsDatasets(
+  group: GroupWithChildren,
+  isBspline: boolean,
+): {
   points: NumDataset;
   weights: NumDataset | undefined;
   knots: NumDataset;
@@ -72,11 +84,18 @@ export function getNurbsDatasets(group: GroupWithChildren): {
     );
   }
 
-  return { points, weights: findNumDataset(group, 'weights', 1), knots };
+  const weights = findNumDataset(group, 'weights', 1);
+  if (weights && isBspline) {
+    throw new Error(BSPLINE_WEIGHTS_ERROR);
+  }
+  return { points, weights, knots };
 }
 
 /* Datasets of a NURBS surface group: control points `(nu, nv, 3)`, weights `(nu, nv)` */
-export function getNurbsSurfaceDatasets(group: GroupWithChildren): {
+export function getNurbsSurfaceDatasets(
+  group: GroupWithChildren,
+  isBspline: boolean,
+): {
   points: NumDataset;
   weights: NumDataset | undefined;
   knotsU: NumDataset;
@@ -99,6 +118,9 @@ export function getNurbsSurfaceDatasets(group: GroupWithChildren): {
   }
 
   const weights = findNumDataset(group, 'weights', 2);
+  if (weights && isBspline) {
+    throw new Error(BSPLINE_WEIGHTS_ERROR);
+  }
   if (
     weights &&
     (weights.shape.dims[0] !== nu || weights.shape.dims[1] !== nv)

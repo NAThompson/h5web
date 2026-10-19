@@ -97,6 +97,12 @@ const HELIX_POINTS = Array.from({ length: 17 }, (_, i) => [
 ]);
 const HELIX_WEIGHTS = HELIX_POINTS.map((_, i) => (i % 2 ? Math.SQRT1_2 : 1));
 const HELIX_KNOTS = [0, ...indices(9).flatMap((i) => [i, i]), 8];
+// B-spline (`H5WEB_geometry = "bspline"`): cubic, non-uniform knots
+// prettier-ignore
+const BSPLINE_POINTS = [
+  [0, 0], [1, 1.5], [2.5, 2], [3, 0.5], [4.5, -0.5], [5.5, 1], [7, 0.5],
+];
+const BSPLINE_KNOTS = [0, 0, 0, 0, 0.5, 1.5, 2, 4, 4, 4, 4];
 
 function nurbs(
   name: string,
@@ -104,6 +110,7 @@ function nurbs(
   points: number[][],
   knots: number[],
   weights?: number[],
+  geometry = 'nurbs',
 ) {
   function vector(key: string, values: number[]) {
     return dataset(key, arrayShape([values.length]), floatType(64), values);
@@ -123,7 +130,7 @@ function nurbs(
     ],
     {
       attributes: [
-        scalarAttr('H5WEB_geometry', 'nurbs'),
+        scalarAttr('H5WEB_geometry', geometry),
         scalarAttr('degree', degree, { type: intType(true, 32) }),
       ],
     },
@@ -178,6 +185,7 @@ function nurbsSurface(
   points: number[][][],
   knots: number[][],
   weights?: number[][],
+  geometry = 'nurbs',
 ) {
   const [nu, nv] = [points.length, points[0].length];
   return group(
@@ -210,7 +218,7 @@ function nurbsSurface(
     ],
     {
       attributes: [
-        scalarAttr('H5WEB_geometry', 'nurbs'),
+        scalarAttr('H5WEB_geometry', geometry),
         ...(degrees.length === 1
           ? [scalarAttr('degree', degrees[0], { type: intType(true, 32) })]
           : degrees.map((degree, i) =>
@@ -1197,6 +1205,22 @@ export function makeMockFile(): GroupWithChildren {
         nurbs('helix_3d', 2, HELIX_POINTS, HELIX_KNOTS, HELIX_WEIGHTS),
         nurbs('bad_knots', 2, CIRCLE_POINTS, [...CIRCLE_KNOTS].reverse()),
         nurbs('trefoil_3d', 3, TREFOIL_POINTS, indices(19)),
+        nurbs(
+          'bspline_curve',
+          3,
+          BSPLINE_POINTS,
+          BSPLINE_KNOTS,
+          undefined,
+          'bspline',
+        ),
+        nurbs(
+          'bad_bspline',
+          2,
+          CIRCLE_POINTS,
+          CIRCLE_KNOTS,
+          CIRCLE_WEIGHTS,
+          'bspline',
+        ),
         nurbsSurface(
           'sphere',
           [2, 2],
@@ -1232,6 +1256,17 @@ export function makeMockFile(): GroupWithChildren {
             [0, 0, 1, 1],
             [0, 0, 1, 1],
           ],
+        ),
+        nurbsSurface(
+          'bspline_surface',
+          [3, 2],
+          WAVE_POINTS,
+          [
+            [0, 0, 0, 0, 0.3, 0.6, 1, 1, 1, 1],
+            [0, 0, 0, 1, 2, 2, 3, 4, 4, 4],
+          ],
+          undefined,
+          'bspline',
         ),
         nurbsSurface('bad_surface_knots', [3], WAVE_POINTS, [
           [0, 0, 0, 0, 0.2, 0.5, 1, 1, 1, 1],
