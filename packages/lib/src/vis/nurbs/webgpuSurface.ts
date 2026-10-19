@@ -3,8 +3,19 @@ import { type Vector3Tuple } from 'three';
 
 import { getExtentDomain, NAN_COLOR } from '../three-d/utils';
 import { COLOR_BY_MODES, DEGENERATE_METRIC, NurbsColorBy } from './analysis';
-import { type KnotSpan, type NurbsSurface } from './nurbs';
-import { createBuffer, MAX_GPU_DEGREE, STORAGE, UNIFORM } from './webgpu';
+import {
+  getGpuParams,
+  getKnotVectors,
+  type KnotSpan,
+  type NurbsSurface,
+} from './nurbs';
+import {
+  createBuffer,
+  MAX_GPU_DEGREE,
+  SAFE_DIVIDE_WGSL,
+  STORAGE,
+  UNIFORM,
+} from './webgpu';
 
 const WORKGROUP_SIZE = 64;
 export const SAMPLE_COUNT = 4; // multisampling, as WebGL's antialiasing
@@ -70,6 +81,8 @@ const EVALUATE_WGSL = /* wgsl */ `
   @group(0) @binding(4) var<storage, read_write> vertices: array<Vertex>;
   @group(0) @binding(5) var<storage, read> fields: array<f32>; // control values, field after field
 
+  ${SAFE_DIVIDE_WGSL}
+
   /* Last span from \`first\` (of \`count\`) starting at or before step \`i\` */
   fn findSpan(first: u32, count: u32, i: u32) -> u32 {
     var low = first;
@@ -88,10 +101,10 @@ const EVALUATE_WGSL = /* wgsl */ `
     for (var r = 0u; r <= q; r++) {
       var der = 0.0;
       if (r > 0u) {
-        der += low[r - 1u] / (knots[offset + k + r] - knots[offset + k + r - q]);
+        der += safeDivide(low[r - 1u], knots[offset + k + r] - knots[offset + k + r - q]);
       }
       if (r < q) {
-        der -= low[r] / (knots[offset + k + r + 1u] - knots[offset + k + r + 1u - q]);
+        der -= safeDivide(low[r], knots[offset + k + r + 1u] - knots[offset + k + r + 1u - q]);
       }
       d[r] = f32(q) * der;
     }
@@ -114,7 +127,7 @@ const EVALUATE_WGSL = /* wgsl */ `
       right[j] = knots[offset + k + j] - t;
       var saved = 0.0;
       for (var r = 0u; r < j; r++) {
-        let temp = b.n[r] / (right[r + 1u] + left[j - r]);
+        let temp = safeDivide(b.n[r], right[r + 1u] + left[j - r]);
         b.n[r] = saved + right[r + 1u] * temp;
         saved = left[j - r] * temp;
       }
@@ -485,7 +498,9 @@ export class NurbsSurfaceGpuRenderer {
         points: createBuffer(device, homogeneous, STORAGE),
         knots: createBuffer(
           device,
-          Float32Array.from([...knots[0], ...knots[1]]),
+          Float32Array.from(
+            getKnotVectors(surface).flatMap((vec) => [...getGpuParams(vec)]),
+          ),
           STORAGE,
         ),
         fields: createBuffer(device, fieldValues, STORAGE),

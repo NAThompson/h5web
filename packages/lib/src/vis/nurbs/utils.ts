@@ -69,3 +69,22 @@ export function getSurfaceTransform(
   ];
   return { origin: [x, y, z], scale, offset };
 }
+
+/* Value computed for the last `key` (e.g. projection and size of a frame), kept in `ref` and
+ * computed again only once `key` changes (`ref.current = undefined` to forget it) */
+export function getCached<T>(
+  ref: { current?: { key: number[]; value: T } },
+  key: number[],
+  compute: () => T,
+): T {
+  const cache = ref.current;
+  if (
+    cache?.key.length === key.length &&
+    cache.key.every((val, i) => val === key[i])
+  ) {
+    return cache.value;
+  }
+  const value = compute();
+  ref.current = { key, value }; // eslint-disable-line no-param-reassign -- ref, as of `useRef`
+  return value;
+}

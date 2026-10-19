@@ -382,6 +382,32 @@ describe('getSurfaceSampleCounts', () => {
     expect(largeV[0]).toBeGreaterThan(5 * smallV[0]);
   });
 
+  it('should sample twisted patches of straight rows and columns', () => {
+    const saddle: NurbsSurface = {
+      degrees: [1, 1],
+      shape: [2, 2],
+      points: [0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1], // z = x y
+      weights: [1, 1, 1, 1],
+      knots: [
+        [0, 0, 1, 1],
+        [0, 0, 1, 1],
+      ],
+    };
+    const saddleSpans = getKnotVectors(saddle).map((vec) =>
+      getKnotSpans(vec),
+    ) as typeof spans;
+    const scale = 1000;
+    const [[nu], [nv]] = getSurfaceSampleCounts(
+      saddle,
+      saddleSpans,
+      Float64Array.from(saddle.points, (x) => x * scale),
+    );
+
+    // Facets of `nu × nv` cells are within `scale / 4 nu nv` of the patch (at their centres)
+    expect(scale / (4 * nu * nv)).toBeLessThanOrEqual(0.5);
+    expect(nu * nv).toBeLessThan(4 * 500);
+  });
+
   it('should keep facets within half a pixel of the sphere', () => {
     const scale = 1000;
     const counts = getSurfaceSampleCounts(

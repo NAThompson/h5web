@@ -5,7 +5,7 @@ import { Matrix4 } from 'three';
 import { REDRAW } from '../snapshot/utils';
 import { getSegmentCounts, type KnotSpan, type NurbsCurve } from './nurbs';
 import styles from './NurbsVis.module.css';
-import { projectControlPoints } from './utils';
+import { getCached, projectControlPoints } from './utils';
 import { NurbsCurve3DGpuRenderer } from './webgpuCurve3D';
 
 interface Props {
@@ -41,10 +41,12 @@ function NurbsGpuCurve3D(props: Props) {
   lutRef.current = colorLut;
 
   const rendererRef = useRef<NurbsCurve3DGpuRenderer>(undefined);
+  const countsRef = useRef<{ key: number[]; value: Uint32Array }>(undefined);
   useEffect(() => {
     const renderer = new NurbsCurve3DGpuRenderer(device, canvas, curve, spans);
     renderer.setColorLut(lutRef.current);
     rendererRef.current = renderer;
+    countsRef.current = undefined;
     Object.assign(canvas, { [REDRAW]: () => renderer.redraw() }); // for snapshots
     invalidate();
 
@@ -83,16 +85,22 @@ function NurbsGpuCurve3D(props: Props) {
       camera.matrixWorldInverse,
     );
 
-    // Segments per knot span from the length and turning of the curve on screen
+    // Segments per knot span from the length and turning of the curve on screen (if changed)
     const near = 'near' in camera ? camera.near : 1e-3;
-    const { points, weights } = projectControlPoints(
-      curve,
-      viewProjection,
-      [w, h],
-      near,
-    );
     renderer.setSegmentCounts(
-      getSegmentCounts({ ...curve, dims: 2, points, weights }, spans, [1, 1]),
+      getCached(countsRef, [...viewProjection.elements, w, h], () => {
+        const { points, weights } = projectControlPoints(
+          curve,
+          viewProjection,
+          [w, h],
+          near,
+        );
+        return getSegmentCounts(
+          { ...curve, dims: 2, points, weights },
+          spans,
+          [1, 1],
+        );
+      }),
     );
 
     void renderer.draw({

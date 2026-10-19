@@ -1,4 +1,4 @@
-import { type KnotSpan, type NurbsCurve } from './nurbs';
+import { getGpuParams, type KnotSpan, type NurbsCurve } from './nurbs';
 
 export const MAX_GPU_DEGREE = 7; // size of the basis arrays of the compute shader
 const WORKGROUP_SIZE = 64;
@@ -8,7 +8,15 @@ const COPY_DST = 0x08;
 export const UNIFORM = 0x40;
 export const STORAGE = 0x80;
 
-/* `evaluateNurbs` (A2.2 + A4.1) for each sample, in homogeneous coordinates, with `u` in `.w` */
+/* `a / b`, or 0 if `b` is 0 (cf. `0 / 0 = 0` of the B-spline recurrence) */
+export const SAFE_DIVIDE_WGSL = /* wgsl */ `
+  fn safeDivide(a: f32, b: f32) -> f32 {
+    return select(a / b, 0.0, b == 0.0);
+  }
+`;
+
+/* `evaluateNurbs` (A2.2 + A4.1) for each sample, in homogeneous coordinates, with `u` (of
+ * `getGpuParams`) in `.w` */
 const EVALUATE_WGSL = /* wgsl */ `
   struct Params { degree: u32, spanCount: u32, sampleCount: u32 }
   struct Span { knot: u32, first: u32, count: u32 } // \`count\` samples from sample \`first\`
@@ -18,6 +26,8 @@ const EVALUATE_WGSL = /* wgsl */ `
   @group(0) @binding(2) var<storage, read> knots: array<f32>;
   @group(0) @binding(3) var<storage, read> spans: array<Span>;
   @group(0) @binding(4) var<storage, read_write> samples: array<vec4f>;
+
+  ${SAFE_DIVIDE_WGSL}
 
   @compute @workgroup_size(${WORKGROUP_SIZE})
   fn main(@builtin(global_invocation_id) id: vec3u) {
@@ -46,7 +56,7 @@ const EVALUATE_WGSL = /* wgsl */ `
       right[j] = knots[k + j] - u;
       var saved = 0.0;
       for (var r = 0u; r < j; r++) {
-        let temp = basis[r] / (right[r + 1u] + left[j - r]);
+        let temp = safeDivide(basis[r], right[r + 1u] + left[j - r]);
         basis[r] = saved + right[r + 1u] * temp;
         saved = left[j - r] * temp;
       }
@@ -121,7 +131,7 @@ export class NurbsCurveSampler {
       compute: { module: device.createShaderModule({ code: EVALUATE_WGSL }) },
     });
 
-    const { degree, dims, points, weights, knots } = curve;
+    const { degree, dims, points, weights } = curve;
     const homogeneous = new Float32Array(weights.length * 4);
     weights.forEach((w, i) => {
       const xyz = [0, 1, 2].map((d) =>
@@ -132,7 +142,7 @@ export class NurbsCurveSampler {
 
     this.params = createBuffer(device, 16, UNIFORM);
     this.points = createBuffer(device, homogeneous, STORAGE);
-    this.knots = createBuffer(device, Float32Array.from(knots), STORAGE);
+    this.knots = createBuffer(device, getGpuParams(curve), STORAGE);
     this.spanTable = createBuffer(device, spans.length * 12, STORAGE);
 
     device.queue.writeBuffer(

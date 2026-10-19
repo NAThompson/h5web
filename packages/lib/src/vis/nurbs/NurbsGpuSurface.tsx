@@ -12,7 +12,7 @@ import {
   type NurbsSurface,
 } from './nurbs';
 import styles from './NurbsVis.module.css';
-import { projectControlPoints } from './utils';
+import { getCached, projectControlPoints } from './utils';
 import {
   NurbsSurfaceGpuRenderer,
   type SurfaceGpuView,
@@ -74,6 +74,10 @@ function NurbsGpuSurface(props: Props) {
   lutRef.current = colorLut;
 
   const rendererRef = useRef<NurbsSurfaceGpuRenderer>(undefined);
+  const countsRef = useRef<{
+    key: number[];
+    value: [Uint32Array, Uint32Array][];
+  }>(undefined);
   const [renderer, setRenderer] = useState<NurbsSurfaceGpuRenderer>();
   useEffect(() => {
     const instance = new NurbsSurfaceGpuRenderer(
@@ -85,6 +89,7 @@ function NurbsGpuSurface(props: Props) {
     );
     instance.setColorLut(lutRef.current);
     rendererRef.current = instance;
+    countsRef.current = undefined;
     setRenderer(instance);
     Object.assign(canvas, { [REDRAW]: () => instance.redraw() }); // for snapshots
 
@@ -157,19 +162,21 @@ function NurbsGpuSurface(props: Props) {
       camera.matrixWorldInverse,
     );
 
-    // Steps per knot span from the size of each patch on screen
+    // Steps per knot span from the size of each patch on screen (if the view changed)
     modelViewProjection.multiplyMatrices(viewProjection, model);
     const near = 'near' in camera ? camera.near : 1e-3;
     gpu.setSampleCounts(
-      surfaces.map((surface, p) => {
-        const { points, weights } = projectControlPoints(
-          surface,
-          modelViewProjection,
-          [w, h],
-          near,
-        );
-        return getSurfaceSampleCounts(surface, spans[p], points, weights, 2);
-      }),
+      getCached(countsRef, [...modelViewProjection.elements, w, h], () =>
+        surfaces.map((surface, p) => {
+          const { points, weights } = projectControlPoints(
+            surface,
+            modelViewProjection,
+            [w, h],
+            near,
+          );
+          return getSurfaceSampleCounts(surface, spans[p], points, weights, 2);
+        }),
+      ),
     );
 
     void gpu.draw({

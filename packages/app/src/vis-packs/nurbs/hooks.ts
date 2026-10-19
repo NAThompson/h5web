@@ -16,6 +16,7 @@ import {
   type GroupWithChildren,
   type NumericType,
 } from '@h5web/shared/hdf5-models';
+import { buildEntityPath } from '@h5web/shared/hdf5-utils';
 import { type NumArray } from '@h5web/shared/vis-models';
 import { useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
@@ -234,7 +235,7 @@ export function useNurbsFields(group: GroupWithChildren): {
   const datasets = useMemo(() => {
     const perPatch = patches.map((patch) => {
       const fieldsGroup = fieldGroups.find(
-        ({ path }) => path === `${patch.path}/${FIELDS_GROUP}`,
+        ({ path }) => path === buildEntityPath(patch.path, FIELDS_GROUP),
       );
       const points = patch.children.find(
         ({ name }) => name === 'control_points',

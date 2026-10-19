@@ -4,6 +4,7 @@ import {
   evaluateNurbs,
   findSpan,
   getBasisFunctions,
+  getGpuParams,
   getKnotSpans,
   getNurbsError,
   getSegmentCounts,
@@ -13,6 +14,7 @@ import {
   sampleBasis,
   sampleNurbs,
 } from './nurbs';
+import { getCached } from './utils';
 
 const S = Math.SQRT1_2;
 
@@ -95,6 +97,19 @@ describe('getKnotSpans', () => {
   it('should skip empty spans', () => {
     expect(getKnotSpans(CIRCLE).map(({ index }) => index)).toEqual([
       2, 4, 6, 8,
+    ]);
+  });
+
+  it('should skip spans that are empty on the GPU (`f32`, cf. `getGpuParams`)', () => {
+    const far = [1e9, 1e9, 1e9 + 2, 1e9 + 2]; // 10⁹ + 2 is 10⁹ in `f32`
+    expect(getGpuParams({ degree: 1, knots: far })).toEqual(
+      Float32Array.of(0, 0, 1, 1),
+    );
+
+    const knots = [0, 0, 1, 1 + 1e-9, 2, 2];
+    expect(getKnotSpans({ degree: 1, knots })).toEqual([
+      { index: 1, start: 0, end: 1 },
+      { index: 3, start: 1 + 1e-9, end: 2 },
     ]);
   });
 });
@@ -226,5 +241,20 @@ describe('sampleBasis', () => {
     );
     expect(r1).toBeCloseTo((S * n1) / (n0 + S * n1 + n2), 12);
     expect(r0).toBeCloseTo(n0 / (n0 + S * n1 + n2), 12);
+  });
+});
+
+describe('getCached', () => {
+  it('should compute again only once the key changes', () => {
+    const ref = {};
+    let calls = 0;
+    function compute() {
+      calls += 1;
+      return calls;
+    }
+    expect(getCached(ref, [1, 2], compute)).toBe(1);
+    expect(getCached(ref, [1, 2], compute)).toBe(1);
+    expect(getCached(ref, [1, 3], compute)).toBe(2);
+    expect(getCached(ref, [1, 3, 0], compute)).toBe(3);
   });
 });

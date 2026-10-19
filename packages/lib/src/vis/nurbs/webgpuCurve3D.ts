@@ -1,4 +1,4 @@
-import { type KnotSpan, type NurbsCurve } from './nurbs';
+import { getGpuParams, type KnotSpan, type NurbsCurve } from './nurbs';
 import { createBuffer, NurbsCurveSampler, UNIFORM } from './webgpu';
 import {
   COLOR_WGSL,
@@ -93,7 +93,7 @@ export class NurbsCurve3DGpuRenderer {
   public constructor(
     private readonly device: GPUDevice,
     private readonly canvas: HTMLCanvasElement,
-    curve: NurbsCurve,
+    private readonly curve: NurbsCurve,
     spans: KnotSpan[],
   ) {
     const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
@@ -145,7 +145,7 @@ export class NurbsCurve3DGpuRenderer {
         ...viewProjection,
         size[0] / 2,
         size[1] / 2,
-        ...uRange,
+        ...getGpuParams(this.curve, uRange), // as `u` of samples
         width,
         0,
         0,

@@ -80,14 +80,28 @@ function getWeightsError(weights: NumArray, count: number): string | undefined {
   return undefined;
 }
 
-/* Spans of the curve's domain `[knots[degree], knots[n]]` that aren't empty */
+/* Parameters (default: knots) in `f32` for the GPU, mapped affinely from the domain
+ * `[knots[degree], knots[n]]` to `[0, 1]` (e.g. if far from 0); points, normals and
+ * curvatures don't depend on the mapping */
+export function getGpuParams(
+  vector: KnotVector,
+  params: ArrayLike<number> = vector.knots,
+): Float32Array {
+  const { degree, knots } = vector;
+  const start = knots[degree];
+  const length = knots[knots.length - degree - 1] - start;
+  return Float32Array.from(params, (u) => (u - start) / length);
+}
+
+/* Spans of the curve's domain `[knots[degree], knots[n]]` that aren't empty, on the GPU too */
 export function getKnotSpans(curve: KnotVector): KnotSpan[] {
   const { degree, knots } = curve;
   const count = knots.length - degree - 1;
+  const gpuKnots = getGpuParams(curve);
 
   const spans: KnotSpan[] = [];
   for (let k = degree; k < count; k += 1) {
-    if (knots[k] < knots[k + 1]) {
+    if (gpuKnots[k] < gpuKnots[k + 1]) {
       spans.push({ index: k, start: knots[k], end: knots[k + 1] });
     }
   }
@@ -473,10 +487,11 @@ function evaluateDerivatives(
 /*
  * Number of steps per knot span along `u` and `v`, so that the facets stay within half a pixel
  * of the surface: each row (column) of control points is taken as a curve (cf.
- * `getSegmentCounts`) and the span gets the most steps any row needs. On screen, `points` are
- * projected control points in pixels, and `weights` the weights times clip-space `w`: the
- * perspective projection of a NURBS is the NURBS of those (rows bound the iso-curves between
- * them only roughly, as they are not convex combinations of rows for rational surfaces).
+ * `getSegmentCounts`) and the span gets the most steps any row needs, or the twist of a cell of
+ * spans needs. On screen, `points` are projected control points in pixels, and `weights` the
+ * weights times clip-space `w`: the perspective projection of a NURBS is the NURBS of those
+ * (rows bound the iso-curves between them only roughly, as they are not convex combinations of
+ * rows for rational surfaces).
  */
 export function getSurfaceSampleCounts(
   surface: NurbsSurface,
@@ -521,6 +536,39 @@ export function getSurfaceSampleCounts(
     }
     return max;
   });
+
+  // Twist of each cell of spans (e.g. of `z = u v`, whose rows and columns are straight): facets
+  // of `n × m` steps are within `p q |Δ| / 4 n m` of it, for second mixed differences `Δ` of the
+  // cell's control points (as of a bilinear patch)
+  const [pu, pv] = degrees;
+  for (const [s, { index: ku }] of spans[0].entries()) {
+    for (const [t, { index: kv }] of spans[1].entries()) {
+      let twist = 0;
+      for (let i = ku - pu + 1; i <= ku; i += 1) {
+        for (let j = kv - pv + 1; j <= kv; j += 1) {
+          const [a, b, c, e] = [
+            [i, j],
+            [i - 1, j],
+            [i, j - 1],
+            [i - 1, j - 1],
+          ].map(([r, col]) => (r * nv + col) * dims);
+          const diff = Array.from(
+            { length: dims },
+            (_, d) =>
+              points[a + d] - points[b + d] - points[c + d] + points[e + d],
+          );
+          twist = Math.max(twist, Math.hypot(...diff));
+        }
+      }
+      const steps = Math.min(
+        Math.ceil(Math.sqrt((pu * pv * twist) / (4 * MAX_SURFACE_ERROR_PX))) ||
+          1,
+        MAX_SAMPLES_PER_SPAN,
+      );
+      counts[0][s] = Math.max(counts[0][s], steps);
+      counts[1][t] = Math.max(counts[1][t], steps);
+    }
+  }
 
   // Fewer steps all over (keeping their ratios), beyond the vertex budget
   const [totalU, totalV] = counts.map((arr) => arr.reduce((a, n) => a + n, 1));

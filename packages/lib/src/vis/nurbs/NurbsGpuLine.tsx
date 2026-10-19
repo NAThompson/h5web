@@ -6,7 +6,7 @@ import { useVisCanvasContext } from '../shared/VisCanvasProvider';
 import { REDRAW } from '../snapshot/utils';
 import { getSegmentCounts } from './nurbs';
 import styles from './NurbsVis.module.css';
-import { getPixelsPerUnit, type NurbsLineProps } from './utils';
+import { getCached, getPixelsPerUnit, type NurbsLineProps } from './utils';
 import { type GpuView, NurbsGpuRenderer } from './webgpuLine';
 
 interface Props extends NurbsLineProps {
@@ -33,9 +33,11 @@ function NurbsGpuLine(props: Props) {
   }, [canvasArea, canvas]);
 
   const rendererRef = useRef<NurbsGpuRenderer>(undefined);
+  const countsRef = useRef<{ key: number[]; value: Uint32Array }>(undefined);
   useEffect(() => {
     const renderer = new NurbsGpuRenderer(device, canvas, curve, spans, origin);
     rendererRef.current = renderer;
+    countsRef.current = undefined;
     Object.assign(canvas, { [REDRAW]: () => renderer.redraw() }); // for snapshots
     invalidate();
 
@@ -76,7 +78,11 @@ function NurbsGpuLine(props: Props) {
       ordinateScale,
       dpr,
     );
-    renderer.setSegmentCounts(getSegmentCounts(curve, spans, pixelsPerUnit));
+    renderer.setSegmentCounts(
+      getCached(countsRef, pixelsPerUnit, () =>
+        getSegmentCounts(curve, spans, pixelsPerUnit),
+      ),
+    );
 
     void renderer.draw({
       scale: pixelsPerUnit,

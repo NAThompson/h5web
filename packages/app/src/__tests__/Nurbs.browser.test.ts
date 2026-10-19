@@ -1,8 +1,17 @@
-import { exportSnapshot } from '@h5web/lib';
-import { assertDefined } from '@h5web/shared/guards';
+import {
+  exportSnapshot,
+  NurbsColorBy,
+  NurbsSurfaceVis,
+  NurbsVis,
+} from '@h5web/lib';
+import { assertDefined, hasChildren, isGroup } from '@h5web/shared/guards';
+import { type Entity } from '@h5web/shared/hdf5-models';
+import { createElement } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import { render } from 'vitest-browser-react';
 
+import { MockApi } from '../providers/mock/mock-api';
 import {
   getSelectedVisTab,
   getVisTabs,
@@ -508,6 +517,39 @@ test('colour teapot by stored field and its gradient', async () => {
   await expect.poll(() => getColorBarBounds(figure)[1]).toBeGreaterThan(1);
 });
 
+test('colour NURBS surface at the root of the file by stored field', async () => {
+  // Lone patch with fields as the whole file, its group being the root `/`
+  const patchPath = '/nurbs/teapot/lid_1';
+  function reroot<T extends Entity>(entity: T): T {
+    const path = entity.path.slice(patchPath.length) || '/';
+    return isGroup(entity) && hasChildren(entity)
+      ? { ...entity, path, children: entity.children.map(reroot) }
+      : { ...entity, path };
+  }
+  const { getEntity } = MockApi.prototype; // eslint-disable-line @typescript-eslint/unbound-method -- called with `this` below
+  vi.spyOn(MockApi.prototype, 'getEntity').mockImplementation(
+    async function mock(this: MockApi, path) {
+      const entity = reroot(
+        await getEntity.call(
+          this,
+          path === '/' ? patchPath : `${patchPath}${path}`,
+        ),
+      );
+      if (path !== '/') {
+        return entity;
+      }
+      const { attributes } = await getEntity.call(this, '/nurbs/teapot');
+      return { ...entity, attributes: [...entity.attributes, ...attributes] }; // `H5WEB_geometry`
+    },
+  );
+
+  const { user } = await renderApp('/');
+  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  await expect
+    .element(page.getByRole('option', { name: 'temperature (K)' }))
+    .toBeVisible();
+});
+
 test('show error naming patch without a field of the others', async () => {
   mockConsoleMethod('error'); // error boundary logs errors
   await renderApp('/nurbs/missing_field');
@@ -519,4 +561,70 @@ test('show error naming patch without a field of the others', async () => {
       ),
     )
     .toBeVisible();
+});
+
+// Knots that `f32` can't tell apart as such (its spacing is 64 around 10⁹)
+const FAR = 1e9;
+const FAR_KNOTS = [FAR, FAR, FAR + 2, FAR + 2];
+
+function renderInBox(elem: ReturnType<typeof createElement>) {
+  return render(createElement('div', { style: { height: '600px' } }, elem));
+}
+
+test('draw NURBS curve with knots far from 0', async () => {
+  const { frames } = captureGpuFrames();
+  await renderInBox(
+    createElement(NurbsVis, {
+      title: 'far',
+      curve: {
+        degree: 1,
+        dims: 2,
+        points: [0, 0, 1, 1],
+        weights: [1, 1],
+        knots: FAR_KNOTS,
+      },
+    }),
+  );
+
+  await expect
+    .element(getFigure('far'))
+    .toHaveAttribute('data-renderer', 'webgpu');
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(500);
+});
+
+test('colour NURBS surface with knots far from 0', async () => {
+  const onDataDomainChange = vi.fn();
+  const surface = {
+    degrees: [1, 1] as [number, number],
+    shape: [2, 2] as [number, number],
+    points: [0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1], // z = x y
+    weights: [1, 1, 1, 1],
+    knots: [FAR_KNOTS, FAR_KNOTS] as [number[], number[]],
+    fields: [[0, 0, 0, 1]], // x y
+  };
+  const { rerender } = await renderInBox(
+    createElement(NurbsSurfaceVis, {
+      surfaces: [surface],
+      colorBy: NurbsColorBy.Field,
+      onDataDomainChange,
+    }),
+  );
+  await expect.poll(() => onDataDomainChange.mock.lastCall).toEqual([[0, 1]]);
+
+  // K = −1 / (1 + x² + y²)², from −1 to −1/9 (domain symmetric around 0)
+  await rerender(
+    createElement(
+      'div',
+      { style: { height: '600px' } },
+      createElement(NurbsSurfaceVis, {
+        surfaces: [surface],
+        colorBy: NurbsColorBy.GaussianCurvature,
+        onDataDomainChange,
+      }),
+    ),
+  );
+  await expect
+    .poll(() => onDataDomainChange.mock.lastCall?.[0][1])
+    .toBeGreaterThan(0.9);
+  expect(onDataDomainChange.mock.lastCall?.[0][1]).toBeLessThanOrEqual(1);
 });
