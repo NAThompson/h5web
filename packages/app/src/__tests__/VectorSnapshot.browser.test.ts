@@ -100,13 +100,18 @@ test('export spline that bulges into view between points out of view', async () 
 
   // Bulges between the outermost points, all below the plot
   const { width } = getFigure().getBoundingClientRect();
-  await exportSvgWhen(getFigure(), (svg) =>
+  const doc = await exportSvgWhen(getFigure(), (svg) =>
     [...svg.querySelectorAll('path[fill="none"]')].some((p) =>
       [...(p.getAttribute('d') ?? '').matchAll(/M([\d.]+) [\d.]+C/gu)].some(
         ([, x]) => Number(x) > width / 4 && Number(x) < (3 * width) / 4,
       ),
     ),
   );
+
+  // With the domain above all points (`sin` is at most 1)
+  const texts = getTexts(doc);
+  expect(texts).toContain('1.1');
+  expect(texts).not.toContain('1');
 });
 
 test('export heatmap as image with vector axes and colour bar', async () => {

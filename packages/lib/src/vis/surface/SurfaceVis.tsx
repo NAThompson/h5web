@@ -233,13 +233,13 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   );
   const floorInvalid = specialColors?.nan !== undefined;
 
-  // Colour bar shows the field used for colours
+  // Colour bar shows the field used for colours (unlabelled: the label is that of the height)
   const legend = useMemo(
     () =>
       colorField
-        ? { ...colorField, valueTransform: undefined }
-        : { domain, scaleType, valueTransform },
-    [colorField, domain, scaleType, valueTransform],
+        ? { ...colorField, valueTransform: undefined, label: undefined }
+        : { domain, scaleType, valueTransform, label: colorBarLabel },
+    [colorField, domain, scaleType, valueTransform, colorBarLabel],
   );
 
   // Children (e.g. overlays) are drawn in the data coordinates of the surface
@@ -358,7 +358,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
       scaleType={legend.scaleType}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
-      colorBarLabel={colorArray ? undefined : colorBarLabel} // colour shows the height
+      colorBarLabel={legend.label}
       valueTransform={legend.valueTransform}
       belowColor={belowColor}
       aboveColor={aboveColor}

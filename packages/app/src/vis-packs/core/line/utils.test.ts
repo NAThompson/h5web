@@ -44,8 +44,9 @@ describe('getSplinesDomain', () => {
   });
 
   it("use the dataset's `ignoreValue` for curves without their own", () => {
-    const isTen = (val: number) => val === 10;
     const curves = [{ array: bump }, { array: flat, ignoreValue: () => false }];
-    expect(getSplinesDomain(xs, curves, isTen, lin, lin)).toEqual([0, 1]);
+    expect(getSplinesDomain(xs, curves, (val) => val === 10, lin, lin)).toEqual(
+      [0, 1],
+    );
   });
 });

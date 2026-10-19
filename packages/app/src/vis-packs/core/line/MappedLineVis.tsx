@@ -139,6 +139,15 @@ function isLegendShown(
     : extraCount > 0;
 }
 
+function isSplineDrawn(
+  interpolation: Interpolation,
+  curveType: CurveType,
+): boolean {
+  return (
+    interpolation === Interpolation.Spline && curveType !== CurveType.GlyphsOnly
+  );
+}
+
 function MappedLineVis(props: Props) {
   const {
     dataset,
@@ -375,9 +384,7 @@ function MappedLineVis(props: Props) {
 
   // Cubic splines overshoot their points: keep the curves drawn in view too
   const dataVisible = valueVisible && slicesVisible[0];
-  const drawsSplines =
-    interpolation === Interpolation.Spline &&
-    curveType !== CurveType.GlyphsOnly;
+  const drawsSplines = isSplineDrawn(interpolation, curveType);
   const splineDomain = useMemo(
     () =>
       drawsSplines

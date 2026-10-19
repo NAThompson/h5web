@@ -1,11 +1,13 @@
 import {
   exportSnapshot,
   NurbsColorBy,
+  type NurbsSurface,
   NurbsSurfaceVis,
   NurbsVis,
 } from '@h5web/lib';
 import { assertDefined, hasChildren, isGroup } from '@h5web/shared/guards';
 import { type Entity } from '@h5web/shared/hdf5-models';
+import { type Domain } from '@h5web/shared/vis-models';
 import { createElement } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -526,7 +528,7 @@ test('colour NURBS surface at the root of the file by stored field', async () =>
       ? { ...entity, path, children: entity.children.map(reroot) }
       : { ...entity, path };
   }
-  const { getEntity } = MockApi.prototype; // eslint-disable-line @typescript-eslint/unbound-method -- called with `this` below
+  const { getEntity } = MockApi.prototype; // eslint-disable-line vitest/unbound-method -- called with `this` below
   vi.spyOn(MockApi.prototype, 'getEntity').mockImplementation(
     async function mock(this: MockApi, path) {
       const entity = reroot(
@@ -567,7 +569,7 @@ test('show error naming patch without a field of the others', async () => {
 const FAR = 1e9;
 const FAR_KNOTS = [FAR, FAR, FAR + 2, FAR + 2];
 
-function renderInBox(elem: ReturnType<typeof createElement>) {
+async function renderInBox(elem: ReturnType<typeof createElement>) {
   return render(createElement('div', { style: { height: '600px' } }, elem));
 }
 
@@ -593,13 +595,13 @@ test('draw NURBS curve with knots far from 0', async () => {
 });
 
 test('colour NURBS surface with knots far from 0', async () => {
-  const onDataDomainChange = vi.fn();
-  const surface = {
-    degrees: [1, 1] as [number, number],
-    shape: [2, 2] as [number, number],
+  const onDataDomainChange = vi.fn<(domain: Domain) => void>();
+  const surface: NurbsSurface = {
+    degrees: [1, 1],
+    shape: [2, 2],
     points: [0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1], // z = x y
     weights: [1, 1, 1, 1],
-    knots: [FAR_KNOTS, FAR_KNOTS] as [number[], number[]],
+    knots: [FAR_KNOTS, FAR_KNOTS],
     fields: [[0, 0, 0, 1]], // x y
   };
   const { rerender } = await renderInBox(
