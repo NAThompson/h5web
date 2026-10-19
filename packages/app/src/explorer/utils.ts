@@ -196,7 +196,8 @@ function getAuxRole(
 
   return (
     referenced.get(child.entity.path) ??
-    (child.entity.attributes.some(({ name }) => name === 'H5WEB_geometry')
+    (child.entity.attributes.some(({ name }) => name === 'H5WEB_geometry') &&
+    readStr(child, 'H5WEB_geometry')?.toLowerCase() !== 'nurbs' // drawn on its own
       ? 'overlay'
       : undefined)
   );
@@ -248,6 +249,7 @@ export async function getAuxRoles(
           'CLASS',
           'coordinates',
           'H5WEB_overlays',
+          'H5WEB_geometry',
         ]),
       ),
     ),

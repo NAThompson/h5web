@@ -77,6 +77,59 @@ const DECADES = indices(12 ** 3).map((i) => {
   return 10 ** ((-12 * r2) / (3 * 5.5 ** 2));
 });
 
+// NURBS curves (`H5WEB_geometry = "nurbs"`): exact unit circle, from 9 points on a square
+// prettier-ignore
+const CIRCLE_POINTS = [
+  [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0],
+];
+const CIRCLE_WEIGHTS = CIRCLE_POINTS.map((_, i) => (i % 2 ? Math.SQRT1_2 : 1));
+const CIRCLE_KNOTS = [0, 0, 0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1, 1, 1];
+// Cubic with non-uniform knots; knot 2 repeated 3 times: kink at the 5th point
+// prettier-ignore
+const KINKED_POINTS = [
+  [0, 0], [1, 2], [2, -1], [3, 2], [4, 0], [5, 2], [6, 1], [7, 0],
+];
+const KINKED_KNOTS = [0, 0, 0, 0, 0.5, 2, 2, 2, 3, 3, 3, 3];
+// Two turns of the circle, rising: close to a helix
+const HELIX_POINTS = Array.from({ length: 17 }, (_, i) => [
+  ...CIRCLE_POINTS[i % 8],
+  i / 4,
+]);
+const HELIX_WEIGHTS = HELIX_POINTS.map((_, i) => (i % 2 ? Math.SQRT1_2 : 1));
+const HELIX_KNOTS = [0, ...indices(9).flatMap((i) => [i, i]), 8];
+
+function nurbs(
+  name: string,
+  degree: number,
+  points: number[][],
+  knots: number[],
+  weights?: number[],
+) {
+  function vector(key: string, values: number[]) {
+    return dataset(key, arrayShape([values.length]), floatType(64), values);
+  }
+
+  return group(
+    name,
+    [
+      dataset(
+        'control_points',
+        arrayShape([points.length, points[0].length]),
+        floatType(64),
+        points.flat(),
+      ),
+      vector('knots', knots),
+      ...(weights ? [vector('weights', weights)] : []),
+    ],
+    {
+      attributes: [
+        scalarAttr('H5WEB_geometry', 'nurbs'),
+        scalarAttr('degree', degree, { type: intType(true, 32) }),
+      ],
+    },
+  );
+}
+
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
     isRoot: true,
@@ -1044,6 +1097,12 @@ export function makeMockFile(): GroupWithChildren {
             attributes: [scalarAttr('H5WEB_vis', 'volume')],
           },
         ),
+      ]),
+      group('nurbs', [
+        nurbs('circle', 2, CIRCLE_POINTS, CIRCLE_KNOTS, CIRCLE_WEIGHTS),
+        nurbs('nonuniform', 3, KINKED_POINTS, KINKED_KNOTS),
+        nurbs('helix_3d', 2, HELIX_POINTS, HELIX_KNOTS, HELIX_WEIGHTS),
+        nurbs('bad_knots', 2, CIRCLE_POINTS, [...CIRCLE_KNOTS].reverse()),
       ]),
       // `H5WEB_*` view attributes: default vis and settings, overlays linked by the `generation`
       // scale, whose geometry and style are attributes of the overlay objects

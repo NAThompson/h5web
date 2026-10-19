@@ -5,6 +5,7 @@ import {
   getColorAlpha,
   getSafeScale,
   parseLinearGradient,
+  redraw,
 } from './utils';
 
 /* Attribute set on the snapshot root while it is being captured, to reveal
@@ -66,6 +67,7 @@ function canvasLayer(canvas: HTMLCanvasElement): Layer {
   const copy = document.createElement('canvas');
   copy.width = canvas.width;
   copy.height = canvas.height;
+  redraw(canvas);
   copy.getContext('2d')?.drawImage(canvas, 0, 0);
   const draw = drawImage(copy, canvas.getBoundingClientRect());
   return { filter: getFilter(canvas), draw };

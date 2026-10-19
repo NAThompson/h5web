@@ -30,6 +30,8 @@ import {
   NxDataVis,
   type NxDataVisDef,
 } from '../vis-packs/nexus/visualizations';
+import { isNurbsGroup } from '../vis-packs/nurbs/utils';
+import { NURBS_VIS } from '../vis-packs/nurbs/visualizations';
 import { hasPanelsAttr } from '../vis-packs/panels/hint';
 import { PANELS_VIS } from '../vis-packs/panels/visualizations';
 import {
@@ -77,6 +79,10 @@ async function resolvePath(
 
   if (!isGroup(entity)) {
     return null;
+  }
+
+  if (await isNurbsGroup(entity, dataContext)) {
+    return { entity, supportedVis: [NURBS_VIS], primaryVis: NURBS_VIS };
   }
 
   // `H5WEB_panels`: datasets side by side, by default (over NeXus)

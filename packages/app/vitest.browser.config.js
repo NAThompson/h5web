@@ -41,7 +41,12 @@ export default mergeConfig(
 
       browser: {
         enabled: true,
-        provider: playwright(),
+        provider: playwright({
+          // Software WebGPU adapter in headless Chromium (e.g. for NURBS curves)
+          launchOptions: {
+            args: browser === 'chromium' ? ['--enable-unsafe-webgpu'] : [],
+          },
+        }),
         instances: [{ browser }],
         viewport: { width: 1920, height: 1080 },
         ui: false,

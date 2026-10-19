@@ -1,0 +1,11 @@
+.gpuCanvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: calc(
+    var(--h5w-zi-svgOverlay) - 1
+  ); /* above axis grid, below SVG overlay */
+  pointer-events: none;
+}

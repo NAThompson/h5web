@@ -29,7 +29,7 @@ import {
   type Subpath,
   toPathData,
 } from './svgUtils';
-import { getSafeScale } from './utils';
+import { getSafeScale, redraw } from './utils';
 
 export const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -421,6 +421,7 @@ function copyCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const copy = document.createElement('canvas');
   copy.width = canvas.width;
   copy.height = canvas.height;
+  redraw(canvas);
   copy.getContext('2d')?.drawImage(canvas, 0, 0);
   return copy;
 }

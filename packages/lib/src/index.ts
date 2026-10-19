@@ -7,6 +7,7 @@ export { default as VolumeVis } from './vis/volume/VolumeVis';
 export { default as SurfaceVis } from './vis/surface/SurfaceVis';
 export { default as Curve3DVis } from './vis/curve/Curve3DVis';
 export { default as ParamSurfaceVis } from './vis/param-surface/ParamSurfaceVis';
+export { default as NurbsVis } from './vis/nurbs/NurbsVis';
 export type { MatrixVisProps } from './vis/matrix/MatrixVis';
 export type { LineVisProps } from './vis/line/LineVis';
 export type { HeatmapVisProps } from './vis/heatmap/HeatmapVis';
@@ -38,6 +39,9 @@ export { useSurfaceContext } from './vis/surface/context';
 export type { SurfaceContextValue } from './vis/surface/context';
 export type { Curve3DVisProps } from './vis/curve/Curve3DVis';
 export type { ParamSurfaceVisProps } from './vis/param-surface/ParamSurfaceVis';
+export type { NurbsVisProps } from './vis/nurbs/NurbsVis';
+export type { NurbsCurve } from './vis/nurbs/nurbs';
+export { getKnotSpans, getNurbsError, sampleNurbs } from './vis/nurbs/nurbs';
 export { SurfaceRepresentation } from './vis/param-surface/models';
 
 // Toolbar and controls

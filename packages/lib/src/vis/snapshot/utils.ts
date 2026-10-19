@@ -12,6 +12,16 @@ export interface ParsedGradient {
   stops: { color: string; offset: number }[];
 }
 
+/* Set on canvases whose contents are gone once on screen (WebGPU) to draw them again
+ * synchronously, so that they can be copied right after */
+export const REDRAW = Symbol('redraw');
+
+export function redraw(
+  canvas: HTMLCanvasElement & { [REDRAW]?: () => void },
+): void {
+  canvas[REDRAW]?.();
+}
+
 // Conservative canvas limits that work in all major browsers (Safari: 16,777,216 px in area)
 export const MAX_CANVAS_SIDE = 16_384;
 export const MAX_CANVAS_AREA = 16_777_216;
