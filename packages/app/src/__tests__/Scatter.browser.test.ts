@@ -108,10 +108,13 @@ test(
     await page.getByRole('button', { name: 'Points' }).click();
     expect(toCoordinateArray).toHaveBeenCalledTimes(calls);
 
-    // `H5WEB_point_opacity = 0.3`: not a preset, but shown as current option
-    await expect
-      .element(page.getByRole('radio', { name: '30 %' }))
-      .toBeChecked();
+    // `H5WEB_point_opacity = 0.3`, shown in the opacity box; a typed value applies
+    const opacityBox = page.getByRole('textbox', { name: 'Opacity value' });
+    await expect.element(opacityBox).toHaveValue('30');
+    await opacityBox.fill('5');
+    await userEvent.keyboard('{Enter}');
+    await expect.element(opacityBox).toHaveValue('5');
+    expect(toCoordinateArray).toHaveBeenCalledTimes(calls); // uniform only
   },
   TEST_TIMEOUT,
 );

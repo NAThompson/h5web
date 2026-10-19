@@ -3,7 +3,6 @@ import {
   type Domain,
   DomainWidget,
   Menu,
-  RadioGroup,
   ScaleSelector,
   Separator,
   SnapshotBtn,
@@ -17,25 +16,7 @@ import { MdAspectRatio, MdBubbleChart, MdGridOn } from 'react-icons/md';
 import { useVisArea } from '../../../visualizer/vis-area';
 import { BASE_INTERACTIONS, SURFACE_INTERACTIONS } from '../utils';
 import { type ScatterConfig } from './config';
-
-const SIZE_SCALES = [0.5, 1, 1.5, 2, 3];
-const OPACITIES = [1, 0.5, 0.2, 0.05];
-
-/* Options as strings, with the current value (e.g. from `H5WEB_point_opacity`) among them */
-function getOptions(
-  values: number[],
-  current: number,
-  format: (val: number) => string,
-): { options: string[]; labels: Record<string, string> } {
-  const all = values.includes(current) ? values : [...values, current];
-  const sorted = all.toSorted((a, b) =>
-    values[0] < values[1] ? a - b : b - a,
-  );
-  return {
-    options: sorted.map(String),
-    labels: Object.fromEntries(sorted.map((val) => [String(val), format(val)])),
-  };
-}
+import LogSlider from './LogSlider';
 
 interface Props {
   dataDomain: Domain | undefined; // without colour values: no colour controls
@@ -71,13 +52,6 @@ function PointsToolbar(props: Props) {
     setKeepRatio,
     setShowAxes,
   } = config;
-  const sizes = getOptions(SIZE_SCALES, sizeScale, (val) => `×${val}`);
-  const opacities = getOptions(
-    OPACITIES,
-    opacity,
-    (val) => `${Math.round(val * 100)} %`,
-  );
-
   return (
     <Toolbar interactions={is3D ? SURFACE_INTERACTIONS : BASE_INTERACTIONS}>
       {!is3D && (
@@ -149,21 +123,21 @@ function PointsToolbar(props: Props) {
       />
 
       <Menu label="Points" Icon={MdBubbleChart}>
-        <RadioGroup
-          name="pointsize"
+        <LogSlider
           label="Size"
-          options={sizes.options}
-          optionsLabels={sizes.labels}
-          value={String(sizeScale)}
-          onChange={(val) => setSizeScale(Number(val))}
+          value={sizeScale}
+          min={0.25}
+          max={4}
+          unit="times"
+          onChange={setSizeScale}
         />
-        <RadioGroup
-          name="pointopacity"
+        <LogSlider
           label="Opacity"
-          options={opacities.options}
-          optionsLabels={opacities.labels}
-          value={String(opacity)}
-          onChange={(val) => setOpacity(Number(val))}
+          value={opacity}
+          min={0.01}
+          max={1}
+          unit="percent"
+          onChange={setOpacity}
         />
       </Menu>
       <Separator />
