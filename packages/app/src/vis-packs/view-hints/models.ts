@@ -17,6 +17,7 @@ export enum HintVis {
   Surface = 'surface', // heatmap in 3D (parametric surface if no heatmap)
   ComplexSurface = 'complexsurface', // heatmap of complex values in 3D
   Volume = 'volume',
+  Orthoslices = 'orthoslices', // three linked planes through a volume
   Curve = 'curve',
   ParamSurface = 'paramsurface', // parametric surface (CF `coordinates`)
   ComplexLine = 'complexline',
@@ -98,6 +99,9 @@ export interface Envelope {
   reverse: boolean; // suffix envelope: over the values from each one to the end
 }
 
+/* Reduction of a dimension of a heatmap stack, shown instead of a slice (`H5WEB_projection`) */
+export type Projection = 'max' | 'min' | 'mean' | 'sum';
+
 export interface ViewHint {
   vis?: HintVis;
   scaleType?: ColorScaleType; // colour scale (and height of real surfaces)
@@ -130,6 +134,9 @@ export interface ViewHint {
   xDim?: number; // line: dimension on the x axis
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
+  projection?: Projection; // heatmap stacks: reduce a dimension instead of slicing it
+  projectionDim?: number; // dimension reduced (default: the first sliced dimension)
+  slicePosition?: number[]; // orthoslices: indices of the crosshair along the last three dimensions
   playbackDim?: number; // dimension played by default (e.g. walked past empty slices on load)
   multiplesDims?: number[]; // small multiples: a panel per index of these dimensions (rows, cols)
   multiplesColumns?: number; // small multiples of one dimension: panels per row

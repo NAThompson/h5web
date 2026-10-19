@@ -42,6 +42,7 @@ const DIM_ATTRS = [
   'H5WEB_x_dim',
   'H5WEB_multi_dim',
   'H5WEB_probe_dim',
+  'H5WEB_projection_dim',
   'H5WEB_playback_dim',
   'H5WEB_multiples_dim',
 ];
@@ -225,6 +226,7 @@ const VIS_NAMES: Record<HintVis, string[]> = {
   [HintVis.ComplexHeatmap]: ['Heatmap', 'NX Heatmap'],
   [HintVis.ComplexCurve]: ['Complex Curve', 'NX Complex Curve'],
   [HintVis.Volume]: ['Volume', 'NX Volume'],
+  [HintVis.Orthoslices]: ['Orthoslices'],
   [HintVis.Curve]: ['Curve', 'NX Curve', 'Complex Curve', 'NX Complex Curve'],
   [HintVis.RGB]: ['RGB', 'NX RGB'],
   [HintVis.Scatter]: ['Scatter', 'NX Scatter'],

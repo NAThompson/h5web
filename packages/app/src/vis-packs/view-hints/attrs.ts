@@ -32,6 +32,7 @@ import {
   HINT_ATTR_PREFIX,
   HintVis,
   type OverlayHint,
+  type Projection,
   type ReferenceOverlay,
   type SeriesStyle,
   type TextAnchor,
@@ -283,7 +284,7 @@ export function createAttrReader(
   return { str, nums, num, bool, oneOf };
 }
 
-/* Dimension named by `H5WEB_x_dim` / `H5WEB_multi_dim` / `H5WEB_probe_dim`: name of a dimension scale (see
+/* Dimension named by `H5WEB_x_dim` / `H5WEB_multi_dim` / `H5WEB_probe_dim` / `H5WEB_projection_dim`: name of a dimension scale (see
  * `getDimNames`), or index */
 function readDim(
   reader: AttrReader,
@@ -443,6 +444,16 @@ export function parseViewHint(
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
+    projection: read.oneOf(
+      'H5WEB_projection',
+      parseAmong<Projection>(['max', 'min', 'mean', 'sum']),
+    ),
+    projectionDim: readDim(read, 'H5WEB_projection_dim', entity, dimNames),
+    slicePosition: read.nums(
+      'H5WEB_slice_position',
+      (arr) =>
+        arr.length === 3 && arr.every((v) => Number.isInteger(v) && v >= 0),
+    ),
     playbackDim: readDim(read, 'H5WEB_playback_dim', entity, dimNames),
     multiplesDims: readMultiplesDims(read, entity, dimNames),
     multiplesColumns: read.num(

@@ -235,6 +235,42 @@ describe('parseViewHint', () => {
     expect(unknown.notes).toEqual(['ignored invalid "H5WEB_probe_dim"']);
   });
 
+  it('parse orthoslices and their initial point', () => {
+    const parsed = hint({
+      H5WEB_vis: 'Ortho_Slices',
+      H5WEB_slice_position: [4, 0, 12],
+    });
+    expect(parsed).toMatchObject({
+      vis: HintVis.Orthoslices,
+      slicePosition: [4, 0, 12],
+    });
+    expect(parsed.notes).toEqual([]);
+
+    for (const position of [
+      [1, 2],
+      [1, -2, 3],
+      [1, 2.5, 3],
+    ]) {
+      const invalid = hint({ H5WEB_slice_position: position });
+      expect(invalid.slicePosition).toBeUndefined();
+      expect(invalid.notes).toEqual(['ignored invalid "H5WEB_slice_position"']);
+    }
+  });
+
+  it('parse projection and its dimension', () => {
+    const dimNames = [['time'], [], []];
+    expect(
+      hint({ H5WEB_projection: 'MAX', H5WEB_projection_dim: 'time' }, dimNames),
+    ).toMatchObject({ projection: 'max', projectionDim: 0 });
+    expect(
+      hint({ H5WEB_projection: 'mean', H5WEB_projection_dim: { int: 1 } }),
+    ).toMatchObject({ projection: 'mean', projectionDim: 1 });
+
+    const invalid = hint({ H5WEB_projection: 'median' });
+    expect(invalid.projection).toBeUndefined();
+    expect(invalid.notes).toEqual(['ignored invalid "H5WEB_projection"']);
+  });
+
   it('parse colours of NaN values and of values beyond the domain', () => {
     expect(
       hint({
