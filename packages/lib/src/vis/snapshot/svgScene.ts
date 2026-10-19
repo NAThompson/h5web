@@ -63,13 +63,23 @@ interface Drawable {
   isVector: boolean;
 }
 
-type Mvp = (x: number, y: number, z: number) => Point | undefined;
+export type Mvp = (x: number, y: number, z: number) => Point | undefined;
 
 /* Scene drawn in an area of a canvas: the whole canvas or a panel of it */
 type SceneState = Pick<RootState, 'scene' | 'camera' | 'size' | 'gl'>;
 
 const GLYPH_TYPE_KEY = 'glyphType'; // in `userData` of `GlyphMaterial`
 const MAX_VECTOR_GLYPHS = 200_000; // more glyphs (e.g. point clouds) are drawn in the raster
+
+/* In `userData` of objects that draw themselves as paths (e.g. glyphs placed by a vertex
+ * shader): their elements in canvas CSS pixels, given the world-to-pixels transform */
+export const SVG_DRAWER_KEY = 'toSvg';
+export type SvgDrawer = (toPx: Mvp) => SVGElement[];
+
+function getSvgDrawer(obj: Object3D): SvgDrawer | undefined {
+  const drawer: unknown = obj.userData[SVG_DRAWER_KEY];
+  return typeof drawer === 'function' ? (drawer as SvgDrawer) : undefined;
+}
 
 function isLineSegments2(obj: Object3D): obj is LineSegments2 {
   return 'isLineSegments2' in obj && obj.isLineSegments2 === true;
@@ -82,6 +92,7 @@ function getGlyphType(material: Material): GlyphType | undefined {
 
 function isVectorizable(obj: Object3D, material: Material): boolean {
   return (
+    !!getSvgDrawer(obj) ||
     isLineSegments2(obj) ||
     ('isLineSegments' in obj && obj.isLineSegments === true) ||
     ('isPoints' in obj &&
@@ -576,7 +587,10 @@ function sceneToSvg(
   });
 
   for (const { object, material } of vectors) {
-    if (isLineSegments2(object)) {
+    const drawer = getSvgDrawer(object);
+    if (drawer) {
+      vectorGroup.append(...drawer(getMvp(state, object)));
+    } else if (isLineSegments2(object)) {
       const path = lineToSvg(object, state, ctx);
       if (path) {
         vectorGroup.append(path);

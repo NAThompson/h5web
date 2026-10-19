@@ -60,6 +60,24 @@ export {
 export { NurbsColorBy } from './vis/nurbs/analysis';
 export { SurfaceRepresentation } from './vis/param-surface/models';
 
+// Vector fields
+export { default as VectorVis } from './vis/vector/VectorVis';
+export { default as VectorVis3D } from './vis/vector/VectorVis3D';
+export type { VectorVisProps } from './vis/vector/VectorVis';
+export type { VectorVis3DProps } from './vis/vector/VectorVis3D';
+export {
+  VectorBackground,
+  VectorStyle,
+  DEFAULT_ARROW_DENSITY,
+} from './vis/vector/models';
+export {
+  getCurl2D,
+  getDivergence,
+  getMagnitude,
+  sampleField,
+} from './vis/vector/field';
+export type { Axis3D, VectorField2D, VectorField3D } from './vis/vector/field';
+
 // Toolbar and controls
 export { default as Toolbar } from './toolbar/Toolbar';
 export { default as Separator } from './toolbar/Separator';
