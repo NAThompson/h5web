@@ -34,6 +34,7 @@ import {
 } from '@h5web/shared/mock-utils';
 import { ScaleType } from '@h5web/shared/vis-models';
 
+import { makeScatterGroup } from './scatter';
 import { TEAPOT_PATCHES, TEAPOT_VERTICES } from './teapot';
 
 const PNG_RED_DOT = new Uint8Array([
@@ -2129,6 +2130,7 @@ export function makeMockFile(): GroupWithChildren {
           ),
         ),
       ]),
+      makeScatterGroup(),
       group('resilience', [
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),
         scalar('slow_value', 42),

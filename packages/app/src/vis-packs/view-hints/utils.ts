@@ -225,7 +225,8 @@ const VIS_NAMES: Record<HintVis, string[]> = {
   [HintVis.Volume]: ['Volume', 'NX Volume'],
   [HintVis.Curve]: ['Curve', 'NX Curve', 'Complex Curve', 'NX Complex Curve'],
   [HintVis.RGB]: ['RGB', 'NX RGB'],
-  [HintVis.Scatter]: ['NX Scatter'],
+  [HintVis.Scatter]: ['Scatter', 'NX Scatter'],
+  [HintVis.Scatter3D]: ['Scatter 3D', 'Scatter'], // 2D without z
   [HintVis.Compound]: ['Compound'],
 };
 

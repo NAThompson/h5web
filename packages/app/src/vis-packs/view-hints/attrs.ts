@@ -337,13 +337,13 @@ function isLevels(arr: number[]): boolean {
   return arr.length > 0 && arr.every(Number.isFinite);
 }
 /* Unchecked where CSS is not available (e.g. unit tests in Node) */
-function isCssColor(val: string): boolean {
+export function isCssColor(val: string): boolean {
   return typeof CSS === 'undefined' || CSS.supports('color', val);
 }
 
 /* CSS colour as `rgba(…)`, which the renderer parses (unlike e.g. `oklch(…)` or space-separated
  * `rgb(…)`), from a pixel painted with it; as is without a DOM (e.g. in unit tests) */
-function toRgbaColor(val: string | undefined): string | undefined {
+export function toRgbaColor(val: string | undefined): string | undefined {
   const ctx =
     val && typeof document !== 'undefined'
       ? document.createElement('canvas').getContext('2d')
@@ -383,8 +383,13 @@ export function parseViewHint(
     (v) => Number.isInteger(v) && v >= 0,
   );
 
+  const vis = read.oneOf('H5WEB_vis', (val) =>
+    HINT_VIS.get(toKey(val) as HintVis),
+  );
+  const isScatter = vis === HintVis.Scatter || vis === HintVis.Scatter3D;
+
   return {
-    vis: read.oneOf('H5WEB_vis', (val) => HINT_VIS.get(toKey(val) as HintVis)),
+    vis,
     scaleType: read.oneOf('H5WEB_scale', parseScaleType),
     symlogThreshold: read.num(
       'H5WEB_symlog_threshold',
@@ -427,7 +432,10 @@ export function parseViewHint(
     ),
     envelope: readEnvelope(read),
     curveLabel: read.str('H5WEB_label'),
-    curveColor: toRgbaColor(read.str('H5WEB_color', isCssColor)),
+    // Scatter: path of colour values, or colour of all points (cf. `core/scatter/source.ts`)
+    curveColor: isScatter
+      ? undefined
+      : toRgbaColor(read.str('H5WEB_color', isCssColor)),
     curveWidth: read.num('H5WEB_width', isPos),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),

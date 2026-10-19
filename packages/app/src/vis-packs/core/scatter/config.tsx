@@ -36,6 +36,19 @@ export interface ScatterConfig {
   yScaleType: AxisScaleType;
   setXScaleType: (type: AxisScaleType) => void;
   setYScaleType: (type: AxisScaleType) => void;
+
+  // Points (`H5WEB_vis = "scatter"` / `"scatter3d"`)
+  sizeScale: number; // multiplies point sizes
+  setSizeScale: (sizeScale: number) => void;
+
+  opacity: number;
+  setOpacity: (opacity: number) => void;
+
+  keepRatio: boolean; // 3D
+  setKeepRatio: (keepRatio: boolean) => void;
+
+  showAxes: boolean; // 3D
+  setShowAxes: (showAxes: boolean) => void;
 }
 
 function createScatterConfigStore() {
@@ -61,6 +74,18 @@ function createScatterConfigStore() {
         yScaleType: ScaleType.Linear,
         setXScaleType: (type) => set({ xScaleType: type }),
         setYScaleType: (type) => set({ yScaleType: type }),
+
+        sizeScale: 1,
+        setSizeScale: (sizeScale) => set({ sizeScale }),
+
+        opacity: 1,
+        setOpacity: (opacity) => set({ opacity }),
+
+        keepRatio: true,
+        setKeepRatio: (keepRatio) => set({ keepRatio }),
+
+        showAxes: true,
+        setShowAxes: (showAxes) => set({ showAxes }),
       }),
       {
         name: 'h5web:scatter',

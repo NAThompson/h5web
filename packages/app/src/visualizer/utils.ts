@@ -10,9 +10,11 @@ import { queryOptions } from '@tanstack/react-query';
 
 import { type DataContextValue } from '../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../utils';
+import { getScatterSource } from '../vis-packs/core/scatter/hooks';
 import {
   CORE_VIS,
   type CoreVisDef,
+  findScatterVis,
   Vis,
 } from '../vis-packs/core/visualizations';
 import { type VisDef } from '../vis-packs/models';
@@ -66,13 +68,13 @@ async function resolvePath(
       return null;
     }
 
-    // `H5WEB_*` view hint takes precedence over heuristics
+    // `H5WEB_*` view hint takes precedence over heuristics (points of CF `featureType = "point"`)
     const hint = await getHintSafely(entity, dataContext);
     const primaryVis = findHintVis(hint, supportedVis);
     return {
       entity,
       supportedVis,
-      primaryVis,
+      primaryVis: primaryVis ?? findScatterVis(supportedVis),
       notes: getHintVisNotes(hint, primaryVis),
     };
   }
@@ -88,6 +90,21 @@ async function resolvePath(
         ? [NURBS_VIS]
         : [NURBS_VIS, NURBS_BASIS_VIS],
       primaryVis: NURBS_VIS,
+    };
+  }
+
+  // `H5WEB_vis = "scatter"` / `"scatter3d"` with `H5WEB_x`, `H5WEB_y`...: points
+  const scatter = await getScatterSource(entity, dataContext);
+  if (scatter) {
+    const supportedVis = [
+      CORE_VIS[Vis.Scatter],
+      ...(scatter.channels.z ? [CORE_VIS[Vis.Scatter3D]] : []),
+    ];
+    const hint = await getHintSafely(entity, dataContext);
+    return {
+      entity,
+      supportedVis,
+      primaryVis: findHintVis(hint, supportedVis),
     };
   }
 

@@ -23,7 +23,8 @@ export enum HintVis {
   ComplexHeatmap = 'complexheatmap',
   ComplexCurve = 'complexcurve',
   RGB = 'rgb',
-  Scatter = 'scatter',
+  Scatter = 'scatter', // NeXus scatter, or points (cf. `core/scatter/source.ts`)
+  Scatter3D = 'scatter3d', // point cloud
   Compound = 'compound',
 }
 

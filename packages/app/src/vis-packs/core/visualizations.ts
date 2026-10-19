@@ -19,7 +19,13 @@ import {
   FiImage,
   FiMap,
 } from 'react-icons/fi';
-import { MdGesture, MdLandscape, MdViewModule } from 'react-icons/md';
+import {
+  MdBubbleChart,
+  MdGesture,
+  MdLandscape,
+  MdScatterPlot,
+  MdViewModule,
+} from 'react-icons/md';
 
 import { type DataContextValue } from '../../providers/DataProvider';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
@@ -51,6 +57,10 @@ import { getGeometryKind } from './geometry/hooks';
 import ParamSurfaceVisContainer from './geometry/ParamSurfaceVisContainer';
 import { ParamSurfaceConfigProvider } from './geometry/surface-config';
 import { GeometryKind } from './geometry/utils';
+import { ScatterConfigProvider } from './scatter/config';
+import { getScatterSource } from './scatter/hooks';
+import Scatter3DVisContainer from './scatter/Scatter3DVisContainer';
+import ScatterVisContainer from './scatter/ScatterVisContainer';
 import { VolumeConfigProvider } from './volume/config';
 import VolumeVisContainer from './volume/VolumeVisContainer';
 
@@ -68,6 +78,8 @@ export enum Vis {
   Curve = 'Curve',
   Surface = 'Surface',
   Multiples = 'Multiples',
+  Scatter = 'Scatter',
+  Scatter3D = 'Scatter 3D',
 }
 
 export interface CoreVisDef extends VisDef {
@@ -287,4 +299,36 @@ export const CORE_VIS = {
       );
     },
   },
+
+  // Points, only when hinted (or CF `featureType = "point"`): then the default (cf. `findScatterVis`)
+  [Vis.Scatter]: {
+    name: Vis.Scatter,
+    Icon: MdScatterPlot,
+    Container: ScatterVisContainer,
+    ConfigProvider: ScatterConfigProvider,
+    supportsDataset: async (dataset, dataContext) =>
+      !!(await getScatterSource(dataset, dataContext)),
+  },
+
+  [Vis.Scatter3D]: {
+    name: Vis.Scatter3D,
+    Icon: MdBubbleChart,
+    Container: Scatter3DVisContainer,
+    ConfigProvider: ScatterConfigProvider,
+    supportsDataset: async (dataset, dataContext) => {
+      const source = await getScatterSource(dataset, dataContext);
+      return !!source?.channels.z;
+    },
+  },
 } satisfies Record<Vis, CoreVisDef>;
+
+/* Default vis of points without `H5WEB_vis` (CF `featureType = "point"`): in 3D if possible */
+export function findScatterVis<T extends VisDef>(
+  supportedVis: T[],
+): T | undefined {
+  const [scatter3D, scatter]: string[] = [Vis.Scatter3D, Vis.Scatter];
+  return (
+    supportedVis.find(({ name }) => name === scatter3D) ??
+    supportedVis.find(({ name }) => name === scatter)
+  );
+}
