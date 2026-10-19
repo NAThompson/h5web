@@ -26,13 +26,13 @@ import NurbsControlNet from './NurbsControlNet';
 import NurbsDepthMesh from './NurbsDepthMesh';
 import NurbsGpuSurface from './NurbsGpuSurface';
 
-/* The surface is also sampled once on the CPU, as if the box were this many pixels wide, for its
+/* Patches are also sampled once on the CPU, as if the box were this many pixels wide, for its
  * extent (axes, colour domain) and the depth-only copy hiding WebGL content behind it */
 const NOMINAL_PIXELS = 1000;
 const CONTROL_NET_COLOR = '#d6266e';
 
 interface Props extends ClassStyleAttrs {
-  surface: NurbsSurface; // valid (cf. `getNurbsSurfaceError`)
+  surfaces: NurbsSurface[]; // patches, valid (cf. `getNurbsSurfaceError`)
   title?: ReactNode;
   xLabel?: string;
   yLabel?: string;
@@ -47,12 +47,12 @@ interface Props extends ClassStyleAttrs {
 }
 
 /*
- * NURBS surface in a 3D box with orbit controls, evaluated and drawn with WebGPU (compute shader,
+ * NURBS surface (one or more patches) in a 3D box with orbit controls, evaluated and drawn with WebGPU (compute shader,
  * finer as the camera gets closer). Throws without WebGPU (cf. `useGpuDevice`).
  */
 function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
   const {
-    surface,
+    surfaces,
     title,
     xLabel = 'x',
     yLabel = 'y',
@@ -69,18 +69,24 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
     style,
   } = props;
 
-  const device = useGpuDevice(Math.max(...surface.degrees));
+  const device = useGpuDevice(
+    Math.max(...surfaces.flatMap(({ degrees }) => degrees)),
+  );
   const spans = useMemo(
     () =>
-      getKnotVectors(surface).map((vec) => getKnotSpans(vec)) as [
-        KnotSpan[],
-        KnotSpan[],
-      ],
-    [surface],
+      surfaces.map(
+        (surface) =>
+          getKnotVectors(surface).map((vec) => getKnotSpans(vec)) as [
+            KnotSpan[],
+            KnotSpan[],
+          ],
+      ),
+    [surfaces],
   );
 
-  const { rows, cols, coords, controlCoords } = useMemo(() => {
-    const { points } = surface;
+  // Patches sampled at the same scale, from the extent of all control points
+  const { grids, controlCoords } = useMemo(() => {
+    const points = surfaces.flatMap((surface) => [...surface.points]);
     const control = [0, 1, 2].map((d) => points.filter((_, i) => i % 3 === d));
     const longest = Math.max(
       ...control.map((arr) => {
@@ -89,55 +95,72 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
       }),
     );
     const scale = NOMINAL_PIXELS / (longest || 1);
-    const sampleCounts = getSurfaceSampleCounts(
-      surface,
-      spans,
-      Float64Array.from(points, (val) => val * scale),
-    );
-    const samples = sampleNurbsSurface(surface, spans, sampleCounts);
     return {
-      rows: sampleCounts[0].reduce((acc, n) => acc + n, 1),
-      cols: sampleCounts[1].reduce((acc, n) => acc + n, 1),
-      coords: [0, 1, 2].map((d) => samples.filter((_, i) => i % 3 === d)),
+      grids: surfaces.map((surface, p) => {
+        const sampleCounts = getSurfaceSampleCounts(
+          surface,
+          spans[p],
+          Float64Array.from(surface.points, (val) => val * scale),
+        );
+        const samples = sampleNurbsSurface(surface, spans[p], sampleCounts);
+        return {
+          rows: sampleCounts[0].reduce((acc, n) => acc + n, 1),
+          cols: sampleCounts[1].reduce((acc, n) => acc + n, 1),
+          coords: [0, 1, 2].map((d) => samples.filter((_, i) => i % 3 === d)),
+        };
+      }),
       controlCoords: control,
     };
-  }, [surface, spans]);
+  }, [surfaces, spans]);
 
-  // Box around surface and control points; colours by height of the surface
+  // Box around patches and control points; colours by height of the patches
   const domains = useMemo(
     () =>
-      [0, 1, 2].map((d) => getExtentDomain(coords[d], controlCoords[d])) as [
-        Domain,
-        Domain,
-        Domain,
-      ],
-    [coords, controlCoords],
+      [0, 1, 2].map((d) =>
+        getExtentDomain(
+          ...grids.map(({ coords }) => coords[d]),
+          controlCoords[d],
+        ),
+      ) as [Domain, Domain, Domain],
+    [grids, controlCoords],
   );
-  const zDomain = useMemo(() => getExtentDomain(coords[2]), [coords]);
+  const zDomain = useMemo(
+    () => getExtentDomain(...grids.map(({ coords }) => coords[2])),
+    [grids],
+  );
   const [w, h, d] = getBoxSize(domains, keepRatio);
 
-  const { toWorld, worldSurface, zRange } = useMemo(() => {
+  const { toWorld, worldSurfaces, zRange } = useMemo(() => {
     const transform = getWorldTransform(domains, [w, h, d]);
-    const { points } = surface;
-    const worldPoints = new Float64Array(points.length);
-    for (let i = 0; i < points.length; i += 3) {
-      worldPoints.set(transform(points[i], points[i + 1], points[i + 2]), i);
-    }
     const range: [number, number] = [
       transform(0, 0, zDomain[0])[2],
       transform(0, 0, zDomain[1])[2],
     ];
     return {
       toWorld: transform,
-      worldSurface: { ...surface, points: worldPoints },
+      worldSurfaces: surfaces.map((surface) => {
+        const { points } = surface;
+        const worldPoints = new Float64Array(points.length);
+        for (let i = 0; i < points.length; i += 3) {
+          worldPoints.set(
+            transform(points[i], points[i + 1], points[i + 2]),
+            i,
+          );
+        }
+        return { ...surface, points: worldPoints };
+      }),
       zRange: range,
     };
-  }, [surface, domains, zDomain, w, h, d]);
+  }, [surfaces, domains, zDomain, w, h, d]);
 
-  const buffers = useMemo(() => {
-    const [x, y, z] = coords.map((arr) => ndarray(arr, [rows, cols]));
-    return buildParamSurfaceBuffers({ x, y, z, values: z, toWorld });
-  }, [coords, rows, cols, toWorld]);
+  const buffers = useMemo(
+    () =>
+      grids.map(({ rows, cols, coords }) => {
+        const [x, y, z] = coords.map((arr) => ndarray(arr, [rows, cols]));
+        return buildParamSurfaceBuffers({ x, y, z, values: z, toWorld });
+      }),
+    [grids, toWorld],
+  );
 
   const colorLut = useMemo(
     () => getLinearColorLut(colorMap, invertColorMap),
@@ -170,18 +193,27 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
         <>
           <NurbsGpuSurface
             device={device}
-            surface={worldSurface}
+            surfaces={worldSurfaces}
             spans={spans}
             colorLut={colorLut}
             zRange={zRange}
             showKnotLines={showKnotLines}
           />
-          <NurbsDepthMesh positions={buffers.positions} index={buffers.index} />
+          {buffers.map(({ positions, index }, p) => (
+            // eslint-disable-next-line react/no-array-index-key -- patches don't move
+            <NurbsDepthMesh key={p} positions={positions} index={index} />
+          ))}
         </>
       )}
-      {showControlNet && (
-        <NurbsControlNet surface={worldSurface} color={CONTROL_NET_COLOR} />
-      )}
+      {showControlNet &&
+        worldSurfaces.map((surface, p) => (
+          <NurbsControlNet
+            // eslint-disable-next-line react/no-array-index-key -- patches don't move
+            key={p}
+            surface={surface}
+            color={CONTROL_NET_COLOR}
+          />
+        ))}
       {showAxes && (
         <Axes3D
           boxSize={[w, h, d]}

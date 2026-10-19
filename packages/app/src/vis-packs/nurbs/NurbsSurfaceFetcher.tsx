@@ -1,7 +1,7 @@
 import { type ColorMap, NurbsSurfaceVis } from '@h5web/lib';
 import { type GroupWithChildren } from '@h5web/shared/hdf5-models';
 
-import { useNurbsSurface } from './hooks';
+import { useNurbsSurfaces } from './hooks';
 
 interface Props {
   group: GroupWithChildren;
@@ -14,12 +14,14 @@ interface Props {
   showGrid: boolean;
 }
 
-/* NURBS surface of a group */
+/* NURBS surface of a group, or patches of a multi-patch group */
 function NurbsSurfaceFetcher(props: Props) {
   const { group, ...visProps } = props;
 
-  const surface = useNurbsSurface(group);
-  return <NurbsSurfaceVis surface={surface} title={group.name} {...visProps} />;
+  const surfaces = useNurbsSurfaces(group);
+  return (
+    <NurbsSurfaceVis surfaces={surfaces} title={group.name} {...visProps} />
+  );
 }
 
 export default NurbsSurfaceFetcher;

@@ -1,4 +1,9 @@
-import { hasArrayShape, hasNumericType, isDataset } from '@h5web/shared/guards';
+import {
+  hasArrayShape,
+  hasNumericType,
+  isDataset,
+  isGroup,
+} from '@h5web/shared/guards';
 import {
   type ArrayShape,
   type Dataset,
@@ -59,6 +64,14 @@ export function isNurbsSurfaceGroup(group: GroupWithChildren): boolean {
     isDataset(points) &&
     hasArrayShape(points) &&
     points.shape.dims.length === 3
+  );
+}
+
+/* Multi-patch surface: no control points of its own, but patch groups, each a surface */
+export function isNurbsMultiPatchGroup(group: GroupWithChildren): boolean {
+  return (
+    !group.children.some(({ name }) => name === 'control_points') &&
+    group.children.some(isGroup)
   );
 }
 

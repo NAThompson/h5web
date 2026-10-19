@@ -34,6 +34,8 @@ import {
 } from '@h5web/shared/mock-utils';
 import { ScaleType } from '@h5web/shared/vis-models';
 
+import { TEAPOT_PATCHES, TEAPOT_VERTICES } from './teapot';
+
 const PNG_RED_DOT = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
   0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x05, 0x08, 0x06,
@@ -218,7 +220,7 @@ function nurbsSurface(
     ],
     {
       attributes: [
-        scalarAttr('H5WEB_geometry', geometry),
+        ...(geometry ? [scalarAttr('H5WEB_geometry', geometry)] : []),
         ...(degrees.length === 1
           ? [scalarAttr('degree', degrees[0], { type: intType(true, 32) })]
           : degrees.map((degree, i) =>
@@ -230,6 +232,43 @@ function nurbsSurface(
     },
   );
 }
+
+// Multi-patch surface: group of patch groups (no `H5WEB_geometry` of their own)
+const BEZIER_KNOTS = [0, 0, 0, 0, 1, 1, 1, 1];
+function nurbsPatches(
+  name: string,
+  patches: [string, number[][][], number[][]?][], // name, points, knots (bicubic Bézier)
+) {
+  return group(
+    name,
+    patches.map(([patchName, points, knots = [BEZIER_KNOTS, BEZIER_KNOTS]]) =>
+      nurbsSurface(patchName, [3], points, knots, undefined, ''),
+    ),
+    { attributes: [scalarAttr('H5WEB_geometry', 'bspline')] },
+  );
+}
+
+// Bicubic Bézier patches of the teapot, named by part (lid stretched to fit, as in three.js)
+const TEAPOT_PARTS = [
+  ['rim', 4],
+  ['body', 8],
+  ['handle', 4],
+  ['spout', 4],
+  ['lid', 8],
+  ['bottom', 4],
+] as const;
+const TEAPOT = TEAPOT_PARTS.flatMap(([part, count]) =>
+  indices(count).map((i) => `${part}_${i}`),
+).map((name, p): [string, number[][][]] => [
+  name,
+  indices(4).map((r) =>
+    indices(4).map((c) => {
+      const [x, y, z] = TEAPOT_VERTICES[TEAPOT_PATCHES[p][r * 4 + c]];
+      const scale = name.startsWith('lid') ? 1.077 : 1;
+      return [x * scale, y * scale, z];
+    }),
+  ),
+]);
 
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
@@ -1274,6 +1313,11 @@ export function makeMockFile(): GroupWithChildren {
           undefined,
           'bspline',
         ),
+        nurbsPatches('teapot', TEAPOT),
+        nurbsPatches('bad_patches', [
+          TEAPOT[0],
+          ['broken', TEAPOT[1][1], [[...BEZIER_KNOTS].reverse(), BEZIER_KNOTS]],
+        ]),
         nurbsSurface('bad_surface_knots', [3], WAVE_POINTS, [
           [0, 0, 0, 0, 0.2, 0.5, 1, 1, 1, 1],
           [0, 1],

@@ -19,8 +19,8 @@ const LIGHT: SurfaceGpuView['light'] = [x, y, z, AMBIENT_SHARE]; // as `Vis3DLay
 
 interface Props {
   device: GPUDevice;
-  surface: NurbsSurface; // in world coordinates
-  spans: [KnotSpan[], KnotSpan[]];
+  surfaces: NurbsSurface[]; // patches, in world coordinates
+  spans: [KnotSpan[], KnotSpan[]][]; // of each patch
   colorLut: Float32Array; // cf. `getLinearColorLut`
   zRange: [number, number]; // world heights of the ends of the colour map
   showKnotLines: boolean;
@@ -32,7 +32,7 @@ interface Props {
  * surface by a coarse copy of it that only writes depth (cf. `NurbsSurfaceVis`).
  */
 function NurbsGpuSurface(props: Props) {
-  const { device, surface, spans, colorLut, zRange, showKnotLines } = props;
+  const { device, surfaces, spans, colorLut, zRange, showKnotLines } = props;
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
 
@@ -61,7 +61,7 @@ function NurbsGpuSurface(props: Props) {
     const renderer = new NurbsSurfaceGpuRenderer(
       device,
       canvas,
-      surface,
+      surfaces,
       spans,
     );
     renderer.setColorLut(lutRef.current);
@@ -73,7 +73,7 @@ function NurbsGpuSurface(props: Props) {
       rendererRef.current = undefined;
       renderer.dispose();
     };
-  }, [device, canvas, surface, spans, invalidate]);
+  }, [device, canvas, surfaces, spans, invalidate]);
 
   useEffect(() => {
     rendererRef.current?.setColorLut(colorLut);
@@ -104,16 +104,18 @@ function NurbsGpuSurface(props: Props) {
       camera.matrixWorldInverse,
     );
 
-    // Steps per knot span from the size of the surface on screen
+    // Steps per knot span from the size of each patch on screen
     const near = 'near' in camera ? camera.near : 1e-3;
-    const { points, weights } = projectControlPoints(
-      surface,
-      viewProjection,
-      [w, h],
-      near,
-    );
     renderer.setSampleCounts(
-      getSurfaceSampleCounts(surface, spans, points, weights, 2),
+      surfaces.map((surface, p) => {
+        const { points, weights } = projectControlPoints(
+          surface,
+          viewProjection,
+          [w, h],
+          near,
+        );
+        return getSurfaceSampleCounts(surface, spans[p], points, weights, 2);
+      }),
     );
 
     void renderer.draw({

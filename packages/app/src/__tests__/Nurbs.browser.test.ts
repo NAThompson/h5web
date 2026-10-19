@@ -381,3 +381,32 @@ test('plot basis functions of surface along u and v', async () => {
   await user.click(page.getByRole('radio', { name: 'v' }));
   await expect.element(figure.getByText('N₆', { exact: true })).toBeVisible(); // 7 along v
 });
+
+test('visualize multi-patch NURBS surface (teapot) with WebGPU', async () => {
+  const { frames } = captureGpuFrames();
+  const { user } = await renderApp('/nurbs/teapot');
+  expect(getVisTabs()).toEqual(['NURBS']); // no basis of a single patch
+
+  const figure = getFigure('teapot');
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
+  await expect
+    .poll(() => figure.element().querySelector('canvas[data-drawn]'))
+    .not.toBeNull();
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
+  expect(figure.element().querySelectorAll('canvas')).toHaveLength(2); // one WebGPU canvas
+
+  await user.click(page.getByRole('button', { name: 'Knot lines' })); // patch boundaries
+  await user.click(page.getByRole('button', { name: 'Control net' }));
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
+});
+
+test('show error naming invalid patch of multi-patch surface', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  await renderApp('/nurbs/bad_patches');
+
+  await expect
+    .element(
+      page.getByText('Patch broken: Knots along u must be non-decreasing'),
+    )
+    .toBeVisible();
+});

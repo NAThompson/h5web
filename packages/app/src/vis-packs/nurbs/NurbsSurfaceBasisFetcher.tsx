@@ -2,7 +2,7 @@ import { getKnotVectors } from '@h5web/lib';
 import { type GroupWithChildren } from '@h5web/shared/hdf5-models';
 import { useMemo } from 'react';
 
-import { useNurbsSurface } from './hooks';
+import { useNurbsSurfaces } from './hooks';
 import NurbsBasisPlot from './NurbsBasisPlot';
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
  * functions of surfaces depend on both `u` and `v` */
 function NurbsSurfaceBasisFetcher(props: Props) {
   const { group, param, ...plotProps } = props;
-  const surface = useNurbsSurface(group);
+  const [surface] = useNurbsSurfaces(group);
   const vectors = useMemo(() => getKnotVectors(surface), [surface]);
 
   return (

@@ -22,7 +22,7 @@ import { type VisContainerProps } from '../models';
 import VisBoundary from '../VisBoundary';
 import NurbsFetcher from './NurbsFetcher';
 import NurbsSurfaceFetcher from './NurbsSurfaceFetcher';
-import { isNurbsSurfaceGroup } from './utils';
+import { isNurbsMultiPatchGroup, isNurbsSurfaceGroup } from './utils';
 
 /* NURBS curve or surface of a group with `H5WEB_geometry = "nurbs"` */
 function NurbsVisContainer(props: VisContainerProps) {
@@ -30,7 +30,8 @@ function NurbsVisContainer(props: VisContainerProps) {
   assertGroup(entity);
 
   // Surfaces and 3D curves are drawn in a box
-  const isSurface = isNurbsSurfaceGroup(entity);
+  const isSurface =
+    isNurbsSurfaceGroup(entity) || isNurbsMultiPatchGroup(entity);
   const points = entity.children.find(({ name }) => name === 'control_points');
   const is3D =
     isSurface ||

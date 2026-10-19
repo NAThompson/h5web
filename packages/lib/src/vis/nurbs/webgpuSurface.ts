@@ -231,33 +231,40 @@ export interface SurfaceGpuView {
   size: [number, number]; // of canvas in device pixels
 }
 
+/* GPU buffers of a surface patch, and the steps of its knot spans */
+interface Patch {
+  spans: [KnotSpan[], KnotSpan[]];
+  params: GPUBuffer;
+  points: GPUBuffer;
+  knots: GPUBuffer;
+  spanTable: GPUBuffer;
+  vertices?: GPUBuffer;
+  drawBindGroup?: GPUBindGroup;
+  cellCount: number;
+  counts?: [Uint32Array, Uint32Array];
+}
+
 /*
- * Draws a NURBS surface (in world coordinates) in a WebGPU canvas: a compute shader evaluates
- * positions and normals on a grid whenever the number of steps of the knot spans changes (i.e.
- * as the camera moves closer or away), and a render pass draws the grid with a depth buffer.
+ * Draws NURBS surfaces (patches, in world coordinates) in a WebGPU canvas: a compute shader
+ * evaluates positions and normals on a grid of each patch whenever the number of steps of its
+ * knot spans changes (i.e. as the camera moves closer or away), and a render pass draws the
+ * grids with a shared depth buffer.
  */
 export class NurbsSurfaceGpuRenderer {
   private readonly context: GPUCanvasContext;
   private readonly format = navigator.gpu.getPreferredCanvasFormat();
   private readonly evaluatePipeline: GPUComputePipeline;
   private readonly drawPipeline: GPURenderPipeline;
-  private readonly params: GPUBuffer;
-  private readonly points: GPUBuffer;
-  private readonly knots: GPUBuffer;
-  private readonly spanTable: GPUBuffer;
+  private readonly patches: Patch[];
   private readonly view: GPUBuffer;
   private readonly lut: GPUBuffer;
-  private vertices?: GPUBuffer;
-  private drawBindGroup?: GPUBindGroup;
   private targets?: RenderTargets;
-  private cellCount = 0;
-  private counts?: [Uint32Array, Uint32Array];
 
   public constructor(
     private readonly device: GPUDevice,
     private readonly canvas: HTMLCanvasElement,
-    surface: NurbsSurface,
-    private readonly spans: [KnotSpan[], KnotSpan[]],
+    surfaces: NurbsSurface[],
+    spans: [KnotSpan[], KnotSpan[]][], // of each surface
   ) {
     const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
     if (!context) {
@@ -288,113 +295,127 @@ export class NurbsSurfaceGpuRenderer {
       multisample: { count: SAMPLE_COUNT },
     });
 
-    const { degrees, shape, points, weights, knots } = surface;
-    const homogeneous = new Float32Array(weights.length * 4);
-    weights.forEach((w, i) => {
-      homogeneous.set(
-        [points[i * 3] * w, points[i * 3 + 1] * w, points[i * 3 + 2] * w, w],
-        i * 4,
-      );
-    });
+    this.patches = surfaces.map((surface, p) => {
+      const { degrees, shape, points, weights, knots } = surface;
+      const homogeneous = new Float32Array(weights.length * 4);
+      weights.forEach((w, i) => {
+        homogeneous.set(
+          [points[i * 3] * w, points[i * 3 + 1] * w, points[i * 3 + 2] * w, w],
+          i * 4,
+        );
+      });
 
-    this.params = createBuffer(device, 32, UNIFORM);
-    this.points = createBuffer(device, homogeneous, STORAGE);
-    this.knots = createBuffer(
-      device,
-      Float32Array.from([...knots[0], ...knots[1]]),
-      STORAGE,
-    );
-    this.spanTable = createBuffer(
-      device,
-      (spans[0].length + spans[1].length) * 12,
-      STORAGE,
-    );
+      const [spansU, spansV] = spans[p];
+      const params = createBuffer(device, 32, UNIFORM);
+      device.queue.writeBuffer(
+        params,
+        0,
+        Uint32Array.from([
+          ...degrees,
+          shape[1],
+          0,
+          spansU.length,
+          spansV.length,
+          0,
+          knots[0].length,
+        ]),
+      );
+
+      return {
+        spans: spans[p],
+        params,
+        points: createBuffer(device, homogeneous, STORAGE),
+        knots: createBuffer(
+          device,
+          Float32Array.from([...knots[0], ...knots[1]]),
+          STORAGE,
+        ),
+        spanTable: createBuffer(
+          device,
+          (spansU.length + spansV.length) * 12,
+          STORAGE,
+        ),
+        cellCount: 0,
+      };
+    });
     this.view = createBuffer(device, 112, UNIFORM);
     this.lut = createLutBuffer(device);
-
-    device.queue.writeBuffer(
-      this.params,
-      0,
-      Uint32Array.from([
-        ...degrees,
-        shape[1],
-        0,
-        spans[0].length,
-        spans[1].length,
-        0,
-        knots[0].length,
-      ]),
-    );
   }
 
   public setColorLut(lut: Float32Array): void {
     writeColorLut(this.device, this.lut, lut);
   }
 
-  /* Evaluates the surface again if the spans need other numbers of steps */
-  public setSampleCounts(counts: [Uint32Array, Uint32Array]): void {
-    const { device, spans, counts: prev } = this;
-    if (
-      prev &&
-      counts.every((arr, dir) => arr.every((n, i) => n === prev[dir][i]))
-    ) {
-      return;
-    }
-    this.counts = counts;
-
-    const [sizeU, sizeV] = counts.map((arr) =>
-      arr.reduce((acc, n) => acc + n, 1),
-    );
-    const total = sizeU * sizeV;
-    this.cellCount = (sizeU - 1) * (sizeV - 1);
-
-    const table = new Uint32Array((spans[0].length + spans[1].length) * 3);
-    let offset = 0;
-    for (const dir of [0, 1]) {
-      let first = 0;
-      for (const [s, { index }] of spans[dir].entries()) {
-        table.set([index, first, counts[dir][s]], offset);
-        offset += 3;
-        first += counts[dir][s];
-      }
-    }
-
-    if (!this.vertices || this.vertices.size < total * 32) {
-      this.vertices?.destroy();
-      this.vertices = createBuffer(
-        device,
-        2 ** Math.ceil(Math.log2(total * 32)), // room to move closer
-        STORAGE,
-      );
-      this.drawBindGroup = device.createBindGroup({
-        layout: this.drawPipeline.getBindGroupLayout(0),
-        entries: [this.params, this.view, this.vertices, this.lut].map(
-          (buffer, binding) => ({ binding, resource: { buffer } }),
-        ),
-      });
-    }
-
-    device.queue.writeBuffer(this.spanTable, 0, table);
-    device.queue.writeBuffer(this.params, 12, Uint32Array.of(sizeV));
-    device.queue.writeBuffer(this.params, 24, Uint32Array.of(total));
-
+  /* Evaluates each patch again if its spans need other numbers of steps */
+  public setSampleCounts(counts: [Uint32Array, Uint32Array][]): void {
+    const { device } = this;
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
     pass.setPipeline(this.evaluatePipeline);
-    pass.setBindGroup(
-      0,
-      device.createBindGroup({
-        layout: this.evaluatePipeline.getBindGroupLayout(0),
-        entries: [
-          this.params,
-          this.points,
-          this.knots,
-          this.spanTable,
-          this.vertices,
-        ].map((buffer, binding) => ({ binding, resource: { buffer } })),
-      }),
-    );
-    pass.dispatchWorkgroups(Math.ceil(total / WORKGROUP_SIZE));
+
+    for (const [p, patch] of this.patches.entries()) {
+      const { spans, counts: prev } = patch;
+      const patchCounts = counts[p];
+      if (
+        prev &&
+        patchCounts.every((arr, dir) => arr.every((n, i) => n === prev[dir][i]))
+      ) {
+        continue;
+      }
+      patch.counts = patchCounts;
+
+      const [sizeU, sizeV] = patchCounts.map((arr) =>
+        arr.reduce((acc, n) => acc + n, 1),
+      );
+      const total = sizeU * sizeV;
+      patch.cellCount = (sizeU - 1) * (sizeV - 1);
+
+      const table = new Uint32Array((spans[0].length + spans[1].length) * 3);
+      let offset = 0;
+      for (const dir of [0, 1]) {
+        let first = 0;
+        for (const [s, { index }] of spans[dir].entries()) {
+          table.set([index, first, patchCounts[dir][s]], offset);
+          offset += 3;
+          first += patchCounts[dir][s];
+        }
+      }
+
+      if (!patch.vertices || patch.vertices.size < total * 32) {
+        patch.vertices?.destroy();
+        patch.vertices = createBuffer(
+          device,
+          2 ** Math.ceil(Math.log2(total * 32)), // room to move closer
+          STORAGE,
+        );
+        patch.drawBindGroup = device.createBindGroup({
+          layout: this.drawPipeline.getBindGroupLayout(0),
+          entries: [patch.params, this.view, patch.vertices, this.lut].map(
+            (buffer, binding) => ({ binding, resource: { buffer } }),
+          ),
+        });
+      }
+
+      device.queue.writeBuffer(patch.spanTable, 0, table);
+      device.queue.writeBuffer(patch.params, 12, Uint32Array.of(sizeV));
+      device.queue.writeBuffer(patch.params, 24, Uint32Array.of(total));
+
+      pass.setBindGroup(
+        0,
+        device.createBindGroup({
+          layout: this.evaluatePipeline.getBindGroupLayout(0),
+          entries: [
+            patch.params,
+            patch.points,
+            patch.knots,
+            patch.spanTable,
+            patch.vertices,
+          ].map((buffer, binding) => ({ binding, resource: { buffer } })),
+        }),
+      );
+      pass.dispatchWorkgroups(Math.ceil(total / WORKGROUP_SIZE));
+    }
+
     pass.end();
     device.queue.submit([encoder.finish()]);
   }
@@ -426,7 +447,7 @@ export class NurbsSurfaceGpuRenderer {
 
   /* Draws again with the last view, e.g. right before copying the canvas */
   public redraw(): void {
-    const { device, drawBindGroup, targets } = this;
+    const { device, targets } = this;
     if (!targets) {
       return;
     }
@@ -449,10 +470,12 @@ export class NurbsSurfaceGpuRenderer {
         depthStoreOp: 'discard',
       },
     });
-    if (drawBindGroup && this.cellCount > 0) {
-      pass.setPipeline(this.drawPipeline);
-      pass.setBindGroup(0, drawBindGroup);
-      pass.draw(this.cellCount * 6);
+    pass.setPipeline(this.drawPipeline);
+    for (const { drawBindGroup, cellCount } of this.patches) {
+      if (drawBindGroup && cellCount > 0) {
+        pass.setBindGroup(0, drawBindGroup);
+        pass.draw(cellCount * 6);
+      }
     }
     pass.end();
     device.queue.submit([encoder.finish()]);
@@ -461,13 +484,15 @@ export class NurbsSurfaceGpuRenderer {
   public dispose(): void {
     this.context.unconfigure();
     for (const buffer of [
-      this.params,
-      this.points,
-      this.knots,
-      this.spanTable,
       this.view,
       this.lut,
-      this.vertices,
+      ...this.patches.flatMap((patch) => [
+        patch.params,
+        patch.points,
+        patch.knots,
+        patch.spanTable,
+        patch.vertices,
+      ]),
     ]) {
       buffer?.destroy();
     }
