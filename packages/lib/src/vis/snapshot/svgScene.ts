@@ -18,6 +18,7 @@ import { type LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 
 import LinePchipGeometry from '../line/linePchipGeometry';
 import { GlyphType } from '../line/models';
+import { getHermiteExtent } from '../line/utils';
 import { ScaledOrthographicCamera } from '../shared/ScaledOrthographicCamera';
 import { type CanvasPanels, renderPanel } from './panels';
 import {
@@ -187,6 +188,26 @@ function isCulled(a: Point, b: Point, width: number, height: number): boolean {
   );
 }
 
+// Box of a cubic Hermite's curve in pixels, which splines may bulge out of, unless out of view
+function getVisibleBox(
+  toPx: Mvp,
+  z: number,
+  [x0, y0]: Point,
+  [x1, y1]: Point,
+  [slope0, slope1]: [number, number],
+  [width, height]: [number, number],
+): [Point, Point] | undefined {
+  const [low, high] = getHermiteExtent(
+    y0,
+    y1,
+    slope0 * (x1 - x0),
+    slope1 * (x1 - x0),
+  );
+  const lo = toPx(x0, low, z);
+  const hi = toPx(x1, high, z);
+  return lo && hi && !isCulled(lo, hi, width, height) ? [lo, hi] : undefined;
+}
+
 function lineToSvg(
   obj: LineSegments2,
   state: SceneState,
@@ -224,7 +245,15 @@ function lineToSvg(
       const z = Math.min(z0, z1);
       const a = toPx(x0, y0, z);
       const b = toPx(x1, y1, z);
-      if (!a || !b || isCulled(a, b, width, height)) {
+      const box = getVisibleBox(
+        toPx,
+        z,
+        [x0, y0],
+        [x1, y1],
+        [starts.getW(i), ends.getW(i)],
+        [width, height],
+      );
+      if (!a || !b || !box) {
         last = undefined;
         continue;
       }
@@ -237,7 +266,8 @@ function lineToSvg(
         last && Math.hypot(last[0] - a[0], last[1] - a[1]) < 0.01
           ? ''
           : `M${fmt(a[0])} ${fmt(a[1])}`;
-      const isShort = Math.abs(b[0] - a[0]) < 1 && Math.abs(b[1] - a[1]) < 1;
+      const isShort =
+        Math.abs(b[0] - a[0]) < 1 && Math.abs(box[1][1] - box[0][1]) < 1;
       parts.push(
         isShort
           ? `${start}L${fmt(b[0])} ${fmt(b[1])}`

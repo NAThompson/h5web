@@ -42,3 +42,30 @@ test('fall back to range of slices shown so far', async () => {
     .element(page.getByText(/using range of slices shown so far/u))
     .toBeVisible();
 });
+
+// `fourD` slices are `sin(x² / 10)` at integers: their splines overshoot ±1
+test('keep ranges seen with splines apart', async () => {
+  await renderApp({ initialPath: '/arrays/fourD', preferredVis: Vis.Line });
+
+  async function selectInterpolation(name: string): Promise<void> {
+    await page.getByRole('button', { name: 'Aspect' }).click();
+    await page.getByRole('radio', { name }).click();
+    await page.getByRole('button', { name: 'Aspect' }).click(); // close menu
+  }
+
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  try {
+    await page.getByRole('button', { name: 'Play D0' }).click();
+    await advanceFakeTimers(400);
+    await page.getByRole('button', { name: 'Play D0' }).click();
+  } finally {
+    vi.useRealTimers();
+  }
+  const linearTicks = getOrdinateTicks();
+
+  await selectInterpolation('Spline');
+  await expect.poll(getOrdinateTicks).not.toBe(linearTicks);
+
+  await selectInterpolation('Linear');
+  await expect.poll(getOrdinateTicks).toBe(linearTicks);
+});

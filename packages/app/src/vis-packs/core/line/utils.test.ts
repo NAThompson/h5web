@@ -1,6 +1,8 @@
+import { ScaleType } from '@h5web/shared/vis-models';
+import ndarray from 'ndarray';
 import { describe, expect, it } from 'vitest';
 
-import { getMultiPlotSliceLabel } from './utils';
+import { getMultiPlotSliceLabel, getSplinesDomain } from './utils';
 
 describe('getMultiPlotSliceLabel', () => {
   it('label slice with its index when dimension has no scale', () => {
@@ -19,5 +21,31 @@ describe('getMultiPlotSliceLabel', () => {
     expect(getMultiPlotSliceLabel(0, 1, 'angle', [0, 30], ['a', 'b'])).toBe(
       'b',
     );
+  });
+});
+
+describe('getSplinesDomain', () => {
+  const xs = [0, 1, 2, 3];
+  const flat = ndarray([1, 1, 1, 1]);
+  const bump = ndarray([0, 0, 10, 0]); // spline overshoots below 0
+  const lin = ScaleType.Linear;
+
+  it('combine the splines of visible curves only', () => {
+    expect(
+      getSplinesDomain(xs, [{ array: flat }], undefined, lin, lin),
+    ).toEqual([1, 1]);
+    const hidden = [{ array: flat }, { array: bump, visible: false }];
+    expect(getSplinesDomain(xs, hidden, undefined, lin, lin)).toEqual([1, 1]);
+
+    const [min, max] =
+      getSplinesDomain(xs, [{ array: bump }], undefined, lin, lin) ?? [];
+    expect(min).toBeLessThan(0);
+    expect(max).toBeGreaterThan(10);
+  });
+
+  it("use the dataset's `ignoreValue` for curves without their own", () => {
+    const isTen = (val: number) => val === 10;
+    const curves = [{ array: bump }, { array: flat, ignoreValue: () => false }];
+    expect(getSplinesDomain(xs, curves, isTen, lin, lin)).toEqual([0, 1]);
   });
 });

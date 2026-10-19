@@ -8,6 +8,7 @@ import { expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 
 import { renderApp } from '../test-utils';
+import { Vis } from '../vis-packs/core/visualizations';
 
 function getFigure(name?: string): HTMLElement {
   const figure = page.getByRole('figure', name ? { name } : {}).element();
@@ -79,6 +80,33 @@ test('export line with error bars and legend as vector SVG', async () => {
 
   // Text has explicit positions, not baselines that not all renderers support
   expect(doc.querySelector('[dominant-baseline], [dy]')).toBeNull();
+});
+
+// `fourD` slices are `sin(x² / 10)` at integers: their splines overshoot above 1
+test('export spline that bulges into view between points out of view', async () => {
+  const { user } = await renderApp({
+    initialPath: '/arrays/fourD',
+    preferredVis: Vis.Line,
+  });
+  await user.click(page.getByRole('button', { name: 'Aspect' }));
+  await user.click(page.getByRole('radio', { name: 'Spline' }));
+  await user.click(page.getByRole('button', { name: 'Aspect' })); // close menu
+
+  await page.getByRole('button', { name: 'Edit domain' }).hover();
+  await page.getByLabelText('max', { exact: true }).fill('2');
+  await user.keyboard('{Enter}');
+  await page.getByLabelText('min', { exact: true }).fill('1.05');
+  await user.keyboard('{Enter}');
+
+  // Bulges between the outermost points, all below the plot
+  const { width } = getFigure().getBoundingClientRect();
+  await exportSvgWhen(getFigure(), (svg) =>
+    [...svg.querySelectorAll('path[fill="none"]')].some((p) =>
+      [...(p.getAttribute('d') ?? '').matchAll(/M([\d.]+) [\d.]+C/gu)].some(
+        ([, x]) => Number(x) > width / 4 && Number(x) < (3 * width) / 4,
+      ),
+    ),
+  );
 });
 
 test('export heatmap as image with vector axes and colour bar', async () => {

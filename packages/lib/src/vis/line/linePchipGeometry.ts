@@ -34,10 +34,14 @@ const MAX_ERROR_PX = 1; // in CSS pixels
  * chords between points, and bounds include any overshoot of the curve beyond them.
  */
 class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
+  // Whether the interpolant may leave the box of its end points (cf. `getSegmentCount`)
+  protected readonly overshoots: boolean = false;
+
   private readonly length: number;
   private readonly points: BufferAttribute;
   private maxStepX = 0; // largest `|dx|` of any interval
   private maxStepY = 0; // largest height of the curve over any interval
+  private maxBend = 0; // largest `|d²y/dt²|` over any interval (`t` in [0, 1]), if it may overshoot
   private extentY = [Infinity, -Infinity]; // of the curve, with overshoot
 
   public constructor(private readonly params: LineGeometryParams) {
@@ -78,6 +82,7 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
 
     this.maxStepX = 0;
     this.maxStepY = 0;
+    this.maxBend = 0;
     this.extentY = [Infinity, -Infinity];
     for (let index = 0; index < this.length; index++) {
       if (Number.isFinite(xs[index]) && Number.isFinite(ys[index])) {
@@ -96,6 +101,16 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
       if (Number.isFinite(dx) && Number.isFinite(high - low)) {
         this.maxStepX = Math.max(this.maxStepX, Math.abs(dx));
         this.maxStepY = Math.max(this.maxStepY, high - low);
+        if (this.overshoots) {
+          this.maxBend = Math.max(
+            this.maxBend,
+            getHermiteBend(
+              ys[index + 1] - ys[index],
+              slopes[index] * dx,
+              slopes[index + 1] * dx,
+            ),
+          );
+        }
         this.extentY = [
           Math.min(this.extentY[0], low),
           Math.max(this.extentY[1], high),
@@ -109,6 +124,7 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
     const segments = getSegmentCount(
       this.maxStepX * pixelsPerUnit.x,
       this.maxStepY * pixelsPerUnit.y,
+      this.maxBend * pixelsPerUnit.y,
     );
     this.setDrawRange(0, segments * TEMPLATE_INDEX_COUNT);
     return segments;
@@ -176,26 +192,51 @@ class LinePchipGeometry extends ThreeLineGeometry implements H5WebGeometry {
 /*
  * PCHIP is monotone on every interval, so each of `n` chords is the diagonal of
  * a box containing its piece of curve: the error is at most `min(width / n, height)`.
- * Splines may not be, so `height` is that of the curve over the interval, overshoot included.
+ * Splines may not be, so `height` is that of the curve over the interval, overshoot included,
+ * and `n` is also enough for the error of chords of a curve that bends by `bend`, `bend / 8n²`.
  * Mirrored by `segmentsForInterval` in the shader.
  */
-function getSegmentCount(widthPx: number, heightPx: number): number {
+function getSegmentCount(
+  widthPx: number,
+  heightPx: number,
+  bendPx = 0,
+): number {
   if (heightPx <= MAX_ERROR_PX) {
     return 1;
   }
-  const segments = Math.ceil(widthPx / MAX_ERROR_PX);
+  const segments = Math.max(
+    Math.ceil(widthPx / MAX_ERROR_PX),
+    Math.ceil(Math.sqrt(bendPx / (8 * MAX_ERROR_PX))),
+  );
   return Math.min(Math.max(segments, 1), MAX_SEGMENTS_PER_INTERVAL);
+}
+
+// Largest `|y''(t)|` of the cubic Hermite with that rise and derivatives (at `t = 0` or `1`)
+function getHermiteBend(rise: number, d0: number, d1: number): number {
+  return Math.max(
+    Math.abs(6 * rise - 4 * d0 - 2 * d1),
+    Math.abs(6 * rise - 2 * d0 - 4 * d1),
+  );
 }
 
 const TEMPLATE_INDEX_COUNT = 18; // indices of three's single-segment template
 
 // Patches three's `LineMaterial` to draw the segments of `LinePchipGeometry`
 export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
+  patchShader(shader, false);
+}
+
+// Same for `LineSplineGeometry`, whose curve may overshoot its points (distinct program in three's cache)
+export function splineOnBeforeCompile(shader: { vertexShader: string }): void {
+  patchShader(shader, true);
+}
+
+function patchShader(shader: { vertexShader: string }, overshoots: boolean) {
   let source = shader.vertexShader;
   source = replaceOrThrow(
     source,
     /attribute vec3 instanceStart;\s*attribute vec3 instanceEnd;/u,
-    /* glsl */ `
+    /* glsl */ `${overshoots ? '\n        #define PCHIP_OVERSHOOTS' : ''}
         attribute vec4 instanceStart; // x, y, z, slope at start of interval
         attribute vec4 instanceEnd; // x, y, z, slope at end of interval
         attribute float segment; // index of segment within interval
@@ -215,57 +256,64 @@ export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
           return instanceStart.y + t * (m0 + t * (3.0 * rise - 2.0 * m0 - m1 + t * (m0 + m1 - 2.0 * rise)));
         }
 
-        // Lowest and highest \`y\` of the interpolant, as in \`getHermiteExtent\`
-        vec2 hermiteExtent() {
-          float width = instanceEnd.x - instanceStart.x;
-          float rise = instanceEnd.y - instanceStart.y;
-          float m0 = instanceStart.w * width;
-          float b = 3.0 * rise - 2.0 * m0 - instanceEnd.w * width;
-          float c = m0 + instanceEnd.w * width - 2.0 * rise;
-          float disc = b * b - 3.0 * c * m0;
-          vec2 extent = vec2(min(instanceStart.y, instanceEnd.y), max(instanceStart.y, instanceEnd.y));
-          float q = -(b + (b < 0.0 ? -1.0 : 1.0) * sqrt(max(disc, 0.0)));
-          vec2 roots = disc < 0.0 ? vec2(-1.0) : vec2(
-            c != 0.0 ? q / (3.0 * c) : -1.0,
-            q != 0.0 ? m0 / q : -1.0
-          );
-          for (int i = 0; i < 2; i++) {
-            if (roots[i] > 0.0 && roots[i] < 1.0) {
-              float y = hermiteY(roots[i]);
-              extent = vec2(min(extent.x, y), max(extent.y, y));
+        #ifdef PCHIP_OVERSHOOTS
+          // Lowest and highest \`y\` of the interpolant, as in \`getHermiteExtent\`
+          vec2 hermiteExtent(float m0, float b, float c) {
+            float disc = b * b - 3.0 * c * m0;
+            vec2 extent = vec2(min(instanceStart.y, instanceEnd.y), max(instanceStart.y, instanceEnd.y));
+            float q = -(b + (b < 0.0 ? -1.0 : 1.0) * sqrt(max(disc, 0.0)));
+            vec2 roots = disc < 0.0 ? vec2(-1.0) : vec2(
+              c != 0.0 ? q / (3.0 * c) : -1.0,
+              q != 0.0 ? m0 / q : -1.0
+            );
+            for (int i = 0; i < 2; i++) {
+              if (roots[i] > 0.0 && roots[i] < 1.0) {
+                float y = hermiteY(roots[i]);
+                extent = vec2(min(extent.x, y), max(extent.y, y));
+              }
             }
+            return extent;
           }
-          return extent;
-        }
+        #endif
 
         // Same rule as \`getSegmentCount\`, for this interval alone
         float segmentsForInterval() {
           vec2 size = abs(toPixels(instanceEnd) - toPixels(instanceStart));
-          vec2 extent = hermiteExtent();
-          float height = abs(
-            toPixels(vec4(instanceStart.x, extent.y, 0.0, 0.0)).y -
-            toPixels(vec4(instanceStart.x, extent.x, 0.0, 0.0)).y
-          );
-          if (height <= float(${MAX_ERROR_PX})) {
+          float segments = ceil(size.x / float(${MAX_ERROR_PX}));
+          #ifdef PCHIP_OVERSHOOTS
+            float width = instanceEnd.x - instanceStart.x;
+            float rise = instanceEnd.y - instanceStart.y;
+            float m0 = instanceStart.w * width;
+            float m1 = instanceEnd.w * width;
+            float b = 3.0 * rise - 2.0 * m0 - m1;
+            float c = m0 + m1 - 2.0 * rise;
+            vec2 extent = hermiteExtent(m0, b, c);
+            float pxPerY = abs(toPixels(vec4(instanceStart.x, 1.0, 0.0, 0.0)).y - toPixels(vec4(instanceStart.x, 0.0, 0.0, 0.0)).y);
+            size.y = (extent.y - extent.x) * pxPerY;
+            float bend = 2.0 * max(abs(b), abs(b + 3.0 * c)) * pxPerY; // \`getHermiteBend\`
+            segments = max(segments, ceil(sqrt(bend / float(${8 * MAX_ERROR_PX}))));
+          #endif
+          if (size.y <= float(${MAX_ERROR_PX})) {
             return 1.0;
           }
-          return clamp(ceil(size.x / float(${MAX_ERROR_PX})), 1.0, maxSegments);
+          return clamp(segments, 1.0, maxSegments);
         }
+
+        float pchipSegments; // of this interval, set at the start of \`main\`
 
         // Fraction of the interval at fraction \`offset\` of current segment
         float pchipT(float offset) {
-          return (segment + offset) / segmentsForInterval();
+          return (segment + offset) / pchipSegments;
         }
 
         // Cubic Hermite interpolant at fraction \`offset\` of current segment
         vec3 pchipPoint(float offset) {
-          float segments = segmentsForInterval();
           float t = pchipT(offset);
           float width = instanceEnd.x - instanceStart.x;
           float y = hermiteY(t);
 
           // Segments this interval doesn't need are moved out of view, like invalid points
-          float z = segment < segments ? min(instanceStart.z, instanceEnd.z) : float(${Z_OUT});
+          float z = segment < pchipSegments ? min(instanceStart.z, instanceEnd.z) : float(${Z_OUT});
           return vec3(instanceStart.x + t * width, y, z);
         }
       `,
@@ -280,6 +328,11 @@ export function pchipOnBeforeCompile(shader: { vertexShader: string }): void {
     source,
     'dashScale * instanceDistanceEnd;',
     'dashScale * mix( instanceDistanceStart, instanceDistanceEnd, pchipT( 1.0 ) );',
+  );
+  source = replaceOrThrow(
+    source,
+    'void main() {',
+    'void main() {\n\t\t\tpchipSegments = segmentsForInterval();',
   );
   source = replaceOrThrow(
     source,

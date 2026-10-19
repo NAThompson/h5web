@@ -1,11 +1,10 @@
 import {
   type AxisTicks,
+  CurveType,
   type DimensionMapping,
   getAxisValues,
-  getCombinedDomain,
   getDomain,
   getSliceSelection,
-  getSplineDomain,
   Interpolation,
   INTERPOLATORS,
   KeepZoom,
@@ -63,7 +62,12 @@ import {
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type LineConfig } from './config';
 import LineToolbar from './LineToolbar';
-import { generateCsv, getMultiPlotSliceLabel, getRows } from './utils';
+import {
+  generateCsv,
+  getMultiPlotSliceLabel,
+  getRows,
+  getSplinesDomain,
+} from './utils';
 
 const interpolateSliceColor = INTERPOLATORS.Viridis;
 const MAX_LEGEND_CURVES = 10; // multi-plots with a legend of their slices
@@ -290,77 +294,6 @@ function MappedLineVis(props: Props) {
     [series, references, yScaleType],
   );
 
-  // Cubic splines overshoot their points: keep their curves in view too
-  const splineDomain = useMemo(() => {
-    if (interpolation !== Interpolation.Spline) {
-      return undefined;
-    }
-    const abscissas = getAxisValues(
-      numAxisArrays[dimMapping.indexOf('x')],
-      dataArray.size,
-    );
-    const curves = [
-      ...(valueVisible ? [dataArray, ...sliceArrays] : []).map((array) => ({
-        array,
-        ignore: ignoreValue,
-      })),
-      ...auxArrays
-        .map((array, i) => ({ array, ignore: auxIgnoreValues[i] }))
-        .filter((_, i) => auxVisible[i]),
-      ...series.map(({ array, ignoreValue: ignore }) => ({ array, ignore })),
-    ];
-    return getCombinedDomain(
-      curves.map(({ array, ignore }) =>
-        getSplineDomain(
-          abscissas,
-          array.data,
-          withSymlogConstant(xScaleType, xSymlogConstant),
-          withSymlogConstant(yScaleType, symlogThreshold),
-          ignore,
-        ),
-      ),
-    );
-  }, [
-    interpolation,
-    numAxisArrays,
-    dimMapping,
-    dataArray,
-    sliceArrays,
-    valueVisible,
-    ignoreValue,
-    auxArrays,
-    auxIgnoreValues,
-    auxVisible,
-    series,
-    xScaleType,
-    xSymlogConstant,
-    yScaleType,
-    symlogThreshold,
-  ]);
-
-  const combinedDomain =
-    useStableDomain(
-      useCombinedDomain([
-        valueVisible ? dataDomain : undefined,
-        ...auxDomains.filter((_, i) => auxVisible[i]),
-        ...extraDomains,
-        splineDomain,
-      ]),
-      `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}`,
-      (sequenceValue) =>
-        valueVisible
-          ? getDomain(
-              toNumArray(
-                unpackNumArray(sequenceValue as typeof value, packing),
-              ),
-              { scaleType: yScaleType, ignoreValue },
-            )
-          : undefined,
-    ) || DEFAULT_DOMAIN;
-
-  const visDomain = useVisDomain(customDomain, combinedDomain);
-  const [safeDomain] = useSafeDomain(visDomain, combinedDomain, yScaleType);
-
   const selection = getSliceSelection(dimMapping);
   const xDimIndex = dimMapping.indexOf('x');
 
@@ -440,6 +373,59 @@ function MappedLineVis(props: Props) {
   // Same curves while unchanged, for their unplottable marks and the legend's corner
   const auxiliaries = useStableObjects([...curveAuxiliaries, ...extraCurves]);
 
+  // Cubic splines overshoot their points: keep the curves drawn in view too
+  const dataVisible = valueVisible && slicesVisible[0];
+  const drawsSplines =
+    interpolation === Interpolation.Spline &&
+    curveType !== CurveType.GlyphsOnly;
+  const splineDomain = useMemo(
+    () =>
+      drawsSplines
+        ? getSplinesDomain(
+            getAxisValues(abscissaParams.value, dataArray.size),
+            [{ array: dataArray, visible: dataVisible }, ...auxiliaries],
+            ignoreValue,
+            withSymlogConstant(xScaleType, xSymlogConstant),
+            withSymlogConstant(yScaleType, symlogThreshold),
+          )
+        : undefined,
+    [
+      drawsSplines,
+      abscissaParams.value,
+      dataArray,
+      dataVisible,
+      auxiliaries,
+      ignoreValue,
+      xScaleType,
+      xSymlogConstant,
+      yScaleType,
+      symlogThreshold,
+    ],
+  );
+
+  const combinedDomain =
+    useStableDomain(
+      useCombinedDomain([
+        valueVisible ? dataDomain : undefined,
+        ...auxDomains.filter((_, i) => auxVisible[i]),
+        ...extraDomains,
+        splineDomain,
+      ]),
+      `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}:${drawsSplines}`, // splines overshoot
+      (sequenceValue) =>
+        valueVisible
+          ? getDomain(
+              toNumArray(
+                unpackNumArray(sequenceValue as typeof value, packing),
+              ),
+              { scaleType: yScaleType, ignoreValue },
+            )
+          : undefined,
+    ) || DEFAULT_DOMAIN;
+
+  const visDomain = useVisDomain(customDomain, combinedDomain);
+  const [safeDomain] = useSafeDomain(visDomain, combinedDomain, yScaleType);
+
   const exportEntries = useExportEntries(['npy', 'csv'], dataset, selection, {
     csv: () =>
       generateCsv(
@@ -488,7 +474,7 @@ function MappedLineVis(props: Props) {
         auxiliaries={auxiliaries}
         ignoreValue={ignoreValue}
         interpolation={interpolation}
-        visible={valueVisible && slicesVisible[0]}
+        visible={dataVisible}
         showLegend={isLegendShown(
           legend,
           isMultiPlot,

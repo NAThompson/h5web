@@ -16,6 +16,7 @@ import LineGeometry from './lineGeometry';
 import LinePchipGeometry, {
   pchipOnBeforeCompile,
   pchipOnBeforeRender,
+  splineOnBeforeCompile,
 } from './linePchipGeometry';
 import LineSplineGeometry from './lineSplineGeometry';
 import { Interpolation } from './models';
@@ -90,7 +91,13 @@ function Line(props: Props) {
         dashed={dash}
         dashSize={DASH_SIZE}
         gapSize={GAP_SIZE}
-        onBeforeCompile={isPchip ? pchipOnBeforeCompile : undefined}
+        onBeforeCompile={
+          interpolation === Interpolation.Spline
+            ? splineOnBeforeCompile
+            : isPchip
+              ? pchipOnBeforeCompile
+              : undefined
+        }
         onBeforeRender={isPchip ? pchipOnBeforeRender : undefined}
         {...materialProps}
       />

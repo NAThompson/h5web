@@ -1,5 +1,16 @@
-import { type AuxiliaryParams, type AxisParams } from '@h5web/lib';
-import { type DimensionMapping, type NumArray } from '@h5web/shared/vis-models';
+import {
+  type AuxiliaryParams,
+  type AxisParams,
+  getCombinedDomain,
+  getSplineDomain,
+  type VisScaleType,
+} from '@h5web/lib';
+import {
+  type DimensionMapping,
+  type Domain,
+  type IgnoreValue,
+  type NumArray,
+} from '@h5web/shared/vis-models';
 import { formatTick } from '@h5web/shared/vis-utils';
 import ndarray, { type NdArray } from 'ndarray';
 
@@ -48,6 +59,30 @@ export function getRows(array: NdArray<NumArray>): NdArray<NumArray>[] {
       Array.isArray(data) ? data.slice(start, end) : data.subarray(start, end),
     );
   });
+}
+
+/* Range of the cubic splines of the curves drawn, overshoot included (curves without
+ * their own `ignoreValue` use the dataset's, as in `LineVis`) */
+export function getSplinesDomain(
+  abscissas: NumArray,
+  curves: Pick<AuxiliaryParams, 'array' | 'visible' | 'ignoreValue'>[],
+  ignoreValue: IgnoreValue | undefined,
+  xScaleType: VisScaleType | undefined,
+  yScaleType: VisScaleType | undefined,
+): Domain | undefined {
+  return getCombinedDomain(
+    curves
+      .filter(({ visible }) => visible !== false)
+      .map(({ array, ignoreValue: ignore }) =>
+        getSplineDomain(
+          abscissas,
+          array.data,
+          xScaleType,
+          yScaleType,
+          ignore ?? ignoreValue,
+        ),
+      ),
+  );
 }
 
 export function generateCsv(

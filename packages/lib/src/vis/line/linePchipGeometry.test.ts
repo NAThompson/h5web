@@ -5,7 +5,10 @@ import { ShaderLib, Vector2 } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { createScale } from '../utils';
-import LinePchipGeometry, { pchipOnBeforeCompile } from './linePchipGeometry';
+import LinePchipGeometry, {
+  pchipOnBeforeCompile,
+  splineOnBeforeCompile,
+} from './linePchipGeometry';
 import LineSplineGeometry from './lineSplineGeometry';
 
 // Steps of 1 along x, alternating by 100 along y
@@ -45,6 +48,18 @@ describe('pchipOnBeforeCompile', () => {
     expect(shader.vertexShader).toContain('pchipT( 1.0 ) );'); // dash distances
   });
 
+  it('should count segments once per vertex, and look for overshoot only in splines', () => {
+    const pchip = { vertexShader: ShaderLib.line.vertexShader };
+    const spline = { vertexShader: ShaderLib.line.vertexShader };
+    pchipOnBeforeCompile(pchip);
+    splineOnBeforeCompile(spline);
+
+    // Definition and call in `main`
+    expect(pchip.vertexShader.match(/segmentsForInterval\(/gu)).toHaveLength(2);
+    expect(pchip.vertexShader).not.toContain('#define PCHIP_OVERSHOOTS');
+    expect(spline.vertexShader).toContain('#define PCHIP_OVERSHOOTS');
+  });
+
   it('should throw when the code to patch is missing', () => {
     const shader = {
       vertexShader: 'void main() {}',
@@ -66,6 +81,11 @@ describe('LineSplineGeometry', () => {
   it('should subdivide intervals that overshoot, however flat their chords', () => {
     expect(geometry.setPixelsPerUnit(new Vector2(1000, 0.01))).toBe(1);
     expect(spline.setPixelsPerUnit(new Vector2(1000, 0.01))).toBe(16);
+  });
+
+  it('should subdivide intervals that bend, however narrow', () => {
+    expect(geometry.setPixelsPerUnit(new Vector2(0.5, 1))).toBe(1);
+    expect(spline.setPixelsPerUnit(new Vector2(0.5, 1))).toBeGreaterThan(1);
   });
 
   it('should bound the curve, overshoot included', () => {
