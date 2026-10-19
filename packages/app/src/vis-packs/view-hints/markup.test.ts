@@ -24,4 +24,11 @@ describe('renderSvgMarkup', () => {
     );
     expect(toSvgText('short', 9)).toBe('<svg><text>short</text></svg>');
   });
+
+  it('should count astral characters as one, without splitting them', () => {
+    expect(toSvgText('𝜓₃,₂,₀', 6)).toBe('<svg><text>𝜓₃,₂,₀</text></svg>');
+    expect(toSvgText('𝑥𝑦𝑧𝑢', 3)).toBe(
+      '<svg><text><tspan data-text="𝑥𝑦𝑧𝑢"><title>𝑥𝑦𝑧𝑢</title><tspan>𝑥𝑦</tspan>…</tspan></text></svg>',
+    );
+  });
 });

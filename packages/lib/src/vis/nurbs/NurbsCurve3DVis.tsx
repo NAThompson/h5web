@@ -41,9 +41,9 @@ function NurbsCurve3DVis(props: PropsWithChildren<Props>) {
   const {
     curve,
     title,
-    xLabel = 'x',
-    yLabel = 'y',
-    zLabel = 'z',
+    xLabel = '𝑥',
+    yLabel = '𝑦',
+    zLabel = '𝑧',
     colorMap = 'Viridis',
     invertColorMap = false,
     width = 2,
@@ -111,7 +111,7 @@ function NurbsCurve3DVis(props: PropsWithChildren<Props>) {
       scaleType={ScaleType.Linear}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
-      colorBarLabel="u"
+      colorBarLabel="𝑢"
       renderer={device && 'webgpu'}
     >
       {device && (

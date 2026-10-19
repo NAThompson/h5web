@@ -136,13 +136,13 @@ function VectorVis(props: PropsWithChildren<Props>) {
         const [fu, fv] = sampleField(field, x, y);
         return (
           <>
-            {`${abscissaParams?.label ?? 'x'}=${formatTooltipVal(x)}, `}
-            {`${ordinateParams?.label ?? 'y'}=${formatTooltipVal(y)}`}
+            {`${abscissaParams?.label ?? '𝑥'}=${formatTooltipVal(x)}, `}
+            {`${ordinateParams?.label ?? '𝑦'}=${formatTooltipVal(y)}`}
             <div className={styles.tooltipValue}>
               <strong>
                 {`(${formatTooltipVal(fu)}, ${formatTooltipVal(fv)})`}
               </strong>
-              {` |v| = ${formatTooltipVal(Math.hypot(fu, fv))}`}
+              {` |𝐯| = ${formatTooltipVal(Math.hypot(fu, fv))}`}
             </div>
             {background && backgroundLabel && (
               <div>{`${backgroundLabel} = ${formatTooltipVal(background.get(yi, xi))}`}</div>

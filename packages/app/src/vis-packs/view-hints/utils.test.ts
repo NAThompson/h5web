@@ -554,6 +554,8 @@ describe('value label', () => {
     expect(getValueLabel({ long_name: 'E' }, 'E')).toBeUndefined();
     expect(getValueLabel({ long_name: 'E' }, 'T')).toBe('E');
     expect(getValueLabel({ units: 1 }, undefined)).toBeUndefined();
+    expect(getValueLabel({ long_name: 'T', units: 'degC' }, '')).toBe('T (°C)');
+    expect(getValueLabel({ long_name: 'r', units: '1' }, '')).toBe('r');
   });
 });
 

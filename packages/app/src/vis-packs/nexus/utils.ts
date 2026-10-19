@@ -41,6 +41,7 @@ import {
   hasAttribute,
 } from '../../utils';
 import { getUniqueLabels } from '../dimscales/utils';
+import { formatUnits } from '../units';
 import {
   type AxisDef,
   type DefaultSlice,
@@ -371,8 +372,9 @@ export async function getFieldInfo(
   const unitsAttr = findScalarStrAttr(dataset, 'units');
   const units = await getAttributeValue(dataset, unitsAttr, dataContext);
 
+  const shown = units && formatUnits(units);
   return {
-    label: longName || (units ? `${dataset.name} (${units})` : dataset.name),
+    label: longName || (shown ? `${dataset.name} (${shown})` : dataset.name),
     unit: units,
   };
 }

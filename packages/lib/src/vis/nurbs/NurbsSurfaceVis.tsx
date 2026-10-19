@@ -61,9 +61,9 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
   const {
     surfaces,
     title,
-    xLabel = 'x',
-    yLabel = 'y',
-    zLabel = 'z',
+    xLabel = '𝑥',
+    yLabel = '𝑦',
+    zLabel = '𝑧',
     colorBarLabel = zLabel,
     colorBy = NurbsColorBy.Height,
     colorField = 0,

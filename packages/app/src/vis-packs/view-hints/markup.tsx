@@ -29,15 +29,19 @@ export function renderMarkup(label: string | undefined): ReactNode {
   );
 }
 
+function toCodePoints(str: string): string[] {
+  return str.match(/./gsu) ?? [];
+}
+
 /* Same, as SVG text content (shifted `<tspan>`), cut short with an ellipsis beyond `maxChars`
- * characters (then in full in a tooltip) */
+ * characters (then in full in a tooltip); code points, so as not to split surrogate pairs */
 export function renderSvgMarkup(
   label: string | undefined,
   maxChars = Infinity,
 ): ReactNode {
   const parts = formatLabel(label ?? '');
   const text = parts.map(({ str }) => str).join('');
-  const isCut = text.length > maxChars;
+  const isCut = toCodePoints(text).length > maxChars;
   if (!isCut && parts.every(({ shift }) => !shift)) {
     return label;
   }
@@ -45,8 +49,9 @@ export function renderSvgMarkup(
   let budget = Math.max(maxChars - 1, 1); // room for the ellipsis
   const kept = isCut
     ? parts.flatMap((part) => {
-        const str = part.str.slice(0, Math.max(budget, 0));
-        budget -= str.length;
+        const chars = toCodePoints(part.str).slice(0, Math.max(budget, 0));
+        const str = chars.join('');
+        budget -= chars.length;
         return str ? [{ ...part, str }] : [];
       })
     : parts;

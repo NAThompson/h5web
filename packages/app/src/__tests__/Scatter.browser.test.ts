@@ -131,12 +131,12 @@ test(
       Vis.Scatter3D,
     ]);
     expect(getSelectedVisTab()).toBe(Vis.Scatter3D);
-    await expect.poll(() => hasText('Temperature (degC)')).toBe(true);
+    await expect.poll(() => hasText('Temperature (°C)')).toBe(true);
 
     // Coordinates in X, Y, Z order from their CF attributes, not as listed
     await user.click(page.getByRole('tab', { name: Vis.Scatter, exact: true }));
-    await expect.poll(() => hasText('lon (degrees_east)')).toBe(true);
-    expect(hasText('lat (degrees_north)')).toBe(true);
+    await expect.poll(() => hasText('lon (°E)')).toBe(true);
+    expect(hasText('lat (°N)')).toBe(true);
   },
   TEST_TIMEOUT,
 );

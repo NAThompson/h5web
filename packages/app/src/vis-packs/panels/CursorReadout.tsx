@@ -43,7 +43,7 @@ function CursorReadout(props: Props) {
     >
       {linked.length === 0 && <span>{renderMarkup(title)}</span>}
       <span>
-        {`${axisLabels.x ?? 'x'} = ${formatTooltipVal(x)}, ${axisLabels.y ?? 'y'} = ${formatTooltipVal(y)}`}
+        {`${axisLabels.x ?? '𝑥'} = ${formatTooltipVal(x)}, ${axisLabels.y ?? '𝑦'} = ${formatTooltipVal(y)}`}
       </span>
       {linked.length === 0 && <strong>{formatValue(value)}</strong>}
       {linked.map(({ key, title: panelTitle }) => {

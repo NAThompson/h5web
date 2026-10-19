@@ -56,7 +56,9 @@ export function getLegendBox(
 ): LegendBox {
   const chars = Math.max(
     0,
-    ...entries.map(({ label }) => getTextContent(label).length),
+    ...entries.map(
+      ({ label }) => (getTextContent(label).match(/./gsu) ?? []).length,
+    ),
   );
   const width = 2 * PADDING[0] + MARK_WIDTH + chars * CHAR_WIDTH;
   const height =

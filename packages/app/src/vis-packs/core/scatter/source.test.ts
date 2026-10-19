@@ -137,8 +137,8 @@ describe('findScatterSource', () => {
   it('find CF point coordinates in X, Y, Z order', async () => {
     const source = await find('/scatter/cf_points'); // `featureType = "point"`: no hint needed
     expect(source?.form).toBe('coordinates');
-    expect(source?.channels.x.label).toBe('lon (degrees_east)');
-    expect(source?.channels.y.label).toBe('lat (degrees_north)');
+    expect(source?.channels.x.label).toBe('lon (°E)');
+    expect(source?.channels.y.label).toBe('lat (°N)');
     expect(source?.channels.z?.label).toBe('alt (m)');
     expect(source?.channels.color?.dataset.name).toBe('cf_points');
 

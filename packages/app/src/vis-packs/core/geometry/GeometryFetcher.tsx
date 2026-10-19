@@ -7,6 +7,7 @@ import { useValue, useValues } from '../../../hooks';
 import LargeValueGuard from '../../LargeValueGuard';
 import { useIgnoreValues, usePackings } from '../../netcdf/hooks';
 import { type Packing, unpackNumArray } from '../../netcdf/utils';
+import { formatUnits } from '../../units';
 import { toNumArray } from '../utils';
 import { splitVertices, toCoordinateArray, useGeometry } from './hooks';
 import {
@@ -92,7 +93,8 @@ function VertexValues(props: {
       toCoordinateArray(value, packing, ignoreValue),
       vertexDims,
     ) as [NumArray, NumArray, NumArray | undefined];
-    const suffix = unit ? ` (${unit})` : '';
+    const shown = unit && formatUnits(unit);
+    const suffix = shown ? ` (${shown})` : '';
 
     return {
       x,
@@ -100,7 +102,7 @@ function VertexValues(props: {
       z,
       values: undefined,
       shape: [dims[dims.length - 2]],
-      labels: [`x${suffix}`, `y${suffix}`, z ? `z${suffix}` : undefined],
+      labels: [`𝑥${suffix}`, `𝑦${suffix}`, z ? `𝑧${suffix}` : undefined],
       ignoreValue: undefined,
       packing: undefined,
     };

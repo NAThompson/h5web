@@ -115,14 +115,14 @@ test('colour isosurfaces by gradient magnitude and hide volume', async () => {
   await user.click(addLevelBtn());
   expect(page.getByLabelText('Level 1 colour')).toBeVisible();
 
-  await user.click(page.getByRole('radio', { name: '|∇f|' }));
+  await user.click(page.getByRole('radio', { name: '|∇𝑓|' }));
   expect(page.getByLabelText('Level 1 colour')).not.toBeInTheDocument();
 
   // Colour bar of gradient magnitudes appears once the surface is extracted
   await expect
     .element(page.getByLabelText('Gradient magnitude'), { timeout: 10_000 })
     .toBeVisible();
-  expect(page.getByLabelText('Gradient magnitude')).toHaveTextContent('|∇f|');
+  expect(page.getByLabelText('Gradient magnitude')).toHaveTextContent('|∇𝑓|');
 
   // Hide the volume rendering: only the gradient colour bar remains
   await user.keyboard('{Escape}');

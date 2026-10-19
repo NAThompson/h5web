@@ -121,7 +121,7 @@ function TextSprite(props: Props) {
     }
     const runWidths = runs.map(({ str, shift }) => {
       if (!ctx) {
-        return str.length * fontSize;
+        return (str.match(/./gsu) ?? []).length * fontSize;
       }
       ctx.font = getFont(shift);
       return ctx.measureText(str).width;

@@ -73,7 +73,7 @@ function ParamSurfaceVis(props: PropsWithChildren<Props>) {
     title,
     xLabel,
     yLabel,
-    zLabel = 'z',
+    zLabel = '𝑧',
     keepRatio = true,
     showAxes = true,
     showGrid = true,

@@ -20,6 +20,7 @@ import {
 import { type DataContextValue } from '../../../providers/DataProvider';
 import { isTransportError } from '../../../providers/utils';
 import { findAttribute, getAttributeValue, hasAttribute } from '../../../utils';
+import { formatUnits } from '../../units';
 
 /* See `apps/storybook/src/CurvesAndSurfaces.mdx` for the specification of the convention. */
 export const COORDINATES_ATTR = 'coordinates'; // CF auxiliary coordinate variables
@@ -235,7 +236,10 @@ export function getAxisLabel(
   unit: string | undefined,
 ): string {
   const base = longName || name;
-  return unit && !base.includes(`(${unit})`) ? `${base} (${unit})` : base;
+  const shown = unit && formatUnits(unit);
+  return shown && !base.includes(`(${unit})`) && !base.includes(`(${shown})`)
+    ? `${base} (${shown})`
+    : base;
 }
 
 /* Role of a coordinate variable, identified as described in CF §4 */

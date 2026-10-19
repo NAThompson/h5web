@@ -150,7 +150,7 @@ function MappedComplexCurveVis(props: Props) {
         title={renderMarkup(
           `${title} (coloured by ${byPhase ? 'phase' : 'amplitude'})`,
         )}
-        xLabel={axisLabels[xDimIndex] ?? 'x'}
+        xLabel={axisLabels[xDimIndex] ?? '𝑥'}
         yLabel="Re"
         zLabel="Im"
         keepRatio={keepRatio}

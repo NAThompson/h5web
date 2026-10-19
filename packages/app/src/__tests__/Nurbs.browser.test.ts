@@ -228,7 +228,7 @@ test('visualize periodic 3D NURBS curve with WebGPU, coloured by parameter', asy
     .poll(() => figure.element().querySelector('canvas[data-drawn]'))
     .not.toBeNull();
   await expect.poll(async () => frames.at(-1)).toBeGreaterThan(1000);
-  await expect.element(figure.getByText('u', { exact: true })).toBeVisible(); // colour bar
+  await expect.element(figure.getByText('𝑢', { exact: true })).toBeVisible(); // colour bar
 
   // WebGPU canvas over the WebGL one (axes, control points)
   const canvases = figure.element().querySelectorAll('canvas');
@@ -356,7 +356,7 @@ test('plot basis functions with knots and their multiplicities', async () => {
 
   const figure = getFigure('nonuniform');
   await expect.element(figure).toBeVisible();
-  await expect.element(figure.getByText('N₇', { exact: true })).toBeVisible(); // legend: 8 points
+  await expect.element(figure.getByText('𝑁₇', { exact: true })).toBeVisible(); // legend: 8 points
   expect(
     page.getByRole('button', { name: 'Rational' }),
   ).not.toBeInTheDocument(); // no weights
@@ -379,10 +379,10 @@ test('toggle rational basis functions of weighted curve', async () => {
   const figure = getFigure('circle');
   const btn = page.getByRole('button', { name: 'Rational' });
   await expect.element(btn).toHaveAttribute('aria-pressed', 'true');
-  await expect.element(figure.getByText('R₀', { exact: true })).toBeVisible();
+  await expect.element(figure.getByText('𝑅₀', { exact: true })).toBeVisible();
 
   await user.click(btn);
-  await expect.element(figure.getByText('N₀', { exact: true })).toBeVisible();
+  await expect.element(figure.getByText('𝑁₀', { exact: true })).toBeVisible();
 });
 
 test('plot basis functions of surface along u and v', async () => {
@@ -390,11 +390,11 @@ test('plot basis functions of surface along u and v', async () => {
   await user.click(page.getByRole('tab', { name: 'Basis' }));
 
   const figure = getFigure('bspline_surface');
-  await expect.element(figure.getByText('N₅', { exact: true })).toBeVisible(); // 6 along u
-  expect(figure.getByText('N₆', { exact: true })).not.toBeInTheDocument();
+  await expect.element(figure.getByText('𝑁₅', { exact: true })).toBeVisible(); // 6 along u
+  expect(figure.getByText('𝑁₆', { exact: true })).not.toBeInTheDocument();
 
-  await user.click(page.getByRole('radio', { name: 'v' }));
-  await expect.element(figure.getByText('N₆', { exact: true })).toBeVisible(); // 7 along v
+  await user.click(page.getByRole('radio', { name: '𝑣' }));
+  await expect.element(figure.getByText('𝑁₆', { exact: true })).toBeVisible(); // 7 along v
 });
 
 test('visualize multi-patch NURBS surface (teapot) with WebGPU', async () => {
@@ -452,19 +452,19 @@ test('colour NURBS surface by Gaussian curvature, symmetric around 0', async () 
   const { user } = await renderApp('/nurbs/torus');
   const figure = getFigure('torus');
   await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
-  await expect.element(figure.getByText('z', { exact: true })).toBeVisible(); // colour bar
+  await expect.element(figure.getByText('𝑧', { exact: true })).toBeVisible(); // colour bar
 
-  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  await user.click(page.getByRole('combobox', { name: 'Height 𝑧' }));
   expect(
     page
       .getByRole('option')
       .elements()
       .map((el) => el.textContent),
-  ).toEqual(['Height z', '|∇ z|', 'Gaussian curvature K', 'Mean curvature H']);
-  await user.click(page.getByRole('option', { name: 'Gaussian curvature K' }));
+  ).toEqual(['Height 𝑧', '|∇𝑧|', 'Gaussian curvature 𝐾', 'Mean curvature 𝐻']);
+  await user.click(page.getByRole('option', { name: 'Gaussian curvature 𝐾' }));
 
   await expect
-    .element(figure.getByText('Gaussian curvature K', { exact: true }))
+    .element(figure.getByText('Gaussian curvature 𝐾', { exact: true }))
     .toBeVisible();
   await expect
     .element(page.getByRole('combobox', { name: /RdBu/u }))
@@ -481,11 +481,11 @@ test('colour NURBS surface by Gaussian curvature, symmetric around 0', async () 
 test('colour sphere by mean curvature: H = ±1', async () => {
   const { user } = await renderApp('/nurbs/sphere');
   const figure = getFigure('sphere');
-  await user.click(page.getByRole('combobox', { name: 'Height z' }));
-  await user.click(page.getByRole('option', { name: 'Mean curvature H' }));
+  await user.click(page.getByRole('combobox', { name: 'Height 𝑧' }));
+  await user.click(page.getByRole('option', { name: 'Mean curvature 𝐻' }));
 
   await expect
-    .element(figure.getByText('Mean curvature H', { exact: true }))
+    .element(figure.getByText('Mean curvature 𝐻', { exact: true }))
     .toBeVisible();
   await expect
     .poll(() => getColorBarBounds(figure).map((val) => Math.abs(val)))
@@ -498,7 +498,7 @@ test('colour teapot by stored field and its gradient', async () => {
   const figure = getFigure('teapot');
   await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
 
-  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  await user.click(page.getByRole('combobox', { name: 'Height 𝑧' }));
   await user.click(page.getByRole('option', { name: 'temperature (K)' }));
   await expect
     .element(figure.getByText('temperature (K)', { exact: true }))
@@ -509,11 +509,11 @@ test('colour teapot by stored field and its gradient', async () => {
 
   await user.click(page.getByRole('combobox', { name: 'temperature (K)' }));
   await user.click(
-    page.getByRole('option', { name: '|∇ temperature| (K per unit length)' }),
+    page.getByRole('option', { name: '|∇temperature| (K per unit length)' }),
   );
   await expect
     .element(
-      figure.getByText('|∇ temperature| (K per unit length)', { exact: true }),
+      figure.getByText('|∇temperature| (K per unit length)', { exact: true }),
     )
     .toBeVisible();
   await expect.poll(() => getColorBarBounds(figure)[1]).toBeGreaterThan(1);
@@ -546,7 +546,7 @@ test('colour NURBS surface at the root of the file by stored field', async () =>
   );
 
   const { user } = await renderApp('/');
-  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  await user.click(page.getByRole('combobox', { name: 'Height 𝑧' }));
   await expect
     .element(page.getByRole('option', { name: 'temperature (K)' }))
     .toBeVisible();

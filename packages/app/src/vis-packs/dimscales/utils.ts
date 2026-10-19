@@ -24,6 +24,7 @@ import {
   findScalarStrAttr,
   getAttributeValue,
 } from '../../utils';
+import { formatUnits } from '../units';
 import { createAttrReader, toUnicodeScripts } from '../view-hints/attrs';
 import { getDatasetLabels, getScaleLabels } from './slice-labels';
 
@@ -31,9 +32,9 @@ const RADIANS = /^\s*rad(?:ian)?s?\s*$/iu;
 
 /* Label of a dimension with the `units` of its scale, except radians on ticks at multiples of π */
 function withUnit(base: string, unit?: string, ticks?: AxisTicks): string {
-  return unit && !(ticks === 'pi' && RADIANS.test(unit))
-    ? `${base} (${unit})`
-    : base;
+  const shown =
+    unit && !(ticks === 'pi' && RADIANS.test(unit)) && formatUnits(unit);
+  return shown ? `${base} (${shown})` : base;
 }
 
 export interface DimScale {

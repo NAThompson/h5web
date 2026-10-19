@@ -297,6 +297,9 @@ describe('getAxisLabel', () => {
     expect(getAxisLabel('x', undefined, 'm')).toBe('x (m)');
     expect(getAxisLabel('x', 'Position', 'm')).toBe('Position (m)');
     expect(getAxisLabel('x', 'Position (m)', 'm')).toBe('Position (m)');
+    expect(getAxisLabel('lon', undefined, 'degrees_east')).toBe('lon (°E)');
+    expect(getAxisLabel('u', 'Wind (m s⁻¹)', 'm s-1')).toBe('Wind (m s⁻¹)');
+    expect(getAxisLabel('r', undefined, '1')).toBe('r');
   });
 });
 

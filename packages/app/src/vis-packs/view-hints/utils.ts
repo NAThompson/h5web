@@ -11,6 +11,7 @@ import { isTransportError } from '../../providers/utils';
 import { findScalarStrAttr, getAttributeValue } from '../../utils';
 import { createGeometryContext } from '../core/geometry/utils';
 import { type VisDef } from '../models';
+import { formatUnits } from '../units';
 import { hasViewAttrs, parseViewHint } from './attrs';
 import { EMPTY_HINT, HintVis, type OverlayHint, type ViewHint } from './models';
 import { getDimNames, withoutPhonyScales } from './overlays';
@@ -193,7 +194,8 @@ export function getValueLabel(
 ): string | undefined {
   const { long_name: rawName, units: rawUnits } = values;
   const longName = typeof rawName === 'string' && rawName ? rawName : undefined;
-  const units = typeof rawUnits === 'string' && rawUnits ? rawUnits : undefined;
+  const units =
+    (typeof rawUnits === 'string' && formatUnits(rawUnits)) || undefined;
   const name = longName === title ? undefined : longName;
   return name && units ? `${name} (${units})` : (name ?? units);
 }

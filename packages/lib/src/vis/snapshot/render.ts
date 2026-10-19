@@ -274,8 +274,11 @@ export function getShownText(
 
   const range = document.createRange();
   function charRect(i: number): DOMRect {
-    range.setStart(node, i);
-    range.setEnd(node, i + 1);
+    // Whole surrogate pairs (e.g. mathematical italic letters): halves have no box of their own
+    const isLow = /[\udc00-\udfff]/u.test(node.data[i]);
+    const isHigh = /[\ud800-\udbff]/u.test(node.data[i]);
+    range.setStart(node, isLow && i > 0 ? i - 1 : i);
+    range.setEnd(node, isHigh ? Math.min(i + 2, node.length) : i + 1);
     return range.getBoundingClientRect();
   }
   if (charRect(end - 1).right <= limit + 0.5) {
@@ -293,6 +296,9 @@ export function getShownText(
       : charRect(shown).left < clipRight)
   ) {
     shown += 1;
+  }
+  if (shown > start && /[\ud800-\udbff]/u.test(node.data[shown - 1])) {
+    shown -= 1; // not half a surrogate pair (e.g. mathematical italic letters)
   }
   return { end: shown, ellipsis: isEllipsis };
 }

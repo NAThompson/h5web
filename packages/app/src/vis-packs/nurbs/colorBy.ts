@@ -6,6 +6,7 @@ import {
 } from '@h5web/lib';
 import { useState } from 'react';
 
+import { formatUnits } from '../units';
 import { type NurbsFieldInfo } from './hooks';
 
 /* Option of the "Colour by" selector: colour mode, then index of the field, if any */
@@ -51,7 +52,7 @@ export function getColorByOptionLabel(
 ): string {
   const { colorBy } = parseColorByOption(option, fields.length);
   return colorBy === NurbsColorBy.Height
-    ? 'Height z'
+    ? 'Height 𝑧'
     : getColorByLabel(option, fields);
 }
 
@@ -62,14 +63,16 @@ export function getColorByLabel(
 ): string {
   const { colorBy, colorField } = parseColorByOption(option, fields.length);
   const field = fields[colorField] as NurbsFieldInfo | undefined;
-  const unit = field?.unit ? ` (${field.unit})` : '';
+  const unit = field?.unit && formatUnits(field.unit);
+  const fieldLabel = field?.label ?? '';
+  const gradOf = /\s/u.test(fieldLabel) ? `(${fieldLabel})` : fieldLabel; // `∇(sea temperature)`
   const labels: Record<NurbsColorBy, string> = {
-    [NurbsColorBy.Height]: 'z',
-    [NurbsColorBy.Field]: `${field?.label}${unit}`,
-    [NurbsColorBy.FieldGradient]: `|∇ ${field?.label}|${field?.unit ? ` (${field.unit} per unit length)` : ''}`,
-    [NurbsColorBy.HeightGradient]: '|∇ z|',
-    [NurbsColorBy.GaussianCurvature]: 'Gaussian curvature K',
-    [NurbsColorBy.MeanCurvature]: 'Mean curvature H',
+    [NurbsColorBy.Height]: '𝑧',
+    [NurbsColorBy.Field]: `${field?.label}${unit ? ` (${unit})` : ''}`,
+    [NurbsColorBy.FieldGradient]: `|∇${gradOf}|${unit ? ` (${unit} per unit length)` : ''}`,
+    [NurbsColorBy.HeightGradient]: '|∇𝑧|',
+    [NurbsColorBy.GaussianCurvature]: 'Gaussian curvature 𝐾',
+    [NurbsColorBy.MeanCurvature]: 'Mean curvature 𝐻',
   };
   return labels[colorBy];
 }

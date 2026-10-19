@@ -86,7 +86,7 @@ function MappedCurveVis(props: Props) {
         title={renderMarkup(values ? title : `${title} (coloured by index)`)}
         xLabel={labels[0]}
         yLabel={labels[1]}
-        zLabel={labels[2] ?? 'z'}
+        zLabel={labels[2] ?? '𝑧'}
         keepRatio={keepRatio}
         showGrid={showGrid}
         curveType={curveType}

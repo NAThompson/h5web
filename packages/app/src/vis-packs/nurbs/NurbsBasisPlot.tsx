@@ -13,7 +13,6 @@ import ndarray from 'ndarray';
 import { useMemo } from 'react';
 
 import { toUnicodeScripts } from '../view-hints/attrs';
-import { renderSvgMarkup } from '../view-hints/markup';
 import styles from './NurbsBasis.module.css';
 import NurbsBasisLegend, { type BasisLegendEntry } from './NurbsBasisLegend';
 import NurbsKnotMarks from './NurbsKnotMarks';
@@ -45,7 +44,7 @@ interface Props {
   title: string;
   vector: KnotVector;
   weights?: NumArray; // rational basis functions
-  param: string; // `u` or `v`
+  param: 'u' | 'v';
   showSum: boolean;
   showGrid: boolean;
 }
@@ -53,6 +52,7 @@ interface Props {
 /* Basis functions `N(i,p)` (or `R(i,p)`) of all control points over the domain, with the knots */
 function NurbsBasisPlot(props: Props) {
   const { className, title, vector, weights, param, showSum, showGrid } = props;
+  const variable = param === 'u' ? '𝑢' : '𝑣';
   const { degree, knots } = vector;
   const count = knots.length - degree - 1;
   if (count > MAX_FUNCTIONS) {
@@ -84,7 +84,7 @@ function NurbsBasisPlot(props: Props) {
     };
   }, [vector, weights, count]);
 
-  const letter = weights ? 'R' : 'N';
+  const letter = weights ? '𝑅' : '𝑁';
   const entries = useMemo(
     (): BasisLegendEntry[] => [
       ...basis.map((_, i) => ({
@@ -104,12 +104,12 @@ function NurbsBasisPlot(props: Props) {
       dataArray={firstArray}
       dataColor={entries[0].color}
       domain={[0, 1 + HEADROOM]}
-      abscissaParams={{ value: params, label: param }}
-      ordinateLabel={renderSvgMarkup(`${letter}_{i,${degree}}(${param})`)}
+      abscissaParams={{ value: params, label: variable }}
+      ordinateLabel={toUnicodeScripts(`${letter}_{i,${degree}}(${variable})`)}
       showGrid={showGrid}
       renderTooltip={({ xi }) => (
         <>
-          {`${param} = ${formatTooltipVal(params[xi])}`}
+          {`${variable} = ${formatTooltipVal(params[xi])}`}
           {basis.map(
             (values, i) =>
               values[xi] > 0 && (

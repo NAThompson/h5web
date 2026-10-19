@@ -52,8 +52,8 @@ function NurbsBasisContainer(props: VisContainerProps) {
                   value={param}
                   onChange={(val) => setParam(val as 'u' | 'v')}
                 >
-                  <ToggleGroup.Btn label="u" value="u" />
-                  <ToggleGroup.Btn label="v" value="v" />
+                  <ToggleGroup.Btn label="𝑢" value="u" />
+                  <ToggleGroup.Btn label="𝑣" value="v" />
                 </ToggleGroup>
                 <Separator />
               </>

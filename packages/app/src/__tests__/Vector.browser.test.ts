@@ -60,7 +60,7 @@ function isWhite(r: number, g: number, b: number): boolean {
 function getTooltip(): string {
   return (
     [...document.querySelectorAll('figure div')].find((el) =>
-      el.textContent.includes('|v| ='),
+      el.textContent.includes('|𝐯| ='),
     )?.parentElement?.textContent ?? ''
   );
 }
@@ -97,7 +97,7 @@ test('visualize dataset with `H5WEB_vis = "vector"`', async () => {
   await expect
     .element(page.getByRole('combobox', { name: /^Style/u }))
     .toHaveTextContent('Streamlines');
-  await expect.poll(getColorBarLabel).toContain('ω');
+  await expect.poll(getColorBarLabel).toContain('𝜔');
 
   // Streamlines (and their arrowheads) export as vector paths
   const figure = document.querySelector('figure');
@@ -114,13 +114,13 @@ test('visualize dataset with `H5WEB_vis = "vector"`', async () => {
 
 test('switch background and update colour-bar label', async () => {
   await renderApp('/vector/vortex');
-  await expect.poll(getColorBarLabel).toContain('ω');
+  await expect.poll(getColorBarLabel).toContain('𝜔');
 
   await selectOption('Background', 'Magnitude');
-  await expect.poll(getColorBarLabel).toBe('|v| (m/s)');
+  await expect.poll(getColorBarLabel).toBe('|𝐯| (m/s)');
 
   await selectOption('Background', 'Divergence');
-  await expect.poll(getColorBarLabel).toBe('∇·v');
+  await expect.poll(getColorBarLabel).toBe('∇ · 𝐯');
 });
 
 test('draw arrows on the GPU and export them as SVG paths', async () => {
@@ -155,11 +155,11 @@ test('show the field under the pointer in the tooltip', async () => {
     position: { x: rect.width * 0.3, y: rect.height * 0.6 },
   });
 
-  await expect.poll(getTooltip).toMatch(/x=/u);
+  await expect.poll(getTooltip).toMatch(/𝑥=/u);
   const text = getTooltip();
-  const [, x, y] = /x=([\d.−]+), y=([\d.−]+)/u.exec(text) ?? [];
+  const [, x, y] = /𝑥=([\d.−]+), 𝑦=([\d.−]+)/u.exec(text) ?? [];
   const [, u, v, mag] =
-    /\(([\d.−]+), ([\d.−]+)\) \|v\| = ([\d.−]+)/u.exec(text) ?? [];
+    /\(([\d.−]+), ([\d.−]+)\) \|𝐯\| = ([\d.−]+)/u.exec(text) ?? [];
   // No scales: axes are indices; values are interpolated bilinearly
   const axis = Array.from({ length: 41 }, (_, i) => i);
   function tg(fn: (x: number, y: number) => number): number[] {
@@ -213,7 +213,7 @@ test('slice time-dependent fields', async () => {
 test('show 3D fields as arrows in a box', async () => {
   await renderApp('/vector/abc_flow');
   expect(getSelectedVisTab()).toBe('Vector');
-  await expect.poll(getColorBarLabel).toBe('|v| (m/s)');
+  await expect.poll(getColorBarLabel).toBe('|𝐯| (m/s)');
   await expect
     .poll(() => countPixels((_r, _g, _b, a) => a > 0))
     .toBeGreaterThan(5000);
@@ -243,7 +243,7 @@ test('show the magnitude if the background dataset is unusable', async () => {
   await expect
     .element(page.getByRole('combobox', { name: /^Background/u }))
     .toHaveTextContent('Magnitude');
-  await expect.poll(getColorBarLabel).toBe('|v| (m/s)');
+  await expect.poll(getColorBarLabel).toBe('|𝐯| (m/s)');
   await expect
     .element(page.getByRole('note', { name: 'View hint notes' }))
     .toHaveTextContent('"nowhere" is not a numeric dataset');

@@ -30,6 +30,7 @@ import {
 } from '../../netcdf/hooks';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
+import { formatUnits } from '../../units';
 import {
   useSymlogThreshold,
   useTransformIgnoreValue,
@@ -210,7 +211,8 @@ function MappedVolumeVis(props: Props) {
 }
 
 function getGradientLabel(dataUnit: string | undefined, per: string): string {
-  return `|∇f| (${dataUnit ? `${dataUnit} ` : ''}per ${per})`;
+  const unit = dataUnit && formatUnits(dataUnit);
+  return `|∇𝑓| (${unit ? `${unit} ` : ''}per ${formatUnits(per) || per})`;
 }
 
 export default MappedVolumeVis;

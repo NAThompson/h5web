@@ -267,7 +267,7 @@ function VectorVis3D(props: Props) {
           boxSize={boxSize}
           xConfig={{ domain: domains[0], label: labels[0] }}
           yConfig={{ domain: domains[1], label: labels[1] }}
-          zConfig={{ domain: domains[2], label: labels[2] ?? 'z' }}
+          zConfig={{ domain: domains[2], label: labels[2] ?? '𝑧' }}
           showGrid={showGrid}
         />
       )}

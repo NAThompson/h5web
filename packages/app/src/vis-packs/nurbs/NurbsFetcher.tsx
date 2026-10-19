@@ -39,8 +39,8 @@ function NurbsFetcher(props: Props) {
       className={className}
       curve={curve}
       title={group.name}
-      abscissaLabel="x"
-      ordinateLabel="y"
+      abscissaLabel="𝑥"
+      ordinateLabel="𝑦"
       {...visProps}
     />
   );

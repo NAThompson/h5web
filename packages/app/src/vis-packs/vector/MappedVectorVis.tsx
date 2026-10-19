@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../visualizer/Visualizer.module.css';
 import { useStableDomain } from '../playback-range';
+import { formatUnits } from '../units';
 import { renderMarkup } from '../view-hints/markup';
 import { type VectorConfig } from './config';
 import { getSequenceDomain, getVectorBackground, is3DField } from './utils';
@@ -72,13 +73,15 @@ function getBackgroundLabel(
 ): string {
   switch (kind) {
     case VectorBackground.Divergence:
-      return '∇·v';
+      return '∇ · 𝐯';
     case VectorBackground.Curl:
-      return 'ω = ∂v/∂x − ∂u/∂y';
+      return '𝜔 = ∂𝑣/∂𝑥 − ∂𝑢/∂𝑦';
     case VectorBackground.Dataset:
       return backgroundName ?? 'background';
-    default:
-      return units ? `|v| (${units})` : '|v|';
+    default: {
+      const shown = units && formatUnits(units);
+      return shown ? `|𝐯| (${shown})` : '|𝐯|';
+    }
   }
 }
 

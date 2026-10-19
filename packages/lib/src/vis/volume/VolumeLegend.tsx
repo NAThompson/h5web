@@ -26,7 +26,7 @@ function VolumeLegend(props: Props) {
     valueTransform,
     showVolume,
     gradientDomain,
-    gradientLabel = '|∇f|',
+    gradientLabel = '|∇𝑓|',
   } = props;
 
   return (

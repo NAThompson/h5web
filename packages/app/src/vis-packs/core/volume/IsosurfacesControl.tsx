@@ -58,7 +58,7 @@ function IsosurfacesControl(props: Props) {
             hint="One colour per level"
           />
           <ToggleGroup.Btn
-            label="|∇f|"
+            label="|∇𝑓|"
             value={IsoColorMode.Gradient}
             hint="Gradient magnitude, with the colour map"
           />

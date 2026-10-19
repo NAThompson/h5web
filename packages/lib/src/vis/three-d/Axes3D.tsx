@@ -399,7 +399,7 @@ function Axes3D(props: Props) {
     texts.push(
       {
         key: 'x-label',
-        text: xConfig.label ?? 'x',
+        text: xConfig.label ?? '𝑥',
         position: [0, yNear + sy * AXIS_LABEL_OFFSET, 0],
         outward: [0, sy, 0],
         priority: PRIORITY.axisLabel,
@@ -407,7 +407,7 @@ function Axes3D(props: Props) {
       },
       {
         key: 'y-label',
-        text: yConfig.label ?? 'y',
+        text: yConfig.label ?? '𝑦',
         position: [xNear + sx * AXIS_LABEL_OFFSET, 0, 0],
         outward: [sx, 0, 0],
         priority: PRIORITY.axisLabel,

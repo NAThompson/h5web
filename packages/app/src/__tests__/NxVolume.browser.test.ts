@@ -39,12 +39,12 @@ test('open NXdata with a 3D signal and an axis on every dimension as a volume', 
     page.getByRole('button', { name: 'Isosurfaces', exact: true }),
   );
   await user.click(page.getByRole('button', { name: 'Add level' }));
-  await user.click(page.getByRole('radio', { name: '|∇f|' }));
+  await user.click(page.getByRole('radio', { name: '|∇𝑓|' }));
 
   // Gradients are expressed in the units of the signal and of the NeXus axes
   await expect
     .element(page.getByLabelText('Gradient magnitude'), { timeout: 10_000 })
-    .toHaveTextContent('|∇f| (eV per 1/a)');
+    .toHaveTextContent('|∇𝑓| (eV per 1/a)');
 
   // Presentation changes keep the extracted surface (no new extraction)
   await expect.poll(() => document.querySelector('[role="status"]')).toBeNull();
