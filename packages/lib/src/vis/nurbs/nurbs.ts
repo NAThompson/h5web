@@ -1,6 +1,6 @@
 import { type NumArray } from '@h5web/shared/vis-models';
 
-/* Algorithms A2.1-A2.3, A3.5, A4.1 and A4.4 (first derivatives) of Piegl & Tiller, "The NURBS Book" (1997) */
+/* Algorithms A2.1-A2.3, A3.5, A4.1 and A4.4 (up to second derivatives) of Piegl & Tiller, "The NURBS Book" (1997) */
 
 export interface NurbsCurve {
   degree: number;
@@ -292,6 +292,7 @@ export interface NurbsSurface {
   points: NumArray; // `nu × nv × 3` row-major
   weights: NumArray; // `nu × nv`, all positive
   knots: [NumArray, NumArray]; // `nu + degree_u + 1` and `nv + degree_v + 1`, non-decreasing
+  fields?: NumArray[]; // scalar fields in the same basis: `nu × nv` control values of each
 }
 
 export interface SurfacePoint {
@@ -330,6 +331,12 @@ export function getNurbsSurfaceError(
   if (!points.every(Number.isFinite)) {
     return 'Control points must be finite';
   }
+  const badField = surface.fields?.findIndex(
+    (values) => values.length !== nu * nv || !values.every(Number.isFinite),
+  );
+  if (badField !== undefined && badField >= 0) {
+    return `Expected ${nu} × ${nv} finite values of field ${badField}`;
+  }
   return (
     getKnotsError(degrees[0], nu, knots[0], ' along u') ??
     getKnotsError(degrees[1], nv, knots[1], ' along v') ??
@@ -337,27 +344,43 @@ export function getNurbsSurfaceError(
   );
 }
 
-/* A2.3 (first derivatives): basis functions of span `k` at `u` and their derivatives, from
- * those of degree `p - 1`: `N'(i,p) = p N(i,p-1) / (u(i+p) - u(i)) - p N(i+1,p-1) / (u(i+p+1) - u(i+1))` */
+/* Derivatives of the `q + 1` basis functions of degree `q` of span `k`, from `low` (those of
+ * degree `q - 1`, or their derivatives): `N'(i,q) = q N(i,q-1) / (u(i+q) - u(i)) - q N(i+1,q-1) / (u(i+q+1) - u(i+1))` */
+function deriveBasis(
+  knots: NumArray,
+  q: number,
+  k: number,
+  low: Float64Array,
+): Float64Array {
+  return Float64Array.from({ length: q + 1 }, (_, r) => {
+    const left = r > 0 ? low[r - 1] / (knots[k + r] - knots[k - q + r]) : 0;
+    const right =
+      r < q ? low[r] / (knots[k + r + 1] - knots[k - q + r + 1]) : 0;
+    return q * (left - right);
+  });
+}
+
+/* A2.3 (up to second derivatives): basis functions of span `k` at `u` and their first and
+ * second derivatives, from those of degrees `p - 1` and `p - 2` (cf. `deriveBasis`) */
 export function getBasisDerivatives(
   vector: KnotVector,
   k: number,
   u: number,
-): [Float64Array, Float64Array] {
+): [Float64Array, Float64Array, Float64Array] {
   const { degree: p, knots } = vector;
   const basis = getBasisFunctions(vector, k, u);
-  const lower =
-    p > 1
-      ? getBasisFunctions({ degree: p - 1, knots }, k, u)
+  function lower(q: number): Float64Array {
+    return q > 0
+      ? getBasisFunctions({ degree: q, knots }, k, u)
       : Float64Array.of(1);
+  }
 
-  const ders = Float64Array.from({ length: p + 1 }, (_, r) => {
-    const left = r > 0 ? lower[r - 1] / (knots[k + r] - knots[k - p + r]) : 0;
-    const right =
-      r < p ? lower[r] / (knots[k + r + 1] - knots[k - p + r + 1]) : 0;
-    return p * (left - right);
-  });
-  return [basis, ders];
+  const ders = deriveBasis(knots, p, k, lower(p - 1));
+  const second =
+    p > 1
+      ? deriveBasis(knots, p, k, deriveBasis(knots, p - 1, k, lower(p - 2)))
+      : new Float64Array(p + 1);
+  return [basis, ders, second];
 }
 
 /*

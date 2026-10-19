@@ -1,3 +1,8 @@
+import { type Domain } from '@h5web/shared/vis-models';
+import { type Vector3Tuple } from 'three';
+
+import { getExtentDomain, NAN_COLOR } from '../three-d/utils';
+import { COLOR_BY_MODES, DEGENERATE_METRIC, NurbsColorBy } from './analysis';
 import { type KnotSpan, type NurbsSurface } from './nurbs';
 import { createBuffer, MAX_GPU_DEGREE, STORAGE, UNIFORM } from './webgpu';
 
@@ -21,12 +26,25 @@ export const COLOR_WGSL = /* wgsl */ `
 
 /*
  * Position and normal of the surface at each vertex of the grid (A2.2/A2.3 + A3.5 + A4.4 of
- * "The NURBS Book"), like `evaluateNurbsSurface`. `.w` of each holds the position of the
- * vertex in "knot coordinates", whole at knots: span index plus fraction of the span.
+ * "The NURBS Book"), like `evaluateNurbsSurface`, and the value it is coloured by, like
+ * `evaluateSurfaceAnalysis` (up to second derivatives, in data coordinates relative to an origin;
+ * positions and normals are then scaled and offset to world coordinates). `.w` of position and
+ * normal holds the position of the vertex in "knot coordinates", whole at knots: span index plus
+ * fraction of the span. Values are flagged invalid where the metric is degenerate (WGSL has no
+ * reliable `NaN`).
  */
 const EVALUATE_WGSL = /* wgsl */ `
   const ORDER = ${MAX_GPU_DEGREE + 1};
   const NUDGE = 1e-3; // fraction of span to find normals where they vanish (f32)
+  const DEGENERATE_METRIC = ${DEGENERATE_METRIC};
+
+  // Colour modes (cf. \`COLOR_BY_MODES\`)
+  const HEIGHT = 0u;
+  const FIELD = 1u;
+  const FIELD_GRADIENT = 2u;
+  const HEIGHT_GRADIENT = 3u;
+  const GAUSSIAN_CURVATURE = 4u;
+  const MEAN_CURVATURE = 5u;
 
   struct Params {
     degrees: vec2u,
@@ -35,17 +53,22 @@ const EVALUATE_WGSL = /* wgsl */ `
     spanCounts: vec2u,
     total: u32, // vertices
     knotsV: u32, // offset of knots along v
+    mode: u32,
+    fieldOffset: u32, // of the field's control values
+    scale: vec4f, // world = data relative to origin × scale + offset
+    offset: vec4f,
   }
   struct Span { knot: u32, first: u32, count: u32 } // \`count\` steps from vertex \`first\`
-  struct Vertex { position: vec4f, normal: vec4f }
-  struct Basis { n: array<f32, ORDER>, d: array<f32, ORDER> }
-  struct Point { position: vec3f, normal: vec3f }
+  struct Vertex { position: vec4f, normal: vec4f, value: vec4f } // value, 1 if valid, area
+  struct Basis { n: array<f32, ORDER>, d: array<f32, ORDER>, d2: array<f32, ORDER> }
+  struct Point { position: vec3f, normal: vec3f, value: vec2f, area: f32 } // per unit u × v
 
   @group(0) @binding(0) var<uniform> params: Params;
   @group(0) @binding(1) var<storage, read> points: array<vec4f>; // x w, y w, z w, w
   @group(0) @binding(2) var<storage, read> knots: array<f32>; // along u, then along v
   @group(0) @binding(3) var<storage, read> spans: array<Span>; // along u, then along v
   @group(0) @binding(4) var<storage, read_write> vertices: array<Vertex>;
+  @group(0) @binding(5) var<storage, read> fields: array<f32>; // control values, field after field
 
   /* Last span from \`first\` (of \`count\`) starting at or before step \`i\` */
   fn findSpan(first: u32, count: u32, i: u32) -> u32 {
@@ -58,15 +81,35 @@ const EVALUATE_WGSL = /* wgsl */ `
     return low;
   }
 
-  /* Basis functions of span \`k\` at \`t\` and their derivatives, from those of degree \`p - 1\` */
+  /* Derivatives of the basis functions of degree \`q\` of span \`k\` from \`low\`, those of degree
+   * \`q - 1\` or their derivatives (cf. \`deriveBasis\`) */
+  fn derive(offset: u32, q: u32, k: u32, low: array<f32, ORDER>) -> array<f32, ORDER> {
+    var d: array<f32, ORDER>;
+    for (var r = 0u; r <= q; r++) {
+      var der = 0.0;
+      if (r > 0u) {
+        der += low[r - 1u] / (knots[offset + k + r] - knots[offset + k + r - q]);
+      }
+      if (r < q) {
+        der -= low[r] / (knots[offset + k + r + 1u] - knots[offset + k + r + 1u - q]);
+      }
+      d[r] = f32(q) * der;
+    }
+    return d;
+  }
+
+  /* Basis functions of span \`k\` at \`t\` and their first and second derivatives, from those of
+   * degrees \`p - 1\` and \`p - 2\` */
   fn getBasis(offset: u32, p: u32, k: u32, t: f32) -> Basis {
     var b: Basis;
     var lower: array<f32, ORDER>;
+    var lower2: array<f32, ORDER>;
     var left: array<f32, ORDER>;
     var right: array<f32, ORDER>;
     b.n[0] = 1.0;
     for (var j = 1u; j <= p; j++) {
       if (j == p) { lower = b.n; }
+      if (j + 1u == p) { lower2 = b.n; }
       left[j] = t - knots[offset + k + 1u - j];
       right[j] = knots[offset + k + j] - t;
       var saved = 0.0;
@@ -77,15 +120,9 @@ const EVALUATE_WGSL = /* wgsl */ `
       }
       b.n[j] = saved;
     }
-    for (var r = 0u; r <= p; r++) {
-      var der = 0.0;
-      if (r > 0u) {
-        der += lower[r - 1u] / (knots[offset + k + r] - knots[offset + k + r - p]);
-      }
-      if (r < p) {
-        der -= lower[r] / (knots[offset + k + r + 1u] - knots[offset + k + r + 1u - p]);
-      }
-      b.d[r] = f32(p) * der;
+    b.d = derive(offset, p, k, lower);
+    if (p > 1u) {
+      b.d2 = derive(offset, p, k, derive(offset, p - 1u, k, lower2));
     }
     return b;
   }
@@ -94,25 +131,91 @@ const EVALUATE_WGSL = /* wgsl */ `
     let p = params.degrees;
     let bu = getBasis(0u, p.x, ku, u);
     let bv = getBasis(params.knotsV, p.y, kv, v);
+    let hasField = params.mode == FIELD || params.mode == FIELD_GRADIENT;
 
+    // Homogeneous point and its derivatives; field times weight and its first derivatives
     var a = vec4f(0.0);
     var au = vec4f(0.0);
     var av = vec4f(0.0);
+    var auu = vec4f(0.0);
+    var auv = vec4f(0.0);
+    var avv = vec4f(0.0);
+    var fw = vec3f(0.0);
     for (var r = 0u; r <= p.x; r++) {
       for (var c = 0u; c <= p.y; c++) {
-        let point = points[(ku - p.x + r) * params.countV + kv - p.y + c];
+        let i = (ku - p.x + r) * params.countV + kv - p.y + c;
+        let point = points[i];
         a += bu.n[r] * bv.n[c] * point;
         au += bu.d[r] * bv.n[c] * point;
         av += bu.n[r] * bv.d[c] * point;
+        auu += bu.d2[r] * bv.n[c] * point;
+        auv += bu.d[r] * bv.d[c] * point;
+        avv += bu.n[r] * bv.d2[c] * point;
+        if (hasField) {
+          let n = vec3f(bu.n[r] * bv.n[c], bu.d[r] * bv.n[c], bu.n[r] * bv.d[c]);
+          fw += n * fields[params.fieldOffset + i] * point.w;
+        }
       }
     }
-    let position = a.xyz / a.w;
-    let du = (au.xyz - au.w * position) / a.w;
-    let dv = (av.xyz - av.w * position) / a.w;
+    let w = a.w;
+    let s = a.xyz / w;
+    let su = (au.xyz - au.w * s) / w;
+    let sv = (av.xyz - av.w * s) / w;
+    let suu = (auu.xyz - 2.0 * au.w * su - auu.w * s) / w;
+    let svv = (avv.xyz - 2.0 * av.w * sv - avv.w * s) / w;
+    let suv = (auv.xyz - au.w * sv - av.w * su - auv.w * s) / w;
+
+    // Drawn in world coordinates
+    let scale = params.scale.xyz;
+    let du = su * scale;
+    let dv = sv * scale;
     let normal = cross(du, dv);
     let longest = max(dot(du, du), dot(dv, dv));
     let isDegenerate = dot(normal, normal) <= 1e-8 * longest * longest; // e.g. du = 0 at a pole
-    return Point(position, select(normalize(normal), vec3f(0.0), isDegenerate));
+
+    // Fundamental forms in data coordinates
+    let e = dot(su, su);
+    let f = dot(su, sv);
+    let g = dot(sv, sv);
+    let n = cross(su, sv);
+    let det = dot(n, n); // EG − F²
+    let isFlat = det <= DEGENERATE_METRIC * max(e, g) * max(e, g);
+    let unit = n / sqrt(select(det, 1.0, isFlat));
+    let l = dot(suu, unit);
+    let m = dot(suv, unit);
+    let nn = dot(svv, unit);
+
+    let fieldValue = fw.x / w;
+    var grad = vec2f(su.z, sv.z);
+    if (params.mode == FIELD_GRADIENT) {
+      grad = (fw.yz - vec2f(au.w, av.w) * fieldValue) / w;
+    }
+
+    var value = vec2f(s.z, 1.0);
+    switch (params.mode) {
+      case FIELD: { value.x = fieldValue; }
+      case FIELD_GRADIENT, HEIGHT_GRADIENT: {
+        let sq = g * grad.x * grad.x - 2.0 * f * grad.x * grad.y + e * grad.y * grad.y;
+        value = vec2f(sqrt(max(sq, 0.0) / det), select(1.0, 0.0, isFlat));
+      }
+      case GAUSSIAN_CURVATURE: {
+        value = vec2f((l * nn - m * m) / det, select(1.0, 0.0, isFlat));
+      }
+      case MEAN_CURVATURE: {
+        value = vec2f((e * nn - 2.0 * f * m + g * l) / (2.0 * det), select(1.0, 0.0, isFlat));
+      }
+      default: {}
+    }
+    if (value.y == 0.0) {
+      value.x = 0.0;
+    }
+
+    return Point(
+      s * scale + params.offset.xyz,
+      select(normalize(normal), vec3f(0.0), isDegenerate),
+      value,
+      sqrt(det),
+    );
   }
 
   @compute @workgroup_size(${WORKGROUP_SIZE})
@@ -143,13 +246,15 @@ const EVALUATE_WGSL = /* wgsl */ `
     vertices[i] = Vertex(
       vec4f(point.position, f32(su) + fu),
       vec4f(point.normal, f32(sv - params.spanCounts.x) + fv),
+      vec4f(point.value, point.area * (u1 - u0) * (v1 - v0) / f32(spans[su].count * spans[sv].count), 0.0),
     );
   }
 `;
 
 /*
  * Two triangles per cell of the grid, lit like \`meshLambertMaterial\` (both sides) with the
- * ambient and directional lights of \`Vis3DLayout\`, coloured by height with the colour map.
+ * ambient and directional lights of \`Vis3DLayout\`, coloured by value with the colour map, or
+ * with the NaN colour where the value is invalid.
  */
 const DRAW_WGSL = /* wgsl */ `
   const KNOT_COLOR = vec3f(0.0);
@@ -159,16 +264,18 @@ const DRAW_WGSL = /* wgsl */ `
     viewProjection: mat4x4f, // WebGL clip space
     camera: vec4f, // position
     light: vec4f, // direction to light, share of ambient light
-    zRange: vec2f, // heights at ends of colour map
+    valueRange: vec2f, // values at ends of colour map
     knotLines: f32, // width in device pixels, 0 to hide
+    nanColor: vec4f, // linear RGB
   }
-  struct Vertex { position: vec4f, normal: vec4f }
+  struct Vertex { position: vec4f, normal: vec4f, value: vec4f }
 
   struct Varyings {
     @builtin(position) position: vec4f,
     @location(0) world: vec3f,
     @location(1) normal: vec3f,
     @location(2) knot: vec2f,
+    @location(3) value: vec2f,
   }
 
   @group(0) @binding(0) var<uniform> params: Params;
@@ -193,6 +300,7 @@ const DRAW_WGSL = /* wgsl */ `
     out.world = vertex.position.xyz;
     out.normal = vertex.normal.xyz;
     out.knot = vec2f(vertex.position.w, vertex.normal.w);
+    out.value = vertex.value.xy;
     return out;
   }
 
@@ -206,8 +314,9 @@ const DRAW_WGSL = /* wgsl */ `
     let n = normalize(in.normal);
     let normal = select(n, -n, dot(n, view.camera.xyz - in.world) < 0.0);
 
-    let range = view.zRange.y - view.zRange.x;
-    let albedo = getColor(select(0.5, (in.world.z - view.zRange.x) / range, range > 0.0));
+    let range = view.valueRange.y - view.valueRange.x;
+    let t = select(0.5, (in.value.x - view.valueRange.x) / range, range != 0.0);
+    let albedo = select(getColor(t), view.nanColor.rgb, in.value.y < 0.5);
     let ambient = view.light.w;
     var color = albedo * (ambient + (1.0 - ambient) * max(dot(normal, view.light.xyz), 0.0));
 
@@ -222,21 +331,35 @@ const DRAW_WGSL = /* wgsl */ `
   }
 `;
 
+const PARAMS_SIZE = 80;
+const VERTEX_SIZE = 48; // bytes
+const COPY_SRC = 0x04;
+const MAP_READ = 0x01;
+
 export interface SurfaceGpuView {
   viewProjection: number[]; // column-major, as `Matrix4.elements`
   camera: [number, number, number];
   light: [number, number, number, number]; // unit direction, share of ambient light
-  zRange: [number, number];
+  valueRange: Domain; // values at the ends of the colour map
   knotLines: number; // width in device pixels, 0 to hide
   size: [number, number]; // of canvas in device pixels
+}
+
+/* World coordinates of data coordinates `p`: `(p - origin) × scale + offset`, per axis */
+export interface SurfaceTransform {
+  origin: Vector3Tuple;
+  scale: Vector3Tuple;
+  offset: Vector3Tuple;
 }
 
 /* GPU buffers of a surface patch, and the steps of its knot spans */
 interface Patch {
   spans: [KnotSpan[], KnotSpan[]];
+  paramData: ArrayBuffer; // of `params`, but for `sizeV` and `total`
   params: GPUBuffer;
   points: GPUBuffer;
   knots: GPUBuffer;
+  fields: GPUBuffer;
   spanTable: GPUBuffer;
   vertices?: GPUBuffer;
   drawBindGroup?: GPUBindGroup;
@@ -244,11 +367,19 @@ interface Patch {
   counts?: [Uint32Array, Uint32Array];
 }
 
+/* Where a patch is evaluated: buffers of the patch, or temporary ones to read values back */
+interface EvaluationTarget {
+  params: GPUBuffer;
+  spanTable: GPUBuffer;
+  vertices: GPUBuffer;
+}
+
 /*
- * Draws NURBS surfaces (patches, in world coordinates) in a WebGPU canvas: a compute shader
- * evaluates positions and normals on a grid of each patch whenever the number of steps of its
- * knot spans changes (i.e. as the camera moves closer or away), and a render pass draws the
- * grids with a shared depth buffer.
+ * Draws NURBS surfaces (patches, in data coordinates, cf. `SurfaceTransform`) in a WebGPU canvas:
+ * a compute shader evaluates positions, normals and values on a grid of each patch whenever the
+ * number of steps of its knot spans changes (i.e. as the camera moves closer or away) or what
+ * the surface is coloured by changes, and a render pass draws the grids with a shared depth
+ * buffer. Values can also be read back, on a given grid (e.g. for the colour domain).
  */
 export class NurbsSurfaceGpuRenderer {
   private readonly context: GPUCanvasContext;
@@ -258,6 +389,9 @@ export class NurbsSurfaceGpuRenderer {
   private readonly patches: Patch[];
   private readonly view: GPUBuffer;
   private readonly lut: GPUBuffer;
+  private readonly origin: Vector3Tuple;
+  private readonly fieldShifts: number[]; // subtracted from control values, for `f32`
+  private shift = 0; // subtracted from values on the GPU
   private targets?: RenderTargets;
 
   public constructor(
@@ -265,6 +399,7 @@ export class NurbsSurfaceGpuRenderer {
     private readonly canvas: HTMLCanvasElement,
     surfaces: NurbsSurface[],
     spans: [KnotSpan[], KnotSpan[]][], // of each surface
+    transform: SurfaceTransform,
   ) {
     const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
     if (!context) {
@@ -295,34 +430,57 @@ export class NurbsSurfaceGpuRenderer {
       multisample: { count: SAMPLE_COUNT },
     });
 
+    const { origin, scale, offset } = transform;
+    this.origin = origin;
+    this.fieldShifts = (surfaces[0].fields ?? []).map((_, f) => {
+      const [min, max] = getExtentDomain(
+        ...surfaces.map(({ fields }) => fields?.[f] ?? []),
+      );
+      return (min + max) / 2;
+    });
+
     this.patches = surfaces.map((surface, p) => {
-      const { degrees, shape, points, weights, knots } = surface;
+      const { degrees, shape, points, weights, knots, fields = [] } = surface;
       const homogeneous = new Float32Array(weights.length * 4);
       weights.forEach((w, i) => {
         homogeneous.set(
-          [points[i * 3] * w, points[i * 3 + 1] * w, points[i * 3 + 2] * w, w],
+          [
+            (points[i * 3] - origin[0]) * w,
+            (points[i * 3 + 1] - origin[1]) * w,
+            (points[i * 3 + 2] - origin[2]) * w,
+            w,
+          ],
           i * 4,
+        );
+      });
+      const fieldValues = new Float32Array(
+        Math.max(fields.length, 1) * weights.length,
+      );
+      fields.forEach((values, f) => {
+        fieldValues.set(
+          Float32Array.from(values, (val) => val - this.fieldShifts[f]),
+          f * weights.length,
         );
       });
 
       const [spansU, spansV] = spans[p];
-      const params = createBuffer(device, 32, UNIFORM);
-      device.queue.writeBuffer(
-        params,
+      const paramData = new ArrayBuffer(PARAMS_SIZE);
+      new Uint32Array(paramData).set([
+        ...degrees,
+        shape[1],
         0,
-        Uint32Array.from([
-          ...degrees,
-          shape[1],
-          0,
-          spansU.length,
-          spansV.length,
-          0,
-          knots[0].length,
-        ]),
-      );
+        spansU.length,
+        spansV.length,
+        0,
+        knots[0].length,
+      ]);
+      new Float32Array(paramData).set([...scale, 0, ...offset, 0], 12);
+      const params = createBuffer(device, PARAMS_SIZE, UNIFORM);
+      device.queue.writeBuffer(params, 0, paramData);
 
       return {
         spans: spans[p],
+        paramData,
         params,
         points: createBuffer(device, homogeneous, STORAGE),
         knots: createBuffer(
@@ -330,6 +488,7 @@ export class NurbsSurfaceGpuRenderer {
           Float32Array.from([...knots[0], ...knots[1]]),
           STORAGE,
         ),
+        fields: createBuffer(device, fieldValues, STORAGE),
         spanTable: createBuffer(
           device,
           (spansU.length + spansV.length) * 12,
@@ -338,12 +497,35 @@ export class NurbsSurfaceGpuRenderer {
         cellCount: 0,
       };
     });
-    this.view = createBuffer(device, 112, UNIFORM);
+    this.view = createBuffer(device, 128, UNIFORM);
     this.lut = createLutBuffer(device);
   }
 
   public setColorLut(lut: Float32Array): void {
     writeColorLut(this.device, this.lut, lut);
+  }
+
+  /* Values of the next evaluation: what to colour by, and which field (index in `fields`) */
+  public setColorBy(colorBy: NurbsColorBy, field = 0): void {
+    const isField =
+      colorBy === NurbsColorBy.Field || colorBy === NurbsColorBy.FieldGradient;
+    this.shift =
+      colorBy === NurbsColorBy.Height
+        ? this.origin[2]
+        : colorBy === NurbsColorBy.Field
+          ? this.fieldShifts[field]
+          : 0;
+
+    for (const patch of this.patches) {
+      const pointCount = patch.points.size / 16;
+      const data = Uint32Array.of(
+        COLOR_BY_MODES[colorBy],
+        isField ? field * pointCount : 0,
+      );
+      new Uint32Array(patch.paramData).set(data, 8);
+      this.device.queue.writeBuffer(patch.params, 32, data);
+      patch.counts = undefined; // evaluate again
+    }
   }
 
   /* Evaluates each patch again if its spans need other numbers of steps */
@@ -354,7 +536,7 @@ export class NurbsSurfaceGpuRenderer {
     pass.setPipeline(this.evaluatePipeline);
 
     for (const [p, patch] of this.patches.entries()) {
-      const { spans, counts: prev } = patch;
+      const { counts: prev } = patch;
       const patchCounts = counts[p];
       if (
         prev &&
@@ -364,28 +546,15 @@ export class NurbsSurfaceGpuRenderer {
       }
       patch.counts = patchCounts;
 
-      const [sizeU, sizeV] = patchCounts.map((arr) =>
-        arr.reduce((acc, n) => acc + n, 1),
-      );
+      const [sizeU, sizeV] = getGridSize(patchCounts);
       const total = sizeU * sizeV;
       patch.cellCount = (sizeU - 1) * (sizeV - 1);
 
-      const table = new Uint32Array((spans[0].length + spans[1].length) * 3);
-      let offset = 0;
-      for (const dir of [0, 1]) {
-        let first = 0;
-        for (const [s, { index }] of spans[dir].entries()) {
-          table.set([index, first, patchCounts[dir][s]], offset);
-          offset += 3;
-          first += patchCounts[dir][s];
-        }
-      }
-
-      if (!patch.vertices || patch.vertices.size < total * 32) {
+      if (!patch.vertices || patch.vertices.size < total * VERTEX_SIZE) {
         patch.vertices?.destroy();
         patch.vertices = createBuffer(
           device,
-          2 ** Math.ceil(Math.log2(total * 32)), // room to move closer
+          2 ** Math.ceil(Math.log2(total * VERTEX_SIZE)), // room to move closer
           STORAGE,
         );
         patch.drawBindGroup = device.createBindGroup({
@@ -396,34 +565,91 @@ export class NurbsSurfaceGpuRenderer {
         });
       }
 
-      device.queue.writeBuffer(patch.spanTable, 0, table);
-      device.queue.writeBuffer(patch.params, 12, Uint32Array.of(sizeV));
-      device.queue.writeBuffer(patch.params, 24, Uint32Array.of(total));
-
-      pass.setBindGroup(
-        0,
-        device.createBindGroup({
-          layout: this.evaluatePipeline.getBindGroupLayout(0),
-          entries: [
-            patch.params,
-            patch.points,
-            patch.knots,
-            patch.spanTable,
-            patch.vertices,
-          ].map((buffer, binding) => ({ binding, resource: { buffer } })),
-        }),
-      );
-      pass.dispatchWorkgroups(Math.ceil(total / WORKGROUP_SIZE));
+      this.encodeEvaluation(pass, patch, patchCounts, {
+        params: patch.params,
+        spanTable: patch.spanTable,
+        vertices: patch.vertices,
+      });
     }
 
     pass.end();
     device.queue.submit([encoder.finish()]);
   }
 
+  /* Values (`NaN` where invalid) on grids of given steps per knot span, patch after patch, and
+   * the area each vertex stands for (in data units) */
+  public async readValues(
+    counts: [Uint32Array, Uint32Array][],
+  ): Promise<{ values: Float64Array; areas: Float64Array }> {
+    const { device } = this;
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(this.evaluatePipeline);
+
+    const targets = this.patches.map((patch, p) => {
+      const [sizeU, sizeV] = getGridSize(counts[p]);
+      const target: EvaluationTarget = {
+        params: createBuffer(device, PARAMS_SIZE, UNIFORM),
+        spanTable: createBuffer(device, patch.spanTable.size, STORAGE),
+        vertices: createBuffer(
+          device,
+          sizeU * sizeV * VERTEX_SIZE,
+          STORAGE | COPY_SRC, // eslint-disable-line no-bitwise -- usage flags
+        ),
+      };
+      this.encodeEvaluation(pass, patch, counts[p], target);
+      return target;
+    });
+    pass.end();
+
+    const total = targets.reduce((acc, { vertices }) => acc + vertices.size, 0);
+    const readBuffer = device.createBuffer({
+      size: total,
+      usage: MAP_READ | 0x08, // eslint-disable-line no-bitwise -- `COPY_DST`
+    });
+    let offset = 0;
+    for (const { vertices } of targets) {
+      encoder.copyBufferToBuffer(
+        vertices,
+        0,
+        readBuffer,
+        offset,
+        vertices.size,
+      );
+      offset += vertices.size;
+    }
+    device.queue.submit([encoder.finish()]);
+
+    try {
+      await readBuffer.mapAsync(MAP_READ);
+      const data = new Float32Array(readBuffer.getMappedRange());
+      const stride = VERTEX_SIZE / 4;
+      const count = total / VERTEX_SIZE;
+      return {
+        values: Float64Array.from({ length: count }, (_, k) =>
+          data[k * stride + 9] > 0.5
+            ? data[k * stride + 8] + this.shift
+            : Number.NaN,
+        ),
+        areas: Float64Array.from(
+          { length: count },
+          (_, k) => data[k * stride + 10],
+        ),
+      };
+    } finally {
+      readBuffer.destroy();
+      for (const { params, spanTable, vertices } of targets) {
+        params.destroy();
+        spanTable.destroy();
+        vertices.destroy();
+      }
+    }
+  }
+
   /* Flags the canvas with `data-drawn` once drawn (e.g. for tests) */
   public async draw(view: SurfaceGpuView): Promise<void> {
     const { device } = this;
-    const { viewProjection, camera, light, zRange, knotLines, size } = view;
+    const { viewProjection, camera, light, valueRange, knotLines, size } = view;
 
     device.queue.writeBuffer(
       this.view,
@@ -433,9 +659,12 @@ export class NurbsSurfaceGpuRenderer {
         ...camera,
         0,
         ...light,
-        ...zRange,
+        valueRange[0] - this.shift,
+        valueRange[1] - this.shift,
         knotLines,
         0,
+        ...NAN_COLOR,
+        1,
       ]),
     );
 
@@ -490,6 +719,7 @@ export class NurbsSurfaceGpuRenderer {
         patch.params,
         patch.points,
         patch.knots,
+        patch.fields,
         patch.spanTable,
         patch.vertices,
       ]),
@@ -499,6 +729,60 @@ export class NurbsSurfaceGpuRenderer {
     this.targets?.color.destroy();
     this.targets?.depth.destroy();
   }
+
+  /* Evaluates a patch on a grid of given steps per knot span, into `target` */
+  private encodeEvaluation(
+    pass: GPUComputePassEncoder,
+    patch: Patch,
+    counts: [Uint32Array, Uint32Array],
+    target: EvaluationTarget,
+  ): void {
+    const { device } = this;
+    const { spans } = patch;
+    const [sizeU, sizeV] = getGridSize(counts);
+    const total = sizeU * sizeV;
+
+    const table = new Uint32Array((spans[0].length + spans[1].length) * 3);
+    let offset = 0;
+    for (const dir of [0, 1]) {
+      let first = 0;
+      for (const [s, { index }] of spans[dir].entries()) {
+        table.set([index, first, counts[dir][s]], offset);
+        offset += 3;
+        first += counts[dir][s];
+      }
+    }
+
+    const paramData = new Uint32Array(patch.paramData);
+    paramData[3] = sizeV;
+    paramData[6] = total;
+    device.queue.writeBuffer(target.spanTable, 0, table);
+    device.queue.writeBuffer(target.params, 0, paramData);
+
+    pass.setBindGroup(
+      0,
+      device.createBindGroup({
+        layout: this.evaluatePipeline.getBindGroupLayout(0),
+        entries: [
+          target.params,
+          patch.points,
+          patch.knots,
+          target.spanTable,
+          target.vertices,
+          patch.fields,
+        ].map((buffer, binding) => ({ binding, resource: { buffer } })),
+      }),
+    );
+    pass.dispatchWorkgroups(Math.ceil(total / WORKGROUP_SIZE));
+  }
+}
+
+/* Vertices along `u` and `v` of a grid of given steps per knot span */
+function getGridSize(counts: [Uint32Array, Uint32Array]): [number, number] {
+  return [
+    counts[0].reduce((acc, n) => acc + n, 1),
+    counts[1].reduce((acc, n) => acc + n, 1),
+  ];
 }
 
 export function createLutBuffer(device: GPUDevice): GPUBuffer {

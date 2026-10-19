@@ -1,6 +1,8 @@
 import {
-  type ColorMap,
   ColorMapSelector,
+  DomainWidget,
+  ScaleType,
+  Selector,
   Separator,
   SnapshotBtn,
   ToggleBtn,
@@ -20,6 +22,11 @@ import { useVisArea } from '../../visualizer/vis-area';
 import visualizerStyles from '../../visualizer/Visualizer.module.css';
 import { type VisContainerProps } from '../models';
 import VisBoundary from '../VisBoundary';
+import {
+  getColorByOptionLabel,
+  getColorByOptions,
+  useNurbsColoring,
+} from './colorBy';
 import NurbsFetcher from './NurbsFetcher';
 import NurbsSurfaceFetcher from './NurbsSurfaceFetcher';
 import { isNurbsMultiPatchGroup, isNurbsSurfaceGroup } from './utils';
@@ -44,8 +51,8 @@ function NurbsVisContainer(props: VisContainerProps) {
   const [showKnotLines, setShowKnotLines] = useState(false);
   const [showAxes, setShowAxes] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
-  const [colorMap, setColorMap] = useState<ColorMap>('Viridis');
-  const [invertColorMap, setInvertColorMap] = useState(false);
+  const coloring = useNurbsColoring(isSurface);
+  const { fields, dataDomain, colorMap, invertColorMap } = coloring;
 
   return (
     <>
@@ -54,11 +61,33 @@ function NurbsVisContainer(props: VisContainerProps) {
           <Toolbar>
             {is3D && (
               <>
+                {isSurface && (
+                  <>
+                    <Selector
+                      label="Colour by"
+                      value={coloring.option}
+                      onChange={coloring.setOption}
+                      options={getColorByOptions(fields)}
+                      renderOption={(option) =>
+                        getColorByOptionLabel(option, fields)
+                      }
+                    />
+                    <Separator />
+                    <DomainWidget
+                      dataDomain={dataDomain ?? [0, 1]}
+                      customDomain={coloring.customDomain}
+                      scaleType={ScaleType.Linear}
+                      disabled={!dataDomain}
+                      onCustomDomainChange={coloring.setCustomDomain}
+                    />
+                    <Separator />
+                  </>
+                )}
                 <ColorMapSelector
                   value={colorMap}
-                  onValueChange={setColorMap}
+                  onValueChange={coloring.setColorMap}
                   invert={invertColorMap}
-                  onInversionChange={() => setInvertColorMap(!invertColorMap)}
+                  onInversionChange={coloring.toggleColorMapInversion}
                 />
                 <Separator />
               </>
@@ -103,8 +132,14 @@ function NurbsVisContainer(props: VisContainerProps) {
           <NurbsSurfaceFetcher
             className={visualizerStyles.vis}
             group={entity}
+            colorBy={coloring.colorBy}
+            colorField={coloring.colorField}
+            colorBarLabel={coloring.label}
+            domain={coloring.domain}
             colorMap={colorMap}
             invertColorMap={invertColorMap}
+            onFieldsChange={coloring.setFields}
+            onDataDomainChange={coloring.setDataDomain}
             showControlNet={showControlPolygon}
             showKnotLines={showKnotLines}
             showAxes={showAxes}

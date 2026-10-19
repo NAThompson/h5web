@@ -1,7 +1,10 @@
-import { type Camera, type Matrix4 } from 'three';
+import { type Domain } from '@h5web/shared/vis-models';
+import { type Camera, type Matrix4, type Vector3Tuple } from 'three';
 
 import { type AxisScale } from '../models';
+import { type WorldTransform } from '../three-d/utils';
 import { type KnotSpan, type NurbsCurve, type NurbsSurface } from './nurbs';
+import { type SurfaceTransform } from './webgpuSurface';
 
 export interface NurbsLineProps {
   curve: NurbsCurve;
@@ -50,4 +53,19 @@ export function projectControlPoints(
     projectedWeights[i] = weight * w;
   });
   return { points: projected, weights: projectedWeights };
+}
+
+/* `toWorld` (affine per axis) about the centre of the domains, to evaluate surfaces in `f32` */
+export function getSurfaceTransform(
+  domains: [Domain, Domain, Domain],
+  toWorld: WorldTransform,
+): SurfaceTransform {
+  const [x, y, z] = domains.map(([min, max]) => (min + max) / 2);
+  const offset = toWorld(x, y, z);
+  const scale: Vector3Tuple = [
+    toWorld(x + 1, y, z)[0] - offset[0],
+    toWorld(x, y + 1, z)[1] - offset[1],
+    toWorld(x, y, z + 1)[2] - offset[2],
+  ];
+  return { origin: [x, y, z], scale, offset };
 }

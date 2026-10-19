@@ -427,3 +427,96 @@ test('show error naming invalid patch of multi-patch surface', async () => {
     )
     .toBeVisible();
 });
+
+/* Bounds of the colour bar of a figure, as numbers */
+function getColorBarBounds(figure: ReturnType<typeof getFigure>): number[] {
+  return ['Min', 'Max'].map((bound) => {
+    const elem = figure.element().querySelector(`[aria-label^="${bound}:"]`);
+    return Number(elem?.textContent.replace('−', '-'));
+  });
+}
+
+test('colour NURBS surface by Gaussian curvature, symmetric around 0', async () => {
+  const { frames } = captureGpuFrames();
+  const { user } = await renderApp('/nurbs/torus');
+  const figure = getFigure('torus');
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
+  await expect.element(figure.getByText('z', { exact: true })).toBeVisible(); // colour bar
+
+  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  expect(
+    page
+      .getByRole('option')
+      .elements()
+      .map((el) => el.textContent),
+  ).toEqual(['Height z', '|∇ z|', 'Gaussian curvature K', 'Mean curvature H']);
+  await user.click(page.getByRole('option', { name: 'Gaussian curvature K' }));
+
+  await expect
+    .element(figure.getByText('Gaussian curvature K', { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole('combobox', { name: /RdBu/u }))
+    .toBeVisible(); // diverging
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
+
+  // K = cos v / r (R + r cos v), from −4/3 (inside) to 0.8 (outside) for R = 2, r = 0.5
+  await expect.poll(() => getColorBarBounds(figure)[1]).toBeGreaterThan(1.2);
+  const [min, max] = getColorBarBounds(figure);
+  expect(max).toBeLessThanOrEqual(1.34);
+  expect(min).toBe(-max);
+});
+
+test('colour sphere by mean curvature: H = ±1', async () => {
+  const { user } = await renderApp('/nurbs/sphere');
+  const figure = getFigure('sphere');
+  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  await user.click(page.getByRole('option', { name: 'Mean curvature H' }));
+
+  await expect
+    .element(figure.getByText('Mean curvature H', { exact: true }))
+    .toBeVisible();
+  await expect
+    .poll(() => getColorBarBounds(figure).map((val) => Math.abs(val)))
+    .toEqual([1, 1]);
+});
+
+test('colour teapot by stored field and its gradient', async () => {
+  const { frames } = captureGpuFrames();
+  const { user } = await renderApp('/nurbs/teapot');
+  const figure = getFigure('teapot');
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
+
+  await user.click(page.getByRole('combobox', { name: 'Height z' }));
+  await user.click(page.getByRole('option', { name: 'temperature (K)' }));
+  await expect
+    .element(figure.getByText('temperature (K)', { exact: true }))
+    .toBeVisible();
+  await expect.poll(() => getColorBarBounds(figure)[0]).toBeGreaterThan(293);
+  expect(getColorBarBounds(figure)[1]).toBeCloseTo(370, 3); // bottom
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
+
+  await user.click(page.getByRole('combobox', { name: 'temperature (K)' }));
+  await user.click(
+    page.getByRole('option', { name: '|∇ temperature| (K per unit length)' }),
+  );
+  await expect
+    .element(
+      figure.getByText('|∇ temperature| (K per unit length)', { exact: true }),
+    )
+    .toBeVisible();
+  await expect.poll(() => getColorBarBounds(figure)[1]).toBeGreaterThan(1);
+});
+
+test('show error naming patch without a field of the others', async () => {
+  mockConsoleMethod('error'); // error boundary logs errors
+  await renderApp('/nurbs/missing_field');
+
+  await expect
+    .element(
+      page.getByText(
+        'Patch rim_1: Expected field "temperature" in "fields" group',
+      ),
+    )
+    .toBeVisible();
+});

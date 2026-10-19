@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { type Domain } from '@h5web/shared/vis-models';
+import { useCallback, useEffect, useState } from 'react';
 
+import { getColorByDomain, NurbsColorBy } from './analysis';
 import { MAX_GPU_DEGREE, requestGpuDevice } from './webgpu';
 
 /* WebGPU device to draw NURBS of given degree (`undefined` until known), requested again if lost;
@@ -44,4 +46,41 @@ export function useGpuDevice(degree: number): GPUDevice | undefined {
     );
   }
   return device;
+}
+
+/*
+ * Colour domain of a NURBS surface: `zDomain` (of heights sampled on the CPU for the box), else
+ * that of the values read back from the GPU (`handleValues`), the last one until they are read
+ */
+export function useColorDomain(
+  colorBy: NurbsColorBy,
+  colorField: number,
+  zDomain: Domain,
+  onDataDomainChange?: (domain: Domain) => void,
+): {
+  dataDomain: Domain;
+  handleValues: (
+    values: Float64Array,
+    areas: Float64Array,
+    colorBy: NurbsColorBy,
+  ) => void;
+} {
+  const [read, setRead] = useState<{ key: string; domain: Domain }>();
+  const key = `${colorBy} ${colorField}`;
+  const handleValues = useCallback(
+    (values: Float64Array, areas: Float64Array, valuesColorBy: NurbsColorBy) =>
+      setRead({ key, domain: getColorByDomain(values, valuesColorBy, areas) }),
+    [key],
+  );
+
+  const isHeight = colorBy === NurbsColorBy.Height;
+  const dataDomain = isHeight ? zDomain : (read?.domain ?? zDomain);
+  const isRead = isHeight || read?.key === key;
+  useEffect(() => {
+    if (isRead) {
+      onDataDomainChange?.(dataDomain);
+    }
+  }, [isRead, dataDomain, onDataDomainChange]);
+
+  return { dataDomain, handleValues };
 }

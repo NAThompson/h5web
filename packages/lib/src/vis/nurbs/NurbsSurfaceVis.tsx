@@ -13,7 +13,8 @@ import {
   getWorldTransform,
 } from '../three-d/utils';
 import Vis3DLayout from '../three-d/Vis3DLayout';
-import { useGpuDevice } from './hooks';
+import { NurbsColorBy } from './analysis';
+import { useColorDomain, useGpuDevice } from './hooks';
 import {
   getKnotSpans,
   getKnotVectors,
@@ -25,6 +26,7 @@ import {
 import NurbsControlNet from './NurbsControlNet';
 import NurbsDepthMesh from './NurbsDepthMesh';
 import NurbsGpuSurface from './NurbsGpuSurface';
+import { getSurfaceTransform } from './utils';
 
 /* Patches are also sampled once on the CPU, as if the box were this many pixels wide, for its
  * extent (axes, colour domain) and the depth-only copy hiding WebGL content behind it */
@@ -36,8 +38,13 @@ interface Props extends ClassStyleAttrs {
   title?: ReactNode;
   xLabel?: string;
   yLabel?: string;
-  zLabel?: string; // also of the colour bar
-  colorMap?: ColorMap; // by height
+  zLabel?: string; // also of the colour bar, by default
+  colorBarLabel?: ReactNode;
+  colorBy?: NurbsColorBy;
+  colorField?: number; // index in `fields` of the patches, to colour by a field or its gradient
+  domain?: Domain; // of the colour map; default: domain of the values (cf. `getColorByDomain`)
+  onDataDomainChange?: (domain: Domain) => void;
+  colorMap?: ColorMap;
   invertColorMap?: boolean;
   keepRatio?: boolean;
   showAxes?: boolean;
@@ -57,6 +64,11 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
     xLabel = 'x',
     yLabel = 'y',
     zLabel = 'z',
+    colorBarLabel = zLabel,
+    colorBy = NurbsColorBy.Height,
+    colorField = 0,
+    domain,
+    onDataDomainChange,
     colorMap = 'Viridis',
     invertColorMap = false,
     keepRatio = true,
@@ -104,6 +116,7 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
         );
         const samples = sampleNurbsSurface(surface, spans[p], sampleCounts);
         return {
+          sampleCounts,
           rows: sampleCounts[0].reduce((acc, n) => acc + n, 1),
           cols: sampleCounts[1].reduce((acc, n) => acc + n, 1),
           coords: [0, 1, 2].map((d) => samples.filter((_, i) => i % 3 === d)),
@@ -130,28 +143,36 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
   );
   const [w, h, d] = getBoxSize(domains, keepRatio);
 
-  const { toWorld, worldSurfaces, zRange } = useMemo(() => {
-    const transform = getWorldTransform(domains, [w, h, d]);
-    const range: [number, number] = [
-      transform(0, 0, zDomain[0])[2],
-      transform(0, 0, zDomain[1])[2],
-    ];
+  const { toWorld, worldSurfaces, transform } = useMemo(() => {
+    const toWorldCoords = getWorldTransform(domains, [w, h, d]);
     return {
-      toWorld: transform,
+      toWorld: toWorldCoords,
       worldSurfaces: surfaces.map((surface) => {
         const { points } = surface;
         const worldPoints = new Float64Array(points.length);
         for (let i = 0; i < points.length; i += 3) {
           worldPoints.set(
-            transform(points[i], points[i + 1], points[i + 2]),
+            toWorldCoords(points[i], points[i + 1], points[i + 2]),
             i,
           );
         }
         return { ...surface, points: worldPoints };
       }),
-      zRange: range,
+      transform: getSurfaceTransform(domains, toWorldCoords),
     };
-  }, [surfaces, domains, zDomain, w, h, d]);
+  }, [surfaces, domains, w, h, d]);
+
+  const readCounts = useMemo(
+    () => grids.map(({ sampleCounts }) => sampleCounts),
+    [grids],
+  );
+  const { dataDomain, handleValues } = useColorDomain(
+    colorBy,
+    colorField,
+    zDomain,
+    onDataDomainChange,
+  );
+  const colorDomain = domain ?? dataDomain;
 
   const buffers = useMemo(
     () =>
@@ -182,22 +203,27 @@ function NurbsSurfaceVis(props: PropsWithChildren<Props>) {
       style={style}
       title={title}
       boxSize={[w, h, d]}
-      domain={zDomain}
+      domain={colorDomain}
       scaleType={ScaleType.Linear}
       colorMap={colorMap}
       invertColorMap={invertColorMap}
-      colorBarLabel={zLabel}
+      colorBarLabel={colorBarLabel}
       renderer={device && 'webgpu'}
     >
       {device && (
         <>
           <NurbsGpuSurface
             device={device}
-            surfaces={worldSurfaces}
+            surfaces={surfaces}
             spans={spans}
+            transform={transform}
             colorLut={colorLut}
-            zRange={zRange}
+            colorBy={colorBy}
+            colorField={colorField}
+            valueRange={colorDomain}
             showKnotLines={showKnotLines}
+            readCounts={readCounts}
+            onValues={handleValues}
           />
           {buffers.map(({ positions, index }, p) => (
             // eslint-disable-next-line react/no-array-index-key -- patches don't move

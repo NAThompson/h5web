@@ -188,6 +188,7 @@ function nurbsSurface(
   knots: number[][],
   weights?: number[][],
   geometry = 'nurbs',
+  fields: Record<string, number[][]> = {}, // control values, in `fields` group
 ) {
   const [nu, nv] = [points.length, points[0].length];
   return group(
@@ -217,6 +218,22 @@ function nurbsSurface(
             ),
           ]
         : []),
+      ...(Object.keys(fields).length > 0
+        ? [
+            group(
+              'fields',
+              Object.entries(fields).map(([fieldName, values]) =>
+                dataset(
+                  fieldName,
+                  arrayShape([nu, nv]),
+                  floatType(64),
+                  values.flat(),
+                  { attributes: FIELD_ATTRS[fieldName] },
+                ),
+              ),
+            ),
+          ]
+        : []),
     ],
     {
       attributes: [
@@ -238,11 +255,20 @@ const BEZIER_KNOTS = [0, 0, 0, 0, 1, 1, 1, 1];
 function nurbsPatches(
   name: string,
   patches: [string, number[][][], number[][]?][], // name, points, knots (bicubic Bézier)
+  getFields?: (points: number[][][]) => Record<string, number[][]>,
 ) {
   return group(
     name,
     patches.map(([patchName, points, knots = [BEZIER_KNOTS, BEZIER_KNOTS]]) =>
-      nurbsSurface(patchName, [3], points, knots, undefined, ''),
+      nurbsSurface(
+        patchName,
+        [3],
+        points,
+        knots,
+        undefined,
+        '',
+        getFields?.(points),
+      ),
     ),
     { attributes: [scalarAttr('H5WEB_geometry', 'bspline')] },
   );
@@ -269,6 +295,26 @@ const TEAPOT = TEAPOT_PARTS.flatMap(([part, count]) =>
     }),
   ),
 ]);
+
+// "Analysis step" of the teapot: steady heat-like field, hot at the bottom (stove), cooling up
+// the body and out along the spout and handle; illustrative function of the control points
+// (same basis as the geometry), not a solved PDE
+const FIELD_ATTRS: Record<string, ReturnType<typeof scalarAttr>[]> = {
+  temperature: [
+    scalarAttr('units', 'K'),
+    scalarAttr('long_name', 'temperature'),
+  ],
+};
+function teapotTemperature(points: number[][][]): Record<string, number[][]> {
+  return {
+    temperature: points.map((row) =>
+      row.map(([x, y, z]) => {
+        const outside = Math.max(Math.hypot(x, y) - 2, 0); // spout, handle
+        return 293 + 77 * Math.exp(-0.6 * z - 0.9 * outside);
+      }),
+    ),
+  };
+}
 
 export function makeMockFile(): GroupWithChildren {
   return nxGroup('source.h5', 'NXroot', {
@@ -1313,11 +1359,34 @@ export function makeMockFile(): GroupWithChildren {
           undefined,
           'bspline',
         ),
-        nurbsPatches('teapot', TEAPOT),
+        nurbsPatches('teapot', TEAPOT, teapotTemperature),
         nurbsPatches('bad_patches', [
           TEAPOT[0],
           ['broken', TEAPOT[1][1], [[...BEZIER_KNOTS].reverse(), BEZIER_KNOTS]],
         ]),
+        group(
+          'missing_field',
+          [
+            nurbsSurface(
+              'rim_0',
+              [3],
+              TEAPOT[0][1],
+              [BEZIER_KNOTS, BEZIER_KNOTS],
+              undefined,
+              '',
+              teapotTemperature(TEAPOT[0][1]),
+            ),
+            nurbsSurface(
+              'rim_1',
+              [3],
+              TEAPOT[1][1],
+              [BEZIER_KNOTS, BEZIER_KNOTS],
+              undefined,
+              '',
+            ),
+          ],
+          { attributes: [scalarAttr('H5WEB_geometry', 'bspline')] },
+        ),
         nurbsSurface('bad_surface_knots', [3], WAVE_POINTS, [
           [0, 0, 0, 0, 0.2, 0.5, 1, 1, 1, 1],
           [0, 1],

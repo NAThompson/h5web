@@ -8,6 +8,7 @@ import {
 import {
   type ArrayShape,
   type Dataset,
+  type Entity,
   type GroupWithChildren,
   type NumericType,
 } from '@h5web/shared/hdf5-models';
@@ -170,4 +171,34 @@ export function getNurbsSurfaceDatasets(
   }
 
   return { points, weights, knotsU, knotsV };
+}
+
+/* Group of the scalar fields of a NURBS surface (or patch): one dataset per field, by name */
+export const FIELDS_GROUP = 'fields';
+
+/* Datasets of a `fields` group, if any: control values `(nu, nv)` in the basis of the surface */
+export function getNurbsFieldDatasets(
+  group: Entity | undefined,
+  [nu, nv]: [number, number],
+): NumDataset[] {
+  if (!group || !isGroup(group) || !hasChildren(group)) {
+    return [];
+  }
+  return group.children.filter(isDataset).map((child) => {
+    if (
+      !hasArrayShape(child) ||
+      !hasNumericType(child) ||
+      child.shape.dims.length !== 2 ||
+      child.shape.dims[0] !== nu ||
+      child.shape.dims[1] !== nv
+    ) {
+      const shape = hasArrayShape(child)
+        ? ` (got (${child.shape.dims.join(', ')}))`
+        : '';
+      throw new Error(
+        `Expected field "${child.name}" to be a numeric dataset of shape (${nu}, ${nv})${shape}`,
+      );
+    }
+    return child;
+  });
 }

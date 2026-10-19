@@ -7,6 +7,8 @@ import {
 import {
   assertGroup,
   assertGroupWithChildren,
+  hasArrayShape,
+  isDataset,
   isGroup,
 } from '@h5web/shared/guards';
 import {
@@ -14,6 +16,7 @@ import {
   type GroupWithChildren,
   type NumericType,
 } from '@h5web/shared/hdf5-models';
+import { type NumArray } from '@h5web/shared/vis-models';
 import { useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
@@ -22,7 +25,9 @@ import { useDataContext } from '../../providers/DataProvider';
 import { findSingleNumAttr } from '../../utils';
 import { toNumArray } from '../core/utils';
 import {
+  FIELDS_GROUP,
   getNurbsDatasets,
+  getNurbsFieldDatasets,
   getNurbsGeometry,
   getNurbsSurfaceDatasets,
   isNurbsMultiPatchGroup,
@@ -81,13 +86,13 @@ function getData<T>(results: { data: T }[]): T[] {
   return results.map(({ data }) => data);
 }
 
-/*
- * Fetch control points, weights, knots and degrees of a NURBS surface group, or of each patch
- * group of a multi-patch group (cf. `isNurbsMultiPatchGroup`), and check them
- */
-export function useNurbsSurfaces(group: GroupWithChildren): NurbsSurface[] {
+/* Patch groups of a multi-patch group (cf. `isNurbsMultiPatchGroup`), else the group itself,
+ * and errors naming the patch, if any */
+function useNurbsPatches(group: GroupWithChildren): {
+  patches: GroupWithChildren[];
+  getError: (patch: GroupWithChildren, message: string) => Error;
+} {
   const { queries } = useDataContext();
-  const isBspline = useIsBspline(group);
   const isMultiPatch = isNurbsMultiPatchGroup(group);
 
   const patchEntities = useSuspenseQueries({
@@ -107,12 +112,23 @@ export function useNurbsSurfaces(group: GroupWithChildren): NurbsSurface[] {
     });
   }, [group, isMultiPatch, patchEntities]);
 
-  // Errors name the patch, if any
   const getError = useCallback(
     (patch: GroupWithChildren, message: string) =>
       new Error(isMultiPatch ? `Patch ${patch.name}: ${message}` : message),
     [isMultiPatch],
   );
+  return { patches, getError };
+}
+
+/*
+ * Fetch control points, weights, knots and degrees of a NURBS surface group, or of each patch
+ * group of a multi-patch group (cf. `isNurbsMultiPatchGroup`), and check them
+ */
+export function useNurbsSurfaces(group: GroupWithChildren): NurbsSurface[] {
+  const { queries } = useDataContext();
+  const isBspline = useIsBspline(group);
+  const isMultiPatch = isNurbsMultiPatchGroup(group);
+  const { patches, getError } = useNurbsPatches(group);
 
   const attrValues = useSuspenseQueries({
     queries: patches.map((patch) => queries.attrValues(patch)),
@@ -186,4 +202,97 @@ export function useNurbsSurfaces(group: GroupWithChildren): NurbsSurface[] {
       return surface;
     });
   }, [patches, datasets, values, attrValues, isMultiPatch, getError]);
+}
+
+export interface NurbsFieldInfo {
+  name: string; // of the datasets
+  label: string; // `long_name`, else name
+  unit?: string; // `units`
+}
+
+/*
+ * Fetch the scalar fields of a NURBS surface: datasets of its `fields` group (or of each patch's,
+ * cf. `getNurbsFieldDatasets`), which every patch must have; their control values, patch after
+ * patch, in the order of `fields`.
+ */
+export function useNurbsFields(group: GroupWithChildren): {
+  fields: NurbsFieldInfo[];
+  values: NumArray[][];
+} {
+  const { queries } = useDataContext();
+  const { patches, getError } = useNurbsPatches(group);
+
+  const fieldGroups = useSuspenseQueries({
+    queries: patches.flatMap(({ children }) =>
+      children
+        .filter((child) => child.name === FIELDS_GROUP && isGroup(child))
+        .map(({ path }) => queries.entity(path)),
+    ),
+    combine: getData,
+  });
+
+  const datasets = useMemo(() => {
+    const perPatch = patches.map((patch) => {
+      const fieldsGroup = fieldGroups.find(
+        ({ path }) => path === `${patch.path}/${FIELDS_GROUP}`,
+      );
+      const points = patch.children.find(
+        ({ name }) => name === 'control_points',
+      );
+      const dims =
+        points && isDataset(points) && hasArrayShape(points)
+          ? points.shape.dims
+          : [];
+      try {
+        return getNurbsFieldDatasets(fieldsGroup, [dims[0], dims[1]]);
+      } catch (error) {
+        throw error instanceof Error ? getError(patch, error.message) : error;
+      }
+    });
+
+    const names = [
+      ...new Set(perPatch.flatMap((arr) => arr.map(({ name }) => name))),
+    ];
+    return perPatch.map((arr, p) =>
+      names.map((name) => {
+        const dataset = arr.find((d) => d.name === name);
+        if (!dataset) {
+          throw getError(
+            patches[p],
+            `Expected field "${name}" in "${FIELDS_GROUP}" group`,
+          );
+        }
+        return dataset;
+      }),
+    );
+  }, [patches, fieldGroups, getError]);
+
+  const attrValues = useSuspenseQueries({
+    queries: (datasets[0] ?? []).map((dataset) => queries.attrValues(dataset)),
+    combine: getData,
+  });
+  const values = useSuspenseQueries({
+    queries: datasets.flat().map((dataset) => queries.value(dataset)),
+    combine: getData,
+  });
+
+  return useMemo(() => {
+    const fields = (datasets[0] ?? []).map(({ name }, f): NurbsFieldInfo => {
+      const { long_name: longName, units } = attrValues[f];
+      return {
+        name,
+        label: typeof longName === 'string' && longName ? longName : name,
+        unit: typeof units === 'string' && units ? units : undefined,
+      };
+    });
+    const count = fields.length;
+    return {
+      fields,
+      values: patches.map((_, p) =>
+        values
+          .slice(p * count, (p + 1) * count)
+          .map((val) => toNumArray(val as ArrayValue<NumericType>)),
+      ),
+    };
+  }, [datasets, attrValues, values, patches]);
 }

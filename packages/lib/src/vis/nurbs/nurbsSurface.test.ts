@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  evaluateSurfaceAnalysis,
+  getColorByDomain,
+  NurbsColorBy,
+} from './analysis';
+import {
   evaluateNurbsSurface,
   getBasisDerivatives,
   getBasisFunctions,
@@ -181,6 +186,145 @@ describe('getBasisDerivatives', () => {
   });
 });
 
+describe('getBasisDerivatives (second)', () => {
+  it('should differentiate basis functions twice', () => {
+    const [vector] = getKnotVectors(WAVE);
+    const h = 1e-4;
+    const [basis, , second] = getBasisDerivatives(vector, 4, 0.5);
+    const [below, above] = [0.5 - h, 0.5 + h].map((u) =>
+      getBasisFunctions(vector, 4, u),
+    );
+    second.forEach((val, i) => {
+      expect(val).toBeCloseTo((above[i] - 2 * basis[i] + below[i]) / h ** 2, 4);
+    });
+    expect(second.reduce((acc, val) => acc + val, 0)).toBeCloseTo(0, 10);
+  });
+});
+
+describe('evaluateSurfaceAnalysis', () => {
+  it('should find the curvatures of the torus', () => {
+    // Tube of radius r = 0.5 around a circle of radius R = 2: K = cos θ / r (R + r cos θ)
+    for (const u of grid(24)) {
+      for (const v of grid(24)) {
+        const [x, y] = evaluateNurbsSurface(TORUS, u, v).point;
+        const cos = (Math.hypot(x, y) - 2) / 0.5;
+        const analysis = evaluateSurfaceAnalysis(TORUS, u, v);
+        const k = analysis[NurbsColorBy.GaussianCurvature];
+        const h = analysis[NurbsColorBy.MeanCurvature];
+        expect(Math.abs(k - cos / (0.5 * (2 + 0.5 * cos)))).toBeLessThan(1e-9);
+        // H = (R + 2r cos θ) / 2r (R + r cos θ), up to the sign of the normal
+        const expected = (2 + cos) / (2 * 0.5 * (2 + 0.5 * cos));
+        expect(Math.abs(Math.abs(h) - expected)).toBeLessThan(1e-9);
+      }
+    }
+  });
+
+  it('should find K = 1/r² and H = ±1/r on the sphere, NaN at its poles', () => {
+    const radius = 3;
+    const sphere = {
+      ...SPHERE,
+      points: SPHERE.points.map((val) => val * radius),
+    };
+    for (const u of grid(20)) {
+      for (const v of grid(20).slice(1, -1)) {
+        const analysis = evaluateSurfaceAnalysis(sphere, u, v);
+        const k = analysis[NurbsColorBy.GaussianCurvature];
+        const h = analysis[NurbsColorBy.MeanCurvature];
+        expect(Math.abs(k - 1 / radius ** 2)).toBeLessThan(1e-9);
+        expect(Math.abs(Math.abs(h) - 1 / radius)).toBeLessThan(1e-9);
+      }
+    }
+    const pole = evaluateSurfaceAnalysis(sphere, 0.3, 0);
+    expect(pole[NurbsColorBy.GaussianCurvature]).toBeNaN();
+    expect(pole[NurbsColorBy.HeightGradient]).toBeNaN();
+  });
+
+  it('should find the surface gradient of a linear field on a plane', () => {
+    // Rational, non-uniform plane z = 0, with field 3 x − 4 y (|∇f| = 5): reproduced exactly
+    const plane: NurbsSurface = {
+      degrees: [2, 2],
+      shape: [4, 3],
+      points: Array.from({ length: 12 }, (_, i) => {
+        const [r, c] = [Math.floor(i / 3), i % 3];
+        return [r ** 1.5 + 0.2 * c, c * (1 + r / 3), 0];
+      }).flat(),
+      weights: Array.from({ length: 12 }, (_, i) => 1 + (i % 5) / 4),
+      knots: [
+        [0, 0, 0, 0.3, 1, 1, 1],
+        [0, 0, 0, 2, 2, 2],
+      ],
+    };
+    const field = Array.from(
+      { length: 12 },
+      (_, i) => 3 * plane.points[i * 3] - 4 * plane.points[i * 3 + 1],
+    );
+    for (const u of grid(10)) {
+      for (const v of grid(10).map((t) => t * 2)) {
+        const analysis = evaluateSurfaceAnalysis(plane, u, v, field);
+        const [x, y] = evaluateNurbsSurface(plane, u, v).point;
+        expect(analysis[NurbsColorBy.Field]).toBeCloseTo(3 * x - 4 * y, 12);
+        expect(Math.abs(analysis[NurbsColorBy.FieldGradient] - 5)).toBeLessThan(
+          1e-9,
+        );
+        expect(analysis[NurbsColorBy.HeightGradient]).toBe(0);
+        expect(analysis[NurbsColorBy.GaussianCurvature]).toBe(0);
+      }
+    }
+  });
+
+  it('should find the height gradient of a tilted plane', () => {
+    // z = x / 2 + y: |∇_S z| = |∇z| / sqrt(1 + |∇z|²) = sqrt(5/4) / sqrt(9/4)
+    const plane: NurbsSurface = {
+      degrees: [1, 1],
+      shape: [2, 2],
+      points: [0, 0, 0, 0, 1, 1, 1, 0, 0.5, 1, 1, 1.5],
+      weights: [1, 1, 1, 1],
+      knots: [
+        [0, 0, 1, 1],
+        [0, 0, 1, 1],
+      ],
+    };
+    const analysis = evaluateSurfaceAnalysis(plane, 0.3, 0.6);
+    expect(analysis[NurbsColorBy.HeightGradient]).toBeCloseTo(
+      Math.sqrt(5 / 9),
+      12,
+    );
+  });
+});
+
+describe('getColorByDomain', () => {
+  it('should ignore NaN and spikes of derived quantities', () => {
+    const values = [
+      Number.NaN,
+      ...Array.from({ length: 99 }, (_, i) => i),
+      1e9,
+    ];
+    expect(getColorByDomain(values, NurbsColorBy.Field)).toEqual([0, 1e9]);
+    expect(getColorByDomain(values, NurbsColorBy.MeanCurvature)).toEqual([
+      2, 97,
+    ]);
+  });
+
+  it('should take percentiles by surface area', () => {
+    // Small features of high curvature (many samples, little area) don't set the domain
+    const values = [0.2, 0.25, 0.3, ...Array.from({ length: 20 }, () => 60)];
+    const areas = [10, 10, 10, ...Array.from({ length: 20 }, () => 0.01)];
+    expect(
+      getColorByDomain(values, NurbsColorBy.GaussianCurvature, areas),
+    ).toEqual([-0.3, 0.3]);
+  });
+
+  it('should be symmetric around 0 for Gaussian curvature', () => {
+    const values = Array.from({ length: 101 }, (_, i) => i / 100 - 0.3);
+    const [min, max] = getColorByDomain(values, NurbsColorBy.GaussianCurvature);
+    expect(min).toBeCloseTo(-0.68, 12);
+    expect(max).toBe(-min);
+    expect(getColorByDomain([Number.NaN], NurbsColorBy.Height)).toEqual([
+      -0.5, 0.5,
+    ]);
+  });
+});
+
 describe('getNurbsSurfaceError', () => {
   it('should accept valid surfaces', () => {
     for (const surface of [SPHERE, TORUS, WAVE]) {
@@ -203,6 +347,9 @@ describe('getNurbsSurfaceError', () => {
     );
     expect(getNurbsSurfaceError({ ...WAVE, weights: [1] })).toBe(
       'Expected 30 weights (one per control point), got 1',
+    );
+    expect(getNurbsSurfaceError({ ...WAVE, fields: [[1, 2]] })).toBe(
+      'Expected 5 × 6 finite values of field 0',
     );
     expect(getNurbsSurfaceError({ ...WAVE, points: [0, 0, 0] })).toBe(
       'Expected 5 × 6 × 3 control point coordinates, got 3',

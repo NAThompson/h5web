@@ -53,6 +53,7 @@ export {
   getSpanSteps,
   sampleBasis,
 } from './vis/nurbs/nurbs';
+export { NurbsColorBy } from './vis/nurbs/analysis';
 export { SurfaceRepresentation } from './vis/param-surface/models';
 
 // Toolbar and controls
