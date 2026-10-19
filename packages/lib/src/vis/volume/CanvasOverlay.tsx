@@ -17,12 +17,20 @@ function CanvasOverlay(props: Props) {
   return (
     <>
       {title && (
-        <p className={styles.title} title={getTextContent(title)}>
+        <p
+          className={styles.title}
+          title={getTextContent(title)}
+          data-keep-colors // white over canvas, even in inverted dark mode
+        >
           {title}
         </p>
       )}
       {(isoProgress !== undefined || isoMessage) && (
-        <div className={styles.overlay} data-below-title={!!title || undefined}>
+        <div
+          className={styles.overlay}
+          data-below-title={!!title || undefined}
+          data-keep-colors
+        >
           {isoProgress !== undefined && (
             <p className={styles.progress} role="status">
               Extracting isosurfaces… {Math.round(isoProgress * 100)}%

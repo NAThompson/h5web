@@ -94,17 +94,12 @@ test('move the crosshair by clicking a plane, without fetching again', async () 
 test('set slice indices in the toolbar', async () => {
   const { user } = await renderApp('/view_hints/ortho');
 
-  const zIndex = page.getByRole('spinbutton', { name: 'z index' });
-  await expect.element(zIndex).toHaveValue(1);
-  await user.clear(zIndex);
-  await user.type(zIndex, '4');
+  const zIndex = page.getByRole('slider', { name: 'z index' });
+  await expect.element(zIndex).toHaveValue('1');
+  (zIndex.element() as HTMLInputElement).focus();
+  await user.keyboard('{ArrowRight>3}');
   await expect.element(getPlane(/^XY · z = 4$/u)).toBeVisible();
   expect(getReadout()).toHaveTextContent('423');
-
-  // Out of range: ignored
-  await user.clear(zIndex);
-  await user.type(zIndex, '9');
-  expect(getPlane(/^XY · z = 4$/u)).toBeVisible();
 });
 
 test('slice leading dimensions of a stack of volumes', async () => {

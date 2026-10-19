@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import styles from './Orthoslices.module.css';
 
 interface Props {
@@ -11,10 +9,9 @@ interface Props {
   onChange: (value: number) => void;
 }
 
-/* Index of a slice, as a number box: valid entries apply as they are typed (slicing is local) */
+/* Index of a slice, as a slider with its value: applies while dragging (slicing is local) */
 function SliceIndexInput(props: Props) {
   const { label, title, color, value, count, onChange } = props;
-  const [draft, setDraft] = useState<string>(); // while typing
 
   return (
     <label className={styles.indexInput} title={title}>
@@ -22,21 +19,21 @@ function SliceIndexInput(props: Props) {
         {label}
       </span>
       <input
-        type="number"
+        type="range"
         aria-label={`${label} index`}
         min={0}
         max={count - 1}
         step={1}
-        value={draft ?? value}
-        onChange={(evt) => {
-          const { value: text, valueAsNumber: index } = evt.currentTarget;
-          setDraft(text);
-          if (Number.isInteger(index) && index >= 0 && index < count) {
-            onChange(index);
-          }
-        }}
-        onBlur={() => setDraft(undefined)}
+        value={value}
+        style={{ accentColor: color }}
+        onChange={(evt) => onChange(evt.currentTarget.valueAsNumber)}
       />
+      <span
+        className={styles.indexValue}
+        style={{ minWidth: `${String(count - 1).length}ch` }}
+      >
+        {value}
+      </span>
     </label>
   );
 }
