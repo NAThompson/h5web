@@ -53,8 +53,31 @@ afterEach(async () => {
   await page.viewport(1920, 1080);
 });
 
-const isWhite = (r: number, g: number, b: number) =>
-  r > 250 && g > 250 && b > 250;
+function isWhite(r: number, g: number, b: number): boolean {
+  return r > 250 && g > 250 && b > 250;
+}
+
+function getTooltip(): string {
+  return (
+    [...document.querySelectorAll('figure div')].find((el) =>
+      el.textContent.includes('|v| ='),
+    )?.parentElement?.textContent ?? ''
+  );
+}
+
+function parseNumber(s: string): number {
+  return Number(s.replace('−', '-'));
+}
+
+/* Distinct fills of closed paths (arrows) in the SVG export */
+function countArrowColors(figure: HTMLElement): number {
+  const svg = renderSvgSnapshot(figure);
+  return new Set(
+    [...svg.querySelectorAll('path[fill]')]
+      .filter((p) => (p.getAttribute('d')?.match(/Z/gu) ?? []).length > 0)
+      .map((p) => p.getAttribute('fill')),
+  ).size;
+}
 
 function getColorBarLabel(): string | null | undefined {
   return document.querySelector('figure [class*="colorBar"] [class*="label"]')
@@ -82,7 +105,7 @@ test('visualize dataset with `H5WEB_vis = "vector"`', async () => {
   await expect
     .poll(
       () =>
-        renderSvgSnapshot(figure as HTMLElement).querySelectorAll(
+        renderSvgSnapshot(figure).querySelectorAll(
           'path[fill="none"][stroke-width="1.25"]',
         ).length,
     )
@@ -113,7 +136,7 @@ test('draw arrows on the GPU and export them as SVG paths', async () => {
   assertNonNull(figure);
   await expect
     .poll(() => {
-      const svg = renderSvgSnapshot(figure as HTMLElement);
+      const svg = renderSvgSnapshot(figure);
       return [...svg.querySelectorAll('path[fill="white"]')].map(
         (p) => (p.getAttribute('d')?.match(/Z/gu) ?? []).length,
       )[0];
@@ -132,35 +155,28 @@ test('show the field under the pointer in the tooltip', async () => {
     position: { x: rect.width * 0.3, y: rect.height * 0.6 },
   });
 
-  function getTooltip(): string {
-    return (
-      [...document.querySelectorAll('figure div')].find((el) =>
-        el.textContent.includes('|v| ='),
-      )?.parentElement?.textContent ?? ''
-    );
-  }
   await expect.poll(getTooltip).toMatch(/x=/u);
   const text = getTooltip();
-  const num = (s: string) => Number(s.replace('−', '-'));
-  const [, x, y] = /x=([−\d.]+), y=([−\d.]+)/u.exec(text) ?? [];
+  const [, x, y] = /x=([\d.−]+), y=([\d.−]+)/u.exec(text) ?? [];
   const [, u, v, mag] =
-    /\(([−\d.]+), ([−\d.]+)\) \|v\| = ([−\d.]+)/u.exec(text) ?? [];
+    /\(([\d.−]+), ([\d.−]+)\) \|v\| = ([\d.−]+)/u.exec(text) ?? [];
   // No scales: axes are indices; values are interpolated bilinearly
   const axis = Array.from({ length: 41 }, (_, i) => i);
-  const tg = (fn: (x: number, y: number) => number) =>
-    axis.flatMap((j) =>
+  function tg(fn: (x: number, y: number) => number): number[] {
+    return axis.flatMap((j) =>
       axis.map((i) => fn((i * Math.PI) / 20, (j * Math.PI) / 20)),
     );
+  }
   const field = {
     xs: axis,
     ys: axis,
     u: tg((px, py) => Math.sin(px) * Math.cos(py)),
     v: tg((px, py) => -Math.cos(px) * Math.sin(py)),
   };
-  const [eu, ev] = sampleField(field, num(x), num(y));
-  expect(num(u)).toBeCloseTo(eu, 3);
-  expect(num(v)).toBeCloseTo(ev, 3);
-  expect(num(mag)).toBeCloseTo(Math.hypot(eu, ev), 3);
+  const [eu, ev] = sampleField(field, parseNumber(x), parseNumber(y));
+  expect(parseNumber(u)).toBeCloseTo(eu, 3);
+  expect(parseNumber(v)).toBeCloseTo(ev, 3);
+  expect(parseNumber(mag)).toBeCloseTo(Math.hypot(eu, ev), 3);
   expect(text).toMatch(/pressure = /u);
 });
 
@@ -199,12 +215,12 @@ test('show 3D fields as arrows in a box', async () => {
   expect(getSelectedVisTab()).toBe('Vector');
   await expect.poll(getColorBarLabel).toBe('|v| (m/s)');
   await expect
-    .poll(() => countPixels((r, g, b, a) => a > 0))
+    .poll(() => countPixels((_r, _g, _b, a) => a > 0))
     .toBeGreaterThan(5000);
 
   await selectOption('Style', 'Streamlines');
   await expect
-    .poll(() => countPixels((r, g, b, a) => a > 0))
+    .poll(() => countPixels((_r, _g, _b, a) => a > 0))
     .toBeGreaterThan(2000);
 });
 
@@ -258,19 +274,11 @@ test('colour arrows by magnitude on the scale of the colour bar', async () => {
   await selectOption('Background', 'None');
   const figure = document.querySelector('figure');
   assertNonNull(figure);
-  function countColors(): number {
-    const svg = renderSvgSnapshot(figure as HTMLElement);
-    return new Set(
-      [...svg.querySelectorAll('path[fill]')]
-        .filter((p) => (p.getAttribute('d')?.match(/Z/gu) ?? []).length > 0)
-        .map((p) => p.getAttribute('fill')),
-    ).size;
-  }
 
   // 1/r² field: most arrows at the low end of a linear scale, spread on a log scale
-  await expect.poll(countColors).toBeGreaterThan(30);
-  const logColors = countColors();
+  await expect.poll(() => countArrowColors(figure)).toBeGreaterThan(30);
+  const logColors = countArrowColors(figure);
   await userEvent.click(page.getByRole('combobox', { name: 'Log' }));
   await userEvent.click(page.getByRole('option', { name: 'Linear' }));
-  await expect.poll(countColors).toBeLessThan(logColors / 2);
+  await expect.poll(() => countArrowColors(figure)).toBeLessThan(logColors / 2);
 });

@@ -38,7 +38,7 @@ import { hasPanelsAttr } from '../vis-packs/panels/hint';
 import { PANELS_VIS } from '../vis-packs/panels/visualizations';
 import { getVectorRank, isVectorGroup } from '../vis-packs/vector/utils';
 import { VECTOR_VIS } from '../vis-packs/vector/visualizations';
-import { HintVis } from '../vis-packs/view-hints/models';
+import { HintVis, type ViewHint } from '../vis-packs/view-hints/models';
 import {
   findHintVis,
   getHintSafely,
@@ -73,10 +73,7 @@ async function resolvePath(
 
     // `H5WEB_*` view hint takes precedence over heuristics (points of CF `featureType = "point"`)
     const hint = await getHintSafely(entity, dataContext);
-    const supportedVis =
-      hint.vis === HintVis.Vector && getVectorRank(entity)
-        ? [VECTOR_VIS, ...coreVis.filter(({ name }) => name !== Vis.Volume)] // components are no axis
-        : coreVis;
+    const supportedVis = withHintedVectorVis(entity, hint, coreVis);
     const primaryVis = findHintVis(hint, supportedVis);
     return {
       entity,
@@ -217,6 +214,19 @@ export function findPrimaryVis(
       ? volume
       : undefined)
   );
+}
+
+/* `H5WEB_vis = "vector"` on a dataset of components: vector vis first, no volume (components are no axis) */
+function withHintedVectorVis(
+  dataset: Dataset,
+  hint: ViewHint,
+  coreVis: CoreVisDef[],
+): VisDef[] {
+  if (hint.vis !== HintVis.Vector || !getVectorRank(dataset)) {
+    return coreVis;
+  }
+  const volume = CORE_VIS[Vis.Volume];
+  return [VECTOR_VIS, ...coreVis.filter((vis) => vis !== volume)];
 }
 
 async function getSupportedCoreVis(

@@ -1,7 +1,7 @@
 import { VectorBackground, VectorStyle } from '@h5web/lib';
-import { ScaleType } from '@h5web/shared/vis-models';
 import { type AttributeValues } from '@h5web/shared/hdf5-models';
 import { arrayAttr, group, scalarAttr } from '@h5web/shared/mock-utils';
+import { ScaleType } from '@h5web/shared/vis-models';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -91,8 +91,9 @@ describe('getSequenceDomain', () => {
   const sequence = [3, 4, 3, 4, 3, 4, 3, 4, 0, 0, 0, 1, -1, 0, -1, 1];
 
   it('should cover the background of every slice', () => {
-    const domain = (kind: VectorBackground) =>
-      getSequenceDomain(sequence, field, kind, ScaleType.Linear);
+    function domain(kind: VectorBackground) {
+      return getSequenceDomain(sequence, field, kind, ScaleType.Linear);
+    }
     expect(domain(VectorBackground.Magnitude)).toEqual([0, 5]);
     expect(domain(VectorBackground.Curl)).toEqual([0, 2]);
     expect(domain(VectorBackground.Dataset)).toBeUndefined(); // not in the sequence

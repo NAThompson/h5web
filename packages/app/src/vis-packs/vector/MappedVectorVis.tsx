@@ -55,6 +55,16 @@ function getSymmetric(domain: Domain | undefined): Domain | undefined {
   return [-max, max];
 }
 
+function getBackgroundScaleType(
+  scaleType: ColorScaleType,
+  is3D: boolean,
+  isSigned: boolean,
+): ColorScaleType {
+  return is3D || (isSigned && !SIGNED_SCALE_TYPES.includes(scaleType))
+    ? ScaleType.Linear // 3D: linear colours
+    : scaleType;
+}
+
 function getBackgroundLabel(
   kind: VectorBackground,
   units: string | undefined,
@@ -89,10 +99,7 @@ function MappedVectorVis(props: Props) {
   const kind = is3D ? VectorBackground.Magnitude : config.background;
   const isSigned =
     kind === VectorBackground.Divergence || kind === VectorBackground.Curl;
-  const scaleType =
-    is3D || (isSigned && !SIGNED_SCALE_TYPES.includes(config.scaleType))
-      ? ScaleType.Linear // 3D: linear colours
-      : config.scaleType;
+  const scaleType = getBackgroundScaleType(config.scaleType, is3D, isSigned);
   const values = useMemo(
     () => getVectorBackground(field, kind, datasetBackground),
     [field, kind, datasetBackground],
