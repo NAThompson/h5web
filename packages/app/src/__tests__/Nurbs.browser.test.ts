@@ -77,7 +77,11 @@ async function countPixels(
   ]);
   submit.call(device.queue, [encoder.finish()]);
 
-  await buffer.mapAsync(0x01); // `READ`
+  try {
+    await buffer.mapAsync(0x01); // `READ`
+  } catch {
+    return 0; // e.g. device lost
+  }
   const bytes = new Uint8Array(buffer.getMappedRange());
   let count = 0;
   for (let y = 0; y < height; y += 1) {
@@ -397,6 +401,19 @@ test('visualize multi-patch NURBS surface (teapot) with WebGPU', async () => {
 
   await user.click(page.getByRole('button', { name: 'Knot lines' })); // patch boundaries
   await user.click(page.getByRole('button', { name: 'Control net' }));
+  await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
+});
+
+test('visualize lone patch of multi-patch surface', async () => {
+  const { frames } = captureGpuFrames();
+  await renderApp('/nurbs/teapot/lid_1');
+  expect(getVisTabs()).toEqual(['NURBS', 'Basis']); // B-spline of the teapot group
+
+  const figure = getFigure('lid_1');
+  await expect.element(figure).toHaveAttribute('data-renderer', 'webgpu');
+  await expect
+    .poll(() => figure.element().querySelector('canvas[data-drawn]'))
+    .not.toBeNull();
   await expect.poll(async () => frames.at(-1)).toBeGreaterThan(10_000);
 });
 

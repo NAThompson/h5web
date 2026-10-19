@@ -1,5 +1,6 @@
 import {
   hasArrayShape,
+  hasChildren,
   hasNumericType,
   isDataset,
   isGroup,
@@ -22,14 +23,39 @@ export function isNurbsGeometry(geometry: string | undefined): boolean {
   return val === 'nurbs' || val === 'bspline';
 }
 
-/* Group with `H5WEB_geometry = "nurbs"` or `"bspline"` */
+/* `H5WEB_geometry` of a NURBS group, or of the multi-patch group of a lone patch (a surface
+ * group without its own `H5WEB_geometry`, cf. `isNurbsMultiPatchGroup`) */
+export async function getNurbsGeometry(
+  group: GroupWithChildren,
+  dataContext: DataContextValue,
+): Promise<string | undefined> {
+  const attr = findScalarStrAttr(group, 'H5WEB_geometry');
+  if (attr || !isNurbsSurfaceGroup(group) || group.path === '/') {
+    return getAttributeValue(group, attr, dataContext);
+  }
+
+  const { queryClient, queries } = dataContext;
+  const parentPath = group.path.slice(0, group.path.lastIndexOf('/')) || '/';
+  const parent = await queryClient.query(queries.entity(parentPath));
+  if (!isGroup(parent) || !hasChildren(parent)) {
+    return undefined;
+  }
+  const geometry = await getAttributeValue(
+    parent,
+    findScalarStrAttr(parent, 'H5WEB_geometry'),
+    dataContext,
+  );
+  return isNurbsMultiPatchGroup(parent) && isNurbsGeometry(geometry)
+    ? geometry
+    : undefined;
+}
+
+/* Group with `H5WEB_geometry = "nurbs"` or `"bspline"`, or lone patch of such a group */
 export async function isNurbsGroup(
   group: GroupWithChildren,
   dataContext: DataContextValue,
 ): Promise<boolean> {
-  const attr = findScalarStrAttr(group, 'H5WEB_geometry');
-  const geometry = await getAttributeValue(group, attr, dataContext);
-  return isNurbsGeometry(geometry);
+  return isNurbsGeometry(await getNurbsGeometry(group, dataContext));
 }
 
 const BSPLINE_WEIGHTS_ERROR =

@@ -14,23 +14,28 @@ import {
   type GroupWithChildren,
   type NumericType,
 } from '@h5web/shared/hdf5-models';
-import { useSuspenseQueries } from '@tanstack/react-query';
+import { useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
 import { useAttrValue, useValues } from '../../hooks';
 import { useDataContext } from '../../providers/DataProvider';
-import { findScalarStrAttr, findSingleNumAttr } from '../../utils';
+import { findSingleNumAttr } from '../../utils';
 import { toNumArray } from '../core/utils';
 import {
   getNurbsDatasets,
+  getNurbsGeometry,
   getNurbsSurfaceDatasets,
   isNurbsMultiPatchGroup,
 } from './utils';
 
-/* `H5WEB_geometry = "bspline"`: no weights */
+/* `H5WEB_geometry = "bspline"` (of the multi-patch group of a lone patch): no weights */
 function useIsBspline(group: GroupWithChildren): boolean {
-  const attr = findScalarStrAttr(group, 'H5WEB_geometry');
-  return useAttrValue(group, attr)?.toLowerCase() === 'bspline';
+  const dataContext = useDataContext();
+  const { data: geometry } = useSuspenseQuery({
+    queryKey: [dataContext.filepath, 'nurbsGeometry', group.path],
+    queryFn: async () => (await getNurbsGeometry(group, dataContext)) ?? null,
+  });
+  return geometry?.toLowerCase() === 'bspline';
 }
 
 /* Fetch control points, weights, knots and degree of a NURBS group, and check them */
