@@ -148,7 +148,7 @@ function MappedComplexCurveVis(props: Props) {
         colorMap={byPhase ? phaseColorMap : colorMap}
         invertColorMap={invertColorMap}
         title={renderMarkup(
-          `${title} (coloured by ${byPhase ? 'phase' : 'amplitude'})`,
+          `${title} (colored by ${byPhase ? 'phase' : 'amplitude'})`,
         )}
         xLabel={axisLabels[xDimIndex] ?? '𝑥'}
         yLabel="ℜ"

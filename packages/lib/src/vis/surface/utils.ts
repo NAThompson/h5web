@@ -36,7 +36,7 @@ export function assertSurfaceArrays(
       colorArray.shape[0] !== dataArray.shape[0] ||
       colorArray.shape[1] !== dataArray.shape[1])
   ) {
-    throw new Error('Expected colour array of same shape as data array');
+    throw new Error('Expected color array of same shape as data array');
   }
 }
 

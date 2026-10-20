@@ -40,22 +40,22 @@ function IsosurfacesControl(props: Props) {
       Icon={MdLayers}
     >
       <div className={styles.header}>
-        <span className={styles.label}>Colour</span>
+        <span className={styles.label}>Color</span>
         <ToggleGroup
           role="radiogroup"
-          ariaLabel="Isosurface colour"
+          ariaLabel="Isosurface color"
           value={colorMode}
           onChange={(val) => onColorModeChange(val as IsoColorMode)}
         >
           <ToggleGroup.Btn
             label="Solid"
             value={IsoColorMode.Solid}
-            hint="One colour per level"
+            hint="One color per level"
           />
           <ToggleGroup.Btn
             label="|∇𝑓|"
             value={IsoColorMode.Gradient}
-            hint="Gradient magnitude, with the colour map"
+            hint="Gradient magnitude, with the color map"
           />
         </ToggleGroup>
       </div>

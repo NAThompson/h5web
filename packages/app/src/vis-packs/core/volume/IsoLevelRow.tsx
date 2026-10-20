@@ -78,7 +78,7 @@ function IsoLevelRow(props: RowProps) {
         <input
           className={styles.colorInput}
           type="color"
-          aria-label={`Level ${index} colour`}
+          aria-label={`Level ${index} color`}
           value={color}
           onChange={(evt) => onUpdate({ color: evt.currentTarget.value })}
         />

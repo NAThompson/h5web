@@ -65,7 +65,7 @@ function NurbsVisContainer(props: VisContainerProps) {
                 {isSurface && (
                   <>
                     <Selector
-                      label="Colour by"
+                      label="Color by"
                       value={coloring.option}
                       onChange={coloring.setOption}
                       options={getColorByOptions(fields)}

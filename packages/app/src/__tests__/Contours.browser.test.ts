@@ -56,9 +56,9 @@ test('show automatic contour levels with labels', async () => {
   await expect.poll(() => countLabels('1')).toBeGreaterThan(0);
 
   // Colour by level hides the colour picker
-  expect(page.getByLabelText('Line colour')).toBeVisible();
-  await user.click(page.getByRole('radio', { name: 'Colour map' }));
-  expect(page.getByLabelText('Line colour')).not.toBeInTheDocument();
+  expect(page.getByLabelText('Line color')).toBeVisible();
+  await user.click(page.getByRole('radio', { name: 'Color map' }));
+  expect(page.getByLabelText('Line color')).not.toBeInTheDocument();
 
   await user.click(page.getByRole('radio', { name: 'Off' }));
   await expect.poll(() => countLabels('1')).toBe(0);

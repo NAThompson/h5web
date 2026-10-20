@@ -83,7 +83,7 @@ function MappedCurveVis(props: Props) {
         colorMap={colorMap}
         scaleType={scaleType}
         invertColorMap={invertColorMap}
-        title={renderMarkup(values ? title : `${title} (coloured by index)`)}
+        title={renderMarkup(values ? title : `${title} (colored by index)`)}
         xLabel={labels[0]}
         yLabel={labels[1]}
         zLabel={labels[2] ?? '𝑧'}

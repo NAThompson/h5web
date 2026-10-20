@@ -180,25 +180,25 @@ function ContoursControl(props: Props) {
           </p>
 
           <div className={styles.field}>
-            <span className={styles.label}>Colour</span>
+            <span className={styles.label}>Color</span>
             <ToggleGroup
               role="radiogroup"
-              ariaLabel="Contour colour"
+              ariaLabel="Contour color"
               value={colorMode}
               onChange={(val) => onColorModeChange(val as ContourColorMode)}
             >
               <ToggleGroup.Btn label="Single" value={ContourColorMode.Single} />
               <ToggleGroup.Btn
-                label="Colour map"
+                label="Color map"
                 value={ContourColorMode.ColorMap}
-                hint="Colour each line by its level"
+                hint="Color each line by its level"
               />
             </ToggleGroup>
             {colorMode === ContourColorMode.Single && (
               <input
                 className={styles.colorInput}
                 type="color"
-                aria-label="Line colour"
+                aria-label="Line color"
                 value={color}
                 onChange={(evt) => onColorChange(evt.currentTarget.value)}
               />

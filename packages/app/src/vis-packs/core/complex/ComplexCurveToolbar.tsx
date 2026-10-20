@@ -69,7 +69,7 @@ function ComplexCurveToolbar(props: Props) {
   return (
     <Toolbar interactions={SURFACE_INTERACTIONS}>
       <ComplexVisTypeSelector
-        label="Colour"
+        label="Color"
         value={colorBy}
         onChange={setColorBy}
         options={COLOR_TYPES}

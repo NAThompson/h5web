@@ -96,7 +96,7 @@ test(
     ]);
     expect(getSelectedVisTab()).toBe(Vis.Curve);
     await expect
-      .element(page.getByRole('figure', { name: 'helix (coloured by index)' }))
+      .element(page.getByRole('figure', { name: 'helix (colored by index)' }))
       .toBeVisible();
   },
   TEST_TIMEOUT,

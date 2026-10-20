@@ -24,7 +24,7 @@ test(
     await selectVisTab(Vis.ComplexCurve);
 
     const phaseFigure = page.getByRole('figure', {
-      name: 'oneD_complex (coloured by phase)',
+      name: 'oneD_complex (colored by phase)',
     });
     await expect.element(phaseFigure).toBeVisible();
     expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible();
@@ -41,7 +41,7 @@ test(
     await user.click(page.getByRole('option', { name: '𝓐 Amplitude' }));
 
     const amplitudeFigure = page.getByRole('figure', {
-      name: 'oneD_complex (coloured by amplitude)',
+      name: 'oneD_complex (colored by amplitude)',
     });
     await expect.element(amplitudeFigure).toBeVisible();
     expect(page.getByRole('combobox', { name: /Viridis/u })).toBeVisible();
@@ -61,7 +61,7 @@ test(
       .element(page.getByRole('button', { name: 'Reset view' }))
       .toBeVisible();
     expect(
-      page.getByRole('figure', { name: /coloured by phase/u }),
+      page.getByRole('figure', { name: /colored by phase/u }),
     ).toBeVisible();
   },
   CURVE_TEST_TIMEOUT,
@@ -115,7 +115,7 @@ test(
     await page.getByRole('button', { name: 'Play D0' }).click();
 
     expect(
-      page.getByRole('figure', { name: /coloured by phase/u }),
+      page.getByRole('figure', { name: /colored by phase/u }),
     ).toBeVisible();
   },
   CURVE_TEST_TIMEOUT,
