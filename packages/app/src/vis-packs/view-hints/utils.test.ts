@@ -207,12 +207,12 @@ describe('parseViewHint', () => {
     expect(getRootScaleNotes(notRoot)).toEqual([]);
   });
 
-  it('snap the degree of nth-root scales to the slider: 2 to 10 by halves', () => {
-    const [low, mid, high] = [1.25, 4.3, 12.3].map((n) =>
+  it('snap the degree of nth-root scales to the slider: 2 to 10 by 0.05', () => {
+    const [low, mid, high] = [1.25, 4.33, 12.3].map((n) =>
       hint({ H5WEB_scale: 'root', H5WEB_root_n: n }),
     );
     expect(low).toMatchObject({ rootN: 2, notes: [] });
-    expect(mid.rootN).toBe(4.5);
+    expect(mid.rootN).toBe(4.35);
     expect(high.rootN).toBe(10);
   });
 

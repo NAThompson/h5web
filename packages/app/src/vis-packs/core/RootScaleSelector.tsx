@@ -37,7 +37,7 @@ function RootScaleSelector(props: Props) {
           ariaLabel="Root degree"
           {...ROOT_N_RANGE}
           value={rootN}
-          format={(n) => `n = ${n}`}
+          format={(n) => `n = ${Number(n.toFixed(2))}`}
           onChange={onRootNChange}
         />
       )}

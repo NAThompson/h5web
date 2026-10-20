@@ -80,7 +80,7 @@ interface Props extends ClassStyleAttrs {
    * e.g. phase of complex values while height shows their amplitude */
   colorArray?: NdArray<NumArray>;
   colorDomain?: Domain; // defaults to `domain`
-  colorScaleType?: VisScaleType;
+  colorScaleType?: VisScaleType; // without `colorArray`: colours of the heights on another scale
   /* CSS colour of `NaN`, ignored and unsupported values, drawn on the floor of the box rather than
    * as holes */
   nanColor?: string;
@@ -219,12 +219,12 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
 
   const colorField = useMemo(
     () =>
-      colorValues && {
-        values: colorValues,
+      (colorValues || colorScaleType) && {
+        values: colorValues ?? values,
         domain: colorDomain ?? domain,
         scaleType: colorScaleType ?? ScaleType.Linear,
       },
-    [colorValues, colorDomain, colorScaleType, domain],
+    [colorValues, values, colorDomain, colorScaleType, domain],
   );
 
   const specialColors = useMemo(
@@ -233,13 +233,19 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
   );
   const floorInvalid = specialColors?.nan !== undefined;
 
-  // Colour bar shows the field used for colours (unlabelled: the label is that of the height)
+  // Colour bar shows the field used for colours (unlabelled if another: the label is that of the height)
   const legend = useMemo(
     () =>
-      colorField
+      colorField && colorValues
         ? { ...colorField, valueTransform: undefined, label: undefined }
-        : { domain, scaleType, valueTransform, label: colorBarLabel },
-    [colorField, domain, scaleType, valueTransform, colorBarLabel],
+        : {
+            domain,
+            scaleType,
+            ...colorField,
+            valueTransform,
+            label: colorBarLabel,
+          },
+    [colorField, colorValues, domain, scaleType, valueTransform, colorBarLabel],
   );
 
   // Children (e.g. overlays) are drawn in the data coordinates of the surface
@@ -317,7 +323,7 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
         Math.abs(yDomain[1] - yDomain[0]) / Math.max(rowIndices.length - 1, 1),
       ],
       domain,
-      scaleType,
+      scaleType: colorArray ? scaleType : (colorScaleType ?? scaleType), // of colours
       colorMap,
       invertColorMap,
     };
@@ -339,6 +345,8 @@ function SurfaceVis(props: PropsWithChildren<Props>) {
     domain,
     scaleType,
     heightScale,
+    colorArray,
+    colorScaleType,
     colorMap,
     invertColorMap,
   ]);

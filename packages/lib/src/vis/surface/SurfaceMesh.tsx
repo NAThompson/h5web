@@ -105,6 +105,7 @@ function SurfaceMesh(props: Props) {
             flattenArray(colorField.values),
             colorField.domain,
             colorField.scaleType,
+            colorField.values === values ? ignoreValue : undefined, // heights on another scale
           ),
           colorLut,
           specialColors,

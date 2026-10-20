@@ -39,12 +39,13 @@ export const ROOT_SCALE_TYPES: ColorOrRootScaleType[] = [
 ];
 export const DEFAULT_ROOT_N = 3;
 // Slider over n, by halves: n = 2.5 sits between square and cube roots; beyond 10, roots barely differ
-export const ROOT_N_RANGE = { min: 2, max: 10, step: 0.5 };
+export const ROOT_N_RANGE = { min: 2, max: 10, step: 0.05 };
 
-/* Degree of the nth root on the slider's grid: clamped to its range, to the nearest half */
+/* Degree of the nth root on the slider's grid: clamped to its range, to the nearest step */
 export function snapRootN(rootN: number): number {
   const { min, max, step } = ROOT_N_RANGE;
-  return Math.min(max, Math.max(min, Math.round(rootN / step) * step));
+  const snapped = Number((Math.round(rootN / step) * step).toFixed(2));
+  return Math.min(max, Math.max(min, snapped));
 }
 
 /* Domains of the nth root (gamma) are as linear: normalized before the root is taken */
@@ -76,6 +77,16 @@ export function getVisScaleType(
     : scaleType === ScaleType.SymLog && threshold
       ? [ScaleType.SymLog, threshold]
       : scaleType;
+}
+
+/* Scales of the heights and colours of a 3D surface: an nth root applies to the colours only */
+export function getSurfaceScaleTypes(visScaleType: VisScaleType): {
+  scaleType: VisScaleType;
+  colorScaleType?: VisScaleType;
+} {
+  return Array.isArray(visScaleType) && visScaleType[0] === ScaleType.Gamma
+    ? { scaleType: ScaleType.Linear, colorScaleType: visScaleType }
+    : { scaleType: visScaleType };
 }
 
 export const BASE_INTERACTIONS = [

@@ -54,7 +54,7 @@ import {
   useToNumArray,
   useToNumArrays,
 } from '../hooks';
-import { DEFAULT_DOMAIN, toNumArray } from '../utils';
+import { DEFAULT_DOMAIN, getSurfaceScaleTypes, toNumArray } from '../utils';
 import { type HeatmapConfig } from './config';
 import HeatmapToolbar from './HeatmapToolbar';
 import {
@@ -244,7 +244,7 @@ function MappedHeatmapVis(props: Props) {
           valueTransform={valueTransform}
           domain={safeDomain}
           colorMap={colorMap}
-          scaleType={visScaleType}
+          {...getSurfaceScaleTypes(visScaleType)}
           invertColorMap={invertColorMap}
           abscissaParams={abscissaParams}
           ordinateParams={ordinateParams}

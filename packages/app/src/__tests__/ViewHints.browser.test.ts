@@ -414,8 +414,8 @@ test('colour with the nth root of the hinted degree', async () => {
 
   (slider.element() as HTMLInputElement).focus();
   await userEvent.keyboard('{ArrowRight}');
-  await expect.element(slider).toHaveValue('4.5');
-  expect(page.getByText('n = 4.5')).toBeVisible();
+  await expect.element(slider).toHaveValue('4.05');
+  expect(page.getByText('n = 4.05')).toBeVisible();
   await expect.element(slider).toHaveAttribute('max', '10'); // fixed range
 
   // Noted on visualizations without the nth root
