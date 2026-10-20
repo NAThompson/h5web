@@ -13,10 +13,12 @@ import { useVisScaleType } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type ViewHint } from '../../view-hints/models';
 import OverlayNotes from '../../view-hints/OverlayNotes';
-import { getColorSuggestions } from '../../view-hints/suggestions';
-import { getRootScaleNotes } from '../../view-hints/utils';
+import {
+  getColorScaleType,
+  getColorSuggestions,
+} from '../../view-hints/suggestions';
 import { useSuggestions } from '../hooks';
-import { DEFAULT_DOMAIN } from '../utils';
+import { DEFAULT_DOMAIN, sqrtAsRoot } from '../utils';
 import { type ScatterConfig } from './config';
 import PointsToolbar from './PointsToolbar';
 import { type ScatterData } from './ScatterFetcher';
@@ -62,7 +64,7 @@ function MappedPointsVis(props: Props) {
 
   // A file's `H5WEB_*` view hint: scale first, since the data domain depends on it
   const hinted = useSuggestions(storedConfig, {
-    scaleType: hint.scaleType,
+    ...sqrtAsRoot(getColorScaleType(hint), hint.rootN),
     invertColorMap: hint.invertColorMap,
     keepRatio: hint.keepRatio,
     opacity: source.opacity,
@@ -83,7 +85,11 @@ function MappedPointsVis(props: Props) {
     config;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
-  const visScaleType = useVisScaleType(scaleType, hint.symlogThreshold);
+  const visScaleType = useVisScaleType(
+    scaleType,
+    hint.symlogThreshold,
+    config.rootN,
+  );
 
   const common = {
     className: visualizerStyles.vis,
@@ -144,7 +150,7 @@ function MappedPointsVis(props: Props) {
         />
       )}
       <OverlayNotes
-        notes={[...hint.notes, ...getRootScaleNotes(hint), ...source.notes]}
+        notes={[...hint.notes, ...source.notes]}
       />
     </>
   );

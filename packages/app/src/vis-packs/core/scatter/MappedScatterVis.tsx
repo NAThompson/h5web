@@ -11,6 +11,7 @@ import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
+import { useVisScaleType } from '../../view-hints/hooks';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { type ScatterConfig } from './config';
@@ -46,6 +47,7 @@ function MappedScatterVis(props: Props) {
   const dataDomain = useDomain(dataArray, { scaleType }) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
+  const visScaleType = useVisScaleType(scaleType, undefined, config.rootN);
 
   const [xLabel, yLabel] = axisLabels;
   const [xValue, yValue] = numAxisArrays;
@@ -67,7 +69,7 @@ function MappedScatterVis(props: Props) {
         domain={safeDomain}
         colorMap={colorMap}
         invertColorMap={invertColorMap}
-        scaleType={scaleType}
+        scaleType={visScaleType}
         showGrid={showGrid}
         title={title}
       >

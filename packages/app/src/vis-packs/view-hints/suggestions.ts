@@ -116,7 +116,7 @@ export function getColorSuggestions(
 }
 
 /* Colour scale of a hint, nth root as gamma (of exponent 1/`rootN`) */
-function getColorScaleType(hint: ViewHint): ColorOrRootScaleType | undefined {
+export function getColorScaleType(hint: ViewHint): ColorOrRootScaleType | undefined {
   return hint.rootN ? ScaleType.Gamma : hint.scaleType;
 }
 

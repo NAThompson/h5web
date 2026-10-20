@@ -10,11 +10,12 @@ import {
   ToggleBtn,
   Toolbar,
 } from '@h5web/lib';
-import { AXIS_SCALE_TYPES, COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
+import { AXIS_SCALE_TYPES } from '@h5web/shared/vis-models';
 import { FiBox } from 'react-icons/fi';
 import { MdAspectRatio, MdBubbleChart, MdGridOn } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import RootScaleSelector from '../RootScaleSelector';
 import { BASE_INTERACTIONS, SURFACE_INTERACTIONS } from '../utils';
 import { type ScatterConfig } from './config';
 import LogSlider from './LogSlider';
@@ -91,10 +92,11 @@ function PointsToolbar(props: Props) {
           />
           <Separator />
 
-          <ScaleSelector
+          <RootScaleSelector
             value={scaleType}
             onScaleChange={setScaleType}
-            options={COLOR_SCALE_TYPES}
+            rootN={config.rootN}
+            onRootNChange={config.setRootN}
           />
           <Separator />
         </>

@@ -196,6 +196,13 @@ export function makeScatterGroup(): GroupWithChildren {
         { H5WEB_vis: 'scatter3d', H5WEB_column_labels: 'x y z energy' },
       ),
     ),
+    // `H5WEB_scale = "root"`: nth root of the colour scale, of degree `H5WEB_root_n`
+    withAttrs(floats('tiny_root', [-1, -1, 1, 0, 0, 2, 1, 1, 3], [3, 3]), {
+      H5WEB_vis: 'scatter',
+      H5WEB_column_labels: 'x y energy',
+      H5WEB_scale: 'root',
+      H5WEB_root_n: 2.5,
+    }),
     withAttrs(
       dataset('big', arrayShape([BIG_COUNT, 4]), floatType(32), getBigCloud),
       {

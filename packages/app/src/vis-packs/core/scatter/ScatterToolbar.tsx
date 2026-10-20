@@ -8,10 +8,11 @@ import {
   ToggleBtn,
   Toolbar,
 } from '@h5web/lib';
-import { AXIS_SCALE_TYPES, COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
+import { AXIS_SCALE_TYPES } from '@h5web/shared/vis-models';
 import { MdGridOn } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import RootScaleSelector from '../RootScaleSelector';
 import { BASE_INTERACTIONS } from '../utils';
 import { type ScatterConfig } from './config';
 
@@ -74,10 +75,11 @@ function ScatterToolbar(props: Props) {
 
       <Separator />
 
-      <ScaleSelector
+      <RootScaleSelector
         value={scaleType}
         onScaleChange={setScaleType}
-        options={COLOR_SCALE_TYPES}
+        rootN={config.rootN}
+        onRootNChange={config.setRootN}
       />
 
       <Separator />

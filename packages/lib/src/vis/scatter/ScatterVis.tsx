@@ -1,6 +1,5 @@
 import { assertDefined, assertLength } from '@h5web/shared/guards';
 import {
-  type ColorScaleType,
   type Domain,
   type NumArray,
   ScaleType,
@@ -18,7 +17,7 @@ import ResetZoomButton from '../../toolbar/floating/ResetZoomButton';
 import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
 import { useAxisDomain } from '../hooks';
-import { type ClassStyleAttrs } from '../models';
+import { type ClassStyleAttrs, type VisScaleType } from '../models';
 import Tooltip from '../shared/Tooltip';
 import VisCanvas from '../shared/VisCanvas';
 import { type ScatterAxisParams } from './models';
@@ -32,7 +31,7 @@ interface Props extends ClassStyleAttrs {
   domain: Domain;
   colorMap?: ColorMap;
   invertColorMap?: boolean;
-  scaleType?: ColorScaleType;
+  scaleType?: VisScaleType;
   showGrid?: boolean;
   title?: string;
   size?: number;

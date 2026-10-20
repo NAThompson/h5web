@@ -66,6 +66,38 @@ test(
   TEST_TIMEOUT,
 );
 
+test(
+  'offer the nth root to colour points, not the square root',
+  async () => {
+    await renderApp('/scatter/columns');
+
+    await userEvent.click(page.getByRole('combobox', { name: 'Linear' }));
+    expect(
+      page.getByRole('option', { name: 'Square root' }).elements(),
+    ).toHaveLength(0);
+    await userEvent.click(page.getByRole('option', { name: 'Root' }));
+
+    const slider = page.getByRole('slider', { name: 'Root degree' });
+    await expect.element(slider).toHaveValue('3');
+  },
+  TEST_TIMEOUT,
+);
+
+test(
+  'colour points with the nth root of the hinted degree',
+  async () => {
+    await renderApp('/scatter/tiny_root');
+
+    await expect
+      .element(page.getByRole('combobox', { name: 'Root' }))
+      .toBeVisible();
+    const slider = page.getByRole('slider', { name: 'Root degree' });
+    await expect.element(slider).toHaveValue('2.5');
+    expect(document.body.textContent).not.toContain('is not available');
+  },
+  TEST_TIMEOUT,
+);
+
 test('keep default vis of datasets without scatter hint', async () => {
   await renderApp('/scatter/xy');
   expect(getVisTabs()).toEqual([Vis.Matrix, Vis.Line, Vis.Heatmap]);

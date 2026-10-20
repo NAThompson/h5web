@@ -1,9 +1,5 @@
 import { type CustomDomain } from '@h5web/lib';
-import {
-  type AxisScaleType,
-  type ColorScaleType,
-  ScaleType,
-} from '@h5web/shared/vis-models';
+import { type AxisScaleType, ScaleType } from '@h5web/shared/vis-models';
 import {
   createContext,
   type PropsWithChildren,
@@ -15,6 +11,11 @@ import { persist } from 'zustand/middleware';
 
 import { type ColorMap } from '../heatmap/models';
 import { useSuggestion } from '../hooks';
+import {
+  type ColorOrRootScaleType,
+  DEFAULT_ROOT_N,
+  migrateSqrtToRoot,
+} from '../utils';
 
 export interface ScatterConfig {
   customDomain: CustomDomain;
@@ -26,8 +27,11 @@ export interface ScatterConfig {
   invertColorMap: boolean;
   setInvertColorMap: (invertColorMap: boolean) => void;
 
-  scaleType: ColorScaleType;
-  setScaleType: (scaleType: ColorScaleType) => void;
+  scaleType: ColorOrRootScaleType;
+  setScaleType: (scaleType: ColorOrRootScaleType) => void;
+
+  rootN: number; // degree of the nth-root scale (gamma of exponent 1/n)
+  setRootN: (rootN: number) => void;
 
   showGrid: boolean;
   setShowGrid: (showGrid: boolean) => void;
@@ -67,6 +71,9 @@ function createScatterConfigStore() {
         scaleType: ScaleType.Linear,
         setScaleType: (scaleType) => set(() => ({ scaleType })),
 
+        rootN: DEFAULT_ROOT_N,
+        setRootN: (rootN) => set({ rootN }),
+
         showGrid: true,
         setShowGrid: (showGrid) => set({ showGrid }),
 
@@ -89,7 +96,8 @@ function createScatterConfigStore() {
       }),
       {
         name: 'h5web:scatter',
-        version: 2,
+        version: 3,
+        migrate: migrateSqrtToRoot, // v3: Root replaces Sqrt in the toolbar
       },
     ),
   );
@@ -107,7 +115,7 @@ export function ScatterConfigProvider(props: PropsWithChildren) {
 
 export function useScatterConfig(
   suggestions: Partial<
-    Pick<ScatterConfig, 'scaleType' | 'xScaleType' | 'yScaleType'>
+    Pick<ScatterConfig, 'scaleType' | 'rootN' | 'xScaleType' | 'yScaleType'>
   > = {},
 ): ScatterConfig {
   const config = useStore(useContext(StoreContext));
@@ -116,6 +124,12 @@ export function useScatterConfig(
     suggestions.scaleType,
     config.scaleType,
     config.setScaleType,
+  );
+
+  const [rootN, setRootN] = useSuggestion(
+    suggestions.rootN,
+    config.rootN,
+    config.setRootN,
   );
 
   const [xScaleType, setXScaleType] = useSuggestion(
@@ -133,9 +147,11 @@ export function useScatterConfig(
   return {
     ...config,
     scaleType,
+    rootN,
     xScaleType,
     yScaleType,
     setScaleType,
+    setRootN,
     setXScaleType,
     setYScaleType,
   };

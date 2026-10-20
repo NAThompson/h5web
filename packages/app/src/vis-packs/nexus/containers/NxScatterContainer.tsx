@@ -6,6 +6,7 @@ import {
 
 import { useScatterConfig } from '../../core/scatter/config';
 import MappedScatterVis from '../../core/scatter/MappedScatterVis';
+import { sqrtAsRoot } from '../../core/utils';
 import { type VisContainerProps } from '../../models';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericNxData } from '../guards';
@@ -38,7 +39,7 @@ function NxScatterContainer(props: VisContainerProps) {
   const [xScaleType, yScaleType] = silxStyle.axisScaleTypes || [];
 
   const config = useScatterConfig({
-    scaleType: silxStyle.signalScaleType,
+    ...sqrtAsRoot(silxStyle.signalScaleType, undefined),
     xScaleType,
     yScaleType,
   });
