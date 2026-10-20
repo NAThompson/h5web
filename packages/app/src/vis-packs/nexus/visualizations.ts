@@ -98,7 +98,7 @@ export const NX_DATA_VIS = {
   },
 
   [NxDataVis.NxComplexLine]: {
-    name: NxDataVis.NxLine,
+    name: NxDataVis.NxComplexLine,
     Icon: FiActivity,
     Container: NxComplexLineContainer,
     ConfigProvider: LineConfigProvider,

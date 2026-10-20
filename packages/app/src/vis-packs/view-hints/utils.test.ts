@@ -370,6 +370,16 @@ describe('findHintVis', () => {
     expect(findHintVis(parsed, [line, heatmap, volume])).toBe(volume);
   });
 
+  it('find complex lines for line hints', () => {
+    const complexLine = vis('Complex Line');
+    expect(
+      findHintVis(hint({ H5WEB_vis: 'complex_line' }), [complexLine, heatmap]),
+    ).toBe(complexLine);
+    expect(
+      findHintVis(hint({ H5WEB_vis: 'line' }), [complexLine, heatmap]),
+    ).toBe(complexLine);
+  });
+
   it('fall back to heatmap for surfaces when not a parametric surface', () => {
     const parsed = hint({ H5WEB_vis: 'surface' });
     expect(findHintVis(parsed, [line, heatmap])).toBe(heatmap);

@@ -37,10 +37,10 @@ test('visualize NXdata group with explicit signal interpretation', async () => {
   await selectNexusExplorerNode('spectrum_complex');
   expect(getVisTabs()).toEqual([
     NxDataVis.NxComplexCurve,
-    NxDataVis.NxLine,
+    NxDataVis.NxComplexLine,
     NxDataVis.NxHeatmap,
   ]);
-  expect(getSelectedVisTab()).toBe(NxDataVis.NxLine);
+  expect(getSelectedVisTab()).toBe(NxDataVis.NxComplexLine);
   expect(
     page.getByRole('figure', { name: 'twoD_complex' }), // signal name (complex vis type is displayed as ordinate label)
   ).toBeVisible();
@@ -86,7 +86,7 @@ test('visualize NXdata group without explicit signal interpretation', async () =
   await selectNexusExplorerNode('image_complex');
   expect(getVisTabs()).toEqual([
     NxDataVis.NxComplexCurve,
-    NxDataVis.NxLine,
+    NxDataVis.NxComplexLine,
     NxDataVis.NxHeatmap,
   ]);
   expect(getSelectedVisTab()).toBe(NxDataVis.NxHeatmap);

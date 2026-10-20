@@ -54,7 +54,7 @@ test(
   'show complex NeXus signal as 3D curve',
   async () => {
     const { selectVisTab } = await renderApp('/nexus/spectrum_complex');
-    expect(getSelectedVisTab()).toBe(NxDataVis.NxLine);
+    expect(getSelectedVisTab()).toBe(NxDataVis.NxComplexLine);
 
     await selectVisTab(NxDataVis.NxComplexCurve);
     await expect

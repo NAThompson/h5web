@@ -217,12 +217,12 @@ export function viewHintQuery(
 const VIS_NAMES: Record<HintVis, string[]> = {
   [HintVis.Scalar]: ['Scalar'],
   [HintVis.Matrix]: ['Matrix'],
-  [HintVis.Line]: ['Line', 'NX Line'],
+  [HintVis.Line]: ['Line', 'NX Line', 'Complex Line', 'NX Complex Line'],
   [HintVis.Heatmap]: ['Heatmap', 'NX Heatmap'],
   [HintVis.Surface]: ['Surface', 'NX Surface', 'Heatmap', 'NX Heatmap'], // parametric if `coordinates`
   [HintVis.ComplexSurface]: ['Heatmap', 'NX Heatmap'],
   [HintVis.ParamSurface]: ['Surface', 'NX Surface'],
-  [HintVis.ComplexLine]: ['Line', 'NX Line'],
+  [HintVis.ComplexLine]: ['Complex Line', 'NX Complex Line'],
   [HintVis.ComplexHeatmap]: ['Heatmap', 'NX Heatmap'],
   [HintVis.ComplexCurve]: ['Complex Curve', 'NX Complex Curve'],
   [HintVis.Volume]: ['Volume', 'NX Volume'],
