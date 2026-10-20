@@ -39,8 +39,8 @@ export const ROOT_SCALE_TYPES: ColorOrRootScaleType[] = [
   ScaleType.Gamma,
 ];
 export const DEFAULT_ROOT_N = 3;
-// Slider over n: n = 1 is linear, n = 2 the square root; beyond 10, roots barely differ
-export const ROOT_N_RANGE = { min: 1, max: 10, step: 0.05 };
+// Slider over n: n = 1 is linear, n = 2 the square root, n < 1 a power (n = 0.5 squares)
+export const ROOT_N_RANGE = { min: 0.1, max: 10, step: 0.05 };
 
 /* Color scale where Root is offered: square root as the nth root of n = 2 */
 export function sqrtAsRoot<T extends ColorOrRootScaleType | undefined>(

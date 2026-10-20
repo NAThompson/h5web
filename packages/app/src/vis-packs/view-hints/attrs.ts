@@ -402,11 +402,11 @@ export function parseViewHint(
   return {
     vis,
     scaleType: scale === 'root' ? undefined : scale,
-    // On the grid of the slider over n: 1 to 10 by 0.05 (e.g. 12.3 is 10, 4.33 is 4.35)
+    // On the grid of the slider over n: 0.1 to 10 by 0.05 (e.g. 12.3 is 10, 4.33 is 4.35)
     rootN:
       scale === 'root'
         ? snapRootN(
-            read.num('H5WEB_root_n', (v) => Number.isFinite(v) && v >= 1) ??
+            read.num('H5WEB_root_n', (v) => Number.isFinite(v) && v > 0) ??
               DEFAULT_ROOT_N,
           )
         : undefined,

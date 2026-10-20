@@ -417,7 +417,7 @@ test('colour with the nth root of the hinted degree', async () => {
   await expect.element(slider).toHaveValue('4.05');
   expect(page.getByText('n = 4.05')).toBeVisible();
   await expect.element(slider).toHaveAttribute('max', '10'); // fixed range
-  await expect.element(slider).toHaveAttribute('min', '1'); // n = 1: linear
+  await expect.element(slider).toHaveAttribute('min', '0.1'); // n < 1: powers
 
   // No square root besides the root: it is n = 2
   await userEvent.click(page.getByRole('combobox', { name: 'Root' }));

@@ -197,7 +197,7 @@ describe('parseViewHint', () => {
     });
 
     expect(hint({ H5WEB_scale: 'root' }).rootN).toBe(3);
-    const invalid = hint({ H5WEB_scale: 'root', H5WEB_root_n: 0.5 });
+    const invalid = hint({ H5WEB_scale: 'root', H5WEB_root_n: 0 });
     expect(invalid.rootN).toBe(3);
     expect(invalid.notes).toEqual(['ignored invalid "H5WEB_root_n"']);
 
@@ -210,11 +210,11 @@ describe('parseViewHint', () => {
     expect(getRootScaleNotes(notRoot)).toEqual([]);
   });
 
-  it('snap the degree of nth-root scales to the slider: 1 to 10 by 0.05', () => {
-    const [low, mid, high] = [1.01, 4.33, 12.3].map((n) =>
+  it('snap the degree of nth-root scales to the slider: 0.1 to 10 by 0.05', () => {
+    const [low, mid, high] = [0.01, 4.33, 12.3].map((n) =>
       hint({ H5WEB_scale: 'root', H5WEB_root_n: n }),
     );
-    expect(low).toMatchObject({ rootN: 1, notes: [] });
+    expect(low).toMatchObject({ rootN: 0.1, notes: [] });
     expect(mid.rootN).toBe(4.35);
     expect(high.rootN).toBe(10);
   });
