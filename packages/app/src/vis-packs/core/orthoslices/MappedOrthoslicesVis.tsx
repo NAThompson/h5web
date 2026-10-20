@@ -71,7 +71,7 @@ interface Props {
   toolbarContainer: HTMLDivElement | undefined;
   config: OrthoslicesConfig;
   initialPosition?: number[]; // `H5WEB_slice_position`: indices along `[z, y, x]`
-  withPhysicalAspect?: boolean; // axis values share a unit: 3D box sized by them
+  axisUnits?: (string | undefined)[]; // of dimensions `[z, y, x]`: equal ratios only between same units
   symlogThreshold?: number;
   valueTransform?: ValueTransform;
   specialColors?: SpecialColorsHint;
@@ -91,7 +91,7 @@ function MappedOrthoslicesVis(props: Props) {
     toolbarContainer,
     config,
     initialPosition,
-    withPhysicalAspect = false,
+    axisUnits = [],
     symlogThreshold,
     valueTransform,
     specialColors = {},
@@ -157,7 +157,10 @@ function MappedOrthoslicesVis(props: Props) {
     dimLabels[0],
   ];
 
-  const boxSize = withPhysicalAspect
+  const units = [axisUnits[2], axisUnits[1], axisUnits[0]].map((u) => u || '');
+
+  // Size the 3D box by the axes only if they share a unit, as the volume does
+  const boxSize = units.every((unit) => unit && unit === units[0])
     ? getBoxSizeFromAxes(dataArray.shape, boxValues)
     : undefined;
 
@@ -205,7 +208,9 @@ function MappedOrthoslicesVis(props: Props) {
                   colorMap={colorMap}
                   scaleType={visScaleType}
                   invertColorMap={invertColorMap}
-                  aspect={keepRatio ? 'equal' : 'auto'}
+                  aspect={
+                    keepRatio && units[u] === units[v] ? 'equal' : 'auto'
+                  }
                   abscissaParams={{
                     label: labels[u] ?? AXIS_NAMES[u],
                     value: boxValues[u],

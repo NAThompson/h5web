@@ -42,13 +42,8 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
   const hint = useViewHint(entity);
   const config = useOrthoslicesConfig(getOrthoslicesSuggestions(hint));
 
-  // Size the 3D box by the axes only if they share a unit, as the volume does
   const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
   const dimScales = useCachedDimScales(entity);
-  const volumeUnits = dimUnits.slice(-3);
-  const withPhysicalAspect =
-    volumeUnits.length === 3 &&
-    volumeUnits.every((unit) => unit && unit === volumeUnits[0]);
 
   // Stable dimensions, so that slicing leading dimensions doesn't make new data arrays needlessly
   const volumeDims = useMemo(() => dims.slice(-3), [dims]);
@@ -98,7 +93,7 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
                   toolbarContainer={toolbarContainer}
                   config={config}
                   initialPosition={hint.slicePosition}
-                  withPhysicalAspect={withPhysicalAspect}
+                  axisUnits={dimUnits.slice(-3)}
                   symlogThreshold={hint.symlogThreshold}
                   valueTransform={hint.valueTransform}
                   specialColors={hint}
