@@ -5,16 +5,16 @@ import {
   ORTHO_PLANE_COLORS,
   type OrthoPoint,
   ResetViewBtn,
-  ScaleSelector,
   Separator,
   SnapshotBtn,
   ToggleBtn,
   Toolbar,
 } from '@h5web/lib';
-import { COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
 import { MdAspectRatio } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import RootScaleSelector from '../RootScaleSelector';
+import { toDomainScaleType } from '../utils';
 import { type OrthoslicesConfig } from './config';
 import SliceIndexInput from './SliceIndexInput';
 import { AXIS_NAMES, type OrthoAxis } from './utils';
@@ -71,7 +71,7 @@ function OrthoslicesToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={scaleType}
+        scaleType={toDomainScaleType(scaleType)}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
@@ -84,10 +84,11 @@ function OrthoslicesToolbar(props: Props) {
       />
       <Separator />
 
-      <ScaleSelector
+      <RootScaleSelector
         value={scaleType}
         onScaleChange={setScaleType}
-        options={COLOR_SCALE_TYPES}
+        rootN={config.rootN}
+        onRootNChange={config.setRootN}
       />
       <Separator />
 

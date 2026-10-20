@@ -178,6 +178,7 @@ export function getColorGroup(spec: PanelSpec): string | undefined {
     colorMap,
     invertColorMap,
     threshold,
+    spec.hint.rootN,
     valueTransform,
     belowColor,
     aboveColor,

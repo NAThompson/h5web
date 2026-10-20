@@ -112,7 +112,11 @@ function MappedOrthoslicesVis(props: Props) {
     useVolumeDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
-  const visScaleType = useSymlogThreshold(scaleType, symlogThreshold);
+  const visScaleType = useSymlogThreshold(
+    scaleType,
+    symlogThreshold,
+    config.rootN,
+  );
 
   const [point, setPoint] = useState<OrthoPoint>(() =>
     getInitialPoint(dataArray.shape, initialPosition),

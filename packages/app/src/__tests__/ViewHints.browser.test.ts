@@ -402,6 +402,22 @@ test('set the linear band of symlog scales around 0', async () => {
     .toEqual(expect.arrayContaining(['10⁻¹⁰', '10⁻⁸', '10⁻⁶']));
 });
 
+test('colour with the nth root of the hinted degree', async () => {
+  await renderApp('/view_hints/root');
+
+  await expect
+    .element(page.getByRole('combobox', { name: 'Root' }))
+    .toBeVisible();
+  const slider = page.getByRole('slider', { name: 'Root degree' });
+  await expect.element(slider).toHaveValue('4');
+  expect(page.getByText('n = 4')).toBeVisible();
+
+  (slider.element() as HTMLInputElement).focus();
+  await userEvent.keyboard('{ArrowRight}');
+  await expect.element(slider).toHaveValue('4.5');
+  expect(page.getByText('n = 4.5')).toBeVisible();
+});
+
 function getColorBarTicks(): string[] {
   return [...document.querySelectorAll('[class*="colorBar"] svg text')].map(
     (tick) => tick.textContent,

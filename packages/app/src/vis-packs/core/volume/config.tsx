@@ -4,7 +4,7 @@ import {
   VolumeQuality,
   VolumeRenderMode,
 } from '@h5web/lib';
-import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
+import { ScaleType } from '@h5web/shared/vis-models';
 import {
   createContext,
   type PropsWithChildren,
@@ -16,6 +16,7 @@ import { persist } from 'zustand/middleware';
 
 import { type ColorMap } from '../heatmap/models';
 import { useSuggestions } from '../hooks';
+import { type ColorOrRootScaleType, DEFAULT_ROOT_N } from '../utils';
 
 export interface IsoLevel {
   id: number;
@@ -37,8 +38,11 @@ export interface VolumeConfig {
   invertColorMap: boolean;
   setInvertColorMap: (invertColorMap: boolean) => void;
 
-  scaleType: ColorScaleType;
-  setScaleType: (scaleType: ColorScaleType) => void;
+  scaleType: ColorOrRootScaleType;
+  setScaleType: (scaleType: ColorOrRootScaleType) => void;
+
+  rootN: number; // degree of the nth-root scale (gamma of exponent 1/n)
+  setRootN: (rootN: number) => void;
 
   mode: VolumeRenderMode;
   setMode: (mode: VolumeRenderMode) => void;
@@ -80,6 +84,9 @@ function createVolumeConfigStore() {
 
         scaleType: ScaleType.Linear,
         setScaleType: (scaleType) => set({ scaleType }),
+
+        rootN: DEFAULT_ROOT_N,
+        setRootN: (rootN) => set({ rootN }),
 
         mode: VolumeRenderMode.DVR,
         setMode: (mode) => set({ mode }),

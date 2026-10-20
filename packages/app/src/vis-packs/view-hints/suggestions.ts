@@ -5,6 +5,7 @@ import {
   type ComplexLineVisType,
   ComplexVisType,
   type Domain,
+  ScaleType,
 } from '@h5web/shared/vis-models';
 
 import { type ComplexCurveConfig } from '../core/complex/curve-config';
@@ -12,6 +13,7 @@ import { type ParamSurfaceConfig } from '../core/geometry/surface-config';
 import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
 import { type OrthoslicesConfig } from '../core/orthoslices/config';
+import { type ColorOrRootScaleType } from '../core/utils';
 import { type VolumeConfig } from '../core/volume/config';
 import { type DefaultSlice } from '../nexus/models';
 import { HintVis, type ViewHint } from './models';
@@ -113,6 +115,11 @@ export function getColorSuggestions(
   };
 }
 
+/* Colour scale of a hint, nth root as gamma (of exponent 1/`rootN`) */
+function getColorScaleType(hint: ViewHint): ColorOrRootScaleType | undefined {
+  return hint.rootN ? ScaleType.Gamma : hint.scaleType;
+}
+
 /* Heatmap settings suggested by a hint (precedence over NeXus and heuristics: `fallbacks`) */
 export function getHeatmapSuggestions(
   hint: ViewHint,
@@ -124,7 +131,8 @@ export function getHeatmapSuggestions(
   const colors = getColorSuggestions(hint, dataDomain);
   return {
     ...fallbacks,
-    scaleType: hint.scaleType ?? hint.height ?? fallbacks.scaleType,
+    scaleType: getColorScaleType(hint) ?? hint.height ?? fallbacks.scaleType,
+    rootN: hint.rootN,
     keepRatio: hint.keepRatio ?? fallbacks.keepRatio,
     ...colors,
     // Complex surfaces have a domain of their own
@@ -203,7 +211,8 @@ export function getVolumeSuggestions(
 ): Partial<VolumeConfig> {
   return {
     ...fallbacks,
-    scaleType: hint.scaleType ?? fallbacks.scaleType,
+    scaleType: getColorScaleType(hint) ?? fallbacks.scaleType,
+    rootN: hint.rootN,
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
@@ -216,7 +225,8 @@ export function getOrthoslicesSuggestions(
   hint: ViewHint,
 ): Partial<OrthoslicesConfig> {
   return {
-    scaleType: hint.scaleType,
+    scaleType: getColorScaleType(hint),
+    rootN: hint.rootN,
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,

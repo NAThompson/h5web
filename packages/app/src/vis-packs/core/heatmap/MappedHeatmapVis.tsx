@@ -169,7 +169,11 @@ function MappedHeatmapVis(props: Props) {
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
-  const visScaleType = useSymlogThreshold(scaleType, symlogThreshold);
+  const visScaleType = useSymlogThreshold(
+    scaleType,
+    symlogThreshold,
+    config.rootN,
+  );
 
   const selection = getSliceSelection(dimMapping);
   const xDimIndex = dimMapping.indexOf('x');

@@ -1573,6 +1573,14 @@ export function makeMockFile(): GroupWithChildren {
             ],
           }),
         ),
+        // `H5WEB_scale = "root"`: nth root of the colour scale, of degree `H5WEB_root_n`
+        array('root', {
+          valueId: 'decades_twoD',
+          attributes: [
+            scalarAttr('H5WEB_scale', 'root'),
+            floatAttr('H5WEB_root_n', 4),
+          ],
+        }),
         // Emphasized zero contour (nodal lines), alone, and of another dataset on the same grid
         array('nodal', {
           attributes: [

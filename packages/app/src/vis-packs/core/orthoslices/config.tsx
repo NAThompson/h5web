@@ -1,5 +1,5 @@
 import { type CustomDomain } from '@h5web/lib';
-import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
+import { ScaleType } from '@h5web/shared/vis-models';
 import {
   createContext,
   type PropsWithChildren,
@@ -11,6 +11,7 @@ import { persist } from 'zustand/middleware';
 
 import { type ColorMap } from '../heatmap/models';
 import { useSuggestions } from '../hooks';
+import { type ColorOrRootScaleType, DEFAULT_ROOT_N } from '../utils';
 
 export interface OrthoslicesConfig {
   customDomain: CustomDomain;
@@ -22,8 +23,11 @@ export interface OrthoslicesConfig {
   invertColorMap: boolean;
   setInvertColorMap: (invertColorMap: boolean) => void;
 
-  scaleType: ColorScaleType;
-  setScaleType: (scaleType: ColorScaleType) => void;
+  scaleType: ColorOrRootScaleType;
+  setScaleType: (scaleType: ColorOrRootScaleType) => void;
+
+  rootN: number; // degree of the nth-root scale (gamma of exponent 1/n)
+  setRootN: (rootN: number) => void;
 
   keepRatio: boolean;
   setKeepRatio: (keepRatio: boolean) => void;
@@ -44,6 +48,9 @@ function createOrthoslicesConfigStore() {
 
         scaleType: ScaleType.Linear,
         setScaleType: (scaleType) => set({ scaleType }),
+
+        rootN: DEFAULT_ROOT_N,
+        setRootN: (rootN) => set({ rootN }),
 
         keepRatio: true,
         setKeepRatio: (keepRatio) => set({ keepRatio }),

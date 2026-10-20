@@ -30,7 +30,12 @@ import {
 } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
-import { getImageInteractions, SURFACE_INTERACTIONS } from '../utils';
+import RootScaleSelector from '../RootScaleSelector';
+import {
+  getImageInteractions,
+  SURFACE_INTERACTIONS,
+  toDomainScaleType,
+} from '../utils';
 import { type HeatmapConfig } from './config';
 import ContoursControl from './ContoursControl';
 import HeightScaleSlider from './HeightScaleSlider';
@@ -101,9 +106,6 @@ function getBoundSettings(
       ? config.setInvertPhaseColorMap
       : config.setInvertColorMap,
     scaleType: isComplexSurface ? config.surfaceScaleType : config.scaleType,
-    setScaleType: isComplexSurface
-      ? config.setSurfaceScaleType
-      : config.setScaleType,
     withScale: !(isComplexSurface && complexVisType === ComplexVisType.Phase),
   };
 }
@@ -151,7 +153,6 @@ function HeatmapToolbar(props: Props) {
     invertColorMap,
     setInvertColorMap,
     scaleType,
-    setScaleType,
     withScale,
   } = getBoundSettings(config, !!isComplex, showSurface);
 
@@ -193,7 +194,7 @@ function HeatmapToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={withScale ? scaleType : ScaleType.Linear}
+        scaleType={withScale ? toDomainScaleType(scaleType) : ScaleType.Linear}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
@@ -207,14 +208,22 @@ function HeatmapToolbar(props: Props) {
 
       <Separator />
 
-      {/* Phase as height is always linear */}
-      {withScale && (
-        <ScaleSelector
-          value={scaleType}
-          onScaleChange={setScaleType}
-          options={COLOR_SCALE_TYPES}
-        />
-      )}
+      {/* Phase as height is always linear; complex heights have no root */}
+      {withScale &&
+        (isComplex && showSurface ? (
+          <ScaleSelector
+            value={config.surfaceScaleType}
+            onScaleChange={config.setSurfaceScaleType}
+            options={COLOR_SCALE_TYPES}
+          />
+        ) : (
+          <RootScaleSelector
+            value={config.scaleType}
+            onScaleChange={config.setScaleType}
+            rootN={config.rootN}
+            onRootNChange={config.setRootN}
+          />
+        ))}
 
       {isComplex && (
         <ComplexVisTypeSelector

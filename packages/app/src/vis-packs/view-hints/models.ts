@@ -106,6 +106,7 @@ export interface ViewHint {
   vis?: HintVis;
   scaleType?: ColorScaleType; // colour scale (and height of real surfaces)
   symlogThreshold?: number; // width of the linear band around 0 of symlog scales
+  rootN?: number; // nth-root colour scale (`H5WEB_scale = "root"`), instead of `scaleType`
   height?: ColorScaleType; // height scale of 3D surfaces (complex surfaces)
   colorMap?: ColorMap | 'auto'; // auto: diverging, centred on `center`, if data changes sign
   invertColorMap?: boolean;

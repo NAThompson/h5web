@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { useStableDomain } from '../../playback-range';
+import { useSymlogThreshold } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type HeatmapConfig } from '../heatmap/config';
 import HeatmapToolbar from '../heatmap/HeatmapToolbar';
@@ -132,6 +133,7 @@ function MappedComplexHeatmapVis(props: Props) {
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
+  const visScaleType = useSymlogThreshold(scaleType, undefined, config.rootN);
 
   const xDimIndex = dimMapping.indexOf('x');
   const yDimIndex = dimMapping.indexOf('y');
@@ -173,7 +175,7 @@ function MappedComplexHeatmapVis(props: Props) {
           dataArray={dataArray}
           title={renderMarkup(fullTitle)}
           domain={safeDomain}
-          scaleType={scaleType}
+          scaleType={visScaleType}
           valueLabel={showsPhase ? 'Phase' : 'Amplitude'}
           colorMap={visColorMap}
           invertColorMap={visInvertColorMap}
@@ -203,7 +205,7 @@ function MappedComplexHeatmapVis(props: Props) {
         domain={safeDomain}
         title={renderMarkup(fullTitle)}
         colorMap={visColorMap}
-        scaleType={scaleType}
+        scaleType={visScaleType}
         aspect={keepRatio ? 'equal' : 'auto'}
         showGrid={showGrid}
         invertColorMap={visInvertColorMap}

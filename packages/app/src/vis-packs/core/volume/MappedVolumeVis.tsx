@@ -107,7 +107,11 @@ function MappedVolumeVis(props: Props) {
     ) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
-  const visScaleType = useSymlogThreshold(scaleType, symlogThreshold);
+  const visScaleType = useSymlogThreshold(
+    scaleType,
+    symlogThreshold,
+    config.rootN,
+  );
 
   // Axis values are mapped to dimensions `[z, y, x]`; isosurfaces expect them along x, y, z
   const [zValues, yValues, xValues] = useToNumArrays([

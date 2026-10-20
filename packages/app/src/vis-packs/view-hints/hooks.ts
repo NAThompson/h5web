@@ -16,7 +16,6 @@ import {
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
 import {
-  type ColorScaleType,
   type IgnoreValue,
   ScaleType,
 } from '@h5web/shared/vis-models';
@@ -33,6 +32,7 @@ import {
   createGeometryContext,
   resolveCoordinate,
 } from '../core/geometry/utils';
+import { type ColorOrRootScaleType, DEFAULT_ROOT_N } from '../core/utils';
 import { useDimInfo } from '../dimscales/hooks';
 import { useSlicingProps } from '../slicing';
 import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
@@ -345,17 +345,21 @@ export function useTransformIgnoreValue(
   );
 }
 
-/* Scale with the width of its linear band around 0 when symlog (`H5WEB_symlog_threshold`) */
+/* Scale with the width of its linear band around 0 when symlog (`H5WEB_symlog_threshold`),
+ * or with its exponent 1/n when nth root (gamma) */
 export function useSymlogThreshold(
-  scaleType: ColorScaleType,
+  scaleType: ColorOrRootScaleType,
   threshold: number | undefined,
+  rootN = DEFAULT_ROOT_N,
 ): VisScaleType {
   return useMemo(
     () =>
-      scaleType === ScaleType.SymLog && threshold
-        ? [ScaleType.SymLog, threshold]
-        : scaleType,
-    [scaleType, threshold],
+      scaleType === ScaleType.Gamma
+        ? [ScaleType.Gamma, 1 / rootN]
+        : scaleType === ScaleType.SymLog && threshold
+          ? [ScaleType.SymLog, threshold]
+          : scaleType,
+    [scaleType, threshold, rootN],
   );
 }
 

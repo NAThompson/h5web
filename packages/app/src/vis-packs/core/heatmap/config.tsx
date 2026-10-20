@@ -15,6 +15,7 @@ import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { useSuggestions } from '../hooks';
+import { type ColorOrRootScaleType, DEFAULT_ROOT_N } from '../utils';
 import { type ColorMap, ContourColorMode, ContourMode } from './models';
 
 export interface HeatmapConfig {
@@ -27,8 +28,11 @@ export interface HeatmapConfig {
   invertColorMap: boolean;
   setInvertColorMap: (invertColorMap: boolean) => void;
 
-  scaleType: ColorScaleType;
-  setScaleType: (scaleType: ColorScaleType) => void;
+  scaleType: ColorOrRootScaleType;
+  setScaleType: (scaleType: ColorOrRootScaleType) => void;
+
+  rootN: number; // degree of the nth-root scale (gamma of exponent 1/n)
+  setRootN: (rootN: number) => void;
 
   complexVisType: ComplexHeatmapVisType;
   setComplexVisType: (complexVisType: ComplexHeatmapVisType) => void;
@@ -126,6 +130,9 @@ function createHeatmapConfigStore() {
 
         scaleType: ScaleType.Linear,
         setScaleType: (scaleType) => set(() => ({ scaleType })),
+
+        rootN: DEFAULT_ROOT_N,
+        setRootN: (rootN) => set({ rootN }),
 
         complexVisType: ComplexVisType.Amplitude,
         setComplexVisType: (complexVisType) => set(() => ({ complexVisType })),

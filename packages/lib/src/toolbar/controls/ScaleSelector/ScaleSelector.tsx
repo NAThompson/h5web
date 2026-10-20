@@ -20,10 +20,11 @@ interface Props<T extends ScaleType> {
   value: T;
   onScaleChange: (scale: T) => void;
   options: T[];
+  optionLabels?: Partial<Record<T, string>>; // e.g. gamma shown as a root
 }
 
 function ScaleSelector<T extends ScaleType>(props: Props<T>) {
-  const { label, value, onScaleChange, options } = props;
+  const { label, value, onScaleChange, options, optionLabels } = props;
 
   return (
     <Selector
@@ -36,7 +37,7 @@ function ScaleSelector<T extends ScaleType>(props: Props<T>) {
         return (
           <>
             <OptIcon className={toolbarStyles.icon} />
-            <span>{optLabel}</span>
+            <span>{optionLabels?.[option] ?? optLabel}</span>
           </>
         );
       }}

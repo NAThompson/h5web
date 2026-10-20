@@ -17,7 +17,11 @@ function SharedColorBar(props: Props) {
   const { spec, colors } = props;
   const { hint, dataset } = spec;
   const config = useHeatmapConfig(getHeatmapSuggestions(hint, dataset.path));
-  const scaleType = useSymlogThreshold(config.scaleType, hint.symlogThreshold);
+  const scaleType = useSymlogThreshold(
+    config.scaleType,
+    hint.symlogThreshold,
+    config.rootN,
+  );
 
   return (
     <ColorBar

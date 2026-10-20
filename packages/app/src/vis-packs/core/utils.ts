@@ -14,7 +14,13 @@ import {
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
 import { getDimsSize } from '@h5web/shared/hdf5-utils';
-import { type Domain, type NumArray } from '@h5web/shared/vis-models';
+import {
+  COLOR_SCALE_TYPES,
+  type ColorScaleType,
+  type Domain,
+  type NumArray,
+  ScaleType,
+} from '@h5web/shared/vis-models';
 import {
   createArrayFromView,
   SCALAR_SELECTION_REGEXP,
@@ -22,6 +28,21 @@ import {
 import ndarray, { type NdArray } from 'ndarray';
 
 export const DEFAULT_DOMAIN: Domain = [0.1, 1];
+
+/* Colour scales with the nth root, offered as a gamma scale of exponent 1/n (`rootN`) */
+export type ColorOrRootScaleType = ColorScaleType | ScaleType.Gamma;
+export const ROOT_SCALE_TYPES: ColorOrRootScaleType[] = [
+  ...COLOR_SCALE_TYPES,
+  ScaleType.Gamma,
+];
+export const DEFAULT_ROOT_N = 3;
+
+/* Domains of the nth root (gamma) are as linear: normalized before the root is taken */
+export function toDomainScaleType(
+  scaleType: ColorOrRootScaleType,
+): ColorScaleType {
+  return scaleType === ScaleType.Gamma ? ScaleType.Linear : scaleType;
+}
 
 export const BASE_INTERACTIONS = [
   { shortcut: 'Drag', description: 'Pan' },

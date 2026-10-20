@@ -27,6 +27,7 @@ import { type ColorScaleType, ComplexVisType } from '@h5web/shared/vis-models';
 
 import { findAttribute } from '../../utils';
 import { type ColorMap } from '../core/heatmap/models';
+import { DEFAULT_ROOT_N } from '../core/utils';
 import {
   type Envelope,
   HINT_ATTR_PREFIX,
@@ -391,10 +392,18 @@ export function parseViewHint(
   const vis = read.oneOf('H5WEB_vis', (val) =>
     HINT_VIS.get(toKey(val) as HintVis),
   );
+  const scale = read.oneOf('H5WEB_scale', (val) =>
+    val.toLowerCase() === 'root' ? 'root' : parseScaleType(val),
+  );
 
   return {
     vis,
-    scaleType: read.oneOf('H5WEB_scale', parseScaleType),
+    scaleType: scale === 'root' ? undefined : scale,
+    rootN:
+      scale === 'root'
+        ? (read.num('H5WEB_root_n', (v) => Number.isFinite(v) && v > 1) ??
+          DEFAULT_ROOT_N)
+        : undefined,
     symlogThreshold: read.num(
       'H5WEB_symlog_threshold',
       (v) => Number.isFinite(v) && v > 0,

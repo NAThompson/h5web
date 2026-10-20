@@ -10,7 +10,7 @@ import {
   type Dataset,
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
-import { type ColorScaleType, ScaleType } from '@h5web/shared/vis-models';
+import { ScaleType } from '@h5web/shared/vis-models';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { useMeasure } from '@react-hookz/web';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ import { useMemo } from 'react';
 import { MdClose } from 'react-icons/md';
 
 import { useDataContext } from '../../providers/DataProvider';
-import { toNumArray } from '../core/utils';
+import { type ColorOrRootScaleType, toNumArray } from '../core/utils';
 import { useCachedDimScales } from '../dimscales/hooks';
 import { type DimScale } from '../dimscales/utils';
 import { useIgnoreValue, usePacking } from '../netcdf/hooks';
@@ -50,7 +50,7 @@ interface Props {
   probeDim: number;
   point: ProbePoint;
   valueLabel?: string; // value axis, as on line views (CF `units` and `long_name`)
-  scaleType: ColorScaleType; // of the heatmap's colours
+  scaleType: ColorOrRootScaleType; // of the heatmap's colours
   symlogThreshold?: number;
   onProbeDimChange: (dim: number) => void;
   onClose: () => void;
@@ -87,8 +87,10 @@ function ProbePanel(props: Props) {
           ),
     [data, packing],
   );
-  const scaleType = // as the heatmap's colours (no square root scale on axes)
-    colorScaleType === ScaleType.Sqrt ? ScaleType.Linear : colorScaleType;
+  const scaleType = // as the heatmap's colours (no root scale on axes)
+    colorScaleType === ScaleType.Sqrt || colorScaleType === ScaleType.Gamma
+      ? ScaleType.Linear
+      : colorScaleType;
   const domain = useDomain(values ?? [], { scaleType, ignoreValue });
 
   const scale = scales[probeDim];

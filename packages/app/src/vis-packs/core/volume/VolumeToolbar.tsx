@@ -3,7 +3,6 @@ import {
   type Domain,
   DomainWidget,
   ResetViewBtn,
-  ScaleSelector,
   Selector,
   Separator,
   SnapshotBtn,
@@ -13,10 +12,11 @@ import {
   VolumeQuality,
   VolumeRenderMode,
 } from '@h5web/lib';
-import { COLOR_SCALE_TYPES } from '@h5web/shared/vis-models';
 import { MdBlurOn } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import RootScaleSelector from '../RootScaleSelector';
+import { toDomainScaleType } from '../utils';
 import { type VolumeConfig } from './config';
 import IsosurfacesControl from './IsosurfacesControl';
 import RangeControl from './RangeControl';
@@ -75,7 +75,7 @@ function VolumeToolbar(props: Props) {
       <IsosurfacesControl
         levels={isoLevels}
         domain={dataDomain}
-        scaleType={scaleType}
+        scaleType={toDomainScaleType(scaleType)}
         colorMode={isoColorMode}
         step={isoStep}
         onAdd={addIsoLevel}
@@ -130,7 +130,7 @@ function VolumeToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={scaleType}
+        scaleType={toDomainScaleType(scaleType)}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
@@ -143,10 +143,11 @@ function VolumeToolbar(props: Props) {
       />
       <Separator />
 
-      <ScaleSelector
+      <RootScaleSelector
         value={scaleType}
         onScaleChange={setScaleType}
-        options={COLOR_SCALE_TYPES}
+        rootN={config.rootN}
+        onRootNChange={config.setRootN}
       />
       <Separator />
 

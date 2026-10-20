@@ -184,6 +184,21 @@ describe('parseViewHint', () => {
     ]);
   });
 
+  it('parse nth-root scales, of degree 3 by default', () => {
+    const root = hint({ H5WEB_scale: 'Root', H5WEB_root_n: 2.5 });
+    expect(root).toMatchObject({ scaleType: undefined, rootN: 2.5 });
+    expect(getHeatmapSuggestions(root, '/f')).toMatchObject({
+      scaleType: ScaleType.Gamma,
+      rootN: 2.5,
+    });
+
+    expect(hint({ H5WEB_scale: 'root' }).rootN).toBe(3);
+    const invalid = hint({ H5WEB_scale: 'root', H5WEB_root_n: 1 });
+    expect(invalid.rootN).toBe(3);
+    expect(invalid.notes).toEqual(['ignored invalid "H5WEB_root_n"']);
+    expect(hint({ H5WEB_root_n: 4 }).rootN).toBeUndefined(); // not a root scale
+  });
+
   it('parse contours', () => {
     expect(hint({ H5WEB_contour_count: { int: 0 } }).contours).toBe(0); // automatic
     expect(hint({ H5WEB_contour_levels: [0.1, 1, 10] }).contours).toEqual([
