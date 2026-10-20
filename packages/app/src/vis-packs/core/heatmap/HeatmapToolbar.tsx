@@ -29,7 +29,11 @@ import {
 
 import { useVisArea } from '../../../visualizer/vis-area';
 import RootScaleSelector from '../RootScaleSelector';
-import { getImageInteractions, SURFACE_INTERACTIONS } from '../utils';
+import {
+  type ColorOrRootScaleType,
+  getImageInteractions,
+  SURFACE_INTERACTIONS,
+} from '../utils';
 import { type HeatmapConfig } from './config';
 import ContoursControl from './ContoursControl';
 import HeightScaleSlider from './HeightScaleSlider';
@@ -62,6 +66,22 @@ interface Props {
  * - phase of complex values is coloured with its own (cyclic) colour map, in 2D and 3D;
  * - phase as height is always linear; heights of complex surfaces have no nth root.
  */
+// Scales of the brightness of 2D phase & amplitude heatmaps
+const BRIGHTNESS_SCALE_TYPES: ColorOrRootScaleType[] = [
+  ScaleType.Linear,
+  ScaleType.Log,
+  ScaleType.Gamma,
+];
+
+// Brightness is drawn linearly for scales it doesn't take (e.g. symlog)
+function toBrightnessScaleType(
+  scaleType: ColorOrRootScaleType,
+): ColorOrRootScaleType {
+  return BRIGHTNESS_SCALE_TYPES.includes(scaleType)
+    ? scaleType
+    : ScaleType.Linear;
+}
+
 function getBoundSettings(
   config: HeatmapConfig,
   isComplex: boolean,
@@ -73,6 +93,11 @@ function getBoundSettings(
     : config.complexVisType;
   const showsPhaseColors =
     isComplex && complexVisType !== ComplexVisType.Amplitude;
+  // 2D phase & amplitude: the scale is that of the brightness, the domain that of the phase
+  const scalesBrightness = showsPhaseColors && !isComplexSurface;
+  const scaleType = isComplexSurface
+    ? config.surfaceScaleType
+    : config.scaleType;
 
   return {
     complexVisType,
@@ -99,12 +124,14 @@ function getBoundSettings(
     setInvertColorMap: showsPhaseColors
       ? config.setInvertPhaseColorMap
       : config.setInvertColorMap,
-    scaleType: isComplexSurface ? config.surfaceScaleType : config.scaleType,
+    scaleType: scalesBrightness ? toBrightnessScaleType(scaleType) : scaleType,
     setScaleType: isComplexSurface // never given the root, not offered
       ? (config.setSurfaceScaleType as HeatmapConfig['setScaleType'])
       : config.setScaleType,
     withRoot: !isComplexSurface,
-    withScale: !(isComplexSurface && complexVisType === ComplexVisType.Phase),
+    withScale: !(isComplex && complexVisType === ComplexVisType.Phase), // phase is linear
+    scaleOptions: scalesBrightness ? BRIGHTNESS_SCALE_TYPES : undefined,
+    domainScaleType: scalesBrightness ? ScaleType.Linear : scaleType,
   };
 }
 
@@ -154,6 +181,8 @@ function HeatmapToolbar(props: Props) {
     setScaleType,
     withRoot,
     withScale,
+    domainScaleType,
+    scaleOptions,
   } = getBoundSettings(config, !!isComplex, showSurface);
 
   return (
@@ -194,7 +223,7 @@ function HeatmapToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={withScale ? scaleType : ScaleType.Linear}
+        scaleType={withScale ? domainScaleType : ScaleType.Linear}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
@@ -214,6 +243,7 @@ function HeatmapToolbar(props: Props) {
           value={scaleType}
           onScaleChange={setScaleType}
           withRoot={withRoot}
+          options={scaleOptions}
           rootN={config.rootN}
           onRootNChange={config.setRootN}
         />

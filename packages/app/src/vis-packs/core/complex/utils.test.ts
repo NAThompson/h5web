@@ -1,9 +1,11 @@
 import { mockValues } from '@h5web/lib';
 import { type H5WebComplex } from '@h5web/shared/hdf5-models';
+import { ScaleType } from '@h5web/shared/vis-models';
 import { describe, expect, it } from 'vitest';
 
 import {
   decimateCurve,
+  getComplexScaleTypes,
   getCurveAbscissas,
   getPhaseAmplitude,
   getRealImag,
@@ -135,5 +137,23 @@ describe('getRealImagDomain', () => {
     expect(getRealImagDomain([2, -1, 5], 'real')).toEqual([-1, 5]);
     expect(getRealImagDomain([2, -1, 5], 'imag')).toEqual([0, 0]);
     expect(getRealImagDomain([], 'real')).toBeUndefined();
+  });
+});
+
+describe('getComplexScaleTypes', () => {
+  it('keep phase linear and put the brightness of 2D phase & amplitude on the toolbar scale', () => {
+    const { Linear, Log, Sqrt } = ScaleType;
+    expect(getComplexScaleTypes(true, undefined, Log)).toEqual({
+      scaleType: Linear,
+      amplitudeScaleType: Log, // 2D: brightness
+    });
+    expect(getComplexScaleTypes(false, undefined, Log)).toEqual({
+      scaleType: Log,
+      amplitudeScaleType: Log,
+    });
+    expect(getComplexScaleTypes(false, Sqrt, Log)).toEqual({
+      scaleType: Sqrt, // 3D: height
+      amplitudeScaleType: Sqrt,
+    });
   });
 });

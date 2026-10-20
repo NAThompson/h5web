@@ -14,6 +14,7 @@ interface Props {
   value: ColorOrRootScaleType;
   onScaleChange: (scaleType: ColorOrRootScaleType) => void;
   withRoot?: boolean; // e.g. not for heights of complex surfaces
+  options?: ColorOrRootScaleType[]; // e.g. only those of brightness
   rootN: number;
   onRootNChange: (rootN: number) => void;
 }
@@ -22,13 +23,14 @@ interface Props {
  * is snapped to its grid, so that the thumb and the label agree) */
 function RootScaleSelector(props: Props) {
   const { value, onScaleChange, withRoot = true, rootN, onRootNChange } = props;
+  const { options = withRoot ? ROOT_SCALE_TYPES : COLOR_SCALE_TYPES } = props;
 
   return (
     <>
       <ScaleSelector
         value={value}
         onScaleChange={onScaleChange}
-        options={withRoot ? ROOT_SCALE_TYPES : COLOR_SCALE_TYPES}
+        options={options}
         optionLabels={OPTION_LABELS}
       />
       {value === ScaleType.Gamma && (

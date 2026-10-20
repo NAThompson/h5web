@@ -33,6 +33,8 @@ interface Props extends VisMeshProps {
   invertColorMap?: boolean;
   alphaValues?: NdArray<TextureSafeTypedArray>;
   alphaDomain?: Domain;
+  alphaLog?: boolean; // brightness by the log of `alphaValues` (e.g. amplitudes spanning decades)
+  alphaGamma?: number; // exponent of the normalized brightness (e.g. 1/n for an nth root)
   badColor?: RGBColor | string;
   belowColor?: string; // values below the domain (default: colour of its lower end)
   aboveColor?: string;
@@ -72,6 +74,8 @@ function HeatmapMaterial(props: Props) {
     invertColorMap = false,
     alphaValues,
     alphaDomain = DEFAULT_DOMAIN,
+    alphaLog = false,
+    alphaGamma = 1,
     badColor = DEFAULT_BAD_COLOR,
     belowColor,
     aboveColor,
@@ -114,6 +118,17 @@ function HeatmapMaterial(props: Props) {
   const [below, withBelow] = getColorUniform(belowColor);
   const [above, withAbove] = getColorUniform(aboveColor);
 
+  // Log brightness: a single positive value (e.g. zeros and ones) is at full brightness
+  const [logMin, logMax] = alphaDomain.map(Math.log);
+  const alphaBounds: Domain = !alphaLog
+    ? alphaDomain
+    : !Number.isFinite(logMax)
+      ? [0, 1]
+      : [
+          Number.isFinite(logMin) && logMin < logMax ? logMin : logMax - 1,
+          logMax,
+        ];
+
   const shader = {
     uniforms: getUniforms({
       data: dataTexture,
@@ -128,8 +143,10 @@ function HeatmapMaterial(props: Props) {
       normRevertFactor: values.dtype === 'uint8' ? 255 : 1, // revert WebGL's automatic normalization of UNSIGNED_BYTE with RED format
       alpha: alphaTexture,
       withAlpha: alphaValues ? 1 : 0,
-      alphaMin: alphaDomain[0],
-      oneOverAlphaRange: 1 / (alphaDomain[1] - alphaDomain[0]),
+      alphaLog: alphaLog ? 1 : 0,
+      alphaGamma,
+      alphaMin: alphaBounds[0],
+      oneOverAlphaRange: 1 / (alphaBounds[1] - alphaBounds[0]),
       badColor: toVector4(badColorAsRgb),
       domainMin: domain[0],
       domainMax: domain[1],
@@ -153,6 +170,8 @@ function HeatmapMaterial(props: Props) {
       uniform float alphaMin;
       uniform float oneOverAlphaRange;
       uniform int withAlpha;
+      uniform int alphaLog;
+      uniform float alphaGamma;
       uniform vec4 badColor;
 
       uniform float domainMin;
@@ -201,7 +220,15 @@ function HeatmapMaterial(props: Props) {
         }
 
         if (withAlpha == 1) { // also for colours beyond the domain
-          gl_FragColor.a = oneOverAlphaRange * (texture2D(alpha, coords).r - alphaMin);
+          float alphaValue = texture2D(alpha, coords).r;
+          if (alphaLog == 1 && alphaValue <= 0.) {
+            gl_FragColor.a = 0.; // log undefined
+          } else {
+            if (alphaLog == 1) {
+              alphaValue = log(alphaValue);
+            }
+            gl_FragColor.a = pow(clamp(oneOverAlphaRange * (alphaValue - alphaMin), 0., 1.), alphaGamma);
+          }
         }
       }
     `,

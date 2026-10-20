@@ -28,7 +28,11 @@ import HeatmapToolbar from '../heatmap/HeatmapToolbar';
 import { useMappedArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { usePhaseAmplitude } from './hooks';
-import { COMPLEX_VIS_TYPE_LABELS, getPhaseAmplitudeDomain } from './utils';
+import {
+  COMPLEX_VIS_TYPE_LABELS,
+  getComplexScaleTypes,
+  getPhaseAmplitudeDomain,
+} from './utils';
 
 // Colour domain of phase: fixed, so that a cyclic colour map wraps around at ±π
 const PHASE_DOMAIN: Domain = [-Math.PI, Math.PI];
@@ -100,12 +104,11 @@ function MappedComplexHeatmapVis(props: Props) {
     (complexVisType === ComplexVisType.PhaseAmplitude && !showSurface);
   const colorsPhase = complexVisType !== ComplexVisType.Amplitude;
 
-  // Phase as height is linear: in log scale, half of the plane would be missing
-  const scaleType = showSurface
-    ? showsPhase
-      ? ScaleType.Linear
-      : config.surfaceScaleType
-    : userScaleType;
+  const { scaleType, amplitudeScaleType } = getComplexScaleTypes(
+    showsPhase,
+    showSurface ? config.surfaceScaleType : undefined,
+    userScaleType,
+  );
 
   // During playback, use range of whole sequence (cf. `useStableDomain`)
   const phaseDomain =
@@ -116,10 +119,14 @@ function MappedComplexHeatmapVis(props: Props) {
     ) || DEFAULT_DOMAIN;
   const amplitudeDomain =
     useStableDomain(
-      useDomain(amplitude, { scaleType }),
-      `amplitude:${scaleType}`,
+      useDomain(amplitude, { scaleType: amplitudeScaleType }),
+      `amplitude:${amplitudeScaleType}`,
       (seq) =>
-        getPhaseAmplitudeDomain(seq as typeof value, 'amplitude', scaleType),
+        getPhaseAmplitudeDomain(
+          seq as typeof value,
+          'amplitude',
+          amplitudeScaleType,
+        ),
     ) || DEFAULT_DOMAIN;
 
   const [dataArray, dataDomain] = showsPhase
@@ -218,6 +225,11 @@ function MappedComplexHeatmapVis(props: Props) {
             ? {
                 array: amplitudeArray,
                 domain: amplitudeDomain,
+                log: amplitudeScaleType === ScaleType.Log,
+                gamma:
+                  amplitudeScaleType === ScaleType.Gamma
+                    ? 1 / config.rootN
+                    : undefined,
               }
             : undefined
         }

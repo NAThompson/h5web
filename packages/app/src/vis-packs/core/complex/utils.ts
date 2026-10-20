@@ -11,7 +11,7 @@ import {
   ComplexVisType,
   type Domain,
   type NumArray,
-  type ScaleType,
+  ScaleType,
 } from '@h5web/shared/vis-models';
 
 import { toNumArray } from '../utils';
@@ -242,4 +242,24 @@ export function getRealImagDomain(
   }
 
   return min > max ? undefined : [min, max];
+}
+
+/* Scale of the colors (or height) and of the amplitude: phase is linear (in log scale, half of
+ * the plane would be missing); in 2D, the brightness of phase & amplitude is on the scale of the
+ * toolbar. `surfaceScaleType` is set in 3D */
+export function getComplexScaleTypes<T extends ScaleType>(
+  showsPhase: boolean,
+  surfaceScaleType: T | undefined,
+  userScaleType: T,
+): {
+  scaleType: T | ScaleType.Linear;
+  amplitudeScaleType: T | ScaleType.Linear;
+} {
+  const scaleType = showsPhase
+    ? ScaleType.Linear
+    : (surfaceScaleType ?? userScaleType);
+  return {
+    scaleType,
+    amplitudeScaleType: surfaceScaleType ? scaleType : userScaleType,
+  };
 }

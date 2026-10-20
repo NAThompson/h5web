@@ -58,7 +58,12 @@ interface Props extends ClassStyleAttrs {
   invertColorMap?: boolean;
   abscissaParams?: AxisParams;
   ordinateParams?: AxisParams;
-  alpha?: { array: NdArray<NumArray>; domain: Domain };
+  alpha?: {
+    array: NdArray<NumArray>;
+    domain: Domain;
+    log?: boolean;
+    gamma?: number; // exponent of the normalized brightness
+  };
   magFilter?: MagnificationTextureFilter;
   minFilter?: MinificationTextureFilter;
   flipXAxis?: boolean;
@@ -211,6 +216,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           scaleType={scaleType}
           alphaValues={safeAlphaArray}
           alphaDomain={alpha?.domain}
+          alphaLog={alpha?.log}
+          alphaGamma={alpha?.gamma}
           scale={[flipXAxis ? -1 : 1, flipYAxis ? -1 : 1, 1]}
           magFilter={magFilter}
           minFilter={minFilter}
