@@ -49,8 +49,8 @@ test('visualize dataset with `scale_factor` attribute', async () => {
   expect(figure.getByText('400', { exact: true })).not.toBeInTheDocument();
 
   await selectVisTab(Vis.Matrix);
-  expect(page.getByText('2.000e+2')).toBeVisible(); // first packed value * scale_factor
-  expect(page.getByText('4.000e+2')).not.toBeInTheDocument(); // first packed value
+  expect(page.getByText('200', { exact: true })).toBeVisible(); // first packed value * scale_factor
+  expect(page.getByText('400', { exact: true })).not.toBeInTheDocument(); // first packed value
 });
 
 test('visualize dataset with `scale_factor`, `add_offset` and `_FillValue` attributes', async () => {

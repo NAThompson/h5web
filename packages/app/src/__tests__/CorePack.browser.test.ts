@@ -60,8 +60,8 @@ test('visualize 1D dataset as matrix', async () => {
   await selectVisTab(Vis.Matrix);
 
   expect(getSelectedVisTab()).toBe(Vis.Matrix);
-  expect(page.getByText('4.000e+2').first()).toBeVisible();
-  expect(page.getByText('3.610e+2').first()).toBeVisible();
+  expect(page.getByText('400', { exact: true }).first()).toBeVisible();
+  expect(page.getByText('361', { exact: true }).first()).toBeVisible();
 });
 
 test('visualize 1D boolean dataset', async () => {
@@ -136,8 +136,8 @@ test('visualize 2D dataset as matrix', async () => {
   await selectVisTab(Vis.Matrix);
 
   expect(getSelectedVisTab()).toBe(Vis.Matrix);
-  expect(page.getByText('4.000e+2')).toBeVisible();
-  expect(page.getByText('3.950e+2')).toBeVisible();
+  expect(page.getByText('400', { exact: true }).first()).toBeVisible();
+  expect(page.getByText('395', { exact: true }).first()).toBeVisible();
 });
 
 test('visualize 2D boolean dataset', async () => {

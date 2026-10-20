@@ -23,7 +23,7 @@ function createMatrixConfigStore() {
         customCellWidth: undefined,
         setCustomCellWidth: (customCellWidth) => set({ customCellWidth }),
 
-        notation: Notation.Scientific,
+        notation: Notation.Auto,
         setNotation: (notation) => set({ notation }),
       }),
       {

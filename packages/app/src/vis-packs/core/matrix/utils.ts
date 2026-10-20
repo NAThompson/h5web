@@ -19,16 +19,25 @@ import {
   createComplexFormatter,
   createEnumFormatter,
   formatBool,
+  formatNumber,
+  formatPower,
 } from '@h5web/shared/vis-utils';
-import { format } from 'd3-format';
 import { type NdArray } from 'ndarray';
+
+/* `1.000×10⁻³`: fixed digits, a power of 10 rather than e-notation */
+function formatScientific(val: number): string {
+  if (!Number.isFinite(val)) {
+    return formatNumber(val);
+  }
+  const [mantissa, exp] = val.toExponential(3).split('e');
+  return `${mantissa.replace('-', '−')}×${formatPower(10, Number(exp))}`;
+}
 
 export function createIntegerFormatter(
   notation: Notation,
 ): (val: ScalarValue<NumericType>) => string {
   if (notation === Notation.Scientific) {
-    const formatter = format('.3e');
-    return (val) => formatter(Number(val));
+    return (val) => formatScientific(Number(val));
   }
 
   return (val) => val.toString();
@@ -41,9 +50,9 @@ export function createFloatFormatter(
     case Notation.Exact:
       return (val) => val.toString();
     case Notation.Scientific:
-      return format('.3e');
+      return formatScientific;
     default:
-      return format('.5~g');
+      return (val) => formatNumber(val, 5);
   }
 }
 
