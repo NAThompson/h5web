@@ -176,34 +176,11 @@ test('keep range of whole sequence during playback', async () => {
   expect(ticks.has(getOrdinateTicks())).toBe(true);
 });
 
-test('keep range of sequence when switching range setting back and forth', async () => {
-  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
-  installFakeTimers();
-
-  await getPlayBtn().click();
-  await advance(300);
-  await getPlayBtn().click(); // pause on slice with smaller amplitude
-  await advance(100);
-  const sequenceTicks = getOrdinateTicks();
-
-  await setSettings({ option: 'Range: Each slice' });
-  await advance(100);
-  await setSettings({ option: 'Range: Whole sequence' });
-  await advance(100);
-  expect(getOrdinateTicks()).toBe(sequenceTicks);
-
-  await getPlayBtn().click();
-  const ticks = new Set<string | null | undefined>();
-  for (let i = 0; i < 9; i += 1) {
-    await advance(100); // eslint-disable-line no-await-in-loop -- sequential frames
-    ticks.add(getOrdinateTicks());
-  }
-  expect([...ticks]).toStrictEqual([sequenceTicks]);
-});
-
-test('autoscale each slice during playback when asked', async () => {
-  await renderApp({ initialPath: '/arrays/threeD', preferredVis: Vis.Line });
-  await setSettings({ option: 'Range: Each slice' });
+test('autoscale each slice during playback when hinted', async () => {
+  await renderApp({
+    initialPath: '/view_hints/playback_settings', // `H5WEB_playback_range = "frame"`
+    preferredVis: Vis.Line,
+  });
   installFakeTimers();
 
   await getPlayBtn().click();
@@ -232,14 +209,13 @@ test('keep playback settings when slider is remounted', async () => {
 test('wait for each slice to load before showing it', async () => {
   const resolveAll = mockDelay();
   await renderApp({
-    initialPath: '/resilience/slow_slicing',
+    initialPath: '/resilience/slow_frames',
     preferredVis: Vis.Heatmap,
     waitForLoaders: false,
   });
 
   resolveAll(); // first slice
   await expect.element(page.getByRole('figure')).toBeVisible();
-  await setSettings({ option: 'Range: Each slice' }); // don't fetch whole sequence
   installFakeTimers();
 
   await getPlayBtn().click();

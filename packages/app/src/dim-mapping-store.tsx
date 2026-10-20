@@ -44,12 +44,11 @@ interface PlaybackSettingsState {
 /* Playback settings are remembered across datasets, files and reloads (in a separate store, so
  * slicing doesn't write to local storage) */
 const PLAYBACK_MODES = new Set<unknown>(['loop', 'bounce', 'once']);
-const PLAYBACK_RANGES = new Set<unknown>(['sequence', 'frame']);
 
 /* Persisted settings may be invalid (e.g. edited or saved by another version): use defaults,
  * and drop unknown fields (e.g. `timing` before version 3) */
 export function sanitizePlaybackSettings(settings: unknown): PlaybackSettings {
-  const { fps, mode, range } = (
+  const { fps, mode } = (
     typeof settings === 'object' && settings !== null ? settings : {}
   ) as Partial<Record<keyof PlaybackSettings, unknown>>;
   const defaults = DEFAULT_PLAYBACK_SETTINGS;
@@ -62,9 +61,7 @@ export function sanitizePlaybackSettings(settings: unknown): PlaybackSettings {
     mode: PLAYBACK_MODES.has(mode)
       ? (mode as PlaybackSettings['mode'])
       : defaults.mode,
-    range: PLAYBACK_RANGES.has(range)
-      ? (range as PlaybackSettings['range'])
-      : defaults.range,
+    range: defaults.range, // always the whole sequence (`H5WEB_playback_range` may ask for frames)
   };
 }
 

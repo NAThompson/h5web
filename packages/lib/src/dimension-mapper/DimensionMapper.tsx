@@ -247,7 +247,17 @@ function DimensionMapper(props: Props) {
           }
 
           const isMultiDim = multiDim === index;
-          const isTooLong = dims[index] > maxMultiDimLength;
+          // Nothing to plot all at once: no toggle (rather than a disabled one)
+          if (dims[index] <= 1 || dims[index] > maxMultiDimLength) {
+            return (
+              <div
+                key={index} // eslint-disable-line react/no-array-index-key
+                className={styles.sliderWrapper}
+              >
+                {slider}
+              </div>
+            );
+          }
 
           return (
             <div
@@ -260,20 +270,14 @@ function DimensionMapper(props: Props) {
               </InertBox>
               <label
                 className={styles.multiToggle}
-                title={
-                  isTooLong
-                    ? `Too many slices to plot at once (max ${maxMultiDimLength})`
-                    : `Plot all D${index} slices`
-                }
+                title={`Plot all D${index} slices`}
               >
                 <input
                   type="checkbox"
                   aria-label={`Plot all D${index} slices`}
                   checked={isMultiDim}
                   disabled={
-                    (multiDim !== undefined && !isMultiDim) || // only one multi-plotting dimension at a time
-                    dims[index] <= 1 ||
-                    isTooLong
+                    multiDim !== undefined && !isMultiDim // only one multi-plotting dimension at a time
                   }
                   onChange={() => {
                     if (playingDim === index) {

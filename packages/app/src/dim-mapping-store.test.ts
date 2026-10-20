@@ -3,13 +3,10 @@ import { expect, test } from 'vitest';
 
 import { sanitizePlaybackSettings } from './dim-mapping-store';
 
-test('keep valid playback settings', () => {
-  const settings = {
-    fps: 25,
-    mode: 'bounce',
-    range: 'frame',
-  } as const;
-  expect(sanitizePlaybackSettings(settings)).toStrictEqual(settings);
+test('keep valid playback settings, with the range of the whole sequence', () => {
+  expect(
+    sanitizePlaybackSettings({ fps: 25, mode: 'bounce', range: 'frame' }),
+  ).toStrictEqual({ fps: 25, mode: 'bounce', range: 'sequence' });
 });
 
 test('clamp speed and replace invalid playback settings with defaults', () => {

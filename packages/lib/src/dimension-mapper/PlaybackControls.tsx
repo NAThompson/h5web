@@ -18,22 +18,13 @@ import {
 } from '../toolbar/controls/hooks';
 import FpsInput from './FpsInput';
 import { type PlaybackWaiting } from './hooks';
-import {
-  type PlaybackMode,
-  type PlaybackRange,
-  type PlaybackSettings,
-} from './playback';
+import { type PlaybackMode, type PlaybackSettings } from './playback';
 import styles from './PlaybackControls.module.css';
 
 const MODE_LABELS: Record<PlaybackMode, string> = {
   loop: 'Loop',
   bounce: 'Bounce',
   once: 'Once',
-};
-
-const RANGE_LABELS: Record<PlaybackRange, string> = {
-  sequence: 'Whole sequence',
-  frame: 'Each slice',
 };
 
 const WAITING_TITLES: Record<PlaybackWaiting, string> = {
@@ -168,26 +159,12 @@ function PlaybackControls(props: Props) {
             ))}
           </fieldset>
 
-          <fieldset className={styles.fieldset}>
-            <legend>Range</legend>
-            {(Object.keys(RANGE_LABELS) as PlaybackRange[]).map((range) => (
-              <label key={range} className={styles.option}>
-                <input
-                  type="radio"
-                  name={`${fieldId}-range`}
-                  aria-label={`Range: ${RANGE_LABELS[range]}`}
-                  checked={settings.range === range}
-                  onChange={() => onSettingsChange({ ...settings, range })}
-                />
-                {RANGE_LABELS[range]}
-              </label>
-            ))}
-            {rangeHint && settings.range === 'sequence' && (
-              <p className={styles.hint} role="status">
-                {rangeHint}
-              </p>
-            )}
-          </fieldset>
+          {/* Range of the whole sequence (unless hinted otherwise), e.g. why it isn't fetched */}
+          {rangeHint && settings.range === 'sequence' && (
+            <p className={styles.hint} role="status">
+              {rangeHint}
+            </p>
+          )}
         </div>
       )}
     </div>

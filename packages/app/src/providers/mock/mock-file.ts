@@ -2209,6 +2209,10 @@ export function makeMockFile(): GroupWithChildren {
         scalar('error_value', 0, { attributes: [scalarAttr('attr', 1)] }),
         scalar('slow_value', 42),
         array('slow_slicing', { valueId: 'threeD' }),
+        array('slow_frames', {
+          valueId: 'threeD',
+          attributes: [scalarAttr('H5WEB_playback_range', 'frame')], // don't fetch whole sequence
+        }),
         group('slow_metadata'),
         nxData('slow_nx_spectrum', {
           signal: withNxAttr(array('slow_twoD', { valueId: 'twoD' }), {

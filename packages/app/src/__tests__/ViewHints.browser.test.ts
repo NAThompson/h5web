@@ -981,7 +981,6 @@ test('start with the hinted playback settings, until the user changes them', asy
   const dialog = page.getByRole('dialog', { name: 'D0 playback settings' });
   await expect.element(dialog.getByLabelText('Speed')).toHaveValue(4);
   expect(dialog.getByLabelText('Bounce')).toBeChecked();
-  expect(dialog.getByLabelText('Range: Each slice')).toBeChecked();
 
   await dialog.getByLabelText('Once').click();
   await expect.element(dialog.getByLabelText('Once')).toBeChecked();
@@ -992,5 +991,4 @@ test('start with the hinted playback settings, until the user changes them', asy
   await page.getByRole('button', { name: 'D0 playback settings' }).click();
   await expect.element(dialog.getByLabelText('Once')).toBeChecked();
   expect(dialog.getByLabelText('Speed')).toHaveValue(10);
-  expect(dialog.getByLabelText('Range: Whole sequence')).toBeChecked();
 });

@@ -135,10 +135,10 @@ test('allow only one multi-plotting dimension at a time', async () => {
   expect(d0Checkbox).not.toBeChecked();
   await expect.element(page.getByTestId('0,x,0')).toBeVisible();
 
-  // Dimension too long to plot all slices at once
+  // Dimension too long to plot all slices at once: no toggle
   expect(
     page.getByRole('checkbox', { name: 'Plot all D2 slices' }),
-  ).toBeDisabled();
+  ).not.toBeInTheDocument();
 });
 
 test('show multi-plotting checkboxes only on Line visualization', async () => {
