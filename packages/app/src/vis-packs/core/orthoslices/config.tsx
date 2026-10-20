@@ -11,7 +11,11 @@ import { persist } from 'zustand/middleware';
 
 import { type ColorMap } from '../heatmap/models';
 import { useSuggestions } from '../hooks';
-import { type ColorOrRootScaleType, DEFAULT_ROOT_N } from '../utils';
+import {
+  type ColorOrRootScaleType,
+  DEFAULT_ROOT_N,
+  migrateSqrtToRoot,
+} from '../utils';
 
 export interface OrthoslicesConfig {
   customDomain: CustomDomain;
@@ -57,7 +61,8 @@ function createOrthoslicesConfigStore() {
       }),
       {
         name: 'h5web:orthoslices',
-        version: 1,
+        version: 2,
+        migrate: migrateSqrtToRoot, // v2: Root replaces Sqrt in the toolbar
       },
     ),
   );

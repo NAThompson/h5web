@@ -33,13 +33,34 @@ export const DEFAULT_DOMAIN: Domain = [0.1, 1];
 
 /* Colour scales with the nth root, offered as a gamma scale of exponent 1/n (`rootN`) */
 export type ColorOrRootScaleType = ColorScaleType | ScaleType.Gamma;
+// No square root: it is the nth root of n = 2
 export const ROOT_SCALE_TYPES: ColorOrRootScaleType[] = [
-  ...COLOR_SCALE_TYPES,
+  ...COLOR_SCALE_TYPES.filter((type) => type !== ScaleType.Sqrt),
   ScaleType.Gamma,
 ];
 export const DEFAULT_ROOT_N = 3;
-// Slider over n, by halves: n = 2.5 sits between square and cube roots; beyond 10, roots barely differ
-export const ROOT_N_RANGE = { min: 2, max: 10, step: 0.05 };
+// Slider over n: n = 1 is linear, n = 2 the square root; beyond 10, roots barely differ
+export const ROOT_N_RANGE = { min: 1, max: 10, step: 0.05 };
+
+/* Color scale where Root is offered: square root as the nth root of n = 2 */
+export function sqrtAsRoot<T extends ColorOrRootScaleType | undefined>(
+  scaleType: T,
+  rootN: number | undefined,
+): { scaleType: T | ScaleType.Gamma; rootN: number | undefined } {
+  return scaleType === ScaleType.Sqrt
+    ? { scaleType: ScaleType.Gamma, rootN: 2 }
+    : { scaleType, rootN };
+}
+
+/* Persisted config where Root is offered: square root as the nth root of n = 2 */
+export function migrateSqrtToRoot(persisted: unknown): never {
+  const state = persisted as Record<string, unknown>;
+  return (
+    state.scaleType === ScaleType.Sqrt
+      ? { ...state, scaleType: ScaleType.Gamma, rootN: 2 }
+      : state
+  ) as never;
+}
 
 /* Degree of the nth root on the slider's grid: clamped to its range, to the nearest step */
 export function snapRootN(rootN: number): number {

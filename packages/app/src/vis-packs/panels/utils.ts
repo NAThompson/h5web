@@ -7,7 +7,7 @@ import { type Domain } from '@h5web/shared/vis-models';
 import { formatNumber } from '@h5web/shared/vis-utils';
 
 import { type HeatmapConfig } from '../core/heatmap/config';
-import { getVisScaleType } from '../core/utils';
+import { getVisScaleType, sqrtAsRoot } from '../core/utils';
 import { type ViewHint } from '../view-hints/models';
 import { getHeatmapScaleType } from '../view-hints/suggestions';
 import { type PanelKind, type PanelSpec } from './models';
@@ -176,11 +176,11 @@ export function getPanelScaleType(
   hint: ViewHint,
   stored: Pick<HeatmapConfig, 'scaleType' | 'rootN'>,
 ): VisScaleType {
-  return getVisScaleType(
+  const { scaleType, rootN } = sqrtAsRoot(
     getHeatmapScaleType(hint) ?? stored.scaleType,
-    hint.symlogThreshold,
     hint.rootN ?? stored.rootN,
   );
+  return getVisScaleType(scaleType, hint.symlogThreshold, rootN);
 }
 
 /* Heatmap panels whose colours can be shared: same colour scale (as drawn) and map, and same

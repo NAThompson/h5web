@@ -189,5 +189,9 @@ describe('getColorGroup', () => {
     expect(group('heatmap', { scaleType: ScaleType.Log }, root)).toBe(
       group('heatmap', { scaleType: ScaleType.Log }),
     );
+    // Square root as the nth root of degree 2
+    expect(group('heatmap', { scaleType: ScaleType.Sqrt })).toBe(
+      group('heatmap', { rootN: 2 }),
+    );
   });
 });

@@ -13,7 +13,7 @@ import { type ParamSurfaceConfig } from '../core/geometry/surface-config';
 import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
 import { type OrthoslicesConfig } from '../core/orthoslices/config';
-import { type ColorOrRootScaleType } from '../core/utils';
+import { type ColorOrRootScaleType, sqrtAsRoot } from '../core/utils';
 import { type VolumeConfig } from '../core/volume/config';
 import { type DefaultSlice } from '../nexus/models';
 import { HintVis, type ViewHint } from './models';
@@ -138,8 +138,7 @@ export function getHeatmapSuggestions(
   const colors = getColorSuggestions(hint, dataDomain);
   return {
     ...fallbacks,
-    scaleType: getHeatmapScaleType(hint) ?? fallbacks.scaleType,
-    rootN: hint.rootN,
+    ...sqrtAsRoot(getHeatmapScaleType(hint) ?? fallbacks.scaleType, hint.rootN),
     keepRatio: hint.keepRatio ?? fallbacks.keepRatio,
     ...colors,
     // Complex surfaces have a domain of their own
@@ -218,8 +217,7 @@ export function getVolumeSuggestions(
 ): Partial<VolumeConfig> {
   return {
     ...fallbacks,
-    scaleType: getColorScaleType(hint) ?? fallbacks.scaleType,
-    rootN: hint.rootN,
+    ...sqrtAsRoot(getColorScaleType(hint) ?? fallbacks.scaleType, hint.rootN),
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
@@ -232,8 +230,7 @@ export function getOrthoslicesSuggestions(
   hint: ViewHint,
 ): Partial<OrthoslicesConfig> {
   return {
-    scaleType: getColorScaleType(hint),
-    rootN: hint.rootN,
+    ...sqrtAsRoot(getColorScaleType(hint), hint.rootN),
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,

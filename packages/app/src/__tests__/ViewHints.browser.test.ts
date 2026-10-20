@@ -417,6 +417,17 @@ test('colour with the nth root of the hinted degree', async () => {
   await expect.element(slider).toHaveValue('4.05');
   expect(page.getByText('n = 4.05')).toBeVisible();
   await expect.element(slider).toHaveAttribute('max', '10'); // fixed range
+  await expect.element(slider).toHaveAttribute('min', '1'); // n = 1: linear
+
+  // No square root besides the root: it is n = 2
+  await userEvent.click(page.getByRole('combobox', { name: 'Root' }));
+  await expect
+    .element(page.getByRole('option', { name: 'Log', exact: true }))
+    .toBeVisible();
+  expect(
+    page.getByRole('option', { name: 'Square root' }).elements(),
+  ).toHaveLength(0);
+  await userEvent.keyboard('{Escape}');
 
   // Noted on visualizations without the nth root
   await userEvent.click(page.getByRole('tab', { name: Vis.Line }));
