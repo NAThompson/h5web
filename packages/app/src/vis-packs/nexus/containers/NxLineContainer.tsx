@@ -12,6 +12,7 @@ import { useNxSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getLineSuggestions } from '../../view-hints/suggestions';
+import { getRootScaleNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { assertNumericLikeNxData } from '../guards';
 import { useNxData } from '../hooks';
@@ -133,7 +134,7 @@ function NxLineContainer(props: VisContainerProps) {
           }}
         />
       </VisBoundary>
-      <OverlayNotes notes={hint.notes} />
+      <OverlayNotes notes={[...hint.notes, ...getRootScaleNotes(hint)]} />
     </>
   );
 }

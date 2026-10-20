@@ -1,4 +1,4 @@
-import styles from './HeightScaleSlider.module.css';
+import LabelledRange from '../LabelledRange';
 
 const MIN = 0.05;
 const MAX = 2;
@@ -12,20 +12,16 @@ function HeightScaleSlider(props: Props) {
   const { value, onChange } = props;
 
   return (
-    <label className={styles.root}>
-      <span className={styles.label}>Height</span>
-      <input
-        className={styles.input}
-        type="range"
-        aria-label="Height scale"
-        min={MIN}
-        max={MAX}
-        step={0.05}
-        value={value}
-        onChange={(evt) => onChange(evt.currentTarget.valueAsNumber)}
-      />
-      <span className={styles.value}>{`×${value.toFixed(2)}`}</span>
-    </label>
+    <LabelledRange
+      label="Height"
+      ariaLabel="Height scale"
+      min={MIN}
+      max={MAX}
+      step={0.05}
+      value={value}
+      format={(val) => `×${val.toFixed(2)}`}
+      onChange={onChange}
+    />
   );
 }
 

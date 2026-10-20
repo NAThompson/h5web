@@ -38,8 +38,8 @@ import PanelLayer from '../../panels/PanelLayer';
 import { useStableDomain } from '../../playback-range';
 import {
   type ContourSource,
-  useSymlogThreshold,
   useTransformIgnoreValue,
+  useVisScaleType,
 } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type SpecialColorsHint } from '../../view-hints/models';
@@ -169,7 +169,7 @@ function MappedHeatmapVis(props: Props) {
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
 
-  const visScaleType = useSymlogThreshold(
+  const visScaleType = useVisScaleType(
     scaleType,
     symlogThreshold,
     config.rootN,

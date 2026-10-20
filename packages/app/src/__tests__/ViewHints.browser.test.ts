@@ -416,6 +416,13 @@ test('colour with the nth root of the hinted degree', async () => {
   await userEvent.keyboard('{ArrowRight}');
   await expect.element(slider).toHaveValue('4.5');
   expect(page.getByText('n = 4.5')).toBeVisible();
+  await expect.element(slider).toHaveAttribute('max', '10'); // fixed range
+
+  // Noted on visualizations without the nth root
+  await userEvent.click(page.getByRole('tab', { name: Vis.Line }));
+  await expect
+    .element(getNotes())
+    .toHaveTextContent('"H5WEB_scale" "root" is not available');
 });
 
 function getColorBarTicks(): string[] {

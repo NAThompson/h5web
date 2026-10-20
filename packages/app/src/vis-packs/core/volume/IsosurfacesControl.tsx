@@ -1,12 +1,7 @@
-import {
-  type ColorScaleType,
-  type Domain,
-  IsoColorMode,
-  Popover,
-  ToggleGroup,
-} from '@h5web/lib';
+import { type Domain, IsoColorMode, Popover, ToggleGroup } from '@h5web/lib';
 import { MdAdd, MdLayers } from 'react-icons/md';
 
+import { type ColorOrRootScaleType } from '../utils';
 import { type IsoLevel } from './config';
 import IsoLevelRow from './IsoLevelRow';
 import styles from './IsosurfacesControl.module.css';
@@ -15,7 +10,7 @@ import { getDefaultIsoValue, getSliderScale, roundLevel } from './utils';
 interface Props {
   levels: IsoLevel[];
   domain: Domain;
-  scaleType: ColorScaleType;
+  scaleType: ColorOrRootScaleType;
   colorMode: IsoColorMode;
   step: number;
   onAdd: (value: number) => void;

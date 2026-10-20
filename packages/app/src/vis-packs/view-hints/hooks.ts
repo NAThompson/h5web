@@ -15,10 +15,7 @@ import {
   type NumericLikeType,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
-import {
-  type IgnoreValue,
-  ScaleType,
-} from '@h5web/shared/vis-models';
+import { type IgnoreValue } from '@h5web/shared/vis-models';
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { type ComponentProps, useMemo, useRef, useState } from 'react';
 
@@ -32,7 +29,7 @@ import {
   createGeometryContext,
   resolveCoordinate,
 } from '../core/geometry/utils';
-import { type ColorOrRootScaleType, DEFAULT_ROOT_N } from '../core/utils';
+import { type ColorOrRootScaleType, getVisScaleType } from '../core/utils';
 import { useDimInfo } from '../dimscales/hooks';
 import { useSlicingProps } from '../slicing';
 import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
@@ -345,20 +342,14 @@ export function useTransformIgnoreValue(
   );
 }
 
-/* Scale with the width of its linear band around 0 when symlog (`H5WEB_symlog_threshold`),
- * or with its exponent 1/n when nth root (gamma) */
-export function useSymlogThreshold(
+/* Scale as the vis takes it, symlog threshold and nth-root degree included (`getVisScaleType`) */
+export function useVisScaleType(
   scaleType: ColorOrRootScaleType,
   threshold: number | undefined,
-  rootN = DEFAULT_ROOT_N,
+  rootN?: number,
 ): VisScaleType {
   return useMemo(
-    () =>
-      scaleType === ScaleType.Gamma
-        ? [ScaleType.Gamma, 1 / rootN]
-        : scaleType === ScaleType.SymLog && threshold
-          ? [ScaleType.SymLog, threshold]
-          : scaleType,
+    () => getVisScaleType(scaleType, threshold, rootN),
     [scaleType, threshold, rootN],
   );
 }

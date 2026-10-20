@@ -12,6 +12,7 @@ import {
   useState,
 } from 'react';
 
+import { useHeatmapConfig } from '../core/heatmap/config';
 import { type ViewHint } from '../view-hints/models';
 import { getColorSuggestions } from '../view-hints/suggestions';
 import { createCursorStore } from './cursor';
@@ -217,16 +218,20 @@ function PanelGrid(props: Props) {
   );
   useEffect(() => () => clearTimeout(timeout.current), []);
 
+  // Colour scale of panels whose hint has none (cf. `getPanelScaleType`)
+  const { scaleType, rootN } = useHeatmapConfig();
+  const stored = useMemo(() => ({ scaleType, rootN }), [scaleType, rootN]);
+
   const groups = useMemo(() => {
     const byGroup = new Map<string, PanelSpec[]>();
     specs.forEach((spec) => {
-      const group = getColorGroup(spec);
+      const group = getColorGroup(spec, stored);
       if (group !== undefined) {
         byGroup.set(group, [...(byGroup.get(group) ?? []), spec]);
       }
     });
     return byGroup;
-  }, [specs]);
+  }, [specs, stored]);
 
   const groupColors = useMemo(() => {
     const colors = new Map<string, PanelColors>();
@@ -340,7 +345,7 @@ function PanelGrid(props: Props) {
                 />
               )}
               {specs.map((spec, index) => {
-                const group = getColorGroup(spec);
+                const group = getColorGroup(spec, stored);
                 return (
                   <Panel
                     key={spec.key}

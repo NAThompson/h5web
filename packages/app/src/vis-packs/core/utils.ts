@@ -2,6 +2,7 @@ import {
   CurveType,
   type DimensionMapping,
   type InteractionInfo,
+  type VisScaleType,
 } from '@h5web/lib';
 import {
   isBigIntTypedArray,
@@ -15,6 +16,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { getDimsSize } from '@h5web/shared/hdf5-utils';
 import {
+  type AxisScaleType,
   COLOR_SCALE_TYPES,
   type ColorScaleType,
   type Domain,
@@ -36,12 +38,44 @@ export const ROOT_SCALE_TYPES: ColorOrRootScaleType[] = [
   ScaleType.Gamma,
 ];
 export const DEFAULT_ROOT_N = 3;
+// Slider over n, by halves: n = 2.5 sits between square and cube roots; beyond 10, roots barely differ
+export const ROOT_N_RANGE = { min: 2, max: 10, step: 0.5 };
+
+/* Degree of the nth root on the slider's grid: clamped to its range, to the nearest half */
+export function snapRootN(rootN: number): number {
+  const { min, max, step } = ROOT_N_RANGE;
+  return Math.min(max, Math.max(min, Math.round(rootN / step) * step));
+}
 
 /* Domains of the nth root (gamma) are as linear: normalized before the root is taken */
 export function toDomainScaleType(
   scaleType: ColorOrRootScaleType,
 ): ColorScaleType {
   return scaleType === ScaleType.Gamma ? ScaleType.Linear : scaleType;
+}
+
+/* Axis scale as a colour scale (no square or nth root on axes: linear) */
+export function toAxisScaleType(
+  scaleType: ColorOrRootScaleType,
+): AxisScaleType {
+  const domainScaleType = toDomainScaleType(scaleType);
+  return domainScaleType === ScaleType.Sqrt
+    ? ScaleType.Linear
+    : domainScaleType;
+}
+
+/* Scale with the width of its linear band around 0 when symlog (`H5WEB_symlog_threshold`),
+ * or with its exponent 1/n when nth root (gamma) */
+export function getVisScaleType(
+  scaleType: ColorOrRootScaleType,
+  threshold: number | undefined,
+  rootN = DEFAULT_ROOT_N,
+): VisScaleType {
+  return scaleType === ScaleType.Gamma
+    ? [ScaleType.Gamma, 1 / rootN]
+    : scaleType === ScaleType.SymLog && threshold
+      ? [ScaleType.SymLog, threshold]
+      : scaleType;
 }
 
 export const BASE_INTERACTIONS = [

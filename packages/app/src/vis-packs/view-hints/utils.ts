@@ -268,6 +268,13 @@ export function getHintVisNotes(
     : [];
 }
 
+/* Note for visualizations without the nth-root colour scale (e.g. line), if the hint asks for it */
+export function getRootScaleNotes(hint: ViewHint): string[] {
+  return hint.rootN
+    ? ['"H5WEB_scale" "root" is not available for this visualization']
+    : [];
+}
+
 /* Whether the hint asks for a heatmap in 3D (`undefined` if it doesn't say) */
 export function isSurfaceHint(hint: ViewHint): boolean | undefined {
   if (!hint.vis) {

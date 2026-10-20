@@ -31,8 +31,8 @@ import {
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
 import {
-  useSymlogThreshold,
   useTransformIgnoreValue,
+  useVisScaleType,
 } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type SpecialColorsHint } from '../../view-hints/models';
@@ -112,7 +112,7 @@ function MappedOrthoslicesVis(props: Props) {
     useVolumeDomain(dataArray, { scaleType, ignoreValue }) || DEFAULT_DOMAIN;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
-  const visScaleType = useSymlogThreshold(
+  const visScaleType = useVisScaleType(
     scaleType,
     symlogThreshold,
     config.rootN,
@@ -212,9 +212,7 @@ function MappedOrthoslicesVis(props: Props) {
                   colorMap={colorMap}
                   scaleType={visScaleType}
                   invertColorMap={invertColorMap}
-                  aspect={
-                    keepRatio && units[u] === units[v] ? 'equal' : 'auto'
-                  }
+                  aspect={keepRatio && units[u] === units[v] ? 'equal' : 'auto'}
                   abscissaParams={{
                     label: labels[u] ?? AXIS_NAMES[u],
                     value: boxValues[u],

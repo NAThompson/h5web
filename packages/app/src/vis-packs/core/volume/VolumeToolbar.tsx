@@ -16,7 +16,6 @@ import { MdBlurOn } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
 import RootScaleSelector from '../RootScaleSelector';
-import { toDomainScaleType } from '../utils';
 import { type VolumeConfig } from './config';
 import IsosurfacesControl from './IsosurfacesControl';
 import RangeControl from './RangeControl';
@@ -75,7 +74,7 @@ function VolumeToolbar(props: Props) {
       <IsosurfacesControl
         levels={isoLevels}
         domain={dataDomain}
-        scaleType={toDomainScaleType(scaleType)}
+        scaleType={scaleType}
         colorMode={isoColorMode}
         step={isoStep}
         onAdd={addIsoLevel}
@@ -130,7 +129,7 @@ function VolumeToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={toDomainScaleType(scaleType)}
+        scaleType={scaleType}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />

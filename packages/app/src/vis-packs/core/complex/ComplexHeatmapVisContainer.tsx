@@ -16,6 +16,7 @@ import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
+import { getRootScaleNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import { useHeatmapConfig } from '../heatmap/config';
 import { guessKeepRatio } from '../utils';
@@ -101,7 +102,12 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={hint.notes} />
+      <OverlayNotes
+        notes={[
+          ...hint.notes,
+          ...(config.surface ? getRootScaleNotes(hint) : []),
+        ]}
+      />
     </>
   );
 }

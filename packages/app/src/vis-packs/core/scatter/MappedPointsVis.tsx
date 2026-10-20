@@ -9,11 +9,12 @@ import { type NumArray } from '@h5web/shared/vis-models';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useSymlogThreshold } from '../../view-hints/hooks';
+import { useVisScaleType } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type ViewHint } from '../../view-hints/models';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getColorSuggestions } from '../../view-hints/suggestions';
+import { getRootScaleNotes } from '../../view-hints/utils';
 import { useSuggestions } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { type ScatterConfig } from './config';
@@ -82,7 +83,7 @@ function MappedPointsVis(props: Props) {
     config;
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
-  const visScaleType = useSymlogThreshold(scaleType, hint.symlogThreshold);
+  const visScaleType = useVisScaleType(scaleType, hint.symlogThreshold);
 
   const common = {
     className: visualizerStyles.vis,
@@ -142,7 +143,9 @@ function MappedPointsVis(props: Props) {
           }
         />
       )}
-      <OverlayNotes notes={[...hint.notes, ...source.notes]} />
+      <OverlayNotes
+        notes={[...hint.notes, ...getRootScaleNotes(hint), ...source.notes]}
+      />
     </>
   );
 }

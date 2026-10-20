@@ -1,7 +1,15 @@
-import { type Axis, type DimensionMapping } from '@h5web/lib';
-import { type Domain, ScaleType } from '@h5web/shared/vis-models';
+import {
+  type Axis,
+  type DimensionMapping,
+  type VisScaleType,
+} from '@h5web/lib';
+import { type Domain } from '@h5web/shared/vis-models';
 import { formatNumber } from '@h5web/shared/vis-utils';
 
+import { type HeatmapConfig } from '../core/heatmap/config';
+import { getVisScaleType } from '../core/utils';
+import { type ViewHint } from '../view-hints/models';
+import { getHeatmapScaleType } from '../view-hints/suggestions';
 import { type PanelKind, type PanelSpec } from './models';
 
 export const MAX_PANELS = 1024; // more would take too long to fetch and draw
@@ -162,23 +170,35 @@ export function getBottomRows(
   return bottomRows;
 }
 
-/* Heatmap panels whose colours can be shared: same colour scale and map, and same values and
- * colours beyond the domain on the colour bar (else the colour bar of the group, as its first
- * member's, could differ from some of them) */
-export function getColorGroup(spec: PanelSpec): string | undefined {
+/* Colour scale of a heatmap panel as drawn: as its hint says, else as stored (e.g. last set in the
+ * heatmap toolbar; panels have no scale controls of their own) */
+export function getPanelScaleType(
+  hint: ViewHint,
+  stored: Pick<HeatmapConfig, 'scaleType' | 'rootN'>,
+): VisScaleType {
+  return getVisScaleType(
+    getHeatmapScaleType(hint) ?? stored.scaleType,
+    hint.symlogThreshold,
+    hint.rootN ?? stored.rootN,
+  );
+}
+
+/* Heatmap panels whose colours can be shared: same colour scale (as drawn) and map, and same
+ * values and colours beyond the domain on the colour bar (else the colour bar of the group, as its
+ * first member's, could differ from some of them) */
+export function getColorGroup(
+  spec: PanelSpec,
+  stored: Pick<HeatmapConfig, 'scaleType' | 'rootN'>,
+): string | undefined {
   if (spec.kind !== 'heatmap') {
     return undefined;
   }
-  const { scaleType = ScaleType.Linear, colorMap, invertColorMap } = spec.hint;
+  const { colorMap, invertColorMap } = spec.hint;
   const { valueTransform, belowColor, aboveColor } = spec.hint;
-  const threshold =
-    scaleType === ScaleType.SymLog ? spec.hint.symlogThreshold : undefined;
   return [
-    scaleType,
+    getPanelScaleType(spec.hint, stored),
     colorMap,
     invertColorMap,
-    threshold,
-    spec.hint.rootN,
     valueTransform,
     belowColor,
     aboveColor,

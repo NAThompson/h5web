@@ -1,4 +1,4 @@
-import styles from '../core/heatmap/HeightScaleSlider.module.css';
+import styles from './LabelledRange.module.css';
 
 interface Props {
   label: string;
@@ -11,8 +11,8 @@ interface Props {
   onChange: (value: number) => void;
 }
 
-/* Labelled range input of the toolbar (as the heatmap's height slider) */
-function VectorSlider(props: Props) {
+/* Labelled range input of the toolbar, with its value (e.g. height scale of 3D surfaces) */
+function LabelledRange(props: Props) {
   const { label, ariaLabel, min, max, step, value, format, onChange } = props;
 
   return (
@@ -33,4 +33,4 @@ function VectorSlider(props: Props) {
   );
 }
 
-export default VectorSlider;
+export default LabelledRange;

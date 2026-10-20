@@ -21,8 +21,8 @@ import {
 } from 'react-icons/md';
 
 import { useVisArea } from '../../visualizer/vis-area';
+import LabelledRange from '../core/LabelledRange';
 import { type VectorConfig } from './config';
-import VectorSlider from './VectorSlider';
 
 const STYLE_LABELS: Record<VectorStyle, string> = {
   [VectorStyle.Arrows]: 'Arrows',
@@ -107,7 +107,7 @@ function VectorToolbar(props: Props) {
             }
           />
           {config.plane && (
-            <VectorSlider
+            <LabelledRange
               label={config.plane}
               ariaLabel="Plane index"
               min={0}
@@ -124,7 +124,7 @@ function VectorToolbar(props: Props) {
 
       {config.style !== VectorStyle.Lic && (
         <>
-          <VectorSlider
+          <LabelledRange
             label="Length"
             ariaLabel="Arrow scale"
             min={0.1}
@@ -143,7 +143,7 @@ function VectorToolbar(props: Props) {
             />
           )}
           {!is3D && (
-            <VectorSlider
+            <LabelledRange
               label="Density"
               ariaLabel="Arrow density"
               min={1}

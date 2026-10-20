@@ -21,6 +21,7 @@ import {
   findHintVis,
   formatLabel,
   getHintVisNotes,
+  getRootScaleNotes,
   getValueLabel,
   isSurfaceHint,
 } from './utils';
@@ -196,7 +197,23 @@ describe('parseViewHint', () => {
     const invalid = hint({ H5WEB_scale: 'root', H5WEB_root_n: 1 });
     expect(invalid.rootN).toBe(3);
     expect(invalid.notes).toEqual(['ignored invalid "H5WEB_root_n"']);
-    expect(hint({ H5WEB_root_n: 4 }).rootN).toBeUndefined(); // not a root scale
+
+    const notRoot = hint({ H5WEB_scale: 'log', H5WEB_root_n: 4 });
+    expect(notRoot.rootN).toBeUndefined();
+    expect(notRoot.notes).toEqual([
+      '"H5WEB_root_n" is ignored without "H5WEB_scale" "root"',
+    ]);
+    expect(getRootScaleNotes(root)).toHaveLength(1); // for visualizations without it
+    expect(getRootScaleNotes(notRoot)).toEqual([]);
+  });
+
+  it('snap the degree of nth-root scales to the slider: 2 to 10 by halves', () => {
+    const [low, mid, high] = [1.25, 4.3, 12.3].map((n) =>
+      hint({ H5WEB_scale: 'root', H5WEB_root_n: n }),
+    );
+    expect(low).toMatchObject({ rootN: 2, notes: [] });
+    expect(mid.rootN).toBe(4.5);
+    expect(high.rootN).toBe(10);
   });
 
   it('parse contours', () => {

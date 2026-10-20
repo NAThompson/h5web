@@ -5,14 +5,12 @@ import {
   DomainWidget,
   ExportMenu,
   ResetViewBtn,
-  ScaleSelector,
   Separator,
   SnapshotBtn,
   ToggleBtn,
   Toolbar,
 } from '@h5web/lib';
 import {
-  COLOR_SCALE_TYPES,
   type ComplexHeatmapVisType,
   ComplexVisType,
   type ExportEntry,
@@ -31,11 +29,7 @@ import {
 
 import { useVisArea } from '../../../visualizer/vis-area';
 import RootScaleSelector from '../RootScaleSelector';
-import {
-  getImageInteractions,
-  SURFACE_INTERACTIONS,
-  toDomainScaleType,
-} from '../utils';
+import { getImageInteractions, SURFACE_INTERACTIONS } from '../utils';
 import { type HeatmapConfig } from './config';
 import ContoursControl from './ContoursControl';
 import HeightScaleSlider from './HeightScaleSlider';
@@ -66,7 +60,7 @@ interface Props {
  * - 3D surfaces have their own keep-ratio setting;
  * - 3D surfaces of complex values have their own complex mode and height domain;
  * - phase of complex values is coloured with its own (cyclic) colour map, in 2D and 3D;
- * - phase as height is always linear.
+ * - phase as height is always linear; heights of complex surfaces have no nth root.
  */
 function getBoundSettings(
   config: HeatmapConfig,
@@ -106,6 +100,10 @@ function getBoundSettings(
       ? config.setInvertPhaseColorMap
       : config.setInvertColorMap,
     scaleType: isComplexSurface ? config.surfaceScaleType : config.scaleType,
+    setScaleType: isComplexSurface // never given the root, not offered
+      ? (config.setSurfaceScaleType as HeatmapConfig['setScaleType'])
+      : config.setScaleType,
+    withRoot: !isComplexSurface,
     withScale: !(isComplexSurface && complexVisType === ComplexVisType.Phase),
   };
 }
@@ -153,6 +151,8 @@ function HeatmapToolbar(props: Props) {
     invertColorMap,
     setInvertColorMap,
     scaleType,
+    setScaleType,
+    withRoot,
     withScale,
   } = getBoundSettings(config, !!isComplex, showSurface);
 
@@ -194,7 +194,7 @@ function HeatmapToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={withScale ? toDomainScaleType(scaleType) : ScaleType.Linear}
+        scaleType={withScale ? scaleType : ScaleType.Linear}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
@@ -208,22 +208,16 @@ function HeatmapToolbar(props: Props) {
 
       <Separator />
 
-      {/* Phase as height is always linear; complex heights have no root */}
-      {withScale &&
-        (isComplex && showSurface ? (
-          <ScaleSelector
-            value={config.surfaceScaleType}
-            onScaleChange={config.setSurfaceScaleType}
-            options={COLOR_SCALE_TYPES}
-          />
-        ) : (
-          <RootScaleSelector
-            value={config.scaleType}
-            onScaleChange={config.setScaleType}
-            rootN={config.rootN}
-            onRootNChange={config.setRootN}
-          />
-        ))}
+      {/* Phase as height is always linear */}
+      {withScale && (
+        <RootScaleSelector
+          value={scaleType}
+          onScaleChange={setScaleType}
+          withRoot={withRoot}
+          rootN={config.rootN}
+          onRootNChange={config.setRootN}
+        />
+      )}
 
       {isComplex && (
         <ComplexVisTypeSelector

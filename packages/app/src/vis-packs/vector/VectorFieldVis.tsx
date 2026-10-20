@@ -14,6 +14,7 @@ import { type VisContainerProps } from '../models';
 import { useSlicingProps } from '../slicing';
 import { useViewHint } from '../view-hints/hooks';
 import OverlayNotes from '../view-hints/OverlayNotes';
+import { getRootScaleNotes } from '../view-hints/utils';
 import VisBoundary from '../VisBoundary';
 import { useVectorConfig } from './config';
 import FieldFetcher from './FieldFetcher';
@@ -65,6 +66,7 @@ function VectorFieldVis(props: VisContainerProps) {
 
   const notes = [
     ...hint.notes,
+    ...getRootScaleNotes(hint),
     ...vectorHint.notes,
     ...(background && !isOnGrid
       ? ['"H5WEB_vector_background" is not on the grid of the field']

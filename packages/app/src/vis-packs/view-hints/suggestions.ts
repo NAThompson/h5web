@@ -120,6 +120,13 @@ function getColorScaleType(hint: ViewHint): ColorOrRootScaleType | undefined {
   return hint.rootN ? ScaleType.Gamma : hint.scaleType;
 }
 
+/* Colour scale of a heatmap hint: else the height scale (3D surfaces) */
+export function getHeatmapScaleType(
+  hint: ViewHint,
+): ColorOrRootScaleType | undefined {
+  return getColorScaleType(hint) ?? hint.height;
+}
+
 /* Heatmap settings suggested by a hint (precedence over NeXus and heuristics: `fallbacks`) */
 export function getHeatmapSuggestions(
   hint: ViewHint,
@@ -131,7 +138,7 @@ export function getHeatmapSuggestions(
   const colors = getColorSuggestions(hint, dataDomain);
   return {
     ...fallbacks,
-    scaleType: getColorScaleType(hint) ?? hint.height ?? fallbacks.scaleType,
+    scaleType: getHeatmapScaleType(hint) ?? fallbacks.scaleType,
     rootN: hint.rootN,
     keepRatio: hint.keepRatio ?? fallbacks.keepRatio,
     ...colors,

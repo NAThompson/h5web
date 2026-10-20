@@ -10,7 +10,6 @@ import {
   type Dataset,
   type NumericLikeType,
 } from '@h5web/shared/hdf5-models';
-import { ScaleType } from '@h5web/shared/vis-models';
 import { formatTooltipVal } from '@h5web/shared/vis-utils';
 import { useMeasure } from '@react-hookz/web';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -19,7 +18,11 @@ import { useMemo } from 'react';
 import { MdClose } from 'react-icons/md';
 
 import { useDataContext } from '../../providers/DataProvider';
-import { type ColorOrRootScaleType, toNumArray } from '../core/utils';
+import {
+  type ColorOrRootScaleType,
+  toAxisScaleType,
+  toNumArray,
+} from '../core/utils';
 import { useCachedDimScales } from '../dimscales/hooks';
 import { type DimScale } from '../dimscales/utils';
 import { useIgnoreValue, usePacking } from '../netcdf/hooks';
@@ -87,10 +90,7 @@ function ProbePanel(props: Props) {
           ),
     [data, packing],
   );
-  const scaleType = // as the heatmap's colours (no root scale on axes)
-    colorScaleType === ScaleType.Sqrt || colorScaleType === ScaleType.Gamma
-      ? ScaleType.Linear
-      : colorScaleType;
+  const scaleType = toAxisScaleType(colorScaleType); // as the heatmap's colours
   const domain = useDomain(values ?? [], { scaleType, ignoreValue });
 
   const scale = scales[probeDim];

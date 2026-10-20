@@ -153,8 +153,14 @@ describe('getBottomRows', () => {
   });
 });
 
-function group(kind: PanelSpec['kind'], hint: Partial<ViewHint>) {
-  return getColorGroup({ kind, hint } as PanelSpec);
+const STORED = { scaleType: ScaleType.Linear, rootN: 3 } as const;
+
+function group(
+  kind: PanelSpec['kind'],
+  hint: Partial<ViewHint>,
+  stored: Parameters<typeof getColorGroup>[1] = STORED,
+) {
+  return getColorGroup({ kind, hint } as PanelSpec, stored);
 }
 
 describe('getColorGroup', () => {
@@ -171,5 +177,17 @@ describe('getColorGroup', () => {
     expect(group('heatmap', { valueTransform: 'exp10' })).not.toBe(linear); // colour bar values
     expect(group('heatmap', { aboveColor: 'red' })).not.toBe(linear);
     expect(group('line', {})).toBeUndefined();
+  });
+
+  it('group by the colour scale drawn: hinted, else stored', () => {
+    const root = { scaleType: ScaleType.Gamma, rootN: 4 } as const;
+    expect(group('heatmap', {}, root)).toBe(group('heatmap', { rootN: 4 }));
+    expect(group('heatmap', {}, root)).not.toBe(group('heatmap', {}));
+    expect(group('heatmap', { rootN: 5 }, root)).not.toBe(
+      group('heatmap', { rootN: 4 }, root),
+    );
+    expect(group('heatmap', { scaleType: ScaleType.Log }, root)).toBe(
+      group('heatmap', { scaleType: ScaleType.Log }),
+    );
   });
 });

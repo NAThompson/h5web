@@ -1,4 +1,8 @@
-import { type ColorScaleType, type Domain } from '@h5web/shared/vis-models';
+import {
+  type ColorScaleType,
+  type Domain,
+  ScaleType,
+} from '@h5web/shared/vis-models';
 import { useClickOutside, useKeyboardEvent, useToggle } from '@react-hookz/web';
 import { useEffect, useRef, useState } from 'react';
 import { FiEdit3 } from 'react-icons/fi';
@@ -16,15 +20,17 @@ const POPUP_ID = 'h5w-domain-popup';
 interface Props {
   dataDomain: Domain;
   customDomain: CustomDomain;
-  scaleType: ColorScaleType;
+  scaleType: ColorScaleType | ScaleType.Gamma; // gamma: as linear (normalized, then raised)
   histogram?: HistogramParams;
   disabled?: boolean;
   onCustomDomainChange: (domain: CustomDomain) => void;
 }
 
 function DomainWidget(props: Props) {
-  const { dataDomain, customDomain, scaleType, disabled = false } = props;
-  const { onCustomDomainChange, histogram } = props;
+  const { dataDomain, customDomain, disabled = false } = props;
+  const { scaleType: anyScaleType, onCustomDomainChange, histogram } = props;
+  const scaleType =
+    anyScaleType === ScaleType.Gamma ? ScaleType.Linear : anyScaleType;
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain, errors] = useSafeDomain(visDomain, dataDomain, scaleType);

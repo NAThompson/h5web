@@ -27,7 +27,7 @@ import { type ColorScaleType, ComplexVisType } from '@h5web/shared/vis-models';
 
 import { findAttribute } from '../../utils';
 import { type ColorMap } from '../core/heatmap/models';
-import { DEFAULT_ROOT_N } from '../core/utils';
+import { DEFAULT_ROOT_N, snapRootN } from '../core/utils';
 import {
   type Envelope,
   HINT_ATTR_PREFIX,
@@ -395,14 +395,20 @@ export function parseViewHint(
   const scale = read.oneOf('H5WEB_scale', (val) =>
     val.toLowerCase() === 'root' ? 'root' : parseScaleType(val),
   );
+  if (scale !== 'root' && findAttribute(entity, 'H5WEB_root_n')) {
+    notes.push('"H5WEB_root_n" is ignored without "H5WEB_scale" "root"');
+  }
 
   return {
     vis,
     scaleType: scale === 'root' ? undefined : scale,
+    // On the grid of the slider over n: 2 to 10 by halves (e.g. 12.3 is 10, 4.3 is 4.5)
     rootN:
       scale === 'root'
-        ? (read.num('H5WEB_root_n', (v) => Number.isFinite(v) && v > 1) ??
-          DEFAULT_ROOT_N)
+        ? snapRootN(
+            read.num('H5WEB_root_n', (v) => Number.isFinite(v) && v > 1) ??
+              DEFAULT_ROOT_N,
+          )
         : undefined,
     symlogThreshold: read.num(
       'H5WEB_symlog_threshold',

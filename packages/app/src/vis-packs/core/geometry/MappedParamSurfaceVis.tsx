@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import { unpackNumArray } from '../../netcdf/utils';
 import { useStableDomain } from '../../playback-range';
-import { useSymlogThreshold } from '../../view-hints/hooks';
+import { useVisScaleType } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type ViewHint } from '../../view-hints/models';
 import {
@@ -82,7 +82,7 @@ function MappedParamSurfaceVis(props: Props) {
 
   const visDomain = useVisDomain(customDomain, dataDomain);
   const [safeDomain] = useSafeDomain(visDomain, dataDomain, scaleType);
-  const visScaleType = useSymlogThreshold(scaleType, hint.symlogThreshold);
+  const visScaleType = useVisScaleType(scaleType, hint.symlogThreshold);
 
   return (
     <>

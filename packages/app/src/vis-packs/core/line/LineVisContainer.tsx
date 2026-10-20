@@ -25,6 +25,7 @@ import {
   getLineDimSuggestions,
   getLineSuggestions,
 } from '../../view-hints/suggestions';
+import { getRootScaleNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
 import ValueFetcher from '../ValueFetcher';
 import { useLineConfig } from './config';
@@ -158,6 +159,7 @@ function LineVisContainer(props: VisContainerProps) {
       <OverlayNotes
         notes={[
           ...references.notes,
+          ...getRootScaleNotes(hint),
           ...series.notes,
           ...getDimScaleNotes(dimScales),
           ...xAxisScale.notes,

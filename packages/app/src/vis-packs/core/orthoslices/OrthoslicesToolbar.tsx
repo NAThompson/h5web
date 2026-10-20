@@ -14,7 +14,6 @@ import { MdAspectRatio } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
 import RootScaleSelector from '../RootScaleSelector';
-import { toDomainScaleType } from '../utils';
 import { type OrthoslicesConfig } from './config';
 import SliceIndexInput from './SliceIndexInput';
 import { AXIS_NAMES, type OrthoAxis } from './utils';
@@ -71,7 +70,7 @@ function OrthoslicesToolbar(props: Props) {
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
-        scaleType={toDomainScaleType(scaleType)}
+        scaleType={scaleType}
         onCustomDomainChange={setCustomDomain}
       />
       <Separator />
