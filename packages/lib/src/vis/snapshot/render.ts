@@ -126,10 +126,13 @@ function svgLayer(svg: SVGSVGElement, scale: number): Layer {
   clone.style.setProperty('overflow', 'hidden');
   clone.style.setProperty('filter', 'none'); // applied via `ctx.filter`
 
+  // Blob URL rather than `data:`, which CSPs often block (e.g. VS Code webviews)
   const img = new Image();
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    new XMLSerializer().serializeToString(clone),
-  )}`;
+  img.src = URL.createObjectURL(
+    new Blob([new XMLSerializer().serializeToString(clone)], {
+      type: 'image/svg+xml',
+    }),
+  );
   const target = {
     x: rect.x + x * sx,
     y: rect.y + y * sy,
@@ -137,7 +140,11 @@ function svgLayer(svg: SVGSVGElement, scale: number): Layer {
     height: h * sy,
   };
   async function decoded(): Promise<Draw> {
-    await img.decode();
+    try {
+      await img.decode();
+    } finally {
+      URL.revokeObjectURL(img.src);
+    }
     return drawImage(img, target);
   }
 
