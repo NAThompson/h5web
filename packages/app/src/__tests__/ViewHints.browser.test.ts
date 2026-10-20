@@ -49,7 +49,7 @@ test('open the vis declared by the hint, with its settings', async () => {
 test('open a complex line plot on the hinted phase', async () => {
   await renderApp('/view_hints/complex_phase');
 
-  expect(getSelectedVisTab()).toBe(Vis.Line);
+  expect(getSelectedVisTab()).toBe(Vis.ComplexLine);
   await expect
     .element(page.getByRole('combobox', { name: /Phase \(unwrapped\)/u }))
     .toBeVisible();
@@ -167,17 +167,6 @@ test('note overlays not drawn on line views', async () => {
   expect(getNotes()).toHaveTextContent(
     'overlay "point": drawn on heatmaps only',
   );
-});
-
-test('note overlay features not drawn in 3D', async () => {
-  const { user } = await renderApp('/view_hints/psi');
-  await expect.poll(() => getPointsCx()).toHaveLength(1);
-  expect(page.getByText(/not drawn in 3D/u)).not.toBeInTheDocument();
-
-  await user.click(page.getByRole('button', { name: 'Show as 3D surface' }));
-  await expect
-    .element(getNotes())
-    .toHaveTextContent('not drawn in 3D: text, dashes');
 });
 
 test('ignore attributes of the wrong type', async () => {

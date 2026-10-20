@@ -73,7 +73,7 @@ export enum Vis {
   Line = 'Line',
   Heatmap = 'Heatmap',
   ComplexHeatmap = 'ComplexHeatmap',
-  ComplexLine = 'ComplexLine',
+  ComplexLine = 'Complex Line',
   ComplexCurve = 'Complex Curve',
   RGB = 'RGB',
   Compound = 'Compound',
@@ -170,7 +170,7 @@ export const CORE_VIS = {
   },
 
   [Vis.ComplexLine]: {
-    name: Vis.Line,
+    name: Vis.ComplexLine,
     Icon: FiActivity,
     Container: ComplexLineVisContainer,
     ConfigProvider: LineConfigProvider,

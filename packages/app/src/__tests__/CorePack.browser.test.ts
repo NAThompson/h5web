@@ -83,8 +83,8 @@ test('visualize 1D enum dataset', async () => {
 test('visualize 1D complex dataset', async () => {
   await renderApp('/arrays/oneD_complex');
 
-  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.ComplexCurve, Vis.Line]);
-  expect(getSelectedVisTab()).toBe(Vis.Line);
+  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.ComplexCurve, Vis.ComplexLine]);
+  expect(getSelectedVisTab()).toBe(Vis.ComplexLine);
   expect(page.getByRole('figure', { name: 'oneD_complex' })).toBeVisible();
 });
 
@@ -165,7 +165,7 @@ test('visualize 2D enum dataset', async () => {
 test('visualize 2D complex dataset', async () => {
   await renderApp('/arrays/twoD_complex');
 
-  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.Line, Vis.Heatmap]);
+  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.ComplexLine, Vis.Heatmap]);
   expect(getSelectedVisTab()).toBe(Vis.Heatmap);
 
   const figure = page.getByRole('figure', { name: 'twoD_complex (amplitude)' });

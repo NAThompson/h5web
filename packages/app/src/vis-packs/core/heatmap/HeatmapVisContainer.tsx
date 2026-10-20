@@ -228,7 +228,6 @@ function HeatmapVisContainer(props: VisContainerProps) {
           ...overlays.notes,
           ...contourOf.notes,
           ...dimScaleNotes,
-          ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />
       <OverlayLegend items={overlays.legend} />

@@ -14,8 +14,12 @@ test(
     const { user, selectVisTab } = await renderApp('/arrays/oneD_complex');
 
     // Amplitude/phase line plot stays the default
-    expect(getVisTabs()).toEqual([Vis.Matrix, Vis.ComplexCurve, Vis.Line]);
-    expect(getSelectedVisTab()).toBe(Vis.Line);
+    expect(getVisTabs()).toEqual([
+      Vis.Matrix,
+      Vis.ComplexCurve,
+      Vis.ComplexLine,
+    ]);
+    expect(getSelectedVisTab()).toBe(Vis.ComplexLine);
 
     await selectVisTab(Vis.ComplexCurve);
 

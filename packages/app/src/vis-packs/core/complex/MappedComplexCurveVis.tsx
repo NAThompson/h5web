@@ -151,8 +151,8 @@ function MappedComplexCurveVis(props: Props) {
           `${title} (coloured by ${byPhase ? 'phase' : 'amplitude'})`,
         )}
         xLabel={axisLabels[xDimIndex] ?? '𝑥'}
-        yLabel="Re"
-        zLabel="Im"
+        yLabel="ℜ"
+        zLabel="ℑ"
         keepRatio={keepRatio}
         showGrid={showGrid}
         curveType={curveType}

@@ -173,7 +173,6 @@ function NxHeatmapContainer(props: VisContainerProps) {
         notes={[
           ...overlays.notes,
           ...contourOf.notes,
-          ...(config.surface ? overlays.notesIn3D : []),
         ]}
       />
       <OverlayLegend items={overlays.legend} />

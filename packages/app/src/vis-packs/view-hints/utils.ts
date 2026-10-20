@@ -13,7 +13,7 @@ import { createGeometryContext } from '../core/geometry/utils';
 import { type VisDef } from '../models';
 import { formatUnits } from '../units';
 import { hasViewAttrs, parseViewHint } from './attrs';
-import { EMPTY_HINT, HintVis, type OverlayHint, type ViewHint } from './models';
+import { EMPTY_HINT, HintVis, type ViewHint } from './models';
 import { getDimNames, withoutPhonyScales } from './overlays';
 
 /* `DIMENSION_LABELS` of a dataset; empty if it can't be read (transport errors are thrown) */
@@ -295,18 +295,6 @@ export async function getHintSafely(
       notes: [`H5WEB_* attributes of ${entity.name} could not be fetched`],
     };
   }
-}
-
-/* Note about overlay features not drawn on 3D surfaces, if the overlays use any */
-export function getNotesIn3D(overlays: OverlayHint[]): string[] {
-  const unsupported = [
-    overlays.some(({ kind }) => kind === 'text') && 'text',
-    overlays.some(({ dash }) => dash) && 'dashes',
-  ].filter((feature) => typeof feature === 'string');
-
-  return unsupported.length > 0
-    ? [`not drawn in 3D: ${unsupported.join(', ')}`]
-    : [];
 }
 
 /* Parts of a label, with `_{...}` and `^{...}` as subscripts and superscripts (e.g. `r_{12} = 0`) */

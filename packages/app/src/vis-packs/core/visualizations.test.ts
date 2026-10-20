@@ -173,7 +173,7 @@ describe('Line', () => {
 });
 
 describe('Complex Line', () => {
-  const { supportsDataset } = CORE_VIS.ComplexLine;
+  const { supportsDataset } = CORE_VIS[Vis.ComplexLine];
 
   it('should support array dataset with complex type and at least one dimension', async () => {
     await expect(supportsDataset(oneDCplx)).resolves.toBe(true);

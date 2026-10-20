@@ -55,7 +55,7 @@ import {
   resolveOverlays,
   type ShapeBuilder,
 } from './overlays';
-import { getNotesIn3D, viewHintQuery } from './utils';
+import { viewHintQuery } from './utils';
 
 /* `H5WEB_*` view hint of a dataset or NXdata group (usually in cache once the entity is resolved).
  * Never suspends nor throws: no hint until fetched, or if it can't be fetched (with a note). */
@@ -231,7 +231,6 @@ export interface LinkedOverlays {
   shapes: OverlayShapes | undefined;
   notes: string[];
   legend: LegendItem[]; // labelled overlays, unless the hint hides the legend
-  notesIn3D: string[]; // overlay features not drawn on 3D surfaces
   // values of the overlays to fetch with a slice of the base dataset (when the link is one of its dimensions)
   getSliceRequests: (selection: string | undefined) => ValueQueryParams[];
   // extra slider for a linked dimension the base dataset doesn't have
@@ -318,9 +317,6 @@ export function useLinkedOverlays(
       ...references.map(({ label }) => `${label}: drawn on line views only`),
     ],
     legend,
-    notesIn3D: getNotesIn3D(
-      resolved?.overlays.map(({ hint: overlay }) => overlay) ?? [],
-    ),
     getSliceRequests: (selection) =>
       baseDim === undefined
         ? []

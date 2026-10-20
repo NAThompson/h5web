@@ -8,7 +8,7 @@ import { ContourMode } from '../core/heatmap/models';
 import { type VisDef } from '../models';
 import { parseViewHint, toUnicodeScripts } from './attrs';
 import { uniqueLegendItems } from './hooks';
-import { HintVis, type OverlayHint } from './models';
+import { HintVis } from './models';
 import {
   getColorSuggestions,
   getComplexCurveSuggestions,
@@ -21,7 +21,6 @@ import {
   findHintVis,
   formatLabel,
   getHintVisNotes,
-  getNotesIn3D,
   getValueLabel,
   isSurfaceHint,
 } from './utils';
@@ -548,24 +547,6 @@ describe('formatLabel', () => {
 });
 
 describe('notes', () => {
-  it('note overlay features not drawn in 3D', () => {
-    const curve: OverlayHint = { kind: 'curve', curve: 'c', trail: false };
-    const text: OverlayHint = {
-      kind: 'text',
-      text: 'a',
-      at: [0, 0],
-      anchor: 'center',
-    };
-    expect(getNotesIn3D([text, { ...curve, dash: true }])).toEqual([
-      'not drawn in 3D: text, dashes',
-    ]);
-    expect(getNotesIn3D([curve])).toEqual([]);
-    // Inline labels are just left out
-    expect(
-      getNotesIn3D([{ ...curve, label: 'a', labelMode: 'inline' }]),
-    ).toEqual([]);
-  });
-
   it('note a hinted visualization that is not available', () => {
     const heatmap = vis('Heatmap');
     const volume = hint({ H5WEB_vis: 'volume' });
