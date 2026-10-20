@@ -59,7 +59,7 @@ function OrthoPlanesVis(props: PropsWithChildren<Props>) {
     scaleType = ScaleType.Linear,
     colorMap = 'Viridis',
     invertColorMap = false,
-    background = '#10131a',
+    background = 'black',
     ignoreValue,
     nanColor,
     belowColor,

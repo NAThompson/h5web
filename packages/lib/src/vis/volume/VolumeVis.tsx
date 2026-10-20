@@ -84,7 +84,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     threshold = 0.1,
     quality = VolumeQuality.Medium,
     showBox = true,
-    background = '#10131a',
+    background = 'black',
     showVolume = true,
     isosurfaces = [],
     isoColorMode,
