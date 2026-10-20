@@ -410,7 +410,7 @@ test('colour with the nth root of the hinted degree', async () => {
     .toBeVisible();
   const slider = page.getByRole('slider', { name: 'Root degree' });
   await expect.element(slider).toHaveValue('4');
-  expect(page.getByText('n = 4')).toBeVisible();
+  expect(page.getByText('n = 4.00')).toBeVisible();
 
   (slider.element() as HTMLInputElement).focus();
   await userEvent.keyboard('{ArrowRight}');

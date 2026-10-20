@@ -28,7 +28,15 @@ function LabelledRange(props: Props) {
         value={value}
         onChange={(evt) => onChange(evt.currentTarget.valueAsNumber)}
       />
-      <span className={styles.value}>{format(value)}</span>
+      <span
+        className={styles.value}
+        // As wide as the widest value, so that the slider doesn't move while dragging
+        style={{
+          minWidth: `${Math.max(format(min).length, format(max).length)}ch`,
+        }}
+      >
+        {format(value)}
+      </span>
     </label>
   );
 }
