@@ -1,6 +1,5 @@
 import { type CustomDomain } from '@h5web/lib';
 import {
-  type ColorScaleType,
   type ComplexHeatmapVisType,
   ComplexVisType,
   ScaleType,
@@ -69,8 +68,8 @@ export interface HeatmapConfig {
 
   /* Height scale of complex 3D surfaces: log by default, so zeros and poles show as
    * funnels and spikes instead of flattening the rest of the landscape */
-  surfaceScaleType: ColorScaleType;
-  setSurfaceScaleType: (surfaceScaleType: ColorScaleType) => void;
+  surfaceScaleType: ColorOrRootScaleType; // nth root: of colors only
+  setSurfaceScaleType: (surfaceScaleType: ColorOrRootScaleType) => void;
 
   /* What height and colour show on 3D surfaces of complex values, separate from 2D:
    * phase & amplitude = height |f|, colour arg f (default); amplitude = both |f|; phase = both arg f */
@@ -210,9 +209,9 @@ function createHeatmapConfigStore() {
       }),
       {
         name: 'h5web:heatmap',
-        version: 14,
+        version: 15,
         // v13: HSL (not perceptually uniform) was the default phase colour map; use Twilight
-        // v14: Root replaces Sqrt in the toolbar
+        // v14: Root replaces Sqrt in the toolbar; v15: on 3D complex surfaces too
         migrate: (persisted) => {
           const state = persisted as Record<string, unknown>;
           if (state.phaseColorMap === 'HSL') {

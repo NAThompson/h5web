@@ -26,7 +26,11 @@ import { renderMarkup } from '../../view-hints/markup';
 import { type HeatmapConfig } from '../heatmap/config';
 import HeatmapToolbar from '../heatmap/HeatmapToolbar';
 import { useMappedArray, useToNumArrays } from '../hooks';
-import { DEFAULT_DOMAIN } from '../utils';
+import {
+  DEFAULT_DOMAIN,
+  getSurfaceScaleTypes,
+  toHeightScaleType,
+} from '../utils';
 import { usePhaseAmplitude } from './hooks';
 import {
   COMPLEX_VIS_TYPE_LABELS,
@@ -182,12 +186,17 @@ function MappedComplexHeatmapVis(props: Props) {
           dataArray={dataArray}
           title={renderMarkup(fullTitle)}
           domain={safeDomain}
-          scaleType={visScaleType}
           valueLabel={showsPhase ? 'Phase' : 'Amplitude'}
           colorMap={visColorMap}
           invertColorMap={visInvertColorMap}
-          colorArray={colorsPhase ? phaseArray : undefined}
-          colorDomain={PHASE_DOMAIN}
+          {...(colorsPhase
+            ? {
+                // heights by amplitude (an nth root, not offered, is drawn linearly)
+                scaleType: toHeightScaleType(visScaleType),
+                colorArray: phaseArray,
+                colorDomain: PHASE_DOMAIN,
+              }
+            : getSurfaceScaleTypes(visScaleType))}
           abscissaParams={abscissaParams}
           ordinateParams={ordinateParams}
           flipXAxis={flipXAxis}

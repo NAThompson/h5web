@@ -64,7 +64,7 @@ interface Props {
  * - 3D surfaces have their own keep-ratio setting;
  * - 3D surfaces of complex values have their own complex mode and height domain;
  * - phase of complex values is coloured with its own (cyclic) colour map, in 2D and 3D;
- * - phase as height is always linear; heights of complex surfaces have no nth root.
+ * - phase as height is always linear; the nth root applies to colors, not heights.
  */
 // Scales of the brightness of 2D phase & amplitude heatmaps
 const BRIGHTNESS_SCALE_TYPES: ColorOrRootScaleType[] = [
@@ -72,14 +72,19 @@ const BRIGHTNESS_SCALE_TYPES: ColorOrRootScaleType[] = [
   ScaleType.Log,
   ScaleType.Gamma,
 ];
+// Scales of the heights of 3D phase & amplitude surfaces (colored by phase)
+const HEIGHT_SCALE_TYPES: ColorOrRootScaleType[] = [
+  ScaleType.Linear,
+  ScaleType.Log,
+  ScaleType.SymLog,
+];
 
-// Brightness is drawn linearly for scales it doesn't take (e.g. symlog)
-function toBrightnessScaleType(
+// Drawn linearly for scales that aren't offered (e.g. symlog brightness)
+function toOfferedScaleType(
   scaleType: ColorOrRootScaleType,
+  options: ColorOrRootScaleType[] | undefined,
 ): ColorOrRootScaleType {
-  return BRIGHTNESS_SCALE_TYPES.includes(scaleType)
-    ? scaleType
-    : ScaleType.Linear;
+  return !options || options.includes(scaleType) ? scaleType : ScaleType.Linear;
 }
 
 function getBoundSettings(
@@ -93,8 +98,14 @@ function getBoundSettings(
     : config.complexVisType;
   const showsPhaseColors =
     isComplex && complexVisType !== ComplexVisType.Amplitude;
-  // 2D phase & amplitude: the scale is that of the brightness, the domain that of the phase
+  // Phase & amplitude: the scale is that of the brightness (2D; the domain is that of the phase)
+  // or of the heights (3D)
   const scalesBrightness = showsPhaseColors && !isComplexSurface;
+  const scaleOptions = scalesBrightness
+    ? BRIGHTNESS_SCALE_TYPES
+    : showsPhaseColors
+      ? HEIGHT_SCALE_TYPES
+      : undefined;
   const scaleType = isComplexSurface
     ? config.surfaceScaleType
     : config.scaleType;
@@ -124,14 +135,15 @@ function getBoundSettings(
     setInvertColorMap: showsPhaseColors
       ? config.setInvertPhaseColorMap
       : config.setInvertColorMap,
-    scaleType: scalesBrightness ? toBrightnessScaleType(scaleType) : scaleType,
-    setScaleType: isComplexSurface // never given the root, not offered
-      ? (config.setSurfaceScaleType as HeatmapConfig['setScaleType'])
+    scaleType: toOfferedScaleType(scaleType, scaleOptions),
+    setScaleType: isComplexSurface
+      ? config.setSurfaceScaleType
       : config.setScaleType,
-    withRoot: !isComplexSurface,
     withScale: !(isComplex && complexVisType === ComplexVisType.Phase), // phase is linear
-    scaleOptions: scalesBrightness ? BRIGHTNESS_SCALE_TYPES : undefined,
-    domainScaleType: scalesBrightness ? ScaleType.Linear : scaleType,
+    scaleOptions,
+    domainScaleType: scalesBrightness
+      ? ScaleType.Linear
+      : toOfferedScaleType(scaleType, scaleOptions),
   };
 }
 
@@ -179,7 +191,6 @@ function HeatmapToolbar(props: Props) {
     setInvertColorMap,
     scaleType,
     setScaleType,
-    withRoot,
     withScale,
     domainScaleType,
     scaleOptions,
@@ -242,7 +253,6 @@ function HeatmapToolbar(props: Props) {
         <RootScaleSelector
           value={scaleType}
           onScaleChange={setScaleType}
-          withRoot={withRoot}
           options={scaleOptions}
           rootN={config.rootN}
           onRootNChange={config.setRootN}

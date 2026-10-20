@@ -1,6 +1,12 @@
+import { ScaleType } from '@h5web/shared/vis-models';
 import { describe, expect, it } from 'vitest';
 
-import { getBaseArray, guessKeepRatio } from './utils';
+import {
+  getBaseArray,
+  guessKeepRatio,
+  migrateSqrtToRoot,
+  toHeightScaleType,
+} from './utils';
 
 describe('getBaseArray', () => {
   it('should create ndarray with given dimensions', () => {
@@ -52,5 +58,26 @@ describe('guessKeepRatio', () => {
     expect(guessKeepRatio(axisDefNoUnit, undefined)).toBeUndefined();
     expect(guessKeepRatio(undefined, axisDefNoUnit)).toBeUndefined();
     expect(guessKeepRatio(axisDefNoUnit, axisDefNoUnit)).toBeUndefined();
+  });
+});
+
+describe('migrateSqrtToRoot', () => {
+  it('turn stored square roots into nth roots of n = 2, in 2D and on 3D surfaces', () => {
+    const { Gamma, Log, Sqrt } = ScaleType;
+    expect(migrateSqrtToRoot({ scaleType: Sqrt, rootN: 3 })).toEqual({
+      scaleType: Gamma,
+      rootN: 2,
+    });
+    expect(
+      migrateSqrtToRoot({ scaleType: Log, surfaceScaleType: Sqrt }),
+    ).toEqual({ scaleType: Log, surfaceScaleType: Gamma, rootN: 2 });
+    expect(migrateSqrtToRoot({ scaleType: Log })).toEqual({ scaleType: Log });
+  });
+});
+
+describe('toHeightScaleType', () => {
+  it('draw heights linearly for nth roots, which are of colors only', () => {
+    expect(toHeightScaleType([ScaleType.Gamma, 0.5])).toBe(ScaleType.Linear);
+    expect(toHeightScaleType(ScaleType.Log)).toBe(ScaleType.Log);
   });
 });

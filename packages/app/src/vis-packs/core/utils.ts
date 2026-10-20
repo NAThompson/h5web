@@ -54,12 +54,14 @@ export function sqrtAsRoot<T extends ColorOrRootScaleType | undefined>(
 
 /* Persisted config where Root is offered: square root as the nth root of n = 2 */
 export function migrateSqrtToRoot(persisted: unknown): never {
-  const state = persisted as Record<string, unknown>;
-  return (
-    state.scaleType === ScaleType.Sqrt
-      ? { ...state, scaleType: ScaleType.Gamma, rootN: 2 }
-      : state
-  ) as never;
+  const state = { ...(persisted as Record<string, unknown>) };
+  for (const key of ['scaleType', 'surfaceScaleType']) {
+    if (state[key] === ScaleType.Sqrt) {
+      state[key] = ScaleType.Gamma;
+      state.rootN = 2;
+    }
+  }
+  return state as never;
 }
 
 /* Degree of the nth root on the slider's grid: clamped to its range, to the nearest step */
@@ -108,6 +110,13 @@ export function getSurfaceScaleTypes(visScaleType: VisScaleType): {
   return Array.isArray(visScaleType) && visScaleType[0] === ScaleType.Gamma
     ? { scaleType: ScaleType.Linear, colorScaleType: visScaleType }
     : { scaleType: visScaleType };
+}
+
+/* Scale of the heights of a 3D surface colored by another field: no nth root (of colors only) */
+export function toHeightScaleType(visScaleType: VisScaleType): VisScaleType {
+  return Array.isArray(visScaleType) && visScaleType[0] === ScaleType.Gamma
+    ? ScaleType.Linear
+    : visScaleType;
 }
 
 export const BASE_INTERACTIONS = [
