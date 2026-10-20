@@ -147,9 +147,7 @@ function MappedComplexCurveVis(props: Props) {
         scaleType={byPhase ? ScaleType.Linear : scaleType}
         colorMap={byPhase ? phaseColorMap : colorMap}
         invertColorMap={invertColorMap}
-        title={renderMarkup(
-          `${title} (colored by ${byPhase ? 'phase' : 'amplitude'})`,
-        )}
+        title={renderMarkup(title)} // colored by: in the toolbar
         xLabel={axisLabels[xDimIndex] ?? '𝑥'}
         yLabel="ℜ"
         zLabel="ℑ"

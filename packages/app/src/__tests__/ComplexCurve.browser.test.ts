@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 
 import { getSelectedVisTab, getVisTabs, renderApp } from '../test-utils';
@@ -7,6 +7,15 @@ import { NxDataVis } from '../vis-packs/nexus/visualizations';
 
 // Rendering in 3D creates a WebGL context (slow with SwiftShader), cf. `HeatmapSurface.browser.test.ts`
 const CURVE_TEST_TIMEOUT = 20_000;
+
+// Wide enough for 3D toolbars to fit without moving controls into "More controls" menu
+beforeEach(async () => {
+  await page.viewport(2560, 1080);
+});
+
+afterEach(async () => {
+  await page.viewport(1920, 1080);
+});
 
 test(
   'show complex 1D dataset as 3D curve coloured by phase or amplitude',
@@ -23,9 +32,7 @@ test(
 
     await selectVisTab(Vis.ComplexCurve);
 
-    const phaseFigure = page.getByRole('figure', {
-      name: 'oneD_complex (colored by phase)',
-    });
+    const phaseFigure = page.getByRole('figure', { name: 'oneD_complex' });
     await expect.element(phaseFigure).toBeVisible();
     expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible();
 
@@ -40,10 +47,9 @@ test(
     await user.click(page.getByRole('combobox', { name: 'φ Phase' }));
     await user.click(page.getByRole('option', { name: '𝓐 Amplitude' }));
 
-    const amplitudeFigure = page.getByRole('figure', {
-      name: 'oneD_complex (colored by amplitude)',
-    });
-    await expect.element(amplitudeFigure).toBeVisible();
+    await expect
+      .element(page.getByRole('combobox', { name: '𝓐 Amplitude' }))
+      .toBeVisible();
     expect(page.getByRole('combobox', { name: /Viridis/u })).toBeVisible();
     expect(page.getByRole('button', { name: 'Edit domain' })).toBeVisible();
   },
@@ -60,9 +66,7 @@ test(
     await expect
       .element(page.getByRole('button', { name: 'Reset view' }))
       .toBeVisible();
-    expect(
-      page.getByRole('figure', { name: /colored by phase/u }),
-    ).toBeVisible();
+    expect(page.getByRole('combobox', { name: 'φ Phase' })).toBeVisible();
   },
   CURVE_TEST_TIMEOUT,
 );
@@ -114,9 +118,7 @@ test(
       .toBe(1); // `twoD_complex` signal has dims [2, 2]
     await page.getByRole('button', { name: 'Play D0' }).click();
 
-    expect(
-      page.getByRole('figure', { name: /colored by phase/u }),
-    ).toBeVisible();
+    expect(page.getByRole('combobox', { name: 'φ Phase' })).toBeVisible();
   },
   CURVE_TEST_TIMEOUT,
 );
