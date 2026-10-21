@@ -8,13 +8,19 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 import Btn from '../toolbar/controls/Btn';
-import { useDynamicDebouncedCallback, usePlayback } from './hooks';
+import {
+  useDynamicDebouncedCallback,
+  usePlayback,
+  useRecording,
+} from './hooks';
 import {
   getNearestFrame,
   getNextFrame,
+  getSequenceValues,
   type PlaybackSettings,
 } from './playback';
 import PlaybackControls from './PlaybackControls';
+import RecordingStatus from './RecordingStatus';
 import SliceValueLabel from './SliceValueLabel';
 import styles from './SlicingSlider.module.css';
 
@@ -62,6 +68,7 @@ interface Props {
   playbackSettings: PlaybackSettings;
   onPlaybackSettingsChange: (settings: PlaybackSettings) => void;
   playbackRangeHint?: string;
+  beforeSnapshot?: () => Promise<void> | void;
 }
 
 function getValueText(labels: string[] | undefined, value: number) {
@@ -89,6 +96,7 @@ function SlicingSlider(props: Props) {
     playbackSettings,
     onPlaybackSettingsChange,
     playbackRangeHint,
+    beforeSnapshot,
   } = props;
 
   if (length <= 0) {
@@ -134,18 +142,33 @@ function SlicingSlider(props: Props) {
     }
   }
 
+  function showFrame(newValue: number) {
+    setValue(newValue);
+    onDebouncedChange(newValue);
+  }
+
+  const recording = useRecording({
+    isPlaying,
+    value,
+    shownValue: initialValue,
+    fps: playbackSettings.fps,
+    isReady: (val) => isReady?.(val) ?? true,
+    onFrame: showFrame,
+    onPlayingChange: (playing) => onPlayingChange?.(playing),
+    onPrefetch,
+    beforeSnapshot,
+  });
+  const { isRecording } = recording;
+
   const waiting = usePlayback({
-    isPlaying: isPlaying && length > 1,
+    isPlaying: isPlaying && length > 1 && !isRecording, // recording shows each slice itself
     value,
     length,
     stride,
     settings: playbackSettings,
     isReady: (val) => isReady?.(val) ?? true,
     isSkipped: isEmpty,
-    onFrame: (newValue) => {
-      setValue(newValue);
-      onDebouncedChange(newValue);
-    },
+    onFrame: showFrame,
     onEnd: () => onPlayingChange?.(false),
     onPrefetch,
   });
@@ -291,10 +314,21 @@ function SlicingSlider(props: Props) {
               waiting={waiting}
               settings={playbackSettings}
               rangeHint={playbackRangeHint}
+              isRecording={isRecording}
               onTogglePlay={() => onPlayingChange?.(!isPlaying)}
               onSettingsChange={onPlaybackSettingsChange}
+              onRecord={() => {
+                recording.record(
+                  thumb ?? document.body, // stays mounted, unlike settings
+                  getSequenceValues({ length, stride, isSkipped: isEmpty }),
+                );
+              }}
             />
           )}
+          <RecordingStatus
+            status={recording.status}
+            onCancel={recording.cancel}
+          />
 
           {withControls && (
             <div className={styles.slicingControls}>

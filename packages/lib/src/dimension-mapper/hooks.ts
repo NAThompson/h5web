@@ -8,7 +8,12 @@ import {
   useState,
 } from 'react';
 
+import { download } from '../toolbar/controls/utils';
+import { type GifWriter } from '../vis/snapshot/gif';
+import { findVisElement, renderSnapshot } from '../vis/snapshot/render';
+import { getSnapshotFilename } from '../vis/snapshot/utils';
 import {
+  getPrefetchCount,
   initPlaybackClock,
   type PlaybackSettings,
   tickPlayback,
@@ -179,4 +184,219 @@ export function usePlayback(
   }, [isPlaying, paramsRef]);
 
   return isPlaying ? waiting : undefined;
+}
+
+export type RecordingStatus =
+  | { current: number; total: number } // `current` is 1-based
+  | { error: string };
+
+interface RecordingParams {
+  isPlaying: boolean;
+  value: number;
+  shownValue: number; // value echoed by the consumer, once it has rendered the slice
+  fps: number;
+  isReady: (value: number) => boolean;
+  onFrame: (value: number) => void;
+  onPlayingChange: (isPlaying: boolean) => void;
+  onPrefetch?: (values: number[], current: number) => boolean;
+  beforeSnapshot?: () => Promise<void> | void; // e.g. load panels out of view
+}
+
+const FRAME_TIMEOUT = 60_000; // ms to wait for a slice to load
+const PLAYING_TIMEOUT = 1000; // ms to wait for playback to turn on before recording anyway
+
+async function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
+/* Record a sequence of slices as an animated GIF, frame by frame: show each slice once its data is
+ * ready (as playback does), wait for the visualization to render it, snapshot it and encode it at
+ * the playback speed. Playback is on while recording (e.g. for the range of the whole sequence);
+ * turning it off (e.g. user picks a slice) cancels recording. Otherwise, the slice shown before
+ * recording is shown again after. `from` is an element next to the visualization (cf.
+ * `findVisElement`) that stays mounted while recording. */
+export function useRecording(params: RecordingParams): {
+  status: RecordingStatus | undefined;
+  isRecording: boolean;
+  record: (from: Element, values: number[]) => void;
+  cancel: () => void; // or dismiss error
+} {
+  const paramsRef = useSyncedRef(params);
+  const [status, setStatus] = useState<RecordingStatus>();
+  const recording = useRef<{
+    controller: AbortController;
+    restore: boolean;
+    isUnmounted?: boolean;
+  }>(undefined);
+
+  useUnmountEffect(() => {
+    if (recording.current) {
+      recording.current.isUnmounted = true;
+      recording.current.controller.abort();
+    }
+  });
+
+  async function record(from: Element, values: number[]) {
+    if (values.length === 0) {
+      setStatus({ error: 'Nothing to record (all slices empty)' });
+      return;
+    }
+
+    const controller = new AbortController();
+    const state: NonNullable<typeof recording.current> = {
+      controller,
+      restore: true,
+    };
+    recording.current = state;
+    const { signal } = controller;
+    const { value: initialValue, isPlaying: wasPlaying } = paramsRef.current;
+    let writer: GifWriter | undefined;
+    let filename = '';
+    let hasStarted = false;
+    const blocked = new Error(
+      // shown to the user, like other errors starting with `Recording`
+      'Recording stopped: next slices need confirmation to load',
+    );
+
+    // Not once unmounted, or once another recording has started (after cancelling this one)
+    function isLatest(): boolean {
+      return recording.current === state && !state.isUnmounted;
+    }
+
+    function report(newStatus: RecordingStatus | undefined) {
+      if (isLatest()) {
+        setStatus(newStatus);
+      }
+    }
+
+    // Checked on every animation frame, so canvases have rendered once true
+    async function until(
+      condition: () => boolean,
+      timeoutError?: Error,
+    ): Promise<void> {
+      const deadline = performance.now() + FRAME_TIMEOUT;
+      for (;;) {
+        if (timeoutError && performance.now() > deadline) {
+          throw timeoutError;
+        }
+        if (hasStarted && !paramsRef.current.isPlaying) {
+          state.restore = false; // e.g. user picked a slice
+          controller.abort();
+        }
+        signal.throwIfAborted();
+        if (condition()) {
+          return;
+        }
+        await nextAnimationFrame(); // eslint-disable-line no-await-in-loop
+      }
+    }
+
+    report({ current: 0, total: values.length });
+    try {
+      paramsRef.current.onPlayingChange(true);
+      const deadline = performance.now() + PLAYING_TIMEOUT;
+      await until(
+        () => paramsRef.current.isPlaying || performance.now() > deadline,
+      );
+      hasStarted = paramsRef.current.isPlaying;
+
+      /* eslint-disable no-await-in-loop -- one frame after the other */
+      for (const [index, val] of values.entries()) {
+        report({ current: index + 1, total: values.length });
+        const { fps } = paramsRef.current;
+        const upcoming = values.slice(index, index + getPrefetchCount(fps));
+        const timeout = new Error(
+          `Recording failed: slice ${val} did not load`,
+        );
+        if (paramsRef.current.onPrefetch) {
+          // Prefetch on every check, as playback does, since slices may change meanwhile (e.g.
+          // other dimension sliced)
+          await until(() => {
+            const { onPrefetch, shownValue, isReady } = paramsRef.current;
+            if (onPrefetch && !onPrefetch(upcoming, shownValue)) {
+              throw blocked;
+            }
+            return isReady(val);
+          }, timeout);
+        }
+
+        // Without prefetching, slices only load once shown
+        paramsRef.current.onFrame(val);
+        await until(
+          () =>
+            paramsRef.current.shownValue === val &&
+            paramsRef.current.isReady(val),
+          timeout,
+        );
+        await nextAnimationFrame(); // canvases render on demand once slice is shown
+        await nextAnimationFrame();
+
+        await paramsRef.current.beforeSnapshot?.();
+        const elem = findVisElement(from);
+        if (!elem) {
+          throw new Error('No visualization found');
+        }
+        const frame = await renderSnapshot(elem, { scale: 1 }); // small and fast enough
+        signal.throwIfAborted();
+        if (!writer) {
+          const { createGifWriter } = await import('../vis/snapshot/gif');
+          writer = createGifWriter(frame.width, frame.height, fps);
+          filename = getSnapshotFilename(
+            elem.getAttribute('aria-label') ?? '',
+            'gif',
+          );
+        }
+        writer.addFrame(frame);
+      }
+      /* eslint-enable no-await-in-loop */
+
+      signal.throwIfAborted();
+      const blob = writer?.finish();
+      if (blob) {
+        await download(async () => blob, filename);
+      }
+      report(undefined);
+    } catch (error) {
+      if (signal.aborted) {
+        report(undefined);
+      } else {
+        console.error('Recording failed:', error); // eslint-disable-line no-console
+        report({
+          error:
+            error instanceof Error && error.message.startsWith('Recording')
+              ? error.message
+              : 'Recording failed',
+        });
+      }
+    } finally {
+      const isLast = isLatest();
+      if (recording.current === state) {
+        recording.current = undefined;
+      }
+      if (isLast) {
+        const { value, onPrefetch, onFrame, onPlayingChange } =
+          paramsRef.current;
+        const isRestored = state.restore && !wasPlaying; // else playback goes on
+        onPrefetch?.([], isRestored ? initialValue : value); // release others
+        if (isRestored) {
+          onFrame(initialValue);
+          onPlayingChange(false);
+        }
+      }
+    }
+  }
+
+  return {
+    status,
+    isRecording: !!status && !('error' in status),
+    record: (from, values) => {
+      void record(from, values);
+    },
+    cancel: () => {
+      recording.current?.controller.abort();
+      setStatus(undefined);
+    },
+  };
 }

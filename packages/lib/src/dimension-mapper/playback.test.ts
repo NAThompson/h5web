@@ -4,6 +4,7 @@ import {
   getNearestFrame,
   getNextFrame,
   getPrefetchCount,
+  getSequenceValues,
   getUpcomingFrames,
   initPlaybackClock,
   type PlaybackClock,
@@ -234,5 +235,26 @@ describe('getNearestFrame', () => {
   it('should return `undefined` if every frame towards the target is skipped', () => {
     expect(getNearestFrame(9, 1, 8, 10, isSkippedFrame)).toBeUndefined();
     expect(getNearestFrame(0, -1, 2, 10, isSkippedFrame)).toBeUndefined();
+  });
+});
+
+describe('getSequenceValues', () => {
+  it('should go once from the first frame to the last', () => {
+    expect(getSequenceValues({ length: 4, stride: 1 })).toStrictEqual([
+      0, 1, 2, 3,
+    ]);
+    expect(getSequenceValues({ length: 6, stride: 2 })).toStrictEqual([
+      0, 2, 4, 5,
+    ]); // last edge visited
+    expect(getSequenceValues({ length: 1, stride: 1 })).toStrictEqual([0]);
+  });
+
+  it('should skip frames', () => {
+    expect(
+      getSequenceValues({ length: 10, stride: 1, isSkipped: isSkippedFrame }),
+    ).toStrictEqual([2, 3, 4, 7, 8]);
+    expect(
+      getSequenceValues({ length: 3, stride: 1, isSkipped: () => true }),
+    ).toStrictEqual([]);
   });
 });

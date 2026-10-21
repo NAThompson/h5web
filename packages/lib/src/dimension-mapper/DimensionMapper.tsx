@@ -48,6 +48,8 @@ interface Props extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   onPlaybackSettingsChange?: (settings: PlaybackSettings) => void;
   // Playback: note about the value range in use (e.g. when the whole sequence's range is unknown)
   playbackRangeHint?: string;
+  // Recording: called before each frame is snapshot (e.g. to load panels out of view)
+  beforeSnapshot?: () => Promise<void> | void;
   // Dimension reduced instead of sliced (e.g. maximum over it), shown without a slider
   projectedDim?: number;
   projectionLabel?: string; // e.g. `max`
@@ -77,6 +79,7 @@ function DimensionMapper(props: Props) {
     playbackSettings: controlledSettings,
     onPlaybackSettingsChange,
     playbackRangeHint,
+    beforeSnapshot,
     projectedDim,
     projectionLabel = 'projected',
     ...htmlProps
@@ -239,6 +242,7 @@ function DimensionMapper(props: Props) {
               playbackSettings={playbackSettings}
               onPlaybackSettingsChange={setPlaybackSettings}
               playbackRangeHint={playbackRangeHint}
+              beforeSnapshot={beforeSnapshot}
             />
           );
 

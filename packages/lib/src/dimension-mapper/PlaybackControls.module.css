@@ -80,6 +80,13 @@
   }
 }
 
+.recording {
+  margin-top: 0.25rem;
+  text-align: center;
+  font-size: 0.75em;
+  color: var(--h5w-slicingSlider-bounds--color, #333);
+}
+
 .srOnly {
   position: absolute;
   width: 1px;

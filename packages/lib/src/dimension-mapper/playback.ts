@@ -216,6 +216,23 @@ function toValues(frames: PlaybackCursor[]): number[] {
   return frames.map(({ value }) => value);
 }
 
+/* Values of a sequence played once from its first frame to its last (as in `once` mode from the
+ * start), e.g. to record it */
+export function getSequenceValues(
+  params: Omit<SequenceParams, 'mode'>,
+): number[] {
+  const { length, isSkipped } = params;
+  const first = getNearestFrame(0, 1, -1, length, isSkipped);
+  const values: number[] = [];
+  let cursor: PlaybackCursor | undefined =
+    first === undefined ? undefined : { value: first, direction: 1 };
+  while (cursor) {
+    values.push(cursor.value);
+    cursor = getNextFrame(cursor, { ...params, mode: 'once' });
+  }
+  return values;
+}
+
 /* Frame closest to `target` (clamped) that isn't skipped, looking in `direction` first, then back
  * towards `from` (excluded); `undefined` if there is none (e.g. `End` past known-empty slices) */
 export function getNearestFrame(

@@ -192,6 +192,7 @@ function MultiplesVisContainer(props: VisContainerProps) {
         sliceLabels={withoutMultiples(sliceLabels)}
         dimMapping={subMapping}
         {...slicingProps}
+        beforeSnapshot={async () => gridRef.current?.prepareSnapshot()}
         onChange={setSubMapping}
       />
       <PanelGrid

@@ -9,7 +9,7 @@ import {
 } from '@floating-ui/react';
 import { useToggle } from '@react-hookz/web';
 import { useId } from 'react';
-import { FiLoader, FiPause, FiPlay, FiSettings } from 'react-icons/fi';
+import { FiFilm, FiLoader, FiPause, FiPlay, FiSettings } from 'react-icons/fi';
 
 import Btn from '../toolbar/controls/Btn';
 import {
@@ -39,8 +39,10 @@ interface Props {
   waiting?: PlaybackWaiting;
   settings: PlaybackSettings;
   rangeHint?: string;
+  isRecording?: boolean;
   onTogglePlay: () => void;
   onSettingsChange: (settings: PlaybackSettings) => void;
+  onRecord: () => void;
 }
 
 function PlaybackControls(props: Props) {
@@ -51,8 +53,10 @@ function PlaybackControls(props: Props) {
     waiting,
     settings,
     rangeHint,
+    isRecording,
     onTogglePlay,
     onSettingsChange,
+    onRecord,
   } = props;
 
   // Open to the side of the slider, since the controls sit at the bottom of the mapper
@@ -98,6 +102,7 @@ function PlaybackControls(props: Props) {
                 ? 'Default playback dimension'
                 : undefined
           }
+          disabled={isRecording} // cancel from recording status
           onClick={onTogglePlay}
         />
         {waiting && (
@@ -158,6 +163,16 @@ function PlaybackControls(props: Props) {
               </label>
             ))}
           </fieldset>
+
+          {/* Whole sequence once, frame by frame at the speed above */}
+          <Btn
+            label="Record GIF"
+            Icon={FiFilm}
+            small
+            raised
+            disabled={isRecording}
+            onClick={onRecord}
+          />
 
           {/* Range of the whole sequence (unless hinted otherwise), e.g. why it isn't fetched */}
           {rangeHint && settings.range === 'sequence' && (

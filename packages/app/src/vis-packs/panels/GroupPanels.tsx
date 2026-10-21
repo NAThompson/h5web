@@ -170,6 +170,7 @@ function GroupPanels(props: Props) {
         sliceLabels={sliceLabels}
         dimMapping={refMapping}
         {...slicingProps}
+        beforeSnapshot={async () => gridRef.current?.prepareSnapshot()}
         onChange={setRefMapping}
       />
       <PanelGrid
