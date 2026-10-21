@@ -2,6 +2,11 @@ import {
   type ContourGeometry,
   type ContourLabelAnchor,
 } from '../contours/marchingSquares';
+import {
+  type GridSpec,
+  type MeshField,
+  type UnstructuredMesh,
+} from '../unstructured/resample';
 import { type IsosurfaceGeometry } from '../volume/marchingCubes';
 
 export type ScaleTypeParam = string | [string, number] | undefined;
@@ -33,6 +38,7 @@ export interface WorkerData {
 
 export type WorkerRequest =
   | ({ type: 'setData'; dataId: number } & WorkerData)
+  | { type: 'setMesh'; dataId: number; mesh: UnstructuredMesh } // split into tetrahedra once
   | { type: 'releaseData'; dataId: number }
   | {
       type: 'isosurface';
@@ -50,12 +56,20 @@ export type WorkerRequest =
       scaleType: ScaleTypeParam;
       labels: LabelOptions | undefined;
     }
+  | {
+      type: 'resample';
+      jobId: number;
+      dataId: number;
+      field: MeshField;
+      grid: GridSpec;
+    }
   | { type: 'cancel'; jobId: number };
 
 export type JobResponse =
   | { type: 'progress'; jobId: number; progress: number }
   | { type: 'isosurface'; jobId: number; geometry: IsosurfaceGeometry }
   | { type: 'contours'; jobId: number; contours: ContourResult[] }
+  | { type: 'resampled'; jobId: number; values: Float32Array<ArrayBuffer> }
   | { type: 'error'; jobId: number; message: string };
 
 export type WorkerResponse = { type: 'ready' } | JobResponse;

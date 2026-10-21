@@ -75,6 +75,7 @@ interface Props {
   config: OrthoslicesConfig;
   initialPosition?: number[]; // `H5WEB_slice_position`: indices along `[z, y, x]`
   axisUnits?: (string | undefined)[]; // of dimensions `[z, y, x]`: equal ratios only between same units
+  withPhysicalAspect?: boolean; // axes share a unit even if it isn't known (e.g. coordinates of a mesh)
   symlogThreshold?: number;
   valueTransform?: ValueTransform;
   specialColors?: SpecialColorsHint;
@@ -97,6 +98,7 @@ function MappedOrthoslicesVis(props: Props) {
     config,
     initialPosition,
     axisUnits = [],
+    withPhysicalAspect = false,
     symlogThreshold,
     valueTransform,
     specialColors = {},
@@ -171,9 +173,10 @@ function MappedOrthoslicesVis(props: Props) {
   const units = [axisUnits[2], axisUnits[1], axisUnits[0]].map((u) => u || '');
 
   // Size the 3D box by the axes only if they share a unit, as the volume does
-  const boxSize = units.every((unit) => unit && unit === units[0])
-    ? getBoxSizeFromAxes(dataArray.shape, boxValues)
-    : undefined;
+  const boxSize =
+    withPhysicalAspect || units.every((unit) => unit && unit === units[0])
+      ? getBoxSizeFromAxes(dataArray.shape, boxValues)
+      : undefined;
 
   function moveTo(axis: OrthoAxis, index: number) {
     setPoint((prev) => withIndex(prev, axis, index, dataArray.shape));
@@ -219,7 +222,11 @@ function MappedOrthoslicesVis(props: Props) {
                   colorMap={colorMap}
                   scaleType={visScaleType}
                   invertColorMap={invertColorMap}
-                  aspect={keepRatio && units[u] === units[v] ? 'equal' : 'auto'}
+                  aspect={
+                    keepRatio && (withPhysicalAspect || units[u] === units[v])
+                      ? 'equal'
+                      : 'auto'
+                  }
                   abscissaParams={{
                     label: labels[u] ?? AXIS_NAMES[u],
                     value: boxValues[u],

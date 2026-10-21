@@ -37,6 +37,49 @@ function responsesFor(jobId: number): WorkerResponse[] {
 }
 
 describe('geometry worker protocol', () => {
+  it('should resample fields of a registered mesh', async () => {
+    // Corner tetrahedron of the unit cube, sampled every 0.5
+    handleRequest({
+      type: 'setMesh',
+      dataId: 2,
+      mesh: {
+        points: [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+        connectivity: [0, 1, 2, 3],
+        offsets: [0, 4],
+        types: [10],
+      },
+    });
+    const grid = { shape: [3, 3, 3], min: [0, 0, 0], max: [1, 1, 1] } as const;
+
+    for (const [jobId, values] of [
+      [20, [0, 1, 2, 3]],
+      [21, [1, 1, 1, 1]],
+    ] as const) {
+      handleRequest({
+        type: 'resample',
+        jobId,
+        dataId: 2,
+        field: { values: [...values], association: 'point', components: 1 },
+        grid: {
+          shape: [...grid.shape],
+          min: [...grid.min],
+          max: [...grid.max],
+        },
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(responsesFor(21).at(-1)?.type).toBe('resampled');
+    });
+    const [first, second] = [20, 21].map((jobId) => {
+      const msg = responsesFor(jobId).at(-1);
+      return msg?.type === 'resampled' ? msg.values : undefined;
+    });
+    expect(first?.[(0 * 3 + 1) * 3 + 1]).toBe(1.5); // (0.5, 0.5, 0): 0.5 + 2 × 0.5
+    expect(first?.[26]).toBeNaN(); // (1, 1, 1)
+    expect(second?.filter(Number.isFinite)).toHaveLength(10);
+  });
+
   it('should extract isosurfaces of registered data', async () => {
     handleRequest({
       type: 'setData',

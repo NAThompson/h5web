@@ -42,6 +42,18 @@ export type { IsosurfacesState } from './vis/volume/hooks';
 export { getBoxSizeFromAxes } from './vis/volume/utils';
 export { useVolumeDomain } from './vis/volume/prepare/hooks';
 export {
+  getDefaultResolution,
+  getGridSpec,
+  getMeshBounds,
+  mergePieces,
+} from './vis/unstructured/resample';
+export type {
+  GridSpec,
+  MeshField,
+  UnstructuredMesh,
+} from './vis/unstructured/resample';
+export { resampleMeshInWorker } from './vis/unstructured/client';
+export {
   resetGeometryWorker, // e.g. to simulate a worker blocked by a Content Security Policy in tests
   WorkerError,
 } from './vis/geometry-worker/client';

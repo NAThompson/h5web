@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { type UnstructuredMesh } from '../unstructured/resample';
 import { type IsosurfaceGeometry } from '../volume/marchingCubes';
 import {
   type ContourResult,
@@ -134,6 +135,11 @@ function handleMessage(evt: MessageEvent<WorkerResponse>): void {
       crashCount = 0;
       job.resolve(msg.contours as never);
       break;
+    case 'resampled':
+      pending.delete(msg.jobId);
+      crashCount = 0;
+      job.resolve(msg.values as never);
+      break;
     default:
   }
 }
@@ -222,6 +228,15 @@ export function setWorkerData(data: WorkerData): number {
   return dataId;
 }
 
+/* Register a mesh in the worker, which splits it into tetrahedra; `mesh` is copied (i.e. still
+ * usable afterwards, e.g. on the main thread if the worker fails). Throws `WorkerError`. */
+export function setWorkerMesh(mesh: UnstructuredMesh): number {
+  const dataId = getNextId();
+  post({ type: 'setMesh', dataId, mesh });
+  dataGenerations.set(dataId, generation);
+  return dataId;
+}
+
 export function releaseWorkerData(dataId: number): void {
   if (dataGenerations.delete(dataId) && worker) {
     post({ type: 'releaseData', dataId });
@@ -249,6 +264,12 @@ export function requestContours(
     { type: 'contours', jobId: getNextId(), ...params },
     onProgress,
   );
+}
+
+export function requestResample(
+  params: Omit<Extract<WorkerRequest, { type: 'resample' }>, 'type' | 'jobId'>,
+): WorkerTask<Float32Array<ArrayBuffer>> {
+  return startJob({ type: 'resample', jobId: getNextId(), ...params });
 }
 
 /* For tests: replace the worker (e.g. with one that fails), and forget previous failures */

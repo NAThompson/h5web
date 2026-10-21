@@ -44,6 +44,11 @@ import {
   getHintSafely,
   getHintVisNotes,
 } from '../vis-packs/view-hints/utils';
+import {
+  findVtkhdfChildPath,
+  isVtkUnstructuredGrid,
+} from '../vis-packs/vtkhdf/utils';
+import { VTK_GRID_VIS } from '../vis-packs/vtkhdf/visualizations';
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function resolvePathQuery(path: string, dataContext: DataContextValue) {
@@ -53,6 +58,7 @@ export function resolvePathQuery(path: string, dataContext: DataContextValue) {
   });
 }
 
+// eslint-disable-next-line complexity -- one branch per kind of entity
 async function resolvePath(
   path: string,
   dataContext: DataContextValue,
@@ -95,6 +101,10 @@ async function resolvePath(
         : [NURBS_VIS, NURBS_BASIS_VIS],
       primaryVis: NURBS_VIS,
     };
+  }
+
+  if (await isVtkUnstructuredGrid(entity, dataContext)) {
+    return { entity, supportedVis: VTK_GRID_VIS, primaryVis: VTK_GRID_VIS[0] };
   }
 
   // `H5WEB_vis = "scatter"` / `"scatter3d"` with `H5WEB_x`, `H5WEB_y`...: points
@@ -174,7 +184,8 @@ async function resolvePath(
 
   const nxDefaultPath =
     (await getNxDefaultPath(entity, dataContext)) ||
-    (await getImplicitNxDefaultPath(entity.children, dataContext));
+    (await getImplicitNxDefaultPath(entity.children, dataContext)) ||
+    findVtkhdfChildPath(entity); // e.g. root of a `.vtkhdf` file
 
   if (!nxDefaultPath) {
     return null;

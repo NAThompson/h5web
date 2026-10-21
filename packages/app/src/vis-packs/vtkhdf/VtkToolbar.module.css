@@ -1,0 +1,8 @@
+.wrapper {
+  z-index: 1; /* for selector menus to appear above visualization */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+}

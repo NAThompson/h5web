@@ -2,6 +2,11 @@
  * Arrays are registered once and referred to by ID; jobs run one at a time, in slices,
  * so that cancellations sent while a job runs are honoured. */
 
+import {
+  decomposeCells,
+  resampleSteps,
+  type TetMesh,
+} from '../unstructured/resample';
 import { contoursSteps, isosurfaceSteps } from './jobs';
 import {
   type JobResponse,
@@ -19,6 +24,7 @@ const SLICE_DURATION = 30; // ms between checks for incoming messages
 const PROGRESS_INTERVAL = 100; // ms between progress reports
 
 const dataArrays = new Map<number, WorkerData>();
+const meshes = new Map<number, TetMesh>();
 const queue: Job[] = [];
 const cancelled = new Set<number>();
 let isRunning = false;
@@ -38,6 +44,9 @@ function getTransferables(msg: JobResponse): Transferable[] {
   if (msg.type === 'isosurface') {
     const { positions, normals, gradients, indices } = msg.geometry;
     return [positions, normals, gradients, indices].map((arr) => arr.buffer);
+  }
+  if (msg.type === 'resampled') {
+    return [msg.values.buffer];
   }
   if (msg.type === 'contours') {
     return msg.contours.flatMap(({ vertices, segments }) => [
@@ -120,8 +129,15 @@ export function handleRequest(msg: WorkerRequest): void {
       break;
     }
 
+    case 'setMesh': {
+      const { dataId, mesh } = msg;
+      meshes.set(dataId, { points: mesh.points, ...decomposeCells(mesh) });
+      break;
+    }
+
     case 'releaseData':
       dataArrays.delete(msg.dataId);
+      meshes.delete(msg.dataId);
       break;
 
     case 'cancel': {
@@ -175,13 +191,30 @@ export function handleRequest(msg: WorkerRequest): void {
       break;
     }
 
+    case 'resample': {
+      const { jobId, dataId, field, grid } = msg;
+      queue.push({
+        jobId,
+        *run() {
+          const mesh = meshes.get(dataId);
+          if (!mesh) {
+            throw new Error('Data no longer available');
+          }
+          const values = yield* resampleSteps(mesh, field, grid);
+          return { type: 'resampled', jobId, values };
+        },
+      });
+      void processQueue();
+      break;
+    }
+
     default:
   }
 }
 
 /* Testing seam: lets the protocol run in-process with any `postMessage` */
 export function getWorkerState(): { queued: number; dataCount: number } {
-  return { queued: queue.length, dataCount: dataArrays.size };
+  return { queued: queue.length, dataCount: dataArrays.size + meshes.size };
 }
 
 if ('WorkerGlobalScope' in globalThis) {
