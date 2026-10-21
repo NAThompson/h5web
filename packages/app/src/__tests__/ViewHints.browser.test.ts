@@ -157,6 +157,19 @@ test('suggest iso levels without storing them until edited', async () => {
   await page.viewport(1920, 1080);
 });
 
+test('draw points overlays inside volumes and orthoslices', async () => {
+  const { selectVisTab } = await renderApp('/view_hints/volume_points');
+
+  expect(getSelectedVisTab()).toBe(Vis.Volume);
+  const legend = page.getByRole('list', { name: 'Overlays' });
+  await expect.element(legend).toHaveTextContent('high-symmetry points');
+  expect(getNotes()).not.toBeInTheDocument(); // not reported as unsupported
+
+  await selectVisTab(Vis.Orthoslices); // legend below the grid
+  await expect.element(legend).toHaveTextContent('high-symmetry points');
+  expect(getNotes()).not.toBeInTheDocument();
+});
+
 test('note overlays not drawn on line views', async () => {
   await renderApp('/view_hints/line_overlays');
 

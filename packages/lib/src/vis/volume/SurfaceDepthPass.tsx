@@ -14,19 +14,22 @@ import {
 
 /* Layer of opaque isosurfaces, rendered to a depth texture before the volume */
 export const SURFACE_DEPTH_LAYER = 1;
+/* Layer of opaque points, rendered with their own material: discs of their size on screen */
+export const POINT_DEPTH_LAYER = 2;
 
 interface Props {
   volumeRef: RefObject<Mesh | null>;
   material: ShaderMaterial;
+  withPoints: boolean; // render `POINT_DEPTH_LAYER` too
 }
 
 /*
- * Render opaque isosurfaces to a depth texture before each frame, so the volume's ray marcher
- * can stop rays where they hit a surface: only the volume in front of the surface is then
+ * Render opaque isosurfaces and points to a depth texture before each frame, so the volume's ray
+ * marcher can stop rays where they hit a surface: only the volume in front of the surface is then
  * accumulated and blended over it. Takes over rendering of the canvas while mounted.
  */
 function SurfaceDepthPass(props: Props) {
-  const { volumeRef, material } = props;
+  const { volumeRef, material, withPoints } = props;
   const { uniforms } = material;
 
   const target = useMemo(() => {
@@ -56,7 +59,7 @@ function SurfaceDepthPass(props: Props) {
       target.setSize(size.x, size.y);
     }
 
-    // Depth of opaque surfaces only
+    // Depth of opaque surfaces and points only
     const { mask } = camera.layers;
     const { background, overrideMaterial } = scene;
     camera.layers.set(SURFACE_DEPTH_LAYER);
@@ -65,10 +68,17 @@ function SurfaceDepthPass(props: Props) {
     gl.setRenderTarget(target);
     gl.clear();
     gl.render(scene, camera);
+    scene.overrideMaterial = overrideMaterial;
+    if (withPoints) {
+      camera.layers.set(POINT_DEPTH_LAYER);
+      const { autoClear } = gl;
+      gl.autoClear = false; // over the surfaces' depth
+      gl.render(scene, camera);
+      gl.autoClear = autoClear;
+    }
     gl.setRenderTarget(null);
     camera.layers.mask = mask;
     scene.background = background;
-    scene.overrideMaterial = overrideMaterial;
 
     // Unproject depth samples straight into the volume's box space
     const volume = volumeRef.current;

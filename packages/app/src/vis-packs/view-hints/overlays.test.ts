@@ -30,6 +30,7 @@ import { parseViewHint } from './attrs';
 import { type OverlayHint } from './models';
 import {
   buildOverlayShapes,
+  buildVolumePoints,
   findLinkedDim,
   getColumnOf,
   getEllipsePoints,
@@ -581,6 +582,61 @@ describe('getPixelCentreShift', () => {
   it('leave bin edges as is and shift indices by half a pixel', () => {
     expect(getPixelCentreShift([0, 1, 2], 2)(1)).toBe(1);
     expect(getPixelCentreShift(undefined, 3)(1)).toBe(1.5);
+  });
+});
+
+function volumePoints(dims: number[]) {
+  return { dataset: arr('pts', dims) };
+}
+
+describe('buildVolumePoints', () => {
+  const VOLUME_AXES = { x: 2, y: 1 }; // volume `[z, y, x]`
+  const COLUMN_OF = { 2: 0, 1: 1 };
+
+  it('draw columns 0, 1 and 2 along x, y and z, colors of matching length', () => {
+    const hint: OverlayHint = { kind: 'points', points: 'pts', colorBy: 'c' };
+    const colorBy = { dataset: arr('c', [3]) };
+    const { points, drawn, notes } = buildVolumePoints(
+      [overlay(hint, { points: volumePoints([2, 3]), colorBy }, COLUMN_OF)],
+      (_, input) => (input === colorBy ? [1, 2, 3] : [1, 2, 3, 4, 5, 6]),
+      undefined,
+      VOLUME_AXES,
+    );
+    expect(points).toEqual([
+      { x: [1, 4], y: [2, 5], z: [3, 6], color: 'white', size: 10 },
+    ]);
+    expect(drawn).toHaveLength(1);
+    expect(notes).toEqual([
+      'overlay: colors ignored, 3 "H5WEB_color_by" values for 2 points',
+    ]);
+  });
+
+  it('note overlays that cannot be drawn, out of the legend', () => {
+    const { points, drawn, notes } = buildVolumePoints(
+      [
+        overlay(
+          { kind: 'points', points: 'pts' },
+          { points: volumePoints([2, 2]) },
+          COLUMN_OF,
+        ),
+        overlay(
+          { kind: 'points', points: 'pts', z: 'value' },
+          { points: volumePoints([2, 3]) },
+          COLUMN_OF,
+        ),
+        overlay({ kind: 'curve', curve: 'pts', trail: false }, {}, COLUMN_OF),
+      ],
+      () => [1, 2, 3, 4],
+      undefined,
+      VOLUME_AXES,
+    );
+    expect(points).toEqual([]);
+    expect(drawn).toEqual([]);
+    expect(notes).toEqual([
+      'overlay: not drawn, 3 columns expected, got 2',
+      'overlay: not drawn, "H5WEB_z" "value" has no meaning in 3D',
+      'overlay: not drawn in 3D (points only)',
+    ]);
   });
 });
 

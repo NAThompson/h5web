@@ -23,7 +23,7 @@ import {
   isNonUniformAxis,
   TEXTURE_TYPES,
 } from '../heatmap/utils';
-import { type AxisValues, VolumeQuality } from './models';
+import { type AxisValues, type VolumePointSet, VolumeQuality } from './models';
 import { type HalfFloatChunk } from './prepare/client';
 import {
   getFloat32Bounds,
@@ -115,6 +115,27 @@ export function getVoxelCentre(
   count: number,
 ): number {
   return lookup ? lookup[2 * index + 1] : (index + 0.5) / count;
+}
+
+/* Whether there are points to draw (cf. `VolumePoints`) */
+export function hasPoints(points: VolumePointSet[] | undefined): boolean {
+  return !!points?.some(({ x }) => x.length > 0);
+}
+
+/* Relative position (from 0 to 1) in the box of a coordinate along an axis of `count` voxels, e.g.
+ * of an overlay's point: the coordinate of a voxel (or its index, without values) lands at its
+ * centre, where the volume draws it (cf. `getVoxelCentre`) */
+export function getCoordToUnit(
+  values: NumArray | undefined,
+  count: number,
+): (coord: number) => number {
+  const edges = getCellEdges(values, count);
+  // Evenly spaced values (or indices) are the starts of the voxels: shift by half a voxel
+  const isStarts =
+    !values || (values.length === count && !isNonUniformAxis(values, count));
+  const shift = isStarts ? (edges[1] - edges[0]) / 2 : 0;
+  const [first, last] = [edges[0], edges[count]];
+  return (coord) => (coord + shift - first) / (last - first);
 }
 
 /* Corners of the plane normal to `axis` (x, y, z) at relative position `offset` in the unit

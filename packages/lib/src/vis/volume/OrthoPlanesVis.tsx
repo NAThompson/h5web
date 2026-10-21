@@ -19,11 +19,16 @@ import { type ClassStyleAttrs, type VisScaleType } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
 import { getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
-import { type AxisValues, type OrthoPoint } from './models';
+import {
+  type AxisValues,
+  type OrthoPoint,
+  type VolumePointSet,
+} from './models';
 import OrthoPlanes from './OrthoPlanes';
 import { getAxisLookup, getBoxSize, normalizeBoxSize } from './utils';
 import VolumeControls from './VolumeControls';
 import { type AxisLookups } from './VolumeMesh';
+import VolumePoints from './VolumePoints';
 import styles from './VolumeVis.module.css';
 
 const NO_AXIS_VALUES: AxisValues = [undefined, undefined, undefined];
@@ -46,6 +51,8 @@ interface Props extends ClassStyleAttrs {
   /* Coordinates of the voxels along x, y and z: planes of non-uniform axes are placed, and
    * sampled, at their coordinates (as `VolumeVis`) */
   axisValues?: AxisValues;
+  /* Points at coordinates along the axes (as `VolumeVis`) */
+  points?: VolumePointSet[];
 }
 
 /* Three orthogonal slices of a volume through a voxel, in its bounding box, in 3D (the GPU samples
@@ -66,6 +73,7 @@ function OrthoPlanesVis(props: PropsWithChildren<Props>) {
     aboveColor,
     boxSize: customBoxSize,
     axisValues = NO_AXIS_VALUES,
+    points,
     children,
     className = '',
     style,
@@ -133,6 +141,16 @@ function OrthoPlanesVis(props: PropsWithChildren<Props>) {
               />
             </lineSegments>
           </group>
+          <VolumePoints
+            points={points}
+            shape={dataArray.shape}
+            boxSize={boxSize}
+            axisValues={axisValues}
+            domain={domain}
+            scaleType={scaleType}
+            colorMap={colorMap}
+            invertColorMap={invertColorMap}
+          />
           {children}
         </R3FCanvas>
         <CanvasOverlay

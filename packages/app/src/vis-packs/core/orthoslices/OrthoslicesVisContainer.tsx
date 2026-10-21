@@ -14,7 +14,7 @@ import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { getDimScaleNotes } from '../../view-hints/axis-scales';
-import { useViewHint } from '../../view-hints/hooks';
+import { useViewHint, useVolumeOverlays } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getOrthoslicesSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
@@ -40,6 +40,7 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(dimMapping);
 
   const hint = useViewHint(entity);
+  const overlays = useVolumeOverlays(entity, hint, dimMapping);
   const config = useOrthoslicesConfig(getOrthoslicesSuggestions(hint));
 
   const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
@@ -51,7 +52,11 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
-    { withPlaybackRange: true, playbackDim: hint.playbackDim },
+    {
+      withPlaybackRange: true,
+      playbackDim: hint.playbackDim,
+      getExtraRequests: overlays.getSliceRequests, // points follow playback
+    },
   );
 
   return (
@@ -82,6 +87,8 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
               render={({ axisLabels, axisValues, axisTicks }) => (
                 <MappedOrthoslicesVis
                   dataset={entity}
+                  points={overlays.points}
+                  legend={overlays.legend}
                   value={value}
                   dims={volumeDims}
                   axisLabels={axisLabels.slice(-3)}
@@ -103,7 +110,9 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={[...hint.notes, ...getDimScaleNotes(dimScales)]} />
+      <OverlayNotes
+        notes={[...overlays.notes, ...getDimScaleNotes(dimScales)]}
+      />
     </>
   );
 }

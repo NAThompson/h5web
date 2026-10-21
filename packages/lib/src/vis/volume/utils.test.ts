@@ -13,6 +13,7 @@ import {
   getAxisLookup,
   getBoxSize,
   getBoxSizeFromAxes,
+  getCoordToUnit,
   getLookupTexture,
   getPlaneGeometries,
   getStepCount,
@@ -275,6 +276,18 @@ describe('getVoxelCentre', () => {
     expect(getVoxelCentre(lookup, 0, 3)).toBeCloseTo(0.5 / 15);
     expect(getVoxelCentre(lookup, 1, 3)).toBeCloseTo(1.5 / 15);
     expect(getVoxelCentre(lookup, 2, 3)).toBeCloseTo(10.5 / 15);
+  });
+});
+
+describe('getCoordToUnit', () => {
+  it('should place coordinates where the volume draws their voxels', () => {
+    expect(getCoordToUnit(undefined, 4)(0)).toBe(0.125); // index
+    expect(getCoordToUnit([10, 20, 30, 40], 4)(40)).toBe(0.875);
+    expect(getCoordToUnit([0, 1, 2, 4], 3)(4)).toBe(1); // bin edges
+    const toUnit = getCoordToUnit([0, 1, 10], 3); // non-uniform: as `getVoxelCentre`
+    expect(toUnit(1)).toBeCloseTo(
+      getVoxelCentre(getAxisLookup([0, 1, 10], 3), 1, 3),
+    );
   });
 });
 

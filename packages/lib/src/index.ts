@@ -26,7 +26,11 @@ export {
   VolumeQuality,
   VolumeRenderMode,
 } from './vis/volume/models';
-export type { IsosurfaceParams, OrthoPoint } from './vis/volume/models';
+export type {
+  IsosurfaceParams,
+  OrthoPoint,
+  VolumePointSet,
+} from './vis/volume/models';
 export { ORTHO_PLANE_COLORS } from './vis/volume/OrthoPlanes';
 export type { IsosurfaceGeometry } from './vis/volume/marchingCubes';
 export {

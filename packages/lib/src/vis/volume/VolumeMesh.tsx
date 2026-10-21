@@ -49,6 +49,8 @@ interface Props {
   axisLookups?: AxisLookups;
   /* Stop rays at opaque isosurfaces (rendered in `SURFACE_DEPTH_LAYER`) */
   withSurfaceDepth?: boolean;
+  /* Stop rays at opaque points too (rendered in `POINT_DEPTH_LAYER`) */
+  withPointDepth?: boolean;
 }
 
 function VolumeMesh(props: Props) {
@@ -66,6 +68,7 @@ function VolumeMesh(props: Props) {
     boxSize,
     axisLookups = NO_LOOKUPS,
     withSurfaceDepth = false,
+    withPointDepth = false,
   } = props;
 
   const meshRef = useRef<Mesh>(null);
@@ -148,8 +151,12 @@ function VolumeMesh(props: Props) {
       >
         <boxGeometry />
       </mesh>
-      {withSurfaceDepth && (
-        <SurfaceDepthPass volumeRef={meshRef} material={material} />
+      {(withSurfaceDepth || withPointDepth) && (
+        <SurfaceDepthPass
+          volumeRef={meshRef}
+          material={material}
+          withPoints={withPointDepth}
+        />
       )}
     </>
   );

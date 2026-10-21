@@ -27,13 +27,20 @@ import {
   type AxisValues,
   IsoColorMode,
   type IsosurfaceParams,
+  type VolumePointSet,
   VolumeQuality,
   VolumeRenderMode,
 } from './models';
-import { getAxisLookup, getBoxSize, normalizeBoxSize } from './utils';
+import {
+  getAxisLookup,
+  getBoxSize,
+  hasPoints,
+  normalizeBoxSize,
+} from './utils';
 import VolumeControls from './VolumeControls';
 import VolumeLegend from './VolumeLegend';
 import VolumeMesh, { type AxisLookups } from './VolumeMesh';
+import VolumePoints from './VolumePoints';
 import styles from './VolumeVis.module.css';
 
 const NO_AXIS_VALUES: AxisValues = [undefined, undefined, undefined];
@@ -68,6 +75,8 @@ interface Props extends ClassStyleAttrs {
   /* Coordinates of the voxels along x, y and z: voxels of non-uniform axes (cf.
    * `isNonUniformAxis`) are placed at their coordinates within the box */
   axisValues?: AxisValues;
+  /* Opaque points inside the volume, at coordinates along its axes (e.g. overlays) */
+  points?: VolumePointSet[];
 }
 
 function VolumeVis(props: PropsWithChildren<Props>) {
@@ -94,6 +103,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     isoMessage,
     boxSize: customBoxSize,
     axisValues = NO_AXIS_VALUES,
+    points,
     children,
     className = '',
     style,
@@ -148,11 +158,22 @@ function VolumeVis(props: PropsWithChildren<Props>) {
             colorMap={colorMap}
             invertColorMap={invertColorMap}
           />
+          <VolumePoints
+            points={points}
+            shape={dataArray.shape}
+            boxSize={boxSize}
+            axisValues={axisValues}
+            domain={domain}
+            scaleType={scaleType}
+            colorMap={colorMap}
+            invertColorMap={invertColorMap}
+          />
           {showVolume && (
             <VolumeMesh
               boxSize={boxSize}
               axisLookups={axisLookups}
               withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
+              withPointDepth={hasPoints(points)}
               dataArray={dataArray}
               domain={domain}
               scaleType={scaleType}

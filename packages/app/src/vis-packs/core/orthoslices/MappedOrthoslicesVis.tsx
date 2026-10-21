@@ -12,6 +12,7 @@ import {
   useVisDomain,
   useVolumeDomain,
   type ValueTransform,
+  type VolumePointSet,
 } from '@h5web/lib';
 import {
   type ArrayShape,
@@ -31,11 +32,13 @@ import {
   useUnpackedNumArray,
 } from '../../netcdf/hooks';
 import {
+  type LegendItem,
   useTransformIgnoreValue,
   useVisScaleType,
 } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type SpecialColorsHint } from '../../view-hints/models';
+import OverlayLegend from '../../view-hints/OverlayLegend';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { type OrthoslicesConfig } from './config';
@@ -75,6 +78,8 @@ interface Props {
   symlogThreshold?: number;
   valueTransform?: ValueTransform;
   specialColors?: SpecialColorsHint;
+  points?: VolumePointSet[]; // drawn in the 3D view (e.g. overlays of a view hint)
+  legend?: LegendItem[]; // of the points, below the grid
 }
 
 function MappedOrthoslicesVis(props: Props) {
@@ -95,6 +100,8 @@ function MappedOrthoslicesVis(props: Props) {
     symlogThreshold,
     valueTransform,
     specialColors = {},
+    points,
+    legend = [],
   } = props;
   const { customDomain, colorMap, scaleType, invertColorMap, keepRatio } =
     config;
@@ -266,6 +273,7 @@ function MappedOrthoslicesVis(props: Props) {
               aboveColor={specialColors.aboveColor}
               boxSize={boxSize}
               axisValues={boxValues}
+              points={points}
             />
           </div>
           <div className={styles.colorBar}>
@@ -282,6 +290,7 @@ function MappedOrthoslicesVis(props: Props) {
             />
           </div>
         </div>
+        <OverlayLegend items={legend} inline />
         <p
           className={styles.readout}
           role="status"

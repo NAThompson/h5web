@@ -1694,6 +1694,45 @@ export function makeMockFile(): GroupWithChildren {
           valueId: 'threeD_fermi',
           attributes: [scalarAttr('H5WEB_vis', 'volume')],
         }),
+        // Points inside a volume, in axis coordinates (x, y, z): high-symmetry points Γ, Δ, X, Σ,
+        // M, Λ and R of the Brillouin zone
+        dataset(
+          'bz_points',
+          arrayShape([7, 3]),
+          floatType(),
+          [
+            [0, 0, 0],
+            [0.5, 0, 0],
+            [1, 0, 0],
+            [0.5, 0.5, 0],
+            [1, 1, 0],
+            [0.5, 0.5, 0.5],
+            [1, 1, 1],
+          ].flatMap((pt) => pt.map((k) => k * Math.PI)),
+          {
+            attributes: [
+              scalarAttr('H5WEB_geometry', 'points'),
+              scalarAttr('H5WEB_color', '#00e5ff'),
+              scalarAttr('H5WEB_label', 'high-symmetry points'),
+            ],
+          },
+        ),
+        withDimScales(
+          array('volume_points', {
+            valueId: 'threeD_fermi',
+            attributes: [
+              scalarAttr('H5WEB_vis', 'volume'),
+              scalarAttr('H5WEB_overlays', 'bz_points'),
+            ],
+          }),
+          {
+            scales: [
+              ['/dimension_scales/K'],
+              ['/dimension_scales/K'],
+              ['/dimension_scales/K'],
+            ],
+          },
+        ),
         array('many_points', {
           attributes: [
             scalarAttr('H5WEB_geometry', 'points'),

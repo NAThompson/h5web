@@ -14,7 +14,8 @@ import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { getDimScaleNotes } from '../../view-hints/axis-scales';
-import { useViewHint } from '../../view-hints/hooks';
+import { useViewHint, useVolumeOverlays } from '../../view-hints/hooks';
+import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getVolumeSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
@@ -39,6 +40,7 @@ function VolumeVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(dimMapping);
 
   const hint = useViewHint(entity);
+  const overlays = useVolumeOverlays(entity, hint, dimMapping);
   const config = useSuggestedIsoLevels(
     useVolumeConfig(getVolumeSuggestions(hint)),
     hint.isoLevels,
@@ -63,7 +65,11 @@ function VolumeVisContainer(props: VisContainerProps) {
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
     dimMapping,
-    { withPlaybackRange: true, playbackDim: hint.playbackDim },
+    {
+      withPlaybackRange: true,
+      playbackDim: hint.playbackDim,
+      getExtraRequests: overlays.getSliceRequests, // points follow playback
+    },
   );
 
   return (
@@ -94,6 +100,7 @@ function VolumeVisContainer(props: VisContainerProps) {
               render={({ axisValues }) => (
                 <MappedVolumeVis
                   dataset={entity}
+                  points={overlays.points}
                   value={value}
                   dims={volumeDims}
                   title={hint.title}
@@ -110,7 +117,10 @@ function VolumeVisContainer(props: VisContainerProps) {
           )}
         />
       </VisBoundary>
-      <OverlayNotes notes={[...hint.notes, ...getDimScaleNotes(dimScales)]} />
+      <OverlayNotes
+        notes={[...overlays.notes, ...getDimScaleNotes(dimScales)]}
+      />
+      <OverlayLegend items={overlays.legend} />
     </>
   );
 }

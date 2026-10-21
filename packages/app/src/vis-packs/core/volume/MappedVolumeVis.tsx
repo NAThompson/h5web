@@ -7,6 +7,7 @@ import {
   useVisDomain,
   useVolumeDomain,
   type ValueTransform,
+  type VolumePointSet,
   VolumeVis,
 } from '@h5web/lib';
 import {
@@ -56,6 +57,7 @@ interface Props {
   axisUnit?: string;
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
   valueTransform?: ValueTransform; // values are logarithms: ±∞ (e.g. log of 0) ignored
+  points?: VolumePointSet[]; // e.g. overlays declared by a file's `H5WEB_*` view hint
 }
 
 function MappedVolumeVis(props: Props) {
@@ -71,6 +73,7 @@ function MappedVolumeVis(props: Props) {
     title,
     symlogThreshold,
     valueTransform,
+    points,
   } = props;
   const {
     customDomain,
@@ -209,6 +212,7 @@ function MappedVolumeVis(props: Props) {
         gradientLabel={gradientLabel}
         boxSize={boxSize}
         axisValues={axisCoords}
+        points={points}
       />
     </>
   );

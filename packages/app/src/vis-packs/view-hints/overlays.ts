@@ -1,4 +1,4 @@
-import { isNonUniformAxis } from '@h5web/lib';
+import { isNonUniformAxis, type VolumePointSet } from '@h5web/lib';
 import {
   hasArrayShape,
   hasNumericType,
@@ -1006,6 +1006,130 @@ function buildCurve(
     ...getLineStyle(hint),
     head: true,
   };
+}
+
+/* Columns of a points overlay along the x, y and z axes of a volume (its last three dimensions):
+ * by default columns 0, 1 and 2; `undefined` along axes its named columns don't hold */
+function getVolumeColumns(
+  overlay: ResolvedOverlay,
+  rank: number,
+): (number | undefined)[] {
+  return [rank - 1, rank - 2, rank - 3].map(
+    (dim, i) =>
+      overlay.columnOf[dim] ?? (overlay.hint.columnNames ? undefined : i),
+  );
+}
+
+export interface VolumeOverlays {
+  points: VolumePointSet[];
+  drawn: ResolvedOverlay[]; // overlays of the points, e.g. for the legend
+  notes: string[]; // about overlays that can't be drawn
+}
+
+/* Coordinates of the points of a points overlay inside a volume, with notes about what can't be drawn;
+ * `undefined` if they can't be drawn, or while their values load (too large ones are noted) */
+function getVolumeCoords(
+  overlay: ResolvedOverlay,
+  getValues: ValueGetter,
+  rank: number,
+  addNote: (note: string) => void,
+): number[][] | undefined {
+  // Heights from a dataset (`H5WEB_z`), else from the column of the z axis
+  const { points, z: zInput } = overlay.inputs;
+  const [cx, cy, cz] = getVolumeColumns(overlay, rank);
+  const zCol = zInput ? undefined : cz;
+  if (cx === undefined || cy === undefined || (zCol === undefined && !zInput)) {
+    addNote('not drawn, "H5WEB_columns" don\'t name the x, y and z axes');
+    return undefined;
+  }
+
+  const values = points && getValues(overlay, points);
+  const zValues = zInput && getValues(overlay, zInput);
+  if (!points || !values || (zInput && !zValues)) {
+    return undefined;
+  }
+
+  const cols = getSlicedDims(points).at(-1) ?? values.length; // single point: `(c,)`
+  const needed = Math.max(cx, cy, zCol ?? 0) + 1;
+  if (cols < needed) {
+    addNote(`not drawn, ${needed} columns expected, got ${cols}`);
+    return undefined;
+  }
+
+  const x = column(values, cols, cx);
+  const z = zValues ?? column(values, cols, zCol ?? 0);
+  if (z.length !== x.length) {
+    addNote(`not drawn, ${z.length} "H5WEB_z" values for ${x.length} points`);
+    return undefined;
+  }
+  return [x, column(values, cols, cy), z];
+}
+
+/* Point set of an overlay inside a volume (cf. `getVolumeCoords`), or a note why not */
+function buildVolumePointSet(
+  overlay: ResolvedOverlay,
+  getValues: ValueGetter,
+  rank: number,
+  addNote: (note: string) => void,
+): VolumePointSet | undefined {
+  const { hint } = overlay;
+  if (hint.kind !== 'points') {
+    addNote('not drawn in 3D (points only)');
+    return undefined;
+  }
+  if (hint.z === 'value' || hint.z === 'surface') {
+    addNote(`not drawn, "H5WEB_z" "${hint.z}" has no meaning in 3D`);
+    return undefined;
+  }
+
+  const coords = getVolumeCoords(overlay, getValues, rank, addNote);
+  if (!coords) {
+    return undefined;
+  }
+
+  const [x, y, z] = coords;
+  const { colorBy } = overlay.inputs;
+  const colorValues = colorBy && getValues(overlay, colorBy);
+  const hasColors = colorValues?.length === x.length;
+  if (colorValues && !hasColors) {
+    addNote(
+      `colors ignored, ${colorValues.length} "H5WEB_color_by" values for ${x.length} points`,
+    );
+  }
+
+  const { color = 'white', size = 5 } = hint;
+  return {
+    x,
+    y,
+    z,
+    values: hasColors ? colorValues : undefined,
+    color,
+    size: 2 * size, // radius
+  };
+}
+
+/* Points overlays inside a volume, in its data coordinates (`axes` are the volume's x and y
+ * dimensions, its last two), and notes about overlays that can't be drawn */
+export function buildVolumePoints(
+  overlays: ResolvedOverlay[],
+  getValues: ValueGetter,
+  _index: number | undefined,
+  axes: AxisDims,
+): VolumeOverlays {
+  const shapes: VolumeOverlays = { points: [], drawn: [], notes: [] };
+  for (const overlay of overlays) {
+    const pointSet = buildVolumePointSet(
+      overlay,
+      getValues,
+      axes.x + 1,
+      (note) => shapes.notes.push(`${overlay.label}: ${note}`),
+    );
+    if (pointSet) {
+      shapes.points.push(pointSet);
+      shapes.drawn.push(overlay);
+    }
+  }
+  return shapes;
 }
 
 /**

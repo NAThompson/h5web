@@ -2,6 +2,7 @@ import {
   type DimensionMapping,
   type ValueTransform,
   type VisScaleType,
+  type VolumePointSet,
 } from '@h5web/lib';
 import {
   hasArrayShape,
@@ -40,6 +41,7 @@ import { EMPTY_HINT, type ViewHint } from './models';
 import {
   type AxisDims,
   buildOverlayShapes,
+  buildVolumePoints,
   createOverlayContext,
   getIndexFromSelection,
   getInputRequest,
@@ -325,6 +327,63 @@ export function useLinkedOverlays(
       link && baseDim === undefined
         ? { link, index: extraIndex, onChange: setExtraIndex, slicingProps }
         : undefined,
+  };
+}
+
+/* Points overlays of a hint inside a volume (its last three dimensions), sliced along a linked
+ * leading dimension of the base dataset; other overlays are noted as not drawn */
+export function useVolumeOverlays(
+  base: Dataset<ArrayShape>,
+  hint: ViewHint,
+  dimMapping: DimensionMapping,
+): Pick<LinkedOverlays, 'legend' | 'notes' | 'getSliceRequests'> & {
+  points: VolumePointSet[] | undefined;
+} {
+  const dataContext = useDataContext();
+  const resolved = useResolvedOverlays(base, hint);
+  const link = resolved?.link;
+  const baseDim = link?.baseDim;
+  const baseIndex = baseDim === undefined ? undefined : dimMapping[baseDim];
+  const index = typeof baseIndex === 'number' ? baseIndex : undefined;
+
+  // No extra slider in 3D: overlays linked to a dimension the base doesn't have aren't drawn
+  const extraLink = baseDim === undefined ? link : undefined;
+  const linkable = useMemo(
+    () => (resolved && extraLink ? { ...resolved, link: undefined } : resolved),
+    [resolved, extraLink],
+  );
+
+  const rank = base.shape.dims.length;
+  const { shapes, notes } = useOverlayShapes(
+    linkable,
+    index,
+    { x: rank - 1, y: rank - 2 },
+    buildVolumePoints,
+  );
+
+  return {
+    points: shapes?.points,
+    legend: getOverlayLegend(hint, shapes?.drawn ?? []),
+    // Hint notes also while overlays resolve, or if they fail to
+    notes: [
+      ...new Set([
+        ...hint.notes,
+        ...notes,
+        ...(shapes?.notes ?? []),
+        ...(extraLink
+          ? [
+              `overlays linked by "${extraLink.label}" not drawn in 3D (not a dimension of "${base.name}")`,
+            ]
+          : []),
+      ]),
+    ],
+    getSliceRequests: (selection) =>
+      baseDim === undefined
+        ? []
+        : getOverlayRequests(
+            resolved,
+            getIndexFromSelection(selection, baseDim),
+          ).filter((req) => isAffordable(dataContext, req)),
   };
 }
 
