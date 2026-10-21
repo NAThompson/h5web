@@ -78,6 +78,11 @@ describe('geometry worker protocol', () => {
     expect(first?.[(0 * 3 + 1) * 3 + 1]).toBe(1.5); // (0.5, 0.5, 0): 0.5 + 2 × 0.5
     expect(first?.[26]).toBeNaN(); // (1, 1, 1)
     expect(second?.filter(Number.isFinite)).toHaveLength(10);
+
+    const msg = responsesFor(21).at(-1);
+    const coverage = msg?.type === 'resampled' ? msg.coverage : undefined;
+    expect(coverage).toHaveLength(27);
+    expect(coverage?.[0]).toBeGreaterThan(127); // corner inside the tetrahedron
   });
 
   it('should extract isosurfaces of registered data', async () => {

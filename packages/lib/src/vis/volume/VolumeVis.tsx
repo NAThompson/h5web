@@ -77,6 +77,10 @@ interface Props extends ClassStyleAttrs {
   axisValues?: AxisValues;
   /* Opaque points inside the volume, at coordinates along its axes (e.g. overlays) */
   points?: VolumePointSet[];
+  /* Coverage of the voxels from 0 to 255, e.g. smoothed mask of the values inside a resampled
+   * mesh (NaN outside): voxels with coverage below half are not rendered, so the boundary is a
+   * smooth surface rather than a voxel staircase */
+  coverage?: Uint8Array;
 }
 
 function VolumeVis(props: PropsWithChildren<Props>) {
@@ -104,6 +108,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     boxSize: customBoxSize,
     axisValues = NO_AXIS_VALUES,
     points,
+    coverage,
     children,
     className = '',
     style,
@@ -175,6 +180,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
               withSurfaceDepth={isosurfaces.some(({ opacity: o }) => o >= 1)}
               withPointDepth={hasPoints(points)}
               dataArray={dataArray}
+              coverage={coverage}
               domain={domain}
               scaleType={scaleType}
               colorMap={colorMap}

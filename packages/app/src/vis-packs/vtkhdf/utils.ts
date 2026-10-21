@@ -3,7 +3,7 @@ import {
   getMeshBounds,
   type GridSpec,
   mergePieces,
-  resampleMeshInWorker,
+  resampleMeshWithCoverage,
 } from '@h5web/lib';
 import {
   assertValue,
@@ -39,6 +39,7 @@ export interface VtkField {
 
 export interface ResampledField {
   values: Float32Array<ArrayBuffer>;
+  coverage: Uint8Array<ArrayBuffer>; // smoothed mask of the mesh, for volumes
   grid: GridSpec;
   axisValues: Float64Array[]; // coordinates of the samples along `[z, y, x]`
 }
@@ -301,7 +302,7 @@ export async function resampleVtkField(
 
   const meshPoints = head(points, pointCount * 3);
   const grid = getGridSpec(getMeshBounds(meshPoints), resolution);
-  const resampled = await resampleMeshInWorker(
+  const { values, coverage } = await resampleMeshWithCoverage(
     points, // cached value of this provider: a new mesh if fetched again (e.g. another file)
     () =>
       mergePieces(
@@ -317,7 +318,7 @@ export async function resampleVtkField(
     grid,
     signal,
   );
-  if (!resampled.some(Number.isFinite)) {
+  if (!values.some(Number.isFinite)) {
     throw new Error('No 3D cells to resample (tetrahedra, hexahedra, etc.)');
   }
 
@@ -329,7 +330,7 @@ export async function resampleVtkField(
       return min * (1 - t) + max * t; // exact 0 at the middle of symmetric bounds
     });
   });
-  return { values: resampled, grid, axisValues };
+  return { values, coverage, grid, axisValues };
 }
 
 /* First scalar point field, else first scalar cell field, else first vector field */

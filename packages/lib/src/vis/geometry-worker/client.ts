@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
-import { type UnstructuredMesh } from '../unstructured/resample';
+import {
+  type ResampledValues,
+  type UnstructuredMesh,
+} from '../unstructured/resample';
 import { type IsosurfaceGeometry } from '../volume/marchingCubes';
 import {
   type ContourResult,
@@ -138,7 +141,7 @@ function handleMessage(evt: MessageEvent<WorkerResponse>): void {
     case 'resampled':
       pending.delete(msg.jobId);
       crashCount = 0;
-      job.resolve(msg.values as never);
+      job.resolve({ values: msg.values, coverage: msg.coverage } as never);
       break;
     default:
   }
@@ -268,7 +271,7 @@ export function requestContours(
 
 export function requestResample(
   params: Omit<Extract<WorkerRequest, { type: 'resample' }>, 'type' | 'jobId'>,
-): WorkerTask<Float32Array<ArrayBuffer>> {
+): WorkerTask<ResampledValues> {
   return startJob({ type: 'resample', jobId: getNextId(), ...params });
 }
 

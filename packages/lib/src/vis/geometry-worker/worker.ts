@@ -4,6 +4,7 @@
 
 import {
   decomposeCells,
+  getCoverage,
   resampleSteps,
   type TetMesh,
 } from '../unstructured/resample';
@@ -46,7 +47,7 @@ function getTransferables(msg: JobResponse): Transferable[] {
     return [positions, normals, gradients, indices].map((arr) => arr.buffer);
   }
   if (msg.type === 'resampled') {
-    return [msg.values.buffer];
+    return [msg.values.buffer, msg.coverage.buffer];
   }
   if (msg.type === 'contours') {
     return msg.contours.flatMap(({ vertices, segments }) => [
@@ -201,7 +202,8 @@ export function handleRequest(msg: WorkerRequest): void {
             throw new Error('Data no longer available');
           }
           const values = yield* resampleSteps(mesh, field, grid);
-          return { type: 'resampled', jobId, values };
+          const coverage = getCoverage(values, grid.shape);
+          return { type: 'resampled', jobId, values, coverage };
         },
       });
       void processQueue();

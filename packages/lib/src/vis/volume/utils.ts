@@ -414,3 +414,23 @@ export function getGLErrors(
   }
   return errors;
 }
+
+/* Upload a texture eagerly to detect out-of-memory errors, which WebGL does not otherwise report */
+export function initTextureEagerly(
+  gl: WebGLRenderer,
+  texture: Data3DTexture,
+): Error | undefined {
+  const ctx = gl.getContext();
+  getGLErrors(ctx); // clear previous errors
+  gl.initTexture(texture);
+
+  const errors = getGLErrors(ctx);
+  if (errors.length === 0) {
+    return undefined;
+  }
+  return new Error(
+    errors.includes(ctx.OUT_OF_MEMORY)
+      ? 'Not enough GPU memory to render volume'
+      : 'Volume too large to be uploaded to the GPU', // e.g. larger than allowed even as half floats
+  );
+}

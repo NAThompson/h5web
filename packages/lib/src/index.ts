@@ -52,7 +52,10 @@ export type {
   MeshField,
   UnstructuredMesh,
 } from './vis/unstructured/resample';
-export { resampleMeshInWorker } from './vis/unstructured/client';
+export {
+  resampleMeshInWorker,
+  resampleMeshWithCoverage,
+} from './vis/unstructured/client';
 export {
   resetGeometryWorker, // e.g. to simulate a worker blocked by a Content Security Policy in tests
   WorkerError,

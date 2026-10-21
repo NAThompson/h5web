@@ -69,7 +69,12 @@ export type JobResponse =
   | { type: 'progress'; jobId: number; progress: number }
   | { type: 'isosurface'; jobId: number; geometry: IsosurfaceGeometry }
   | { type: 'contours'; jobId: number; contours: ContourResult[] }
-  | { type: 'resampled'; jobId: number; values: Float32Array<ArrayBuffer> }
+  | {
+      type: 'resampled';
+      jobId: number;
+      values: Float32Array<ArrayBuffer>;
+      coverage: Uint8Array<ArrayBuffer>;
+    }
   | { type: 'error'; jobId: number; message: string };
 
 export type WorkerResponse = { type: 'ready' } | JobResponse;

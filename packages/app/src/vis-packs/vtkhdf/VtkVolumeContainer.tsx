@@ -10,10 +10,11 @@ function VtkVolumeContainer(props: VisContainerProps) {
   return (
     <VtkGridVisContainer
       {...props}
-      render={(field, { values, grid, axisValues }) => (
+      render={(field, { values, coverage, grid, axisValues }) => (
         <MappedVolumeVis
           dataset={field.dataset}
           value={values}
+          coverage={coverage}
           dims={grid.shape}
           axisValues={axisValues}
           title={field.dataset.name}

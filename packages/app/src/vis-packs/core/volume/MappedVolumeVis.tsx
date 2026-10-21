@@ -58,6 +58,7 @@ interface Props {
   symlogThreshold?: number; // width of the linear band around 0 of the symlog scale
   valueTransform?: ValueTransform; // values are logarithms: ±∞ (e.g. log of 0) ignored
   points?: VolumePointSet[]; // e.g. overlays declared by a file's `H5WEB_*` view hint
+  coverage?: Uint8Array; // smooth boundary of values that are NaN outside a mesh (cf. `VolumeVis`)
 }
 
 function MappedVolumeVis(props: Props) {
@@ -74,6 +75,7 @@ function MappedVolumeVis(props: Props) {
     symlogThreshold,
     valueTransform,
     points,
+    coverage,
   } = props;
   const {
     customDomain,
@@ -213,6 +215,7 @@ function MappedVolumeVis(props: Props) {
         boxSize={boxSize}
         axisValues={axisCoords}
         points={points}
+        coverage={coverage}
       />
     </>
   );

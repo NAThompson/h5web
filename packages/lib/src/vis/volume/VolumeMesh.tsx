@@ -1,10 +1,18 @@
 import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { useFrame, useThree } from '@react-three/fiber';
-import { type NdArray } from 'ndarray';
-import { type RefObject, useEffect, useMemo, useRef } from 'react';
+import ndarray, { type NdArray } from 'ndarray';
+import {
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   BackSide,
   GLSL3,
+  LinearFilter,
   Matrix4,
   type Mesh,
   ShaderMaterial,
@@ -24,7 +32,13 @@ import {
   useVolumeColorUniforms,
 } from './useVolumeColorUniforms';
 import { useVolumeTexture } from './useVolumeTexture';
-import { getBoxSize, getStepCount, SAMPLES_PER_VOXEL } from './utils';
+import {
+  getBoxSize,
+  getStepCount,
+  getVolumeTexture,
+  initTextureEagerly,
+  SAMPLES_PER_VOXEL,
+} from './utils';
 
 export type AxisLookups = [
   x: Float32Array | undefined,
@@ -35,6 +49,7 @@ const NO_LOOKUPS: AxisLookups = [undefined, undefined, undefined];
 
 interface Props {
   dataArray: NdArray<NumArray>;
+  coverage?: Uint8Array; // cf. `VolumeVis`
   domain: Domain;
   scaleType: VisScaleType;
   colorMap: ColorMap;
@@ -56,6 +71,7 @@ interface Props {
 function VolumeMesh(props: Props) {
   const {
     dataArray,
+    coverage,
     domain,
     scaleType: visScaleType,
     colorMap,
@@ -73,10 +89,37 @@ function VolumeMesh(props: Props) {
 
   const meshRef = useRef<Mesh>(null);
 
+  const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
 
   const volume = useVolumeTexture(dataArray);
   const { shape, isReady: isVolumeReady } = volume;
+
+  if (coverage && coverage.length !== dataArray.size) {
+    throw new Error('Expected coverage of every voxel');
+  }
+
+  // Ignored with nearest filtering of values (i.e. no linear filtering of float textures)
+  const isLinear = volume.texture.magFilter === LinearFilter;
+  const coverageTexture = useMemo(
+    () =>
+      coverage && isLinear
+        ? getVolumeTexture(ndarray(coverage, shape), true)
+        : undefined,
+    [coverage, isLinear, shape],
+  );
+
+  const [coverageError, setCoverageError] = useState<Error>();
+  if (coverageError) {
+    throw coverageError;
+  }
+  useLayoutEffect(() => {
+    if (coverageTexture) {
+      setCoverageError(initTextureEagerly(gl, coverageTexture));
+    }
+  }, [gl, coverageTexture]);
+  useEffect(() => () => coverageTexture?.dispose(), [coverageTexture]);
+  const hasCoverage = !!coverageTexture;
 
   const [hasX, hasY, hasZ] = axisLookups.map((table) => !!table);
   const [scaleType] = getShaderScale(visScaleType);
@@ -86,14 +129,16 @@ function VolumeMesh(props: Props) {
       new ShaderMaterial({
         glslVersion: GLSL3,
         vertexShader: VOLUME_VERTEX_SHADER,
-        fragmentShader: getVolumeFragmentShader(mode, scaleType, [
-          hasX,
-          hasY,
-          hasZ,
-        ]),
+        fragmentShader: getVolumeFragmentShader(
+          mode,
+          scaleType,
+          [hasX, hasY, hasZ],
+          hasCoverage,
+        ),
         uniforms: getUniforms({
           ...getVolumeColorUniforms(),
           stepDims: new Vector3(),
+          coverage: null,
           samplesPerVoxel: 1,
           opacity: 1,
           threshold: 0,
@@ -108,7 +153,7 @@ function VolumeMesh(props: Props) {
         depthWrite: false,
         depthTest: false, // rays are stopped at opaque surfaces in the shader instead
       }),
-    [mode, scaleType, hasX, hasY, hasZ],
+    [mode, scaleType, hasX, hasY, hasZ, hasCoverage],
   );
 
   useEffect(() => () => material.dispose(), [material]);
@@ -128,10 +173,19 @@ function VolumeMesh(props: Props) {
       getStepCount(axisLookups[1], shape[1]),
       getStepCount(axisLookups[2], shape[0]),
     );
+    uniforms.coverage.value = coverageTexture;
     uniforms.opacity.value = opacity;
     uniforms.threshold.value = threshold;
     invalidate();
-  }, [uniforms, axisLookups, shape, opacity, threshold, invalidate]);
+  }, [
+    uniforms,
+    axisLookups,
+    shape,
+    coverageTexture,
+    opacity,
+    threshold,
+    invalidate,
+  ]);
 
   // Lower sampling rate while the camera moves to keep interactions smooth
   useFrame(() => {

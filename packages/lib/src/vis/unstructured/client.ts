@@ -6,8 +6,10 @@ import {
   WorkerError,
 } from '../geometry-worker/client';
 import {
+  getCoverage,
   type GridSpec,
   type MeshField,
+  type ResampledValues,
   resampleMesh,
   type UnstructuredMesh,
 } from './resample';
@@ -34,12 +36,20 @@ function releaseIfUnused(entry: MeshEntry): void {
  * mesh by reference (e.g. its fetched points), and `getMesh` returns the mesh only when it
  * isn't in the worker already. */
 export async function resampleMeshInWorker(
+  ...args: Parameters<typeof resampleMeshWithCoverage>
+): Promise<Float32Array<ArrayBuffer>> {
+  const { values } = await resampleMeshWithCoverage(...args);
+  return values;
+}
+
+/* Same as `resampleMeshInWorker`, with the coverage of the samples (cf. `getCoverage`) */
+export async function resampleMeshWithCoverage(
   key: object,
   getMesh: () => UnstructuredMesh,
   field: MeshField,
   grid: GridSpec,
   signal?: AbortSignal,
-): Promise<Float32Array<ArrayBuffer>> {
+): Promise<ResampledValues> {
   let entry: MeshEntry | undefined;
   try {
     signal?.throwIfAborted();
@@ -69,7 +79,8 @@ export async function resampleMeshInWorker(
     return await Promise.race([task.promise, aborted]);
   } catch (error) {
     if (error instanceof WorkerError && error.isLoadFailure) {
-      return resampleMesh(getMesh(), field, grid);
+      const values = resampleMesh(getMesh(), field, grid);
+      return { values, coverage: getCoverage(values, grid.shape) };
     }
     throw error;
   } finally {

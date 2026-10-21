@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   decomposeCells,
+  getCoverage,
   getGridSpec,
   getMeshBounds,
   mergePieces,
@@ -158,3 +159,61 @@ describe('getGridSpec', () => {
     expect(grid.shape).toStrictEqual([16, 32, 64]);
   });
 });
+
+describe('getCoverage', () => {
+  it('should be full inside the mesh, up to the faces of the grid', () => {
+    const coverage = getCoverage(new Float32Array(27).fill(1), [3, 3, 3]);
+    expect(coverage).toStrictEqual(new Uint8Array(27).fill(255));
+  });
+
+  it('should be empty far from the mesh', () => {
+    const values = new Float32Array(9).fill(Number.NaN);
+    values[0] = 1;
+    const coverage = getCoverage(values, [1, 1, 9]);
+    expect(coverage[0]).toBeGreaterThan(0);
+    expect(coverage.slice(3)).toStrictEqual(new Uint8Array(6));
+  });
+
+  it('should cross half halfway between the last sample inside and the first outside', () => {
+    const values = Float32Array.from([
+      1,
+      1,
+      1,
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    const coverage = getCoverage(values, [1, 1, 6]);
+    expect([...coverage]).toStrictEqual([255, 239, 175, 80, 16, 0]); // [1, 4, 6, 4, 1] / 16
+    expect(coverage[2] + coverage[3]).toBe(255);
+  });
+
+  it('should keep thin parts and corners of the mesh inside', () => {
+    const slab = new Float32Array(343).fill(Number.NaN).fill(1, 3 * 49, 4 * 49);
+    const slabCoverage = getCoverage(slab, [7, 7, 7]);
+    for (const [i, val] of slab.entries()) {
+      expect(slabCoverage[i] >= 128).toBe(!Number.isNaN(val));
+    }
+
+    const single = new Float32Array(343).fill(Number.NaN);
+    single[voxelAt(3, 3, 3)] = 1;
+    const singleCoverage = getCoverage(single, [7, 7, 7]);
+    expect(singleCoverage[voxelAt(3, 3, 3)]).toBeGreaterThanOrEqual(128);
+    expect(singleCoverage[voxelAt(4, 3, 3)]).toBeLessThan(128);
+
+    const box = new Float32Array(343).fill(Number.NaN);
+    for (let k = 2; k <= 4; k += 1) {
+      for (let j = 2; j <= 4; j += 1) {
+        box.fill(1, voxelAt(2, j, k), voxelAt(5, j, k));
+      }
+    }
+    const boxCoverage = getCoverage(box, [7, 7, 7]);
+    expect(boxCoverage[voxelAt(2, 2, 2)]).toBeGreaterThanOrEqual(128);
+    expect(boxCoverage[voxelAt(4, 4, 4)]).toBeGreaterThanOrEqual(128);
+    expect(boxCoverage[voxelAt(1, 1, 1)]).toBeLessThan(128);
+  });
+});
+
+function voxelAt(i: number, j: number, k: number): number {
+  return (k * 7 + j) * 7 + i; // in a 7 × 7 × 7 grid
+}

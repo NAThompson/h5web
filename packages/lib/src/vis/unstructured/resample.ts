@@ -21,6 +21,12 @@ export interface GridSpec {
   max: [number, number, number]; // `x, y, z` of the last sample
 }
 
+/* Values of a field resampled onto a grid (NaN outside the mesh) and their coverage */
+export interface ResampledValues {
+  values: Float32Array<ArrayBuffer>;
+  coverage: Uint8Array<ArrayBuffer>; // cf. `getCoverage`
+}
+
 export type Bounds3D = Pick<GridSpec, 'min' | 'max'>;
 
 /* Points of a mesh and its cells split into tetrahedra (cf. `decomposeCells`) */
@@ -376,4 +382,56 @@ function getScalarValues(field: MeshField): NumArray {
     magnitudes[i] = Math.sqrt(sum);
   }
   return magnitudes;
+}
+
+/* Smoothed mask of the samples with values (i.e. inside the mesh), from 0 to 255, for a volume
+ * to render the boundary of the mesh as a smooth surface (coverage 0.5) not a voxel staircase.
+ * Samples keep their side of 0.5 (e.g. thin parts of the mesh), only transitions are smoothed. */
+export function getCoverage(
+  values: Float32Array,
+  shape: [number, number, number],
+): Uint8Array<ArrayBuffer> {
+  const [nz, ny, nx] = shape;
+  let mask = new Uint16Array(values.length);
+  // eslint-disable-next-line unicorn/no-for-loop -- faster than iterators on large grids
+  for (let i = 0; i < values.length; i += 1) {
+    mask[i] = Number.isNaN(values[i]) ? 0 : 1;
+  }
+
+  // Binomial filter `[1, 4, 6, 4, 1]` along each axis (sums up to 16^3)
+  let scratch = new Uint16Array(values.length);
+  for (const axis of [0, 1, 2]) {
+    const n = shape[2 - axis];
+    const stride = [1, nx, nx * ny][axis];
+    let i = 0;
+    for (let z = 0; z < nz; z += 1) {
+      for (let y = 0; y < ny; y += 1) {
+        for (let x = 0; x < nx; x += 1, i += 1) {
+          // Edges are extended, so that the mesh is not faded out at the faces of the grid
+          const pos = axis === 0 ? x : axis === 1 ? y : z;
+          const prev = pos > 0 ? stride : 0;
+          const prev2 = pos > 1 ? 2 * stride : prev;
+          const next = pos < n - 1 ? stride : 0;
+          const next2 = pos < n - 2 ? 2 * stride : next;
+          scratch[i] =
+            mask[i - prev2] +
+            4 * mask[i - prev] +
+            6 * mask[i] +
+            4 * mask[i + next] +
+            mask[i + next2];
+        }
+      }
+    }
+    [mask, scratch] = [scratch, mask];
+  }
+
+  const coverage = new Uint8Array(values.length);
+  // eslint-disable-next-line unicorn/no-for-loop -- faster than iterators on large grids
+  for (let i = 0; i < mask.length; i += 1) {
+    const smoothed = Math.round((mask[i] * 255) / 4096);
+    coverage[i] = Number.isNaN(values[i])
+      ? Math.min(smoothed, 127)
+      : Math.max(smoothed, 128);
+  }
+  return coverage;
 }

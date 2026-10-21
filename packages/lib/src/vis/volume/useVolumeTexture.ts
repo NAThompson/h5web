@@ -17,6 +17,7 @@ import {
   getGLErrors,
   getHalfFloatTexture,
   getVolumeTexture,
+  initTextureEagerly,
   toContiguousArray,
   toNormalizedHalfFloats,
   uploadHalfFloatChunks,
@@ -129,19 +130,9 @@ export function useVolumeTexture(dataArray: NdArray<NumArray>): VolumeTexture {
 
   // Upload volume eagerly to detect out-of-memory errors, which WebGL does not otherwise report
   useLayoutEffect(() => {
-    const ctx = gl.getContext();
-    getGLErrors(ctx); // clear previous errors
-    gl.initTexture(volumeTexture);
-
-    const errors = getGLErrors(ctx);
-    if (errors.length > 0) {
-      setGpuError(
-        new Error(
-          errors.includes(ctx.OUT_OF_MEMORY)
-            ? 'Not enough GPU memory to render volume'
-            : 'Volume too large to be uploaded to the GPU', // e.g. larger than allowed even as half floats
-        ),
-      );
+    const error = initTextureEagerly(gl, volumeTexture);
+    if (error) {
+      setGpuError(error);
     }
   }, [gl, volumeTexture]);
 

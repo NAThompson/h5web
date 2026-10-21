@@ -86,6 +86,7 @@ export function getVolumeFragmentShader(
   mode: VolumeRenderMode,
   scaleType: ScaleType,
   lookups: [x: boolean, y: boolean, z: boolean] = [false, false, false],
+  withCoverage = false,
 ): string {
   return /* glsl */ `
     precision highp float;
@@ -93,8 +94,10 @@ export function getVolumeFragmentShader(
 
     #define ${MODE_DEFINES[mode]}
     ${getLookupDefines(lookups)}
+    ${withCoverage ? '#define COVERAGE' : ''}
 
     uniform sampler3D volume;
+    uniform sampler3D coverage; // cf. \`VolumeVis\`
     uniform sampler2D colorMap;
     uniform vec3 stepDims; // voxels per side for the step size: more along non-uniform axes
 
@@ -134,9 +137,52 @@ export function getVolumeFragmentShader(
 
     ${GLSL_TEX_COORDS}
 
-    // Normalized value in [0, 1], or -1 for NaN and values unsupported by the scale
-    float sampleVolume(vec3 p) {
-      float value = texture(volume, toTexCoords(p)).r * normRevertFactor + valueOffset;
+    // Value and coverage at a position: coverage is 0 at NaN, else 1, unless a coverage texture
+    // smooths the boundary of valid voxels (cf. \`VolumeVis\`). Then positions with coverage below
+    // half are outside, and values next to NaN voxels are interpolated from valid voxels only,
+    // weighted like trilinear filtering: the boundary is a smooth surface, not a staircase.
+    vec2 sampleRaw(vec3 p) {
+      vec3 coords = toTexCoords(p);
+      #ifdef COVERAGE
+        float c = texture(coverage, coords).r;
+        if (c < 0.25) {
+          return vec2(0., c); // outside, value not needed (cf. \`density\`, steps crossing the boundary)
+        }
+      #else
+        float c = 1.;
+      #endif
+
+      float value = texture(volume, coords).r;
+      if (!isnan(value)) {
+        return vec2(value, c);
+      }
+
+      #ifdef COVERAGE
+        ivec3 size = textureSize(volume, 0);
+        vec3 pos = coords * vec3(size) - 0.5;
+        vec3 f = fract(pos);
+        ivec3 base = ivec3(floor(pos));
+        float sum = 0.;
+        float weight = 0.;
+        for (int k = 0; k < 8; k++) {
+          ivec3 corner = ivec3(k & 1, (k >> 1) & 1, k >> 2);
+          float v = texelFetch(volume, clamp(base + corner, ivec3(0), size - 1), 0).r;
+          if (!isnan(v)) {
+            vec3 w = mix(1. - f, f, vec3(corner));
+            sum += w.x * w.y * w.z * v;
+            weight += w.x * w.y * w.z;
+          }
+        }
+        // Without valid voxels around, coverage is below half anyway (cf. \`getCoverage\`)
+        return weight > 0. ? vec2(sum / weight, c) : vec2(0.);
+      #else
+        return vec2(0.);
+      #endif
+    }
+
+    // Normalized value in [0, 1], or -1 for values unsupported by the scale
+    float normalizeValue(float raw) {
+      float value = raw * normRevertFactor + valueOffset;
       if (isnan(value) || !isSupported(value)) {
         return -1.;
       }
@@ -148,14 +194,39 @@ export function getVolumeFragmentShader(
       return pow(clamp(oneOverRange * (scaledValue - domainMin), 0., 1.), gammaExponent);
     }
 
+    // Normalized value, or -1 outside valid voxels and for unsupported values
+    float sampleVolume(vec3 p) {
+      vec2 s = sampleRaw(p);
+      return s.y < 0.5 ? -1. : normalizeValue(s.x);
+    }
+
+    // Normalized value faded out across the boundary of valid voxels, for smooth normals there
+    float density(vec3 p) {
+      vec2 s = sampleRaw(p);
+      return max(normalizeValue(s.x), 0.) * smoothstep(0.25, 0.75, s.y);
+    }
+
     // Gradient of the normalized field, in voxel units (central differences)
     vec3 gradient(vec3 p) {
       vec3 d = 1. / dims;
       return 0.5 * vec3(
-        max(sampleVolume(p + vec3(d.x, 0., 0.)), 0.) - max(sampleVolume(p - vec3(d.x, 0., 0.)), 0.),
-        max(sampleVolume(p + vec3(0., d.y, 0.)), 0.) - max(sampleVolume(p - vec3(0., d.y, 0.)), 0.),
-        max(sampleVolume(p + vec3(0., 0., d.z)), 0.) - max(sampleVolume(p - vec3(0., 0., d.z)), 0.)
+        density(p + vec3(d.x, 0., 0.)) - density(p - vec3(d.x, 0., 0.)),
+        density(p + vec3(0., d.y, 0.)) - density(p - vec3(0., d.y, 0.)),
+        density(p + vec3(0., 0., d.z)) - density(p - vec3(0., 0., d.z))
       );
+    }
+
+    // Fraction of a step inside valid voxels (coverage >= 0.5), from the coverage at both ends:
+    // the boundary is crossed at the same depth whatever the jitter of the samples
+    float coveredFraction(float c0, float c1) {
+      if (min(c0, c1) >= 0.5) {
+        return 1.;
+      }
+      if (max(c0, c1) < 0.5) {
+        return 0.;
+      }
+      float t = (0.5 - c0) / (c1 - c0);
+      return c1 >= 0.5 ? 1. - t : t;
     }
 
     // Two-sided Blinn-Phong with a headlight; shading fades out in homogeneous
@@ -237,15 +308,32 @@ export function getVolumeFragmentShader(
         float oneOverRamp = 1. / max(1. - threshold, 1e-6);
         vec4 acc = vec4(0.);
 
+        #ifdef COVERAGE
+          vec2 prev = sampleRaw(p);
+        #endif
+
         for (int i = 0; i < steps; i++) {
-          float value = sampleVolume(p);
+          vec2 s = sampleRaw(p);
+          #ifdef COVERAGE
+            // Steps crossing the boundary count partly, with the value and normal of their end inside
+            float covered = coveredFraction(prev.y, s.y);
+            bool isInside = s.y >= 0.5;
+            vec2 inside = isInside ? s : prev;
+            vec3 insideP = isInside ? p : p - delta;
+            prev = s;
+          #else
+            float covered = s.y;
+            vec2 inside = s;
+            vec3 insideP = p;
+          #endif
+          float value = covered > 0. ? normalizeValue(inside.x) : -1.;
           if (value > threshold) {
             float voxelAlpha = clamp(opacity * (value - threshold) * oneOverRamp, 0., 0.999);
-            float alpha = 1. - pow(1. - voxelAlpha, alphaExponent);
+            float alpha = 1. - pow(1. - voxelAlpha, alphaExponent * covered);
             vec3 color = texture(colorMap, vec2(value, 0.5)).rgb;
             if (voxelAlpha > 0.002) {
               // Skip costly gradient for nearly transparent samples (independently of sampling rate)
-              color = shade(color, gradient(p), viewDir, 0.01);
+              color = shade(color, gradient(insideP), viewDir, 0.01);
             }
             acc += (1. - acc.a) * vec4(color * alpha, alpha);
             if (acc.a > 0.98) {
