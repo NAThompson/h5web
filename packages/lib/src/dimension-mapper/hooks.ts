@@ -205,6 +205,11 @@ interface RecordingParams {
 const FRAME_TIMEOUT = 60_000; // ms to wait for a slice to load
 const PLAYING_TIMEOUT = 1000; // ms to wait for playback to turn on before recording anyway
 
+/* Screen resolution like PNG snapshots, at most 2× to keep GIFs small */
+function getGifScale(): number {
+  return Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1));
+}
+
 async function nextAnimationFrame(): Promise<void> {
   return new Promise((resolve) => {
     requestAnimationFrame(() => resolve());
@@ -338,7 +343,7 @@ export function useRecording(params: RecordingParams): {
         if (!elem) {
           throw new Error('No visualization found');
         }
-        const frame = await renderSnapshot(elem, { scale: 1 }); // small and fast enough
+        const frame = await renderSnapshot(elem, { scale: getGifScale() });
         signal.throwIfAborted();
         if (!writer) {
           const { createGifWriter } = await import('../vis/snapshot/gif');
