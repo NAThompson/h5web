@@ -574,7 +574,9 @@ export const mockValues = {
       [4, 2, 3],
     ),
   psi_edge_0: () => ndarray([0, 0, 0, Math.PI], [2, 2]),
-  psi_edge_pi: () => ndarray([Math.PI, 0, Math.PI, Math.PI], [2, 2]),
+  // Broken by a `NaN` row
+  psi_edge_pi: () =>
+    ndarray([Math.PI, 0, Number.NaN, Number.NaN, Math.PI, Math.PI], [3, 2]),
   psi_point: () => ndarray([Math.PI / 2, 0]),
   // 1 down to 1e-16, e.g. a wave function decaying over 16 decades
   decades_twoD: () =>

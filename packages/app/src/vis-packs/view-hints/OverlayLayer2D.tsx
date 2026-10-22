@@ -77,6 +77,8 @@ const TEXT_PLACEMENT: Record<TextAnchor, SVGProps<SVGTextElement>> = {
   center: { textAnchor: 'middle', dominantBaseline: 'central' },
 };
 
+const NAN_PT = new Vector3(Number.NaN, Number.NaN, 0);
+
 function isFinitePoint(pt: Vector3): boolean {
   return Number.isFinite(pt.x) && Number.isFinite(pt.y);
 }
@@ -220,10 +222,12 @@ function OverlayLayer2D(props: Props) {
             <svg className={styles.svg} data-keep-colors>
               <g data-testid="overlays">
                 {shapes.lines.map((line, i) => {
-                  const pts = htmlPts.slice(
-                    lineOffsets[i],
-                    lineOffsets[i] + line.x.length,
-                  );
+                  // Projection turns non-finite data points into the domain center
+                  const pts = htmlPts
+                    .slice(lineOffsets[i], lineOffsets[i] + line.x.length)
+                    .map((pt, j) =>
+                      isFinitePoint(vectors[lineOffsets[i] + j]) ? pt : NAN_PT,
+                    );
                   const d = getPathData(pts); // non-finite points break the line
                   const head = pts.findLast(isFinitePoint);
                   const halo = getHaloColor(line.stroke);
@@ -270,7 +274,7 @@ function OverlayLayer2D(props: Props) {
                     {points.label && <title>{points.label}</title>}
                     {points.x.map((_, j) => {
                       const pt = htmlPts[pointOffsets[i] + j];
-                      if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
+                      if (!isFinitePoint(vectors[pointOffsets[i] + j])) {
                         return null;
                       }
                       // Coloured by value: white and dark rings; one colour: contrasting ring
@@ -310,7 +314,7 @@ function OverlayLayer2D(props: Props) {
                 ))}
                 {shapes.texts.map((text, i) => {
                   const pt = htmlPts[textOffset + i];
-                  if (!isFinitePoint(pt)) {
+                  if (!isFinitePoint(vectors[textOffset + i])) {
                     return null;
                   }
                   // Inline labels near the right edge of the canvas go to the left

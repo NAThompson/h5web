@@ -308,6 +308,14 @@ test('draw static overlays in axis values, unclipped on the edges of the domain'
   expect(edge0).toBeLessThan(pointX); // α = 0 < π/2 < π
   expect(pointX).toBeCloseTo((edge0 + edgePi) / 2, 0);
 
+  // `NaN` row lifts the pen instead of going through the domain center
+  expect(
+    document
+      .querySelectorAll('[data-testid="overlay-line"] path')
+      .item(3)
+      .getAttribute('d'),
+  ).not.toContain('L');
+
   const svg = document
     .querySelector('[data-testid="overlays"]')
     ?.closest('svg');
