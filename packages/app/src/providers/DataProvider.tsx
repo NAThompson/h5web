@@ -38,9 +38,15 @@ function getQueryOptionsFactories(
       return queryOptions({
         queryKey: [scope, 'entity', path] as const,
         queryFn: async () => {
+          const queryKey = [scope, 'entity', path];
+          const query = queryClient.getQueryCache().find({ queryKey });
           const entity = await api.getEntity(path);
 
-          if (isGroup(entity)) {
+          // Unless cache was cleared meanwhile (new API), so old children don't come back
+          if (
+            isGroup(entity) &&
+            queryClient.getQueryCache().find({ queryKey }) === query
+          ) {
             // Cache non-group children (datasets, datatypes and links)
             entity.children
               .filter((c) => !isGroup(c))
@@ -124,6 +130,14 @@ function DataProvider(props: PropsWithChildren<Props>) {
         },
       }),
   );
+
+  /* New API may serve different content for the same file (e.g. reopened after being rewritten).
+   * Clear cache rather than create new client, as mounted queries would keep using the old one. */
+  const [prevApi, setPrevApi] = useState(api);
+  if (api !== prevApi) {
+    setPrevApi(api);
+    queryClient.clear();
+  }
 
   const [progressStore] = useState(createProgressStore);
 

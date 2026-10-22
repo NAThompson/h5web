@@ -57,6 +57,21 @@ test('open and close files in strict mode', async () => {
   await vi.waitFor(() => expect(cleanUpSpy).toHaveBeenCalledTimes(2));
 });
 
+test('show new content when same file is reopened', async () => {
+  const { rerender } = await render(
+    renderInStrictMode('same.h5', await createFileBuffer('old')),
+  );
+  await expect
+    .element(page.getByRole('treeitem', { name: 'old', exact: true }))
+    .toBeVisible();
+
+  // e.g. file rewritten on disk
+  await rerender(renderInStrictMode('same.h5', await createFileBuffer('new')));
+  await expect
+    .element(page.getByRole('treeitem', { name: 'new', exact: true }))
+    .toBeVisible();
+});
+
 test('open file with wasm64 build of h5wasm', async () => {
   await render(
     <div style={{ height: '100vh' }}>
