@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 import styles from './ViewHints.module.css';
 
@@ -15,7 +15,8 @@ export const EntityNotesContext = createContext<string[]>([]);
 function OverlayNotes(props: Props) {
   const { notes: visNotes } = props;
   const notes = [...useContext(EntityNotesContext), ...visNotes];
-  if (notes.length === 0) {
+  const [dismissed, setDismissed] = useState<string>(); // shown again if the notes change
+  if (notes.length === 0 || dismissed === notes.join('\n')) {
     return null;
   }
 
@@ -29,6 +30,14 @@ function OverlayNotes(props: Props) {
           <p key={note}>{note}</p>
         ))}
       </details>
+      <button
+        className={styles.dismissNotes}
+        type="button"
+        aria-label="Dismiss notes"
+        onClick={() => setDismissed(notes.join('\n'))}
+      >
+        ×
+      </button>
     </div>
   );
 }

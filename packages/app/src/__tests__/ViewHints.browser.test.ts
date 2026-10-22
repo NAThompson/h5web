@@ -182,6 +182,17 @@ test('note overlays not drawn on line views', async () => {
   );
 });
 
+test('dismiss notes until another dataset is selected', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/line_overlays');
+
+  await userEvent.click(page.getByRole('button', { name: 'Dismiss notes' }));
+  expect(getNotes()).not.toBeInTheDocument();
+
+  await selectExplorerNode('bad_attrs');
+  await selectExplorerNode('line_overlays');
+  await expect.element(getNotes()).toBeVisible();
+});
+
 test('ignore attributes of the wrong type', async () => {
   await renderApp('/view_hints/bad_attrs');
 

@@ -35,6 +35,24 @@
   font-size: 0.75rem;
   color: var(--secondary-dark, #555);
   pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+}
+
+.dismissNotes {
+  padding: 0 0 0 0.5rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 1rem; /* larger target than the notes' text */
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.dismissNotes:hover {
+  color: var(--secondary-darker, #333);
 }
 
 .notes summary {
