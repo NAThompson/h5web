@@ -1,3 +1,4 @@
+import { ScaleType } from '@h5web/shared/vis-models';
 import ndarray from 'ndarray';
 import {
   FloatType,
@@ -8,6 +9,9 @@ import {
 } from 'three';
 import { describe, expect, it } from 'vitest';
 
+import { getShaderScale } from '../heatmap/utils';
+import { type VisScaleType } from '../models';
+import { createScale } from '../utils';
 import {
   canAllocateVolumeTexture,
   getAxisLookup,
@@ -17,6 +21,8 @@ import {
   getLookupTexture,
   getPlaneGeometries,
   getStepCount,
+  getThresholdDomain,
+  getThresholdUniforms,
   getVolumeTexture,
   getVoxelCentre,
   remapIsosurface,
@@ -301,5 +307,79 @@ describe('getPlaneGeometries', () => {
       outline.getAttribute('position').getZ(i),
     );
     expect(zs).toStrictEqual([-0.25, -0.25, -0.25, -0.25]);
+  });
+});
+
+/* Color coordinate of the volume shader (`thresholdColor` of a sample's linear position) */
+function getShaderColor(
+  value: number,
+  scaleType: VisScaleType,
+  domain: [number, number],
+  threshold: number,
+) {
+  const [, gamma] = getShaderScale(scaleType);
+  const position =
+    createScale(scaleType, { domain, range: [0, 1] })(value) ** (1 / gamma);
+  const { colorStart, oneOverColorSpan } = getThresholdUniforms(
+    threshold,
+    gamma,
+  );
+  return (
+    Math.min(Math.max((position - colorStart) * oneOverColorSpan, 0), 1) **
+    gamma
+  );
+}
+
+describe('getThresholdUniforms', () => {
+  it('should color as the color bar over [value at threshold, max]', () => {
+    const scaleTypes: VisScaleType[] = [
+      ScaleType.Linear,
+      ScaleType.Log,
+      [ScaleType.SymLog, 1],
+      [ScaleType.Gamma, 1 / 2], // square root
+      [ScaleType.Gamma, 1 / 3],
+      [ScaleType.Gamma, 2],
+    ];
+    for (const scaleType of scaleTypes) {
+      const domain: [number, number] = [1, 100];
+      const colorScale = createScale(scaleType, {
+        domain: getThresholdDomain(domain, scaleType, 0.5),
+        clamp: true, // values below the threshold value: bottom color
+        range: [0, 1],
+      });
+      for (const value of [20, 60, 90]) {
+        expect(getShaderColor(value, scaleType, domain, 0.5)).toBeCloseTo(
+          colorScale(value),
+          10,
+        );
+      }
+    }
+
+    // Square root over [0, 1] from threshold 0.5, i.e. from 0.25: not at 0.5 (remap after the root)
+    const sqrt: VisScaleType = [ScaleType.Gamma, 1 / 2];
+    expect(getThresholdDomain([0, 1], sqrt, 0.5)).toStrictEqual([0.25, 1]);
+    expect(getShaderColor(0.5625, sqrt, [0, 1], 0.5)).toBeCloseTo(
+      Math.sqrt(0.3125 / 0.75),
+      10,
+    );
+  });
+
+  it('should keep all colors when the threshold hides everything or nothing', () => {
+    expect(getThresholdUniforms(1, 1 / 3)).toStrictEqual({
+      oneOverRamp: 1,
+      colorStart: 0,
+      oneOverColorSpan: 1,
+    });
+    expect(getThresholdUniforms(0, 1)).toStrictEqual({
+      oneOverRamp: 1,
+      colorStart: 0,
+      oneOverColorSpan: 1,
+    });
+    expect(getThresholdDomain([0, 6], ScaleType.Linear, 1)).toStrictEqual([
+      0, 6,
+    ]);
+    expect(getThresholdDomain([0, 6], ScaleType.Linear, 0)).toStrictEqual([
+      0, 6,
+    ]);
   });
 });

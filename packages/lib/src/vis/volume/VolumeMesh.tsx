@@ -35,6 +35,7 @@ import { useVolumeTexture } from './useVolumeTexture';
 import {
   getBoxSize,
   getStepCount,
+  getThresholdUniforms,
   getVolumeTexture,
   initTextureEagerly,
   SAMPLES_PER_VOXEL,
@@ -122,7 +123,7 @@ function VolumeMesh(props: Props) {
   const hasCoverage = !!coverageTexture;
 
   const [hasX, hasY, hasZ] = axisLookups.map((table) => !!table);
-  const [scaleType] = getShaderScale(visScaleType);
+  const [scaleType, gammaExponent] = getShaderScale(visScaleType);
 
   const material = useMemo(
     () =>
@@ -142,6 +143,7 @@ function VolumeMesh(props: Props) {
           samplesPerVoxel: 1,
           opacity: 1,
           threshold: 0,
+          ...getThresholdUniforms(0, 1),
           hasSurfaceDepth: false,
           surfaceDepth: null,
           depthTexelSize: new Vector2(),
@@ -176,6 +178,11 @@ function VolumeMesh(props: Props) {
     uniforms.coverage.value = coverageTexture;
     uniforms.opacity.value = opacity;
     uniforms.threshold.value = threshold;
+    for (const [name, value] of Object.entries(
+      getThresholdUniforms(threshold, gammaExponent),
+    )) {
+      uniforms[name].value = value;
+    }
     invalidate();
   }, [
     uniforms,
@@ -184,6 +191,7 @@ function VolumeMesh(props: Props) {
     coverageTexture,
     opacity,
     threshold,
+    gammaExponent,
     invalidate,
   ]);
 

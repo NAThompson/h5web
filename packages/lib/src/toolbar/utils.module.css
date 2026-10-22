@@ -125,6 +125,7 @@ a.btn {
 }
 
 .menu {
+  z-index: 1; /* above positioned controls below it in the overflow menu (e.g. domain slider thumbs) */
   display: flex;
   flex-direction: column;
   padding: 0.25rem 0;

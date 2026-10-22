@@ -111,6 +111,9 @@ export function getVolumeFragmentShader(
     uniform float samplesPerVoxel;
     uniform float opacity;
     uniform float threshold;
+    uniform float oneOverRamp; // cf. \`getThresholdUniforms\`
+    uniform float colorStart;
+    uniform float oneOverColorSpan;
 
     // Depth of opaque surfaces rendered before the volume (cf. \`SurfaceDepthPass\`)
     uniform bool hasSurfaceDepth;
@@ -135,9 +138,9 @@ export function getVolumeFragmentShader(
       return ${GLSL_SCALE[scaleType] || 'value'};
     }
 
-    // Colors over [threshold, 1] (MIP, DVR): none spent on hidden values (cf. color bar)
-    vec3 thresholdColor(float value) {
-      float t = threshold < 1. ? (value - threshold) / (1. - threshold) : 1.;
+    // Color of a linear position (MIP, DVR): scale over [value at threshold, max], as the color bar
+    vec3 thresholdColor(float position) {
+      float t = pow(clamp((position - colorStart) * oneOverColorSpan, 0., 1.), gammaExponent);
       return texture(colorMap, vec2(t, 0.5)).rgb;
     }
 
@@ -186,8 +189,8 @@ export function getVolumeFragmentShader(
       #endif
     }
 
-    // Normalized value in [0, 1], or -1 for values unsupported by the scale
-    float normalizeValue(float raw) {
+    // Linear position in the domain (before gamma) in [0, 1], or -1 for values unsupported by the scale
+    float linearPosition(float raw) {
       float value = raw * normRevertFactor + valueOffset;
       if (isnan(value) || !isSupported(value)) {
         return -1.;
@@ -197,7 +200,13 @@ export function getVolumeFragmentShader(
         // Empty domain: step at the domain bound, consistently with the colour bar
         return scaledValue >= domainMin ? 1. : 0.;
       }
-      return pow(clamp(oneOverRange * (scaledValue - domainMin), 0., 1.), gammaExponent);
+      return clamp(oneOverRange * (scaledValue - domainMin), 0., 1.);
+    }
+
+    // Normalized value in [0, 1], or -1 for values unsupported by the scale
+    float normalizeValue(float raw) {
+      float position = linearPosition(raw);
+      return position < 0. ? -1. : pow(position, gammaExponent);
     }
 
     // Normalized value, or -1 outside valid voxels and for unsupported values
@@ -306,12 +315,11 @@ export function getVolumeFragmentShader(
         if (maxValue < threshold) {
           discard;
         }
-        fragColor = vec4(thresholdColor(maxValue), 1.);
+        fragColor = vec4(thresholdColor(pow(maxValue, 1. / gammaExponent)), 1.);
 
       #elif defined(MODE_DVR)
         // Opacity correction so that the result does not depend on the sampling rate
         float alphaExponent = dt * length(voxelDir); // voxels per step
-        float oneOverRamp = 1. / max(1. - threshold, 1e-6);
         vec4 acc = vec4(0.);
 
         #ifdef COVERAGE
@@ -332,11 +340,12 @@ export function getVolumeFragmentShader(
             vec2 inside = s;
             vec3 insideP = p;
           #endif
-          float value = covered > 0. ? normalizeValue(inside.x) : -1.;
+          float position = covered > 0. ? linearPosition(inside.x) : -1.;
+          float value = position < 0. ? -1. : pow(position, gammaExponent);
           if (value > threshold) {
             float voxelAlpha = clamp(opacity * (value - threshold) * oneOverRamp, 0., 0.999);
             float alpha = 1. - pow(1. - voxelAlpha, alphaExponent * covered);
-            vec3 color = thresholdColor(value);
+            vec3 color = thresholdColor(position);
             if (voxelAlpha > 0.002) {
               // Skip costly gradient for nearly transparent samples (independently of sampling rate)
               color = shade(color, gradient(insideP), viewDir, 0.01);

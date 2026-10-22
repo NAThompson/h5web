@@ -7,6 +7,7 @@ import { type NdArray } from 'ndarray';
 import {
   type PropsWithChildren,
   type ReactNode,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -20,7 +21,7 @@ import {
   type VisScaleType,
 } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
-import { createScale, getTextContent } from '../utils';
+import { getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
 import Isosurfaces from './Isosurfaces';
 import {
@@ -34,6 +35,7 @@ import {
 import {
   getAxisLookup,
   getBoxSize,
+  getThresholdDomain,
   hasPoints,
   normalizeBoxSize,
 } from './utils';
@@ -118,18 +120,15 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     throw new Error('Expected three-dimensional array');
   }
 
-  // MIP and DVR spend the colors on [threshold, 1] of the normalized values (cf. `thresholdColor`)
-  const legendDomain = useMemo((): Domain => {
-    if (!showVolume || mode === VolumeRenderMode.Iso || threshold <= 0) {
-      return domain;
-    }
-    const scale = createScale(scaleType, {
-      domain,
-      range: [0, 1],
-      clamp: true,
-    });
-    return [scale.invert(threshold), domain[1]];
-  }, [showVolume, mode, threshold, domain, scaleType]);
+  // MIP and DVR spend the colors on [value at threshold, max] (cf. `thresholdColor`), as do points
+  const colorDomain = useMemo(
+    () =>
+      showVolume && mode !== VolumeRenderMode.Iso
+        ? getThresholdDomain(domain, scaleType, threshold)
+        : domain,
+    [showVolume, mode, domain, scaleType, threshold],
+  );
+  const pointDomain = useDeferredValue(colorDomain); // keep the threshold slider responsive
 
   const interactingRef = useRef(false);
   const edges = useMemo(() => {
@@ -181,7 +180,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
             shape={dataArray.shape}
             boxSize={boxSize}
             axisValues={axisValues}
-            domain={domain}
+            domain={pointDomain}
             scaleType={scaleType}
             colorMap={colorMap}
             invertColorMap={invertColorMap}
@@ -227,7 +226,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
         />
       </div>
       <VolumeLegend
-        domain={legendDomain}
+        domain={colorDomain}
         scaleType={scaleType}
         colorMap={colorMap}
         invertColorMap={invertColorMap}

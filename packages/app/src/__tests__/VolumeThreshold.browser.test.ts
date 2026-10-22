@@ -4,10 +4,26 @@ import { page } from 'vitest/browser';
 import { renderApp } from '../test-utils';
 import { Vis } from '../vis-packs/core/visualizations';
 
-/* Min bound of the volume's color bar (the first one), as a number */
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+/* Number of a formatted bound: Unicode minus, powers of 10 with superscripts (`1.2×10⁻⁸`, `10⁻⁴`) */
+function parseBound(text: string): number {
+  const plain = text.replaceAll('−', '-');
+  const power = /^(?:(.+)×)?10([²³¹⁰⁴⁵⁶⁷⁸⁹⁻]+)$/u.exec(plain);
+  if (!power) {
+    return Number(plain);
+  }
+  const [, mantissa = '1', exponent] = power;
+  const digits = exponent.replaceAll(/[²³¹⁰⁴⁵⁶⁷⁸⁹⁻]/gu, (c) =>
+    c === '⁻' ? '-' : String(SUPERSCRIPTS.indexOf(c)),
+  );
+  return Number(mantissa) * 10 ** Number(digits);
+}
+
+/* Min bound of the volume's color bar (the first one) */
 function getColorBarMin(): number {
   const bound = document.querySelector('[aria-label^="Min: "]');
-  return Number(bound?.textContent.replace('−', '-'));
+  return parseBound(bound?.textContent ?? '');
 }
 
 /* `userEvent.fill` doesn't support range inputs: set the value as a drag would */
@@ -27,6 +43,13 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await page.viewport(1920, 1080);
+});
+
+test('parse bounds of color bars', () => {
+  expect(parseBound('−5.993')).toBe(-5.993);
+  expect(parseBound('1.2×10⁻⁸')).toBeCloseTo(1.2e-8, 20);
+  expect(parseBound('10⁴')).toBe(10_000);
+  expect(parseBound('10')).toBe(10);
 });
 
 test('start the colors of the volume at the threshold', async () => {

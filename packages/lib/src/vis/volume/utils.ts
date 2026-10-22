@@ -1,4 +1,4 @@
-import { type NumArray } from '@h5web/shared/vis-models';
+import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { createArrayFromView } from '@h5web/shared/vis-utils';
 import ndarray, { type NdArray } from 'ndarray';
 import {
@@ -20,9 +20,12 @@ import {
   getIndexToPosition,
   getPixelCentres,
   getRelativePixels,
+  getShaderScale,
   isNonUniformAxis,
   TEXTURE_TYPES,
 } from '../heatmap/utils';
+import { type VisScaleType } from '../models';
+import { createScale } from '../utils';
 import { type AxisValues, type VolumePointSet, VolumeQuality } from './models';
 import { type HalfFloatChunk } from './prepare/client';
 import {
@@ -193,6 +196,35 @@ export function getStepCount(
     minWidth = Math.min(minWidth, knots[k] - knots[k - 2]);
   }
   return Math.min(Math.max(count, 1 / minWidth), MAX_STEP_DENSITY * count);
+}
+
+/* Threshold of MIP and DVR (normalized value): its opacity ramp, and the colors from its linear
+ * position (before gamma), so that none are spent on hidden values; full colors if all are hidden */
+export function getThresholdUniforms(
+  threshold: number,
+  gammaExponent: number,
+): Record<'oneOverRamp' | 'colorStart' | 'oneOverColorSpan', number> {
+  const start = threshold ** (1 / gammaExponent);
+  const isUsable = start < 1;
+  return {
+    oneOverRamp: isUsable ? 1 / (1 - threshold) : 1,
+    colorStart: isUsable ? start : 0,
+    oneOverColorSpan: isUsable ? 1 / (1 - start) : 1,
+  };
+}
+
+/* Domain of the colors of MIP and DVR (color bar, points): [value at threshold, max] */
+export function getThresholdDomain(
+  domain: Domain,
+  scaleType: VisScaleType,
+  threshold: number,
+): Domain {
+  const [, gammaExponent] = getShaderScale(scaleType);
+  if (getThresholdUniforms(threshold, gammaExponent).colorStart <= 0) {
+    return domain;
+  }
+  const scale = createScale(scaleType, { domain, range: [0, 1], clamp: true });
+  return [scale.invert(threshold), domain[1]];
 }
 
 const SLOPE_STEP = 1e-3; // index units, to differentiate positions along non-uniform axes
