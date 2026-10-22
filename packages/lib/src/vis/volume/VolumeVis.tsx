@@ -20,7 +20,7 @@ import {
   type VisScaleType,
 } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
-import { getTextContent } from '../utils';
+import { createScale, getTextContent } from '../utils';
 import CanvasOverlay from './CanvasOverlay';
 import Isosurfaces from './Isosurfaces';
 import {
@@ -118,6 +118,19 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     throw new Error('Expected three-dimensional array');
   }
 
+  // MIP and DVR spend the colors on [threshold, 1] of the normalized values (cf. `thresholdColor`)
+  const legendDomain = useMemo((): Domain => {
+    if (!showVolume || mode === VolumeRenderMode.Iso || threshold <= 0) {
+      return domain;
+    }
+    const scale = createScale(scaleType, {
+      domain,
+      range: [0, 1],
+      clamp: true,
+    });
+    return [scale.invert(threshold), domain[1]];
+  }, [showVolume, mode, threshold, domain, scaleType]);
+
   const interactingRef = useRef(false);
   const edges = useMemo(() => {
     const box = new BoxGeometry();
@@ -214,7 +227,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
         />
       </div>
       <VolumeLegend
-        domain={domain}
+        domain={legendDomain}
         scaleType={scaleType}
         colorMap={colorMap}
         invertColorMap={invertColorMap}

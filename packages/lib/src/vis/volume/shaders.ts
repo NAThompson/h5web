@@ -135,6 +135,12 @@ export function getVolumeFragmentShader(
       return ${GLSL_SCALE[scaleType] || 'value'};
     }
 
+    // Colors over [threshold, 1] (MIP, DVR): none spent on hidden values (cf. color bar)
+    vec3 thresholdColor(float value) {
+      float t = threshold < 1. ? (value - threshold) / (1. - threshold) : 1.;
+      return texture(colorMap, vec2(t, 0.5)).rgb;
+    }
+
     ${GLSL_TEX_COORDS}
 
     // Value and coverage at a position: coverage is 0 at NaN, else 1, unless a coverage texture
@@ -300,7 +306,7 @@ export function getVolumeFragmentShader(
         if (maxValue < threshold) {
           discard;
         }
-        fragColor = vec4(texture(colorMap, vec2(maxValue, 0.5)).rgb, 1.);
+        fragColor = vec4(thresholdColor(maxValue), 1.);
 
       #elif defined(MODE_DVR)
         // Opacity correction so that the result does not depend on the sampling rate
@@ -330,7 +336,7 @@ export function getVolumeFragmentShader(
           if (value > threshold) {
             float voxelAlpha = clamp(opacity * (value - threshold) * oneOverRamp, 0., 0.999);
             float alpha = 1. - pow(1. - voxelAlpha, alphaExponent * covered);
-            vec3 color = texture(colorMap, vec2(value, 0.5)).rgb;
+            vec3 color = thresholdColor(value);
             if (voxelAlpha > 0.002) {
               // Skip costly gradient for nearly transparent samples (independently of sampling rate)
               color = shade(color, gradient(insideP), viewDir, 0.01);
