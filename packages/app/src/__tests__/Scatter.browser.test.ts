@@ -127,6 +127,21 @@ test(
 );
 
 test(
+  'show rows of (G, P) dataset against their dimension scale',
+  async () => {
+    await renderApp('/scatter/fitness');
+
+    expect(getSelectedVisTab()).toBe(Vis.Scatter);
+    await expect
+      .element(page.getByRole('figure', { name: 'fitness' }))
+      .toBeVisible();
+    await expect.poll(() => hasText('Generation')).toBe(true);
+    expect(hasText('Fitness')).toBe(true);
+  },
+  TEST_TIMEOUT,
+);
+
+test(
   'keep point buffers and show hinted opacity on toolbar clicks',
   async () => {
     await renderApp('/scatter/two_d');

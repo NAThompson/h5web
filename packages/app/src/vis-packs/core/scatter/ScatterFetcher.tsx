@@ -11,6 +11,7 @@ import { type NumDataset } from '../geometry/utils';
 import { useScatterSource } from './hooks';
 import {
   type ChannelDef,
+  getAlongDim,
   type ScatterChannel,
   type ScatterSource,
 } from './source';
@@ -30,6 +31,7 @@ interface Prepared {
   ignoreValue: IgnoreValue | undefined;
   array: NumArray; // unpacked (NetCDF), invalid values as `NaN`
   columns?: NumArray[]; // of an (n, k) array, split once
+  along?: Map<string, NumArray>; // rows form: abscissas by (G, P) shape and dimension
 }
 
 /* Per fetched value (stable in the query cache), so that re-renders (e.g. toolbar clicks) give
@@ -54,6 +56,19 @@ function getChannelArray(
       array: toCoordinateArray(value, packing, ignoreValue),
     };
     prepared.set(value, entry);
+  }
+  if (def.alongDim) {
+    const { dims, dim, isIndex } = def.alongDim;
+    const key = `${dims.join('x')}:${dim}`;
+    if (!entry.along) {
+      entry.along = new Map();
+    }
+    let along = entry.along.get(key);
+    if (!along) {
+      along = getAlongDim(isIndex ? undefined : entry.array, dims, dim);
+      entry.along.set(key, along);
+    }
+    return along;
   }
   if (def.column === undefined) {
     return entry.array;

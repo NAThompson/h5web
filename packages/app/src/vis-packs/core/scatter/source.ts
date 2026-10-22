@@ -9,6 +9,7 @@ import {
   type AttributeValues,
   type ProvidedEntity,
 } from '@h5web/shared/hdf5-models';
+import { type NumArray } from '@h5web/shared/vis-models';
 
 import { hasAttribute } from '../../../utils';
 import {
@@ -19,7 +20,7 @@ import {
   toRgbaColor,
 } from '../../view-hints/attrs';
 import { HintVis } from '../../view-hints/models';
-import { type OverlayContext } from '../../view-hints/overlays';
+import { getScales, type OverlayContext } from '../../view-hints/overlays';
 import {
   type CoordinateRole,
   COORDINATES_ATTR,
@@ -31,8 +32,10 @@ import {
   resolveCoordinate,
 } from '../geometry/utils';
 
-/* Points (`H5WEB_vis = "scatter"` / `"scatter3d"`), cf. `H5WEB_VIEW_SCHEMA.md`, in three forms:
+/* Points (`H5WEB_vis = "scatter"` / `"scatter3d"`), cf. `H5WEB_VIEW_SCHEMA.md`, in four forms:
  * - columns of an (n, k) dataset (`H5WEB_scatter_columns`, default x y [z] [color] [size]);
+ * - rows of a (G, P) dataset with `H5WEB_x_dim`: each value against its index along that
+ *   dimension, or its 1D dimension scale (e.g. a population per generation, NaN-padded);
  * - 1D dataset of values at CF `coordinates` (1D, same length), coloured by its values - also
  *   without hint when its CF `featureType` is `point`;
  * - group naming 1D datasets of the same length (`H5WEB_x`, `_y`, `_z`, `_color`, `_size`). */
@@ -53,11 +56,12 @@ const CHANNELS = new Map<string, ScatterChannel | null>([
 export interface ChannelDef {
   dataset: NumDataset;
   column?: number; // of an (n, k) dataset
+  alongDim?: { dims: number[]; dim: number; isIndex: boolean }; // rows form: scale value (or index) of each value
   label: string;
 }
 
 export interface ScatterSource {
-  form: 'columns' | 'coordinates' | 'group';
+  form: 'columns' | 'rows' | 'coordinates' | 'group';
   count: number;
   channels: { x: ChannelDef; y: ChannelDef } & Partial<
     Record<'z' | 'color' | 'size', ChannelDef>
@@ -436,6 +440,54 @@ async function findColumnsSource(
   };
 }
 
+/** Abscissa of each value of a (G, P) array: `scale` value (else index) along `dim`. */
+export function getAlongDim(
+  scale: NumArray | undefined,
+  [rows, cols]: number[],
+  dim: number,
+): Float64Array {
+  const out = new Float64Array(rows * cols);
+  for (let i = 0; i < out.length; i += 1) {
+    const k = dim === 0 ? Math.floor(i / cols) : i % cols;
+    out[i] = scale ? scale[k] : k;
+  }
+  return out;
+}
+
+/* Rows form: x from the first numeric 1D scale of `xDim`, else the index; non-finite values are
+ * not drawn (cf. `getPointSizes`) */
+async function findRowsSource(
+  dataset: NumDataset,
+  xDim: number,
+  ctx: OverlayContext,
+): Promise<ScatterSource> {
+  const { dims } = dataset.shape;
+  const values = (await ctx.getAttrValues(dataset)) ?? {};
+  const notes: string[] = [];
+  const read = createAttrReader(dataset, values, notes);
+
+  const scalePaths = await getScales(dataset, ctx);
+  const scales = await Promise.all(
+    (scalePaths?.[xDim] ?? []).map(async (path) => ctx.getEntity(path)),
+  );
+  const scale = scales.find((entity) => isVector(entity, dims[xDim]));
+  const alongDim = { dims, dim: xDim, isIndex: !scale };
+
+  return {
+    form: 'rows',
+    count: dims[0] * dims[1],
+    channels: {
+      x: scale
+        ? { ...(await toChannel(scale, ctx)), alongDim }
+        : { dataset, alongDim, label: 'index' },
+      y: await toChannel(dataset, ctx),
+    },
+    solidColor: toRgbaColor(read.str('H5WEB_color', isCssColor)),
+    ...readStyle(dataset, values, notes),
+    notes,
+  };
+}
+
 /**
  * Points an entity describes, according to its view hint (`hintVis`); `undefined` if it does not
  * describe any. Rejects on transport errors (cf. `GeometryContext`).
@@ -444,6 +496,7 @@ export async function findScatterSource(
   entity: ProvidedEntity,
   hintVis: HintVis | undefined,
   ctx: OverlayContext,
+  xDim?: number, // `H5WEB_x_dim`, cf. `parseViewHint`
 ): Promise<ScatterSource | undefined> {
   const isHinted = isScatterHint(hintVis);
   if (isGroup(entity)) {
@@ -460,7 +513,25 @@ export async function findScatterSource(
   if (coordinatesSource) {
     return coordinatesSource;
   }
-  return isHinted
-    ? findColumnsSource(entity, hintVis === HintVis.Scatter3D, ctx)
-    : undefined;
+  if (!isHinted) {
+    return undefined;
+  }
+  const is2D = entity.shape.dims.length === 2;
+  const isRows = is2D && xDim !== undefined;
+  if (isRows && hintVis === HintVis.Scatter && (xDim === 0 || xDim === 1)) {
+    return findRowsSource(entity, xDim, ctx);
+  }
+  const source = await findColumnsSource(
+    entity,
+    hintVis === HintVis.Scatter3D,
+    ctx,
+  );
+  if (source && isRows) {
+    source.notes.push(
+      hintVis === HintVis.Scatter
+        ? `"H5WEB_x_dim": no dimension ${xDim}, drawn as columns`
+        : '"H5WEB_x_dim": only with "scatter", drawn as columns', // 2D only for now
+    );
+  }
+  return source;
 }

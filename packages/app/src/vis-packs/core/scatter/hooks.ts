@@ -24,6 +24,7 @@ export function scatterSourceQuery(
         entity,
         hint.vis,
         createOverlayContext(dataContext),
+        hint.xDim,
       );
       return source ?? null;
     },

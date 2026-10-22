@@ -275,7 +275,7 @@ async function getRawScales(
     : null;
 }
 
-async function getScales(
+export async function getScales(
   dataset: OverlayDataset,
   ctx: GeometryContext,
 ): Promise<string[][] | null> {

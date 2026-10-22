@@ -5,6 +5,7 @@ import {
   dataset,
   group,
   scalarAttr,
+  withDimScales,
 } from '@h5web/shared/mock-utils';
 
 /* Points (`H5WEB_vis = "scatter"` / `"scatter3d"`), cf. `H5WEB_VIEW_SCHEMA.md` */
@@ -97,6 +98,20 @@ const stations = (() => {
   const alt = lon.map(() => 2000 * rand() ** 2);
   const temp = lon.map((_, i) => 25 - (lat[i] - 35) * 0.6 - alt[i] / 150);
   return { lon, lat, alt, temp };
+})();
+
+// Population search (CMA-ES-like): fitness of each individual per generation, (G, P) padded
+// with NaN to the widest generation
+const GENERATIONS = 40;
+const POPULATION = 20;
+const fitness = (() => {
+  const rand = random(5);
+  return Array.from({ length: GENERATIONS }, (_, g) => {
+    const size = Math.round(6 + (14 * g) / (GENERATIONS - 1));
+    return Array.from({ length: POPULATION }, (__, p) =>
+      p < size ? 100 * Math.exp(-g / 8) * (1 + 0.5 * rand()) : Number.NaN,
+    );
+  }).flat();
 })();
 
 // One million points, generated when fetched: noisy trefoil knot, coloured along the knot
@@ -203,6 +218,22 @@ export function makeScatterGroup(): GroupWithChildren {
       H5WEB_scale: 'root',
       H5WEB_root_n: 2.5,
     }),
+    withAttrs(
+      floats(
+        'generation',
+        Array.from({ length: GENERATIONS }, (_, g) => g + 1),
+      ),
+      { CLASS: 'DIMENSION_SCALE', NAME: 'generation', long_name: 'Generation' },
+    ),
+    withDimScales(
+      withAttrs(floats('fitness', fitness, [GENERATIONS, POPULATION]), {
+        H5WEB_vis: 'scatter',
+        H5WEB_x_dim: 'generation', // rows form: each value against its generation
+        H5WEB_color: 'steelblue',
+        long_name: 'Fitness',
+      }),
+      { scales: [['/scatter/generation'], []] },
+    ),
     withAttrs(
       dataset('big', arrayShape([BIG_COUNT, 4]), floatType(32), getBigCloud),
       {

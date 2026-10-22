@@ -132,7 +132,7 @@ export interface ViewHint {
   curveWidth?: number; // line: width of the dataset's own curve in CSS pixels
   seriesPaths?: string[]; // line: extra datasets on the same axes (their attributes say how)
   seriesAnchor?: string; // series paths are resolved relative to this path
-  xDim?: number; // line: dimension on the x axis
+  xDim?: number; // line: dimension on the x axis; scatter: of the rows form
   multiDim?: number; // line: dimension whose slices are all plotted
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
   projection?: Projection; // heatmap stacks: reduce a dimension instead of slicing it

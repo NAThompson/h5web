@@ -13,6 +13,7 @@ import { type OverlayContext } from '../../view-hints/overlays';
 import { findStrAttr } from '../geometry/utils';
 import {
   findScatterSource,
+  getAlongDim,
   getDefaultColumns,
   parseColumnLabels,
   parseScatterColumns,
@@ -80,7 +81,8 @@ function createMockContext(root: GroupWithChildren): OverlayContext {
       assertMockAttribute(attr);
       return typeof attr.value === 'string' ? attr.value : undefined;
     },
-    getDimensionScales: async () => [],
+    getDimensionScales: async (dset) =>
+      (dset as { dimScales?: string[][] }).dimScales ?? [],
     getAttrValues: async ({ attributes }: { attributes: Attribute[] }) =>
       Object.fromEntries(
         attributes.map((attr) => {
@@ -96,10 +98,10 @@ describe('findScatterSource', () => {
   const root = makeMockFile();
   const ctx = createMockContext(root);
 
-  async function find(path: string, vis?: HintVis) {
+  async function find(path: string, vis?: HintVis, xDim?: number) {
     const entity = findMockEntity(root, path);
     assertDefined(entity);
-    return findScatterSource(entity, vis, ctx);
+    return findScatterSource(entity, vis, ctx, xDim);
   }
 
   it('find columns of hinted (n, k) datasets only', async () => {
@@ -154,5 +156,50 @@ describe('findScatterSource', () => {
     expect(source?.channels.color?.dataset.path).toBe('/scatter/group/cluster');
     expect(source?.sizeRange).toEqual([3, 16]);
     await expect(find('/scatter/group')).resolves.toBeUndefined();
+  });
+
+  it('find rows of (G, P) dataset along `H5WEB_x_dim`', async () => {
+    const source = await find('/scatter/fitness', HintVis.Scatter, 0);
+    expect(source?.form).toBe('rows');
+    expect(source?.count).toBe(800);
+    expect(source?.channels.x).toMatchObject({
+      label: 'Generation',
+      alongDim: { dims: [40, 20], dim: 0, isIndex: false },
+    });
+    expect(source?.channels.x.dataset.name).toBe('generation');
+    expect(source?.channels.y.label).toBe('Fitness');
+    expect(source?.channels.color).toBeUndefined();
+    expect(source?.solidColor).toBe('steelblue');
+
+    const byIndex = await find('/scatter/fitness', HintVis.Scatter, 1); // no scale: index
+    expect(byIndex?.channels.x).toMatchObject({
+      label: 'index',
+      alongDim: { isIndex: true },
+    });
+    expect(byIndex?.channels.x.dataset.name).toBe('fitness');
+  });
+
+  it('fall back to columns without valid `H5WEB_x_dim`', async () => {
+    const source = await find('/scatter/fitness', HintVis.Scatter, 2);
+    expect(source?.form).toBe('columns');
+    expect(source?.notes).toEqual([
+      '"H5WEB_x_dim": no dimension 2, drawn as columns',
+    ]);
+    const in3D = await find('/scatter/fitness', HintVis.Scatter3D, 0);
+    expect(in3D?.notes).toEqual([
+      '"H5WEB_x_dim": only with "scatter", drawn as columns',
+    ]);
+    const plain = await find('/scatter/fitness', HintVis.Scatter);
+    expect(plain?.form).toBe('columns');
+    expect(plain?.notes).toEqual([]);
+  });
+});
+
+describe('getAlongDim', () => {
+  it('give the scale value (or index) of each value along a dimension', () => {
+    expect([...getAlongDim([10, 20], [2, 3], 0)]).toEqual([
+      10, 10, 10, 20, 20, 20,
+    ]);
+    expect([...getAlongDim(undefined, [2, 3], 1)]).toEqual([0, 1, 2, 0, 1, 2]);
   });
 });

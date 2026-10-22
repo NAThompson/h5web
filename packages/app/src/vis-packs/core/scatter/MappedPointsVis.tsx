@@ -149,9 +149,7 @@ function MappedPointsVis(props: Props) {
           }
         />
       )}
-      <OverlayNotes
-        notes={[...hint.notes, ...source.notes]}
-      />
+      <OverlayNotes notes={[...hint.notes, ...source.notes]} />
     </>
   );
 }

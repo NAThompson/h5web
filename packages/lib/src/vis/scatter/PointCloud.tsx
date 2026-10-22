@@ -5,7 +5,9 @@ import {
   BufferGeometry,
   type Layers,
   ShaderMaterial,
+  Sphere,
   Vector2,
+  Vector3,
   type Vector3Tuple,
 } from 'three';
 
@@ -104,6 +106,11 @@ function PointCloud(props: Props) {
   const geometry = useMemo(() => {
     const geom = new BufferGeometry();
     geom.setAttribute('position', new BufferAttribute(positions, 3));
+    // Unit cube, not computed from positions (`NaN` for hidden points), for depth sorting
+    geom.boundingSphere = new Sphere(
+      new Vector3(0.5, 0.5, 0.5),
+      Math.sqrt(3) / 2,
+    );
     return geom;
   }, [positions]);
   useEffect(() => () => geometry.dispose(), [geometry]);
