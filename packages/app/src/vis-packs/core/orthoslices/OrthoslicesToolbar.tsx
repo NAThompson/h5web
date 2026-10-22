@@ -67,6 +67,14 @@ function OrthoslicesToolbar(props: Props) {
       ))}
       <Separator />
 
+      <RootScaleSelector
+        value={scaleType}
+        onScaleChange={setScaleType}
+        rootN={config.rootN}
+        onRootNChange={config.setRootN}
+      />
+      <Separator />
+
       <DomainWidget
         dataDomain={dataDomain}
         customDomain={customDomain}
@@ -80,14 +88,6 @@ function OrthoslicesToolbar(props: Props) {
         onValueChange={setColorMap}
         invert={invertColorMap}
         onInversionChange={() => setInvertColorMap(!invertColorMap)}
-      />
-      <Separator />
-
-      <RootScaleSelector
-        value={scaleType}
-        onScaleChange={setScaleType}
-        rootN={config.rootN}
-        onRootNChange={config.setRootN}
       />
       <Separator />
 
