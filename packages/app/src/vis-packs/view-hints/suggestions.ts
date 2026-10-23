@@ -1,3 +1,4 @@
+import { type Interpolation } from '@h5web/lib';
 import { isAxisScaleType } from '@h5web/shared/guards';
 import {
   type AxisScaleType,
@@ -165,13 +166,18 @@ export function getHeatmapSuggestions(
 export function getLineSuggestions(
   hint: ViewHint,
   fallbacks: { xScaleType?: AxisScaleType; yScaleType?: AxisScaleType } = {},
-): { xScaleType?: AxisScaleType; yScaleType?: AxisScaleType } {
+): {
+  xScaleType?: AxisScaleType;
+  yScaleType?: AxisScaleType;
+  interpolation?: Interpolation;
+} {
   const yFromScale = isAxisScaleType(hint.scaleType)
     ? hint.scaleType
     : undefined; // e.g. not sqrt
   return {
     xScaleType: fallbacks.xScaleType,
     yScaleType: yFromScale ?? fallbacks.yScaleType,
+    interpolation: hint.interpolation,
   };
 }
 

@@ -19,6 +19,7 @@ import {
 } from '../../view-hints/axis-scales';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
+import { usePaletteColors } from '../../view-hints/palette';
 import { useLineOverlays } from '../../view-hints/references';
 import { useLineSeries } from '../../view-hints/series';
 import {
@@ -67,6 +68,12 @@ function LineVisContainer(props: VisContainerProps) {
   // Extra curves of the hint, sliced along with the dataset
   const series = useLineSeries(entity, hint, lineMapping);
   const references = useLineOverlays(entity, hint, lineMapping);
+  const palette = usePaletteColors(
+    hint,
+    entity.path,
+    multiDim,
+    multiDim === undefined ? undefined : dims[multiDim],
+  );
   const extras = useMemo(
     () => ({
       series: series.curves,
@@ -129,6 +136,7 @@ function LineVisContainer(props: VisContainerProps) {
                   multiSliceLabels={
                     multiDim === undefined ? undefined : sliceLabels[multiDim]
                   }
+                  multiSliceColors={palette.colors}
                   xSymlogConstant={
                     axisScales[lineMapping.indexOf('x')]?.symlogConstant
                   }
@@ -161,6 +169,7 @@ function LineVisContainer(props: VisContainerProps) {
           ...references.notes,
           ...getRootScaleNotes(hint),
           ...series.notes,
+          ...palette.notes,
           ...getDimScaleNotes(dimScales),
           ...xAxisScale.notes,
         ]}

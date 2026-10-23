@@ -249,7 +249,7 @@ export {
   useUpdateGeometry,
 } from './vis/hooks';
 
-export { getAxisValues, getSplineDomain } from './vis/line/utils';
+export { getAxisValues, getSplineDomain, PALETTES } from './vis/line/utils';
 export { useAxisValues } from './vis/line/hooks';
 
 export {

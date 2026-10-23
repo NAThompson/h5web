@@ -88,7 +88,10 @@ export function LineConfigProvider(props: PropsWithChildren) {
 
 export function useLineConfig(
   suggestions: Partial<
-    Pick<LineConfig, 'xScaleType' | 'yScaleType' | 'complexVisType'>
+    Pick<
+      LineConfig,
+      'xScaleType' | 'yScaleType' | 'complexVisType' | 'interpolation'
+    >
   > = {},
 ): LineConfig {
   const config = useStore(useContext(StoreContext));
@@ -111,13 +114,21 @@ export function useLineConfig(
     config.setComplexVisType,
   );
 
+  const [interpolation, setInterpolation] = useSuggestion(
+    suggestions.interpolation,
+    config.interpolation,
+    config.setInterpolation,
+  );
+
   return {
     ...config,
     xScaleType,
     yScaleType,
     complexVisType,
+    interpolation,
     setXScaleType,
     setYScaleType,
     setComplexVisType,
+    setInterpolation,
   };
 }

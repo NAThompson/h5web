@@ -840,6 +840,29 @@ test('show a legend of a few multi-plotted curves', async () => {
     .not.toBeInTheDocument(); // hidden
 });
 
+test('default to hinted interpolation, and colour curves by palette and label', async () => {
+  const { user } = await renderApp('/view_hints/line_palette');
+
+  // Tableau10, by label A, B, C, A, B, C
+  const items = page.getByRole('figure').getByRole('listitem');
+  await expect.poll(() => items.elements().length).toBe(6);
+  const colors = items
+    .elements()
+    .map((li) => li.querySelector('span')?.style.color);
+  const [a, b, c] = [
+    'rgb(78, 121, 167)',
+    'rgb(242, 142, 44)',
+    'rgb(225, 87, 89)',
+  ];
+  expect(colors).toEqual([a, b, c, a, b, c]);
+
+  // Constant until changed in the toolbar
+  await user.click(page.getByRole('button', { name: 'Aspect' }));
+  expect(page.getByRole('radio', { name: 'Constant' })).toBeChecked();
+  await user.click(page.getByRole('radio', { name: 'Linear' }));
+  expect(page.getByRole('radio', { name: 'Linear' })).toBeChecked();
+});
+
 test('label figures, colour bars and axes from CF `long_name` and `units`', async () => {
   const { selectExplorerNode } = await renderApp('/view_hints/cf_heatmap');
 

@@ -147,6 +147,7 @@ export async function getViewHint(
     sliceByAnchor: getAnchor('H5WEB_slice_by'),
     contourOfAnchor: getAnchor('H5WEB_contour_of'),
     seriesAnchor: getAnchor('H5WEB_series'),
+    paletteByAnchor: getAnchor('H5WEB_palette_by'),
   };
 }
 

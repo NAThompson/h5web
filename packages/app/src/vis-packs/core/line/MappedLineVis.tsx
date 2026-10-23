@@ -100,6 +100,7 @@ interface Props {
   axisTicks?: AxisMapping<AxisTicks>;
   xSymlogConstant?: number; // `H5WEB_symlog_threshold` of the scale on the x axis
   multiSliceLabels?: string[]; // labels of the slices of the multi-plotting dimension
+  multiSliceColors?: string[]; // colours of the slices (default: sampled from viridis)
   title: string;
   toolbarContainer?: HTMLDivElement | undefined;
   config: LineConfig;
@@ -168,6 +169,7 @@ function MappedLineVis(props: Props) {
     axisTicks = [],
     xSymlogConstant,
     multiSliceLabels,
+    multiSliceColors,
     title,
     toolbarContainer,
     config,
@@ -326,6 +328,10 @@ function MappedLineVis(props: Props) {
 
   // Sample sequential colour scale along multi-plotting dimension (avoiding lightest colours)
   function getSliceColor(index: number) {
+    if (multiSliceColors) {
+      // e.g. `H5WEB_palette`
+      return multiSliceColors[index];
+    }
     return interpolateSliceColor(
       (0.85 * index) / Math.max(sliceArrays.length, 1),
     );

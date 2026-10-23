@@ -1,3 +1,4 @@
+import { Interpolation, PALETTES } from '@h5web/lib';
 import { arrayShape, floatType, intType } from '@h5web/shared/hdf5-utils';
 import { arrayAttr, dataset, scalarAttr } from '@h5web/shared/mock-utils';
 import { ComplexVisType, ScaleType } from '@h5web/shared/vis-models';
@@ -132,6 +133,37 @@ describe('parseViewHint', () => {
       envelope: undefined,
       notes: ['ignored invalid "H5WEB_envelope"'],
     });
+  });
+
+  it('parse interpolation and palette of line plots', () => {
+    expect(
+      hint({
+        H5WEB_interpolation: 'PCHIP',
+        H5WEB_palette: 'Tableau10',
+        H5WEB_palette_by: 'group',
+      }),
+    ).toMatchObject({
+      interpolation: Interpolation.Pchip,
+      palette: PALETTES.Tableau10,
+      paletteBy: 'group',
+      notes: [],
+    });
+    expect(hint({ H5WEB_interpolation: 'constant' }).interpolation).toBe(
+      Interpolation.Constant,
+    );
+    expect(
+      hint({ H5WEB_interpolation: 'cubic', H5WEB_palette_by: 'group' }),
+    ).toMatchObject({
+      interpolation: undefined,
+      paletteBy: undefined,
+      notes: [
+        '"H5WEB_palette_by" is ignored without "H5WEB_palette"',
+        'ignored invalid "H5WEB_interpolation"',
+      ],
+    });
+    expect(hint({ H5WEB_palette: 'viridis' }).notes).toEqual([
+      'ignored invalid "H5WEB_palette"',
+    ]);
   });
 
   it('take the title from `H5WEB_title`, else `long_name`', () => {
@@ -515,6 +547,9 @@ describe('suggestions', () => {
       xScaleType: undefined,
       yScaleType: ScaleType.Log,
     });
+    expect(
+      getLineSuggestions(hint({ H5WEB_interpolation: 'spline' })),
+    ).toMatchObject({ interpolation: Interpolation.Spline });
     expect(
       getLineSuggestions(hint({ H5WEB_scale: 'sqrt' }), {
         yScaleType: ScaleType.SymLog,

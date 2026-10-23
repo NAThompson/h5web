@@ -1819,6 +1819,30 @@ export function makeMockFile(): GroupWithChildren {
           }),
           { scales: [['/view_hints/angle'], []] },
         ),
+        // `H5WEB_interpolation`: steps; `H5WEB_palette`: colours of curves, alike by label
+        dataset('palette_group', arrayShape([6]), strType(H5T_CSET.UTF8), [
+          'A',
+          'B',
+          'C',
+          'A',
+          'B',
+          'C',
+        ]),
+        dataset(
+          'line_palette',
+          arrayShape([6, 12]),
+          floatType(),
+          indices(72).map((i) => Math.sin(i % 12) + Math.floor(i / 12) / 2),
+          {
+            attributes: [
+              scalarAttr('H5WEB_vis', 'line'),
+              intAttr('H5WEB_multi_dim', 0),
+              scalarAttr('H5WEB_interpolation', 'constant'),
+              scalarAttr('H5WEB_palette', 'tableau10'),
+              scalarAttr('H5WEB_palette_by', 'palette_group'),
+            ],
+          },
+        ),
         withDimScales(
           array('line_nan_curves', {
             valueId: 'multi_nan_curves', // all-NaN middle curve

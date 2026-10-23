@@ -1,4 +1,8 @@
-import { type PlaybackSettings, type ValueTransform } from '@h5web/lib';
+import {
+  type Interpolation,
+  type PlaybackSettings,
+  type ValueTransform,
+} from '@h5web/lib';
 import {
   type ColorScaleType,
   type ComplexVisType,
@@ -134,6 +138,10 @@ export interface ViewHint {
   seriesAnchor?: string; // series paths are resolved relative to this path
   xDim?: number; // line: dimension on the x axis; scatter: of the rows form
   multiDim?: number; // line: dimension whose slices are all plotted
+  interpolation?: Interpolation; // line: between samples (until changed in the toolbar)
+  palette?: readonly string[]; // line multi-plots: colours of the curves, cycled
+  paletteBy?: string; // path of a 1D string dataset along `multiDim`: alike labels, alike colours
+  paletteByAnchor?: string; // `paletteBy` is resolved relative to this path
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
   projection?: Projection; // heatmap stacks: reduce a dimension instead of slicing it
   projectionDim?: number; // dimension reduced (default: the first sliced dimension)

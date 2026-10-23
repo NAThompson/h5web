@@ -1,6 +1,8 @@
 import {
   clampPlaybackFps,
+  Interpolation,
   INTERPOLATORS,
+  PALETTES,
   type PlaybackMode,
   type PlaybackRange,
   type PlaybackSettings,
@@ -58,6 +60,12 @@ function toKey(val: string): string {
 const HINT_VIS = new Map(Object.values(HintVis).map((id) => [id, id]));
 const COLOR_MAPS = new Map(
   Object.keys(INTERPOLATORS).map((name) => [toKey(name), name as ColorMap]),
+);
+const INTERPOLATIONS = new Map(
+  Object.values(Interpolation).map((type) => [toKey(type), type]),
+);
+const PALETTE_COLORS = new Map(
+  Object.entries(PALETTES).map(([name, colors]) => [toKey(name), colors]),
 );
 const COMPLEX_TYPES = new Map(
   Object.values(ComplexVisType).map((type) => [toKey(type), type]),
@@ -398,6 +406,12 @@ export function parseViewHint(
   if (scale !== 'root' && findAttribute(entity, 'H5WEB_root_n')) {
     notes.push('"H5WEB_root_n" is ignored without "H5WEB_scale" "root"');
   }
+  const palette = read.oneOf('H5WEB_palette', (val) =>
+    PALETTE_COLORS.get(toKey(val)),
+  );
+  if (!palette && findAttribute(entity, 'H5WEB_palette_by')) {
+    notes.push('"H5WEB_palette_by" is ignored without "H5WEB_palette"');
+  }
 
   return {
     vis,
@@ -458,6 +472,11 @@ export function parseViewHint(
     curveWidth: read.num('H5WEB_width', isPos),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
+    interpolation: read.oneOf('H5WEB_interpolation', (val) =>
+      INTERPOLATIONS.get(toKey(val)),
+    ),
+    palette,
+    paletteBy: palette && read.str('H5WEB_palette_by'),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
     projection: read.oneOf(
       'H5WEB_projection',

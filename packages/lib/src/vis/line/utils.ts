@@ -6,11 +6,18 @@ import {
 } from '@h5web/shared/vis-models';
 import { type ThreeEvent } from '@react-three/fiber';
 import { range } from 'd3-array';
+import { schemeCategory10, schemeTableau10 } from 'd3-scale-chromatic';
 import { useMemo } from 'react';
 
 import { type VisScaleType } from '../models';
 import { createScale } from '../utils';
 import { type LegendObstacle } from './models';
+
+// Categorical colour tables (e.g. of the curves of a multi-plot)
+export const PALETTES = {
+  Category10: schemeCategory10,
+  Tableau10: schemeTableau10,
+};
 
 export function getAxisValues(
   rawValues: NumArray | undefined,
