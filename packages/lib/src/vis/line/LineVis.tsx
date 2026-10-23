@@ -44,6 +44,7 @@ import LineLegend, { getLegendEntries } from './LineLegend';
 import styles from './LineVis.module.css';
 import {
   type AuxiliaryParams,
+  type BandParams,
   CurveType,
   Interpolation,
   type LegendEntry,
@@ -71,6 +72,7 @@ interface Props extends ClassStyleAttrs {
   dtype?: string;
   errorsArray?: NdArray<NumArray>;
   showErrors?: boolean;
+  dataBand?: BandParams; // filled area around the curve
   auxiliaries?: AuxiliaryParams[];
   renderTooltip?: (data: TooltipData) => ReactElement;
   interactions?: DefaultInteractionsConfig;
@@ -84,6 +86,15 @@ interface Props extends ClassStyleAttrs {
   legendObstacles?: LegendObstacle[]; // reference lines and bands the legend avoids covering
   markUnplottable?: boolean; // mark values that can't be drawn (e.g. 0 in log scale) on the edge
   unplottableColor?: string; // of the marks (default: colour of their curve)
+}
+
+function assertBandLength(
+  band: BandParams | undefined,
+  length: number,
+  name: string,
+): void {
+  assertLength(band?.lower, length, `${name} lower`);
+  assertLength(band?.upper, length, `${name} upper`);
 }
 
 function LineVis(props: PropsWithChildren<Props>) {
@@ -103,6 +114,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     dtype,
     errorsArray,
     showErrors = true,
+    dataBand,
     auxiliaries = [],
     renderTooltip,
     children,
@@ -130,9 +142,11 @@ function LineVis(props: PropsWithChildren<Props>) {
   } = abscissaParams;
 
   assertLength(errorsArray, dataArray.size, 'error');
-  auxiliaries.forEach(({ label, array }, index) => {
+  auxiliaries.forEach(({ label, array, band }, index) => {
     assertLength(array, dataArray.size, `'${label || index}' auxiliary`);
+    assertBandLength(band, dataArray.size, `'${label || index}' band`);
   });
+  assertBandLength(dataBand, dataArray.size, 'band');
 
   const abscissas = useAxisValues(abscissaValue, dataArray.size);
   const abscissaToIndex = useValueToIndexScale(abscissas, true);
@@ -189,12 +203,21 @@ function LineVis(props: PropsWithChildren<Props>) {
   const markedCurves = useMemo(
     () =>
       getMarkedCurves(
-        visible && { ordinates: dataArray.data, color: curveColor },
+        visible &&
+          !dataBand?.only && { ordinates: dataArray.data, color: curveColor },
         auxiliaries,
         auxColors,
         ignoreValue,
       ),
-    [visible, dataArray, curveColor, auxiliaries, auxColors, ignoreValue],
+    [
+      visible,
+      dataBand,
+      dataArray,
+      curveColor,
+      auxiliaries,
+      auxColors,
+      ignoreValue,
+    ],
   );
 
   // Corner for a legend box of a given size: the one it covers the least of the curves in
@@ -342,6 +365,7 @@ function LineVis(props: PropsWithChildren<Props>) {
             ignoreValue={ignoreValue}
             interpolation={interpolation}
             visible={visible}
+            band={dataBand}
           />
         </group>
 
@@ -360,6 +384,7 @@ function LineVis(props: PropsWithChildren<Props>) {
               ignoreValue={aux.ignoreValue ?? ignoreValue}
               interpolation={interpolation}
               visible={auxVisible}
+              band={aux.band}
             />
           ),
         )}

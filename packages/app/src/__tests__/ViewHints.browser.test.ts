@@ -863,6 +863,28 @@ test('default to hinted interpolation, and colour curves by palette and label', 
   expect(page.getByRole('radio', { name: 'Linear' })).toBeChecked();
 });
 
+test('fill a band around each curve, in view, without or instead of curves', async () => {
+  const { selectExplorerNode } = await renderApp('/view_hints/line_band');
+
+  // Upper bounds up to 6.9, curves up to 3
+  await expect
+    .poll(() =>
+      Math.max(
+        ...getTickLabels('ordinate').map((label) =>
+          Number(label.replace('−', '-')),
+        ),
+      ),
+    )
+    .toBeGreaterThan(4);
+  await expect.poll(getLegend).toHaveLength(3);
+  expect(getNotes().query()).toBeNull();
+
+  // Curves still in the legend
+  await selectExplorerNode('line_band_only');
+  await expect.poll(getLegend).toHaveLength(3);
+  expect(getNotes().query()).toBeNull();
+});
+
 test('label figures, colour bars and axes from CF `long_name` and `units`', async () => {
   const { selectExplorerNode } = await renderApp('/view_hints/cf_heatmap');
 

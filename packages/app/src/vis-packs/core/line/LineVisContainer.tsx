@@ -21,7 +21,7 @@ import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import { usePaletteColors } from '../../view-hints/palette';
 import { useLineOverlays } from '../../view-hints/references';
-import { useLineSeries } from '../../view-hints/series';
+import { useLineBand, useLineSeries } from '../../view-hints/series';
 import {
   getLineDimSuggestions,
   getLineSuggestions,
@@ -67,6 +67,7 @@ function LineVisContainer(props: VisContainerProps) {
 
   // Extra curves of the hint, sliced along with the dataset
   const series = useLineSeries(entity, hint, lineMapping);
+  const band = useLineBand(entity, hint, selection);
   const references = useLineOverlays(entity, hint, lineMapping);
   const palette = usePaletteColors(
     hint,
@@ -79,8 +80,9 @@ function LineVisContainer(props: VisContainerProps) {
       series: series.curves,
       references: references.shapes,
       legendEntries: references.legend,
+      band: band.band,
     }),
-    [series.curves, references.shapes, references.legend],
+    [series.curves, references.shapes, references.legend, band.band],
   );
   const hasExtraCurves =
     hint.envelope?.mode === 'add' ||
@@ -169,6 +171,7 @@ function LineVisContainer(props: VisContainerProps) {
           ...references.notes,
           ...getRootScaleNotes(hint),
           ...series.notes,
+          ...band.notes,
           ...palette.notes,
           ...getDimScaleNotes(dimScales),
           ...xAxisScale.notes,

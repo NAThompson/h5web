@@ -1,5 +1,6 @@
 import {
   type AxisTicks,
+  type BandParams,
   CurveType,
   type DimensionMapping,
   getAxisValues,
@@ -121,6 +122,7 @@ export interface HintExtras {
   series: SeriesCurve[]; // extra curves on the same axes
   references: ReferenceShape[]; // reference lines and bands
   legendEntries: LegendEntry[]; // of the references
+  band?: BandParams; // filled area around each curve, of the values of the dataset (`H5WEB_band`)
 }
 
 const NO_EXTRAS: HintExtras = { series: [], references: [], legendEntries: [] };
@@ -147,6 +149,42 @@ function isSplineDrawn(
   return (
     interpolation === Interpolation.Spline && curveType !== CurveType.GlyphsOnly
   );
+}
+
+/* Bounds of a band mapped like the dataset, and the band of each curve */
+function useMappedBands(
+  band: BandParams | undefined,
+  dims: number[], // sliced
+  mapping: DimensionMapping,
+  isMultiPlot: boolean,
+) {
+  const size = dims.reduce((acc, dim) => acc * dim, 1);
+  const isSliced = band?.lower.length === size && band.upper.length === size;
+  const [lowers, uppers] = useMappedArrays(
+    isSliced ? [band.lower, band.upper] : [undefined, undefined],
+    dims,
+    mapping,
+  );
+  const bandRows = useMemo(() => {
+    if (!lowers || !uppers) {
+      return [];
+    }
+    const upperRows = isMultiPlot ? getRows(uppers) : [uppers];
+    return (isMultiPlot ? getRows(lowers) : [lowers]).map((lower, i) => [
+      lower,
+      upperRows[i],
+    ]);
+  }, [lowers, uppers, isMultiPlot]);
+  const bands = useMemo(
+    () =>
+      bandRows.map(([lower, upper]) => ({
+        ...band,
+        lower: lower.data,
+        upper: upper.data,
+      })),
+    [band, bandRows],
+  );
+  return { bandRows, bands };
 }
 
 function MappedLineVis(props: Props) {
@@ -184,7 +222,7 @@ function MappedLineVis(props: Props) {
     nanColor,
     panel,
   } = props;
-  const { series, references, legendEntries } = extras;
+  const { series, references, legendEntries, band } = extras;
 
   const {
     customDomain,
@@ -278,6 +316,8 @@ function MappedLineVis(props: Props) {
     [isMultiPlot, mappedErrorsArray],
   );
 
+  const { bandRows, bands } = useMappedBands(band, ...mappingArgs, isMultiPlot);
+
   const auxDomains = useMemo(
     () =>
       auxArrays.map((arr, i) =>
@@ -342,6 +382,18 @@ function MappedLineVis(props: Props) {
   );
   const visibleSliceCount = slicesVisible.filter(Boolean).length;
 
+  // Bounds of the bands of the curves drawn, in the domain
+  const visibleKey = slicesVisible.join(',');
+  const visibleBandRows = useMemo(
+    () => bandRows.filter((_, i) => slicesVisible[i]).flat(),
+    [bandRows, visibleKey], // eslint-disable-line react-hooks/exhaustive-deps -- `slicesVisible` follows from `visibleKey`
+  );
+  const bandDomains = useMemo(
+    () =>
+      visibleBandRows.map((arr) => getDomain(arr, { scaleType: yScaleType })),
+    [visibleBandRows, yScaleType],
+  );
+
   const curveAuxiliaries = isMultiPlot
     ? sliceArrays.map((array, i) => ({
         label: getSliceLabel(i + 1),
@@ -349,6 +401,7 @@ function MappedLineVis(props: Props) {
         errors: sliceErrorsArrays[i],
         color: getSliceColor(i + 1),
         visible: slicesVisible[i + 1],
+        band: bands.at(i + 1),
       }))
     : auxArrays.map((array, i) => ({
         label: auxLabels[i],
@@ -396,7 +449,14 @@ function MappedLineVis(props: Props) {
       drawsSplines
         ? getSplinesDomain(
             getAxisValues(abscissaParams.value, dataArray.size),
-            [{ array: dataArray, visible: dataVisible }, ...auxiliaries],
+            [
+              { array: dataArray, visible: dataVisible },
+              ...auxiliaries,
+              ...visibleBandRows.map((array) => ({
+                array,
+                ignoreValue: ignoreNone, // already `NaN`
+              })),
+            ],
             ignoreValue,
             withSymlogConstant(xScaleType, xSymlogConstant),
             withSymlogConstant(yScaleType, symlogThreshold),
@@ -408,6 +468,7 @@ function MappedLineVis(props: Props) {
       dataArray,
       dataVisible,
       auxiliaries,
+      visibleBandRows,
       ignoreValue,
       xScaleType,
       xSymlogConstant,
@@ -422,6 +483,7 @@ function MappedLineVis(props: Props) {
         valueVisible ? dataDomain : undefined,
         ...auxDomains.filter((_, i) => auxVisible[i]),
         ...extraDomains,
+        ...bandDomains,
         splineDomain,
       ]),
       `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}:${drawsSplines}`, // splines overshoot
@@ -484,6 +546,7 @@ function MappedLineVis(props: Props) {
         dtype={formatDType(dataset.type, packing)}
         errorsArray={errorsArray}
         showErrors={showErrors}
+        dataBand={bands.at(0)}
         auxiliaries={auxiliaries}
         ignoreValue={ignoreValue}
         interpolation={interpolation}

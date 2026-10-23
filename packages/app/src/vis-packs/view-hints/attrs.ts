@@ -124,6 +124,28 @@ function readEnvelope(read: AttrReader): Envelope | undefined {
   );
 }
 
+/* `H5WEB_band`: paths of its lower and upper bounds, with its opacity and whether it's alone */
+function readBand(
+  read: AttrReader,
+  entity: Entity,
+  notes: string[],
+): Pick<ViewHint, 'bandPaths' | 'bandOpacity' | 'bandOnly'> {
+  const band = read.str('H5WEB_band', (val) => splitNames(val).length === 2);
+  if (!band) {
+    for (const name of ['H5WEB_band_opacity', 'H5WEB_band_only']) {
+      if (findAttribute(entity, name)) {
+        notes.push(`"${name}" is ignored without "H5WEB_band"`);
+      }
+    }
+    return {};
+  }
+  return {
+    bandPaths: splitNames(band),
+    bandOpacity: read.num('H5WEB_band_opacity', (v) => v > 0 && v <= 1),
+    bandOnly: read.bool('H5WEB_band_only'),
+  };
+}
+
 function parseScaleType(val: string): ColorScaleType | undefined {
   const type = val.toLowerCase();
   return isColorScaleType(type) ? type : undefined;
@@ -505,6 +527,7 @@ export function parseViewHint(
     sliceBy: read.str('H5WEB_slice_by'),
     overlayPaths: splitNames(read.str('H5WEB_overlays') ?? ''),
     seriesPaths: splitNames(read.str('H5WEB_series') ?? ''),
+    ...readBand(read, entity, notes),
     notes,
   };
 }

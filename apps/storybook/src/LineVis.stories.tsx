@@ -1,6 +1,7 @@
 import {
   CurveType,
   getCombinedDomain,
+  getDomain,
   getDomains,
   LineVis,
   mockValues,
@@ -24,6 +25,10 @@ const errorsOneD = ndarray(
   Array.from({ length: oneD.size }, (_, i) => Math.abs(10 - 0.5 * i)),
   oneD.shape,
 );
+const bandOneD = {
+  lower: oneD.data.map((val, i) => val - errorsOneD.data[i]),
+  upper: oneD.data.map((val, i) => val + errorsOneD.data[i] / 2),
+};
 
 const meta = {
   title: 'Visualizations/LineVis',
@@ -116,6 +121,14 @@ export const ErrorBars = {
   args: {
     errorsArray: errorsOneD,
     showErrors: true,
+  },
+} satisfies Story;
+
+export const Band = {
+  ...Default,
+  args: {
+    dataBand: bandOneD,
+    domain: getDomain([...bandOneD.lower, ...bandOneD.upper]),
   },
 } satisfies Story;
 

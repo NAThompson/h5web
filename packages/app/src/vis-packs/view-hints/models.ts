@@ -136,6 +136,10 @@ export interface ViewHint {
   curveWidth?: number; // line: width of the dataset's own curve in CSS pixels
   seriesPaths?: string[]; // line: extra datasets on the same axes (their attributes say how)
   seriesAnchor?: string; // series paths are resolved relative to this path
+  bandPaths?: string[]; // line: lower and upper bounds of a filled area around each curve (same shape)
+  bandAnchor?: string; // band paths are resolved relative to this path
+  bandOpacity?: number; // of the band's fill (default 0.25)
+  bandOnly?: boolean; // band without its curve
   xDim?: number; // line: dimension on the x axis; scatter: of the rows form
   multiDim?: number; // line: dimension whose slices are all plotted
   interpolation?: Interpolation; // line: between samples (until changed in the toolbar)

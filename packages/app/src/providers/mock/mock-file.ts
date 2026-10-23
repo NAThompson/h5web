@@ -1843,6 +1843,38 @@ export function makeMockFile(): GroupWithChildren {
             ],
           },
         ),
+        // `H5WEB_band`: spread around each curve, NaN in the lower bound of the middle one
+        ...[-1, 1].map((sign) =>
+          dataset(
+            sign < 0 ? 'band_lower' : 'band_upper',
+            arrayShape([3, 20]),
+            floatType(),
+            indices(60).map((i) =>
+              sign < 0 && i === 25
+                ? Number.NaN
+                : Math.sin(i % 20) + Math.floor(i / 20) + sign * (1 + (i % 4)),
+            ),
+          ),
+        ),
+        ...[false, true].map((only) =>
+          dataset(
+            only ? 'line_band_only' : 'line_band',
+            arrayShape([3, 20]),
+            floatType(),
+            indices(60).map((i) => Math.sin(i % 20) + Math.floor(i / 20)),
+            {
+              attributes: [
+                scalarAttr('H5WEB_vis', 'line'),
+                intAttr('H5WEB_multi_dim', 0),
+                scalarAttr('H5WEB_band', 'band_lower band_upper'),
+                ...(only
+                  ? [intAttr('H5WEB_band_only', 1)]
+                  : [scalarAttr('H5WEB_interpolation', 'pchip')]),
+                floatAttr('H5WEB_band_opacity', 0.3),
+              ],
+            },
+          ),
+        ),
         withDimScales(
           array('line_nan_curves', {
             valueId: 'multi_nan_curves', // all-NaN middle curve

@@ -22,7 +22,7 @@ import { createBufferAttr, Z_OUT } from '../utils';
 import { type LineGeometryParams } from './lineGeometry';
 import { getHermiteExtent, getPchipSlopes } from './utils';
 
-const MAX_SEGMENTS_PER_INTERVAL = 16;
+export const MAX_SEGMENTS_PER_INTERVAL = 16;
 const MAX_ERROR_PX = 1; // in CSS pixels
 
 /*

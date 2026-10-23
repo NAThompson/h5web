@@ -263,12 +263,25 @@ export function getHermiteExtent(
 
   for (const t of roots) {
     if (t > 0 && t < 1) {
-      const y = y0 + t * (d0 + t * (b + t * c));
+      const y = getHermiteY(y0, y1, d0, d1, t);
       extent[0] = Math.min(extent[0], y);
       extent[1] = Math.max(extent[1], y);
     }
   }
   return extent;
+}
+
+/* Value at `t` in [0, 1] of the cubic Hermite of `getHermiteExtent` */
+export function getHermiteY(
+  y0: number,
+  y1: number,
+  d0: number,
+  d1: number,
+  t: number,
+): number {
+  const b = 3 * (y1 - y0) - 2 * d0 - d1;
+  const c = d0 + d1 - 2 * (y1 - y0);
+  return y0 + t * (d0 + t * (b + t * c));
 }
 
 /**

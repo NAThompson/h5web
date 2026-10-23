@@ -25,7 +25,7 @@ export function getMarkedCurves(
   return [
     ...(curve ? [{ ...curve, ignoreValue }] : []),
     ...auxiliaries.flatMap((aux, index) =>
-      aux.visible
+      aux.visible && !aux.band?.only
         ? [
             {
               ordinates: aux.array.data,

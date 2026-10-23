@@ -1,4 +1,8 @@
-import { type DimensionMapping, type IgnoreValue } from '@h5web/lib';
+import {
+  type BandParams,
+  type DimensionMapping,
+  type IgnoreValue,
+} from '@h5web/lib';
 import { hasArrayShape, hasNumericType, isDataset } from '@h5web/shared/guards';
 import {
   type ArrayShape,
@@ -82,6 +86,7 @@ async function resolveOne(
   ctx: OverlayContext,
   dataContext: DataContextValue,
   notes: string[],
+  stylePrefix: string | undefined, // of notes on its style, unless not parsed
 ): Promise<ResolvedSeries | string> {
   let entity;
   try {
@@ -119,22 +124,26 @@ async function resolveOne(
   return {
     dataset: entity,
     name,
-    style: parseSeriesStyle(entity, values ?? {}, notes, `series "${name}": `),
+    style: stylePrefix
+      ? parseSeriesStyle(entity, values ?? {}, notes, stylePrefix)
+      : {},
     baseDims,
     packing: packing ?? undefined,
     ignoreValue: ignoreValue ?? undefined,
   };
 }
 
-/* Series of a line hint (`H5WEB_series`), resolved like overlays; those that can't be drawn are
- * left out with a note */
+/* Series of a line hint (`H5WEB_series`, or bounds of `H5WEB_band`), resolved like overlays;
+ * those that can't be drawn are left out with a note */
 export async function resolveSeries(
-  hint: ViewHint,
+  paths: string[],
+  anchor: string, // paths are resolved relative to it
   base: Dataset<ArrayShape>,
   dataContext: DataContextValue,
+  prefix = 'series', // of notes
+  withStyle = true,
 ): Promise<{ series: ResolvedSeries[]; notes: string[] }> {
   const ctx = createOverlayContext(dataContext);
-  const anchor = hint.seriesAnchor ?? base.path;
   const baseScales = await withoutPhonyScales(
     await ctx.getDimensionScales(base),
     ctx,
@@ -142,7 +151,7 @@ export async function resolveSeries(
 
   const notes: string[] = [];
   const results = await Promise.all(
-    (hint.seriesPaths ?? []).map(async (name) => {
+    paths.map(async (name) => {
       const seriesNotes: string[] = [];
       const result = await resolveOne(
         anchor,
@@ -152,6 +161,7 @@ export async function resolveSeries(
         ctx,
         dataContext,
         seriesNotes,
+        withStyle ? `${prefix} "${name}": ` : undefined,
       );
       return { name, result, seriesNotes };
     }),
@@ -161,7 +171,7 @@ export async function resolveSeries(
   for (const { name, result, seriesNotes } of results) {
     notes.push(...seriesNotes);
     if (typeof result === 'string') {
-      notes.push(`series "${name}": ${result}`);
+      notes.push(`${prefix} "${name}": ${result}`);
     } else {
       series.push(result);
     }
@@ -225,7 +235,13 @@ export function useLineSeries(
   const hasSeries = (hint.seriesPaths?.length ?? 0) > 0;
   const { data: resolved, error } = useQuery({
     queryKey: [dataContext.filepath, 'series', base.path, hint.seriesAnchor],
-    queryFn: async () => resolveSeries(hint, base, dataContext),
+    queryFn: async () =>
+      resolveSeries(
+        hint.seriesPaths ?? [],
+        hint.seriesAnchor ?? base.path,
+        base,
+        dataContext,
+      ),
     enabled: hasSeries,
   });
 
@@ -290,4 +306,79 @@ export function useLineSeries(
   );
 
   return { curves, notes };
+}
+
+/* Bounds of `H5WEB_band` at the base's selection, which they share with the same shape (ignored
+ * values as NaN): none until both are resolved and fetched */
+export function useLineBand(
+  base: Dataset<ArrayShape>,
+  hint: ViewHint,
+  selection: string | undefined,
+): { band?: BandParams; notes: string[] } {
+  const dataContext = useDataContext();
+  const { data: resolved, error } = useQuery({
+    queryKey: [dataContext.filepath, 'band', base.path, hint.bandAnchor],
+    queryFn: async () =>
+      resolveSeries(
+        hint.bandPaths ?? [],
+        hint.bandAnchor ?? base.path,
+        base,
+        dataContext,
+        'band',
+        false, // no style of their own
+      ),
+    enabled: !!hint.bandPaths,
+  });
+
+  const notes = [...(resolved?.notes ?? [])];
+  if (error) {
+    notes.push(`band could not be loaded: ${error.message}`);
+  }
+
+  const drawable = (resolved?.series ?? []).filter((series) => {
+    const { name, baseDims, dataset } = series;
+    if (
+      baseDims.length !== base.shape.dims.length ||
+      baseDims.some((dim, i) => dim !== i)
+    ) {
+      notes.push(`band "${name}": not of the shape of "${base.name}"`);
+      return false;
+    }
+    if (!isAffordable(dataContext, { dataset, selection })) {
+      notes.push(`band "${name}": too large to fetch`);
+      return false;
+    }
+    return true;
+  });
+  const bounds = drawable.length === 2 ? drawable : []; // both or none
+
+  // No placeholder while fetching other slices: values of another selection may not fit
+  const results = useQueries({
+    queries: bounds.map(({ dataset }) =>
+      dataContext.queries.value(dataset, selection),
+    ),
+  });
+  results.forEach(({ error: valueError }, i) => {
+    if (valueError) {
+      notes.push(`band "${bounds[i].name}" could not be loaded`);
+    }
+  });
+
+  const values = useStableArray(results.map(({ data }) => data));
+  const { bandOpacity, bandOnly } = hint;
+  const band = useMemo(() => {
+    if (bounds.length === 0 || values.includes(undefined)) {
+      return undefined;
+    }
+    const [lower, upper] = bounds.map(({ packing, ignoreValue }, i) => {
+      const value = values[i] as ArrayValue<NumericType>;
+      return Float64Array.from(
+        toNumArray(unpackNumArray(value, packing)),
+        (val) => (ignoreValue?.(val) ? Number.NaN : val),
+      );
+    });
+    return { lower, upper, opacity: bandOpacity, only: bandOnly };
+  }, [resolved, values, bandOpacity, bandOnly]); // eslint-disable-line react-hooks/exhaustive-deps -- `bounds` follow from `resolved`
+
+  return { band, notes };
 }

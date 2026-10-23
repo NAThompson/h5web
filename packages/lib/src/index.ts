@@ -347,6 +347,7 @@ export type {
 
 export type {
   AuxiliaryParams,
+  BandParams,
   LegendEntry,
   LegendObstacle,
 } from './vis/line/models';

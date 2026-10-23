@@ -2,10 +2,16 @@ import { type IgnoreValue, type NumArray } from '@h5web/shared/vis-models';
 import { type ThreeEvent } from '@react-three/fiber';
 import { type LineMaterialParameters } from 'three/addons/lines/LineMaterial.js';
 
+import Band from './Band';
 import ErrorBars from './ErrorBars';
 import Glyphs from './Glyphs';
 import Line from './Line';
-import { CurveType, GlyphType, type Interpolation } from './models';
+import {
+  type BandParams,
+  CurveType,
+  GlyphType,
+  type Interpolation,
+} from './models';
 import { useEventHandler } from './utils';
 
 interface Props {
@@ -29,6 +35,7 @@ interface Props {
   onDataPointEnter?: (index: number, evt: ThreeEvent<PointerEvent>) => void;
   onDataPointLeave?: (index: number, evt: ThreeEvent<PointerEvent>) => void;
   ignoreValue?: IgnoreValue;
+  band?: BandParams;
 }
 
 function DataCurve(props: Props) {
@@ -53,10 +60,23 @@ function DataCurve(props: Props) {
     onDataPointEnter,
     onDataPointLeave,
     ignoreValue,
+    band,
   } = props;
+  const curveVisible = visible && !band?.only;
 
   return (
     <>
+      {band && (
+        <Band
+          abscissas={abscissas}
+          lower={band.lower}
+          upper={band.upper}
+          color={color}
+          opacity={band.opacity}
+          interpolation={interpolation}
+          visible={visible}
+        />
+      )}
       <Line
         abscissas={abscissas}
         ordinates={ordinates}
@@ -66,7 +86,7 @@ function DataCurve(props: Props) {
         interpolation={interpolation}
         ignoreValue={ignoreValue}
         materialProps={materialProps}
-        visible={curveType !== CurveType.GlyphsOnly && visible}
+        visible={curveType !== CurveType.GlyphsOnly && curveVisible}
         onClick={useEventHandler(onLineClick)}
         onPointerEnter={useEventHandler(onLineEnter)}
         onPointerLeave={useEventHandler(onLineLeave)}
@@ -79,7 +99,7 @@ function DataCurve(props: Props) {
         size={glyphSize}
         ignoreValue={ignoreValue}
         isolatedOnly={curveType === CurveType.LineOnly} // else invisible without segments
-        visible={visible}
+        visible={curveVisible}
         onClick={useEventHandler(onDataPointClick)}
         onPointerEnter={useEventHandler(onDataPointEnter)}
         onPointerLeave={useEventHandler(onDataPointLeave)}
@@ -91,7 +111,7 @@ function DataCurve(props: Props) {
           errors={errors}
           color={color}
           ignoreValue={ignoreValue}
-          visible={visible && showErrors}
+          visible={curveVisible && showErrors}
         />
       )}
     </>

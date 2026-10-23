@@ -166,6 +166,35 @@ describe('parseViewHint', () => {
     ]);
   });
 
+  it('parse the bounds, opacity and band-only flag of a band', () => {
+    expect(
+      hint({
+        H5WEB_band: ' lo  ../hi ',
+        H5WEB_band_opacity: 0.5,
+        H5WEB_band_only: { int: 1 },
+      }),
+    ).toMatchObject({
+      bandPaths: ['lo', '../hi'],
+      bandOpacity: 0.5,
+      bandOnly: true,
+      notes: [],
+    });
+    expect(
+      hint({ H5WEB_band: 'lo hi', H5WEB_band_opacity: 1.5 }),
+    ).toMatchObject({
+      bandPaths: ['lo', 'hi'],
+      bandOpacity: undefined,
+      notes: ['ignored invalid "H5WEB_band_opacity"'],
+    });
+    const invalid = hint({ H5WEB_band: 'lo', H5WEB_band_only: { int: 1 } });
+    expect(invalid.bandPaths).toBeUndefined();
+    expect(invalid.bandOnly).toBeUndefined();
+    expect(invalid.notes).toEqual([
+      'ignored invalid "H5WEB_band"',
+      '"H5WEB_band_only" is ignored without "H5WEB_band"',
+    ]);
+  });
+
   it('take the title from `H5WEB_title`, else `long_name`', () => {
     expect(hint({ long_name: 'ψ', H5WEB_title: 'Title' }).title).toBe('Title');
     expect(hint({ long_name: 'ψ_{0}' }).title).toBe('ψ_{0}');

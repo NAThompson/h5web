@@ -30,6 +30,15 @@ export interface AuxiliaryParams {
   dash?: boolean; // dashed line
   visible?: boolean;
   ignoreValue?: IgnoreValue; // overrides `ignoreValue` prop of `LineVis`
+  band?: BandParams;
+}
+
+/* Filled area between two curves around a curve (e.g. spread of runs), in its colour */
+export interface BandParams {
+  lower: NumArray;
+  upper: NumArray;
+  opacity?: number; // default 0.25
+  only?: boolean; // without the curve itself
 }
 
 /* Legend entry of something other than a curve (e.g. reference line, shaded band) */
