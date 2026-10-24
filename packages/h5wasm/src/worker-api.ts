@@ -111,7 +111,7 @@ async function openRemoteFile(url: string): Promise<bigint> {
   const lazyFile = new LazyFile(url, size, version, firstBlock);
   const removeNode = createLazyFileNode(FS, rootNode, fileName, lazyFile);
 
-  const fileId = openH5WasmFile(`${WORKERFS_FOLDER}/${fileName}`, 'r', () => {
+  const fileId = openH5WasmFile(`${WORKERFS_FOLDER}/${fileName}`, 'Sr', () => {
     removeNode();
     lazyFile.clearCache();
   });

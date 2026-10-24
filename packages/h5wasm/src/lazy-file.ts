@@ -177,12 +177,16 @@ export function checkFileVersion(
   const lastModified = getHeader('Last-Modified');
   const contentRange = parseContentRange(getHeader('Content-Range'));
 
+  // A file that grew is likely being appended to by an SWMR writer: the part we opened is still readable
+  const grew = contentRange?.size !== undefined && contentRange.size > size;
+
   if (
-    (version.etag && etag && etag !== version.etag) ||
-    (version.lastModified &&
-      lastModified &&
-      lastModified !== version.lastModified) ||
-    (contentRange?.size !== undefined && contentRange.size !== size)
+    !grew &&
+    ((version.etag && etag && etag !== version.etag) ||
+      (version.lastModified &&
+        lastModified &&
+        lastModified !== version.lastModified) ||
+      (contentRange?.size !== undefined && contentRange.size !== size))
   ) {
     throw new Error(`File changed on server since it was opened: ${url}`);
   }

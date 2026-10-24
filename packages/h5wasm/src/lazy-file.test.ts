@@ -251,8 +251,15 @@ describe('LazyFile', () => {
 
     const file3 = new LazyFile('file.h5', FILE.length, VERSION);
     responseHeaders = {};
-    fileSize = FILE.length + 1;
+    fileSize = FILE.length - 1;
     expect(() => read(file3, 0, 10)).toThrow(/File changed on server/u); // size in `Content-Range` differs
+  });
+
+  it('keep reading a file that grew (SWMR writer)', () => {
+    const file = new LazyFile('file.h5', FILE.length, VERSION);
+    responseHeaders.ETag = '"v2"';
+    fileSize = FILE.length + 1;
+    expect(read(file, 0, 10)).toEqual(FILE.subarray(0, 10));
   });
 
   it('throw if request times out', () => {
