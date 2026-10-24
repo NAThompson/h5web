@@ -1,6 +1,7 @@
 import {
   autoUpdate,
   type ElementProps,
+  flip,
   type FloatingContext,
   offset,
   shift,
@@ -22,6 +23,7 @@ export function useFloatingMenu(): UseFloatingReturn<HTMLButtonElement> {
     open: isOpen,
     middleware: [
       offset(POPOVER_CLEARANCE),
+      flip({ padding: POPOVER_CLEARANCE * 2 }), // e.g. button at the bottom of the overflow menu
       size({
         padding: POPOVER_CLEARANCE * 2,
         apply({ availableHeight, elements, rects }) {

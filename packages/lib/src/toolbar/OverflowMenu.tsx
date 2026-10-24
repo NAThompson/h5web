@@ -2,6 +2,7 @@ import {
   autoUpdate,
   offset,
   shift,
+  size,
   useClick,
   useFloating,
   useInteractions,
@@ -34,6 +35,18 @@ function OverflowMenu(props: PropsWithChildren) {
     middleware: [
       offset(POPOVER_CLEARANCE),
       shift({ padding: POPOVER_CLEARANCE }),
+      size({
+        padding: POPOVER_CLEARANCE,
+        apply({ availableHeight, elements }) {
+          // Scroll only when taller than the window (would clip nested menus, e.g. color maps)
+          const { floating } = elements;
+          const fits = floating.scrollHeight <= availableHeight;
+          Object.assign(floating.style, {
+            maxHeight: fits ? '' : `${Math.max(availableHeight, 0)}px`,
+            overflowY: fits ? '' : 'auto',
+          });
+        },
+      }),
     ],
     onOpenChange: toggle,
     whileElementsMounted: autoUpdate,
