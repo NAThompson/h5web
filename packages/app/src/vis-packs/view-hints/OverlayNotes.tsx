@@ -10,13 +10,21 @@ interface Props {
  * that shows notes */
 export const EntityNotesContext = createContext<string[]>([]);
 
+/* Whether notes are dismissed, kept above the vis containers so they stay hidden when one
+ * remounts (e.g. other vis tab) */
+export const DismissedNotesContext = createContext<
+  [boolean, (dismissed: boolean) => void] | undefined
+>(undefined);
+
 /* What parts of a `H5WEB_*` view hint can't be applied (e.g. overlays that failed to resolve),
  * collapsed into a chip in a corner of the plot so as not to cover it */
 function OverlayNotes(props: Props) {
   const { notes: visNotes } = props;
   const notes = [...useContext(EntityNotesContext), ...visNotes];
-  const [dismissed, setDismissed] = useState<string>(); // shown again if the notes change
-  if (notes.length === 0 || dismissed === notes.join('\n')) {
+  const localState = useState(false);
+  const [dismissed, setDismissed] =
+    useContext(DismissedNotesContext) ?? localState;
+  if (notes.length === 0 || dismissed) {
     return null;
   }
 
@@ -34,9 +42,10 @@ function OverlayNotes(props: Props) {
         className={styles.dismissNotes}
         type="button"
         aria-label="Dismiss notes"
-        onClick={() => setDismissed(notes.join('\n'))}
+        title="Hide notes until another dataset is selected"
+        onClick={() => setDismissed(true)}
       >
-        ×
+        Hide
       </button>
     </div>
   );

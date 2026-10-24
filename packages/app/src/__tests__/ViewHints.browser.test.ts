@@ -183,9 +183,14 @@ test('note overlays not drawn on line views', async () => {
 });
 
 test('dismiss notes until another dataset is selected', async () => {
-  const { selectExplorerNode } = await renderApp('/view_hints/line_overlays');
+  const { selectExplorerNode, selectVisTab } = await renderApp(
+    '/view_hints/line_overlays',
+  );
 
   await userEvent.click(page.getByRole('button', { name: 'Dismiss notes' }));
+  expect(getNotes()).not.toBeInTheDocument();
+
+  await selectVisTab(Vis.Heatmap); // remounts the vis container
   expect(getNotes()).not.toBeInTheDocument();
 
   await selectExplorerNode('bad_attrs');

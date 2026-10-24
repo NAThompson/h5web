@@ -40,19 +40,19 @@
 }
 
 .dismissNotes {
-  padding: 0 0 0 0.5rem;
-  border: none;
+  margin-left: 0.5rem;
+  padding: 0 0.375rem;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
   background: none;
   font: inherit;
-  font-size: 1rem; /* larger target than the notes' text */
-  line-height: 1;
   color: inherit;
   cursor: pointer;
   pointer-events: auto;
 }
 
 .dismissNotes:hover {
-  color: var(--secondary-darker, #333);
+  background-color: var(--secondary-light, #eee);
 }
 
 .notes summary {

@@ -5,7 +5,10 @@ import { useState } from 'react';
 import { useDataContext } from '../providers/DataProvider';
 import { FetchConfirmationProvider } from '../vis-packs/fetch-confirmation';
 import { type VisDef } from '../vis-packs/models';
-import { EntityNotesContext } from '../vis-packs/view-hints/OverlayNotes';
+import {
+  DismissedNotesContext,
+  EntityNotesContext,
+} from '../vis-packs/view-hints/OverlayNotes';
 import { useActiveVis } from './hooks';
 import { ActiveVisContext } from './navigation';
 import { VisAreaContext } from './vis-area';
@@ -40,6 +43,7 @@ function VisManager(props: Props) {
 
   const [visBarElem, setVisBarElem] = useState<HTMLDivElement>();
   const [visAreaElem, setVisAreaElem] = useState<HTMLDivElement | null>(null);
+  const dismissedNotes = useState(false);
 
   const { filepath, queryClient } = useDataContext();
   function onVisChange(index: number) {
@@ -75,7 +79,9 @@ function VisManager(props: Props) {
                   }
                 }}
               >
-                <Container entity={entity} toolbarContainer={visBarElem} />
+                <DismissedNotesContext value={dismissedNotes}>
+                  <Container entity={entity} toolbarContainer={visBarElem} />
+                </DismissedNotesContext>
               </ActiveVisContext>
             </EntityNotesContext>
           </FetchConfirmationProvider>
