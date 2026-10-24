@@ -1,5 +1,10 @@
 import { DataProviderApi, type OnProgress } from '@h5web/app';
-import { assertDataset, isDefined } from '@h5web/shared/guards';
+import {
+  assertDataset,
+  hasArrayShape,
+  isDefined,
+  isTypedArray,
+} from '@h5web/shared/guards';
 import {
   type ArrayShape,
   type AttributeValues,
@@ -62,13 +67,14 @@ export class H5WasmApi extends DataProviderApi {
     abortSignal?.addEventListener('abort', cancel);
 
     try {
-      return await this.remote.getValue(
+      const value = await this.remote.getValue(
         fileId,
         dataset.path,
         selection,
         requestId,
         onProgress && proxy(onProgress),
       );
+      return selection ? value : truncateToShape(value, dataset);
     } catch (error) {
       throw getEnhancedError(error);
     } finally {
@@ -180,4 +186,23 @@ export class H5WasmApi extends DataProviderApi {
 
     await this.remote.loadPlugin(plugin, transfer(buffer, [buffer]));
   }
+}
+
+/* An SWMR writer may have grown the dataset (along its first dimension) since its metadata was
+ * read: keep the extent the viewer knows about, so datasets read at different times still match */
+function truncateToShape(
+  value: unknown,
+  dataset: Dataset<ScalarShape | ArrayShape>,
+): unknown {
+  if (!hasArrayShape(dataset)) {
+    return value;
+  }
+
+  const size = dataset.shape.dims.reduce((acc, dim) => acc * dim, 1);
+  if (isTypedArray(value) && value.length > size) {
+    return value.subarray(0, size);
+  }
+  return Array.isArray(value) && value.length > size
+    ? value.slice(0, size)
+    : value;
 }
