@@ -17,7 +17,7 @@ export function scatterSourceQuery(
   dataContext: DataContextValue,
 ) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'scatter', entity.path] as const,
+    queryKey: [dataContext.cacheScope, 'scatter', entity.path] as const,
     queryFn: async (): Promise<ScatterSource | null> => {
       const hint = await getHintSafely(entity, dataContext);
       const source = await findScatterSource(

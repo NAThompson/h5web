@@ -54,11 +54,11 @@ function App(props: Props) {
   const [selectedPath, setSelectedPath] = useState<string>(initialPath);
   const [isInspecting, setInspecting] = useState(false);
 
-  const { filepath, queryClient } = useDataContext();
+  const { cacheScope, queryClient } = useDataContext();
   function onSelectPath(path: string) {
     setSelectedPath(path);
     void queryClient.cancelQueries(
-      { queryKey: [filepath, 'value'] },
+      { queryKey: [cacheScope, 'value'] },
       { silent: true },
     );
   }

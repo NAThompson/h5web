@@ -25,7 +25,7 @@ export function packingQuery(
   dataContext: DataContextValue,
 ) {
   return {
-    queryKey: [dataContext.filepath, 'packing', dataset?.path],
+    queryKey: [dataContext.cacheScope, 'packing', dataset?.path],
     queryFn: async (): Promise<Packing | null> => {
       return (dataset && (await getPacking(dataset, dataContext))) || null;
     },
@@ -38,7 +38,7 @@ export function ignoreValueQuery(
   dataContext: DataContextValue,
 ) {
   return {
-    queryKey: [dataContext.filepath, 'ignoreValue', dataset?.path],
+    queryKey: [dataContext.cacheScope, 'ignoreValue', dataset?.path],
     queryFn: async (): Promise<IgnoreValue | null> => {
       if (!dataset || !hasArrayShape(dataset) || !hasNumericType(dataset)) {
         return null;

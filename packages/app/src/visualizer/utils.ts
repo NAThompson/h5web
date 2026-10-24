@@ -53,7 +53,7 @@ import { VTK_GRID_VIS } from '../vis-packs/vtkhdf/visualizations';
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function resolvePathQuery(path: string, dataContext: DataContextValue) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'resolution', path] as const,
+    queryKey: [dataContext.cacheScope, 'resolution', path] as const,
     queryFn: async () => resolvePath(path, dataContext),
   });
 }

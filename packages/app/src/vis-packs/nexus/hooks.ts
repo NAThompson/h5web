@@ -31,7 +31,7 @@ export function useNxData(
   const dataContext = useDataContext();
 
   return useSuspenseQuery({
-    queryKey: [dataContext.filepath, 'nxData', group.path, signalOnly],
+    queryKey: [dataContext.cacheScope, 'nxData', group.path, signalOnly],
     queryFn: async () => getNxData(group, dataContext, signalOnly),
   }).data;
 }

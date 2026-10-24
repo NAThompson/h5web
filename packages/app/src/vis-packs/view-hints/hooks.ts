@@ -125,7 +125,7 @@ export function useResolvedOverlays(
 ): ResolvedOverlays | undefined {
   const dataContext = useDataContext();
   const { data, error } = useQuery({
-    queryKey: [dataContext.filepath, 'overlays', base.path, hint.anchor],
+    queryKey: [dataContext.cacheScope, 'overlays', base.path, hint.anchor],
     queryFn: async () =>
       resolveOverlays(hint, base, createOverlayContext(dataContext)),
     enabled: hint.overlayPaths.length > 0 || hint.notes.length > 0,
@@ -452,7 +452,7 @@ export function useContourSource(
   const { contourOf, contourOfAnchor = base.path } = hint;
 
   const { data: entity, isPending } = useQuery({
-    queryKey: [dataContext.filepath, 'contourOf', contourOfAnchor, contourOf],
+    queryKey: [dataContext.cacheScope, 'contourOf', contourOfAnchor, contourOf],
     queryFn: async () =>
       (await resolveCoordinate(
         contourOfAnchor,

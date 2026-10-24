@@ -16,6 +16,7 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -93,6 +94,7 @@ function getQueryOptionsFactories(
 
 export interface DataContextValue {
   filepath: string;
+  cacheScope: string; // first element of query keys (cf. `getCacheScope`)
   filename: string;
   queries: ReturnType<typeof getQueryOptionsFactories>;
   queryClient: QueryClient;
@@ -113,6 +115,20 @@ interface Props {
   api: DataProviderApi;
 }
 
+/* Query keys are scoped by API rather than by file path, as a new API may serve different content
+ * for the same file (e.g. reopened after being rewritten, or reloaded while being appended to).
+ * What's on screen keeps reading its own entries until content from the new API is ready. */
+const apiIds = new WeakMap<DataProviderApi, number>();
+let nextApiId = 0;
+
+function getCacheScope(api: DataProviderApi): string {
+  if (!apiIds.has(api)) {
+    apiIds.set(api, nextApiId);
+    nextApiId += 1;
+  }
+  return `${api.filepath}#${apiIds.get(api)}`;
+}
+
 function DataProvider(props: PropsWithChildren<Props>) {
   const { api, children } = props;
 
@@ -131,13 +147,13 @@ function DataProvider(props: PropsWithChildren<Props>) {
       }),
   );
 
-  /* New API may serve different content for the same file (e.g. reopened after being rewritten).
-   * Clear cache rather than create new client, as mounted queries would keep using the old one. */
-  const [prevApi, setPrevApi] = useState(api);
-  if (api !== prevApi) {
-    setPrevApi(api);
-    queryClient.clear();
-  }
+  // Drop entries of previous APIs once content from the new one is shown
+  const cacheScope = getCacheScope(api);
+  useEffect(() => {
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== cacheScope,
+    });
+  }, [queryClient, cacheScope]);
 
   const [progressStore] = useState(createProgressStore);
 
@@ -146,10 +162,11 @@ function DataProvider(props: PropsWithChildren<Props>) {
 
     return {
       filepath,
+      cacheScope,
       filename: getNameFromPath(filepath),
       queries: getQueryOptionsFactories(
         api,
-        filepath,
+        cacheScope,
         queryClient,
         progressStore,
       ),
@@ -159,7 +176,7 @@ function DataProvider(props: PropsWithChildren<Props>) {
       getSearchablePaths: api.getSearchablePaths?.bind(api),
       getDimensionScales: api.getDimensionScales?.bind(api),
     };
-  }, [api, queryClient, progressStore]);
+  }, [api, cacheScope, queryClient, progressStore]);
 
   return (
     <QueryClientProvider client={queryClient}>

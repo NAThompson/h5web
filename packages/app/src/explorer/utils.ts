@@ -132,7 +132,7 @@ export function focusLast(evt: KeyboardEvent<HTMLButtonElement>): void {
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function nxBadgeQuery(group: Group, dataContext: DataContextValue) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'nxBadge', group.path] as const,
+    queryKey: [dataContext.cacheScope, 'nxBadge', group.path] as const,
     queryFn: async () => needsNxBadge(group, dataContext),
   });
 }
@@ -169,7 +169,7 @@ export function auxRolesQuery(
   dataContext: DataContextValue,
 ) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'auxRoles', group.path] as const,
+    queryKey: [dataContext.cacheScope, 'auxRoles', group.path] as const,
     queryFn: async () => getAuxRoles(group, dataContext),
   });
 }

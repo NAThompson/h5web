@@ -354,7 +354,7 @@ async function resolveVector(
 export function useResolvedVector(entity: ProvidedEntity): ResolvedVector {
   const dataContext = useDataContext();
   return useSuspenseQuery({
-    queryKey: [dataContext.filepath, 'vector', entity.path] as const,
+    queryKey: [dataContext.cacheScope, 'vector', entity.path] as const,
     queryFn: async () => resolveVector(entity, dataContext),
   }).data;
 }

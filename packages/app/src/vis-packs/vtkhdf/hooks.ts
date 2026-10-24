@@ -14,7 +14,7 @@ import {
 export function useVtkGridInfo(group: GroupWithChildren): VtkGridInfo {
   const dataContext = useDataContext();
   return useSuspenseQuery({
-    queryKey: [dataContext.filepath, 'vtkGrid', group.path],
+    queryKey: [dataContext.cacheScope, 'vtkGrid', group.path],
     queryFn: async () => getVtkGridInfo(group, dataContext),
   }).data;
 }
@@ -29,7 +29,7 @@ export function useResampledField(
   const dataContext = useDataContext();
   return useSuspenseQuery({
     queryKey: [
-      dataContext.filepath,
+      dataContext.cacheScope,
       'vtkResampled',
       group.path,
       field.dataset.path,

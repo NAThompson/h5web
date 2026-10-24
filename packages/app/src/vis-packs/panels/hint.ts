@@ -183,7 +183,7 @@ export async function resolvePanels(
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function panelsQuery(group: Group, dataContext: DataContextValue) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'panels', group.path] as const,
+    queryKey: [dataContext.cacheScope, 'panels', group.path] as const,
     queryFn: async () => resolvePanels(group, dataContext),
   });
 }

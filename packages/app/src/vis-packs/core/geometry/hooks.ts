@@ -29,7 +29,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- prefer automatic type inference
 export function geometryQuery(dataset: Dataset, dataContext: DataContextValue) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'geometry', dataset.path] as const,
+    queryKey: [dataContext.cacheScope, 'geometry', dataset.path] as const,
     queryFn: async (): Promise<Geometry | null> => {
       const geometry = await findGeometry(
         dataset,

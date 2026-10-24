@@ -234,7 +234,7 @@ export function useLineSeries(
   const dataContext = useDataContext();
   const hasSeries = (hint.seriesPaths?.length ?? 0) > 0;
   const { data: resolved, error } = useQuery({
-    queryKey: [dataContext.filepath, 'series', base.path, hint.seriesAnchor],
+    queryKey: [dataContext.cacheScope, 'series', base.path, hint.seriesAnchor],
     queryFn: async () =>
       resolveSeries(
         hint.seriesPaths ?? [],
@@ -317,7 +317,7 @@ export function useLineBand(
 ): { band?: BandParams; notes: string[] } {
   const dataContext = useDataContext();
   const { data: resolved, error } = useQuery({
-    queryKey: [dataContext.filepath, 'band', base.path, hint.bandAnchor],
+    queryKey: [dataContext.cacheScope, 'band', base.path, hint.bandAnchor],
     queryFn: async () =>
       resolveSeries(
         hint.bandPaths ?? [],

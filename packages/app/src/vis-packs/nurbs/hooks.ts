@@ -38,7 +38,7 @@ import {
 function useIsBspline(group: GroupWithChildren): boolean {
   const dataContext = useDataContext();
   const { data: geometry } = useSuspenseQuery({
-    queryKey: [dataContext.filepath, 'nurbsGeometry', group.path],
+    queryKey: [dataContext.cacheScope, 'nurbsGeometry', group.path],
     queryFn: async () => (await getNurbsGeometry(group, dataContext)) ?? null,
   });
   return geometry?.toLowerCase() === 'bspline';

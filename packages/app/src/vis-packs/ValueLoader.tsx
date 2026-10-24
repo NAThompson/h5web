@@ -13,7 +13,7 @@ interface Props {
 
 function ValueLoader(props: Props) {
   const { isSlice = false } = props;
-  const { filepath, queryClient, progressStore } = useDataContext();
+  const { cacheScope, queryClient, progressStore } = useDataContext();
 
   // Wait a bit before showing loader to avoid flash
   const [isReady, toggleReady] = useToggle();
@@ -21,7 +21,7 @@ function ValueLoader(props: Props) {
 
   // Track progress: indeterminate for value fetches that haven't reported any
   const ongoing = useStore(progressStore, (state) => state.ongoing);
-  const fetchingCount = useIsFetching({ queryKey: [filepath, 'value'] });
+  const fetchingCount = useIsFetching({ queryKey: [cacheScope, 'value'] });
   const progressBars = [
     ...ongoing.entries(),
     ...Array.from(
@@ -57,7 +57,7 @@ function ValueLoader(props: Props) {
               type="button"
               onClick={() => {
                 void queryClient.cancelQueries(
-                  { queryKey: [filepath, 'value'] },
+                  { queryKey: [cacheScope, 'value'] },
                   {
                     /* Make sure the error stays in the query cache so the error boundary appears.
                      * The boundary's `onError` callback then takes care of evicting errored queries from the cache. */

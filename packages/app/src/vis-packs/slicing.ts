@@ -106,7 +106,7 @@ function useCacheVersion(
   datasetPath: string | undefined,
   enabled: boolean,
 ): number {
-  const { filepath, queryClient } = dataContext;
+  const { cacheScope, queryClient } = dataContext;
   const version = useRef(0);
   const subscribe = useCallback(
     (onChange: () => void) => {
@@ -116,7 +116,7 @@ function useCacheVersion(
       return queryClient.getQueryCache().subscribe((event) => {
         const [file, type, path] = event.query.queryKey;
         if (
-          file === filepath &&
+          file === cacheScope &&
           path === datasetPath &&
           CACHED_TYPES.has(type) &&
           (event.type === 'removed' ||
@@ -127,7 +127,7 @@ function useCacheVersion(
         }
       });
     },
-    [datasetPath, enabled, filepath, queryClient],
+    [datasetPath, enabled, cacheScope, queryClient],
   );
   return useSyncExternalStore(subscribe, () => version.current);
 }

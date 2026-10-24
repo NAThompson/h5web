@@ -45,11 +45,11 @@ function VisManager(props: Props) {
   const [visAreaElem, setVisAreaElem] = useState<HTMLDivElement | null>(null);
   const dismissedNotes = useState(false);
 
-  const { filepath, queryClient } = useDataContext();
+  const { cacheScope, queryClient } = useDataContext();
   function onVisChange(index: number) {
     setActiveVis(index);
     void queryClient.cancelQueries(
-      { queryKey: [filepath, 'value'] },
+      { queryKey: [cacheScope, 'value'] },
       { silent: true },
     );
   }

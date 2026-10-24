@@ -21,8 +21,8 @@ export interface DimScaleAxes {
 
 export type AxisScaleHint = Pick<AxisParams, 'scaleType' | 'symlogConstant'>;
 
-function getQueryKey(filepath: string, dataset: Dataset) {
-  return [filepath, 'dimScales', dataset.path];
+function getQueryKey(cacheScope: string, dataset: Dataset) {
+  return [cacheScope, 'dimScales', dataset.path];
 }
 
 /* Resolve the HDF5 dimension scales attached to a dataset's dimensions into
@@ -35,7 +35,7 @@ export function useDimScales(dataset: Dataset<ArrayShape>): DimScaleAxes {
   const dataContext = useDataContext();
 
   const dimScales = useSuspenseQuery({
-    queryKey: getQueryKey(dataContext.filepath, dataset),
+    queryKey: getQueryKey(dataContext.cacheScope, dataset),
     queryFn: async () => getDimScales(dataset, dataContext),
   }).data;
 
@@ -77,9 +77,9 @@ export function useDimInfo(dataset: Dataset): DimInfo {
 }
 
 export function useCachedDimScales(dataset: Dataset): AxisMapping<DimScale> {
-  const { filepath, queryClient } = useDataContext();
+  const { cacheScope, queryClient } = useDataContext();
   const queryCache = queryClient.getQueryCache();
-  const queryKey = getQueryKey(filepath, dataset);
+  const queryKey = getQueryKey(cacheScope, dataset);
   const queryHash = hashKey(queryKey);
 
   const dimScales = useSyncExternalStore(

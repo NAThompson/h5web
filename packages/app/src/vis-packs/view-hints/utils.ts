@@ -210,7 +210,7 @@ export function viewHintQuery(
   signal?: ProvidedEntity,
 ) {
   return queryOptions({
-    queryKey: [dataContext.filepath, 'viewHint', entity.path] as const,
+    queryKey: [dataContext.cacheScope, 'viewHint', entity.path] as const,
     queryFn: async () => getViewHint(entity, dataContext, signal),
   });
 }

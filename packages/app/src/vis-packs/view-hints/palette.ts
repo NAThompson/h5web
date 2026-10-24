@@ -46,7 +46,7 @@ export function usePaletteColors(
 
   const { data, isPending, isError } = useQuery({
     queryKey: [
-      dataContext.filepath,
+      dataContext.cacheScope,
       'paletteBy',
       paletteByAnchor,
       paletteBy,
