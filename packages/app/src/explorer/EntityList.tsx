@@ -1,6 +1,6 @@
 import { assertGroup } from '@h5web/shared/guards';
 import { buildEntityPath } from '@h5web/shared/hdf5-utils';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useEntity } from '../hooks';
 import { useDataContext } from '../providers/DataProvider';
@@ -22,7 +22,10 @@ function EntityList(props: Props) {
   assertGroup(group);
 
   // Not suspended: rows are listed first, auxiliary data is muted once known
-  const { data: auxRoles } = useQuery(auxRolesQuery(group, useDataContext()));
+  const { data: auxRoles } = useQuery({
+    ...auxRolesQuery(group, useDataContext()),
+    placeholderData: keepPreviousData, // don't flicker when file is reloaded
+  });
 
   if (group.children.length === 0) {
     return null;
