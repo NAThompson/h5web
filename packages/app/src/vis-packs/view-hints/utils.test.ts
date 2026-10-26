@@ -166,6 +166,50 @@ describe('parseViewHint', () => {
     ]);
   });
 
+  it('parse categorical colors and CF flags', () => {
+    expect(
+      hint({
+        flag_values: [1, 2, 3],
+        flag_meanings: 'clear  cloud cloud_shadow',
+        H5WEB_palette: 'Glasbey',
+      }),
+    ).toMatchObject({
+      categorical: true, // on with CF flags
+      categoryList: {
+        values: [1, 2, 3],
+        labels: ['clear', 'cloud', 'cloud shadow'],
+      },
+      paletteName: 'Glasbey',
+      notes: [],
+    });
+    expect(
+      hint({ flag_values: [1, 2], H5WEB_categorical: { int: 0 } }).categorical,
+    ).toBe(false);
+    expect(hint({ H5WEB_categorical: { int: 1 } })).toMatchObject({
+      categorical: true,
+      categoryList: undefined,
+    });
+  });
+
+  it('note CF flags that are not categories', () => {
+    expect(
+      hint({ flag_values: [1, 2, 3], flag_meanings: 'a b' }),
+    ).toMatchObject({
+      categoryList: { values: [1, 2, 3], labels: undefined },
+      notes: [
+        '"flag_meanings" has 2 words for 3 "flag_values": not used as labels',
+      ],
+    });
+    const masks = hint({ flag_masks: [1, 2, 4], flag_meanings: 'a b c' });
+    expect(masks.categorical).toBeUndefined();
+    expect(masks.notes).toHaveLength(1);
+    expect(masks.notes[0]).toMatch(/"flag_masks" \(bit fields\)/u);
+    expect(hint({ flag_values: [1, 1] })).toMatchObject({
+      categorical: undefined,
+      notes: ['ignored invalid "flag_values"'],
+    });
+  });
+
   it('parse the bounds, opacity and band-only flag of a band', () => {
     expect(
       hint({

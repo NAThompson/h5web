@@ -5,7 +5,7 @@ import {
   assertMinDims,
   assertNumericType,
 } from '@h5web/shared/guards';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -40,6 +40,7 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
   const selection = getSliceSelection(dimMapping);
 
   const hint = useViewHint(entity);
+  const [categoryNotes, setCategoryNotes] = useState<string[]>([]);
   const overlays = useVolumeOverlays(entity, hint, dimMapping);
   const config = useOrthoslicesConfig(getOrthoslicesSuggestions(hint));
 
@@ -104,6 +105,8 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
                   symlogThreshold={hint.symlogThreshold}
                   valueTransform={hint.valueTransform}
                   specialColors={hint}
+                  categoryHint={hint}
+                  onCategoryNotesChange={setCategoryNotes}
                 />
               )}
             />
@@ -111,7 +114,11 @@ function OrthoslicesVisContainer(props: VisContainerProps) {
         />
       </VisBoundary>
       <OverlayNotes
-        notes={[...overlays.notes, ...getDimScaleNotes(dimScales)]}
+        notes={[
+          ...overlays.notes,
+          ...getDimScaleNotes(dimScales),
+          ...categoryNotes,
+        ]}
       />
     </>
   );

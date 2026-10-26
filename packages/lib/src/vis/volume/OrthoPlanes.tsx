@@ -147,6 +147,7 @@ interface Props {
   nanColor?: string;
   belowColor?: string; // CSS colour of values below the domain (default: colour of its lower end)
   aboveColor?: string;
+  categoryColors?: string[]; // values are category indices (cf. `getCategoryIndices`)
 }
 
 /* Three orthogonal planes through a voxel of a volume, coloured by sampling its 3D texture (cf.
@@ -164,6 +165,7 @@ function OrthoPlanes(props: Props) {
     nanColor = '#404040',
     belowColor,
     aboveColor,
+    categoryColors,
   } = props;
 
   const invalidate = useThree((state) => state.invalidate);
@@ -213,6 +215,7 @@ function OrthoPlanes(props: Props) {
     colorMap,
     invertColorMap,
     axisLookups,
+    categoryColors,
   });
 
   const { uniforms } = material;

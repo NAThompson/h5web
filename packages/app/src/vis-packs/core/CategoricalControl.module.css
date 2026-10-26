@@ -1,0 +1,16 @@
+.option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.swatches {
+  display: flex;
+  height: 1em;
+  margin-left: 0.625rem;
+}
+
+.swatches > span {
+  width: 0.375rem;
+}

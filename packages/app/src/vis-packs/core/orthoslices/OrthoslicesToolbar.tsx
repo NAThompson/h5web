@@ -13,6 +13,7 @@ import {
 import { MdAspectRatio } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import CategoricalControl from '../CategoricalControl';
 import RootScaleSelector from '../RootScaleSelector';
 import { type OrthoslicesConfig } from './config';
 import SliceIndexInput from './SliceIndexInput';
@@ -33,11 +34,14 @@ interface Props {
   sizes: [number, number, number]; // along x, y and z
   dimLabels: [string | undefined, string | undefined, string | undefined]; // of x, y and z
   onIndexChange: (axis: OrthoAxis, index: number) => void;
+  withCategorical?: boolean; // e.g. integer labels
+  isCategorical?: boolean; // shown with categorical colors: no domain, color map nor scale
 }
 
 function OrthoslicesToolbar(props: Props) {
   const visArea = useVisArea();
   const { dataDomain, config, point, sizes, dimLabels, onIndexChange } = props;
+  const { withCategorical, isCategorical } = props;
   const {
     customDomain,
     colorMap,
@@ -67,29 +71,45 @@ function OrthoslicesToolbar(props: Props) {
       ))}
       <Separator />
 
-      <RootScaleSelector
-        value={scaleType}
-        onScaleChange={setScaleType}
-        rootN={config.rootN}
-        onRootNChange={config.setRootN}
-      />
-      <Separator />
+      {withCategorical && (
+        <>
+          <CategoricalControl
+            value={config.categorical}
+            onToggle={() => config.setCategorical(!config.categorical)}
+            palette={config.categoricalPalette}
+            onPaletteChange={config.setCategoricalPalette}
+          />
+          <Separator />
+        </>
+      )}
 
-      <DomainWidget
-        dataDomain={dataDomain}
-        customDomain={customDomain}
-        scaleType={scaleType}
-        onCustomDomainChange={setCustomDomain}
-      />
-      <Separator />
+      {!isCategorical && (
+        <>
+          <RootScaleSelector
+            value={scaleType}
+            onScaleChange={setScaleType}
+            rootN={config.rootN}
+            onRootNChange={config.setRootN}
+          />
+          <Separator />
 
-      <ColorMapSelector
-        value={colorMap}
-        onValueChange={setColorMap}
-        invert={invertColorMap}
-        onInversionChange={() => setInvertColorMap(!invertColorMap)}
-      />
-      <Separator />
+          <DomainWidget
+            dataDomain={dataDomain}
+            customDomain={customDomain}
+            scaleType={scaleType}
+            onCustomDomainChange={setCustomDomain}
+          />
+          <Separator />
+
+          <ColorMapSelector
+            value={colorMap}
+            onValueChange={setColorMap}
+            invert={invertColorMap}
+            onInversionChange={() => setInvertColorMap(!invertColorMap)}
+          />
+          <Separator />
+        </>
+      )}
 
       <ToggleBtn
         label="Keep ratio"

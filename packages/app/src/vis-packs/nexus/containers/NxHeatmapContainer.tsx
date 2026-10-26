@@ -56,6 +56,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
   // `H5WEB_*` view hint > NeXus `SILX_style` > heuristics
   const hint = useViewHint(entity, signalDef.dataset);
   const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
+  const [categoryNotes, setCategoryNotes] = useState<string[]>([]);
   const config = useHeatmapConfig(
     getHeatmapSuggestions(
       hint,
@@ -159,6 +160,8 @@ function NxHeatmapContainer(props: VisContainerProps) {
                 symlogThreshold={hint.symlogThreshold}
                 specialColors={hint}
                 onDataDomainChange={setDataDomain}
+                categoryHint={selectedDef === signalDef ? hint : undefined} // not of auxiliary signals
+                onCategoryNotesChange={setCategoryNotes}
                 contourSource={contourOf.source}
                 emphasisStyle={{
                   width: hint.contourEmphasizeWidth,
@@ -170,10 +173,7 @@ function NxHeatmapContainer(props: VisContainerProps) {
         />
       </VisBoundary>
       <OverlayNotes
-        notes={[
-          ...overlays.notes,
-          ...contourOf.notes,
-        ]}
+        notes={[...overlays.notes, ...contourOf.notes, ...categoryNotes]}
       />
       <OverlayLegend items={overlays.legend} />
     </>

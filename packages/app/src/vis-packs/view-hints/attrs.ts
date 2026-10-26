@@ -2,6 +2,7 @@ import {
   clampPlaybackFps,
   Interpolation,
   INTERPOLATORS,
+  type PaletteName,
   PALETTES,
   type PlaybackMode,
   type PlaybackRange,
@@ -64,8 +65,8 @@ const COLOR_MAPS = new Map(
 const INTERPOLATIONS = new Map(
   Object.values(Interpolation).map((type) => [toKey(type), type]),
 );
-const PALETTE_COLORS = new Map(
-  Object.entries(PALETTES).map(([name, colors]) => [toKey(name), colors]),
+const PALETTE_NAMES = new Map(
+  Object.keys(PALETTES).map((name) => [toKey(name), name as PaletteName]),
 );
 const COMPLEX_TYPES = new Map(
   Object.values(ComplexVisType).map((type) => [toKey(type), type]),
@@ -392,6 +393,50 @@ export function toRgbaColor(val: string | undefined): string | undefined {
   const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
   return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 }
+function isCategoryList(arr: number[]): boolean {
+  return (
+    arr.length > 0 &&
+    arr.every(Number.isFinite) &&
+    new Set(arr).size === arr.length
+  );
+}
+
+/**
+ * Categorical colors: `H5WEB_categorical` (boolean), else on with CF `flag_values`, labelled by the
+ * space-separated words of `flag_meanings` (underscores shown as spaces). CF `flag_masks` (bit
+ * fields, of which several may be set at once) aren't categories: not turned on by them.
+ */
+export function readCategorical(
+  entity: Entity,
+  read: AttrReader,
+  notes: string[],
+): Pick<ViewHint, 'categorical' | 'categoryList'> {
+  const values = read.nums('flag_values', isCategoryList);
+  const meanings = splitNames(read.str('flag_meanings') ?? '').map((word) =>
+    word.replaceAll('_', ' '),
+  );
+  const hasMasks = !!findAttribute(entity, 'flag_masks');
+  if (hasMasks) {
+    notes.push(
+      '"flag_masks" (bit fields) are not supported: values are not shown as categories unless "H5WEB_categorical" says so',
+    );
+  }
+  if (values && meanings.length > 0 && meanings.length !== values.length) {
+    notes.push(
+      `"flag_meanings" has ${meanings.length} words for ${values.length} "flag_values": not used as labels`,
+    );
+  }
+  return {
+    categorical:
+      read.bool('H5WEB_categorical') ??
+      (values && !hasMasks ? true : undefined),
+    categoryList: values && {
+      values,
+      labels: meanings.length === values.length ? meanings : undefined,
+    },
+  };
+}
+
 function isPos(val: number): boolean {
   return Number.isFinite(val) && val > 0;
 }
@@ -428,9 +473,10 @@ export function parseViewHint(
   if (scale !== 'root' && findAttribute(entity, 'H5WEB_root_n')) {
     notes.push('"H5WEB_root_n" is ignored without "H5WEB_scale" "root"');
   }
-  const palette = read.oneOf('H5WEB_palette', (val) =>
-    PALETTE_COLORS.get(toKey(val)),
+  const paletteName = read.oneOf('H5WEB_palette', (val) =>
+    PALETTE_NAMES.get(toKey(val)),
   );
+  const palette = paletteName && PALETTES[paletteName];
   if (!palette && findAttribute(entity, 'H5WEB_palette_by')) {
     notes.push('"H5WEB_palette_by" is ignored without "H5WEB_palette"');
   }
@@ -498,7 +544,9 @@ export function parseViewHint(
       INTERPOLATIONS.get(toKey(val)),
     ),
     palette,
+    paletteName,
     paletteBy: palette && read.str('H5WEB_palette_by'),
+    ...readCategorical(entity, read, notes),
     probeDim: readDim(read, 'H5WEB_probe_dim', entity, dimNames),
     projection: read.oneOf(
       'H5WEB_projection',

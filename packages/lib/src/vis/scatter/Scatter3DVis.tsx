@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 
+import { getCategoryFormat } from '../categorical/utils';
 import { type ClassStyleAttrs } from '../models';
 import tooltipStyles from '../shared/Tooltip.module.css';
 import Axes3D, { type Axis3DConfig } from '../three-d/Axes3D';
@@ -58,6 +59,7 @@ function Scatter3DVis(props: PropsWithChildren<Props>) {
     belowColor,
     aboveColor,
     sizes: sizeValues,
+    categories,
     xLabel = '𝑥',
     yLabel = '𝑦',
     zLabel = '𝑧',
@@ -110,7 +112,15 @@ function Scatter3DVis(props: PropsWithChildren<Props>) {
       { label: xLabel, values: x },
       { label: yLabel, values: y },
       { label: zLabel, values: z },
-      ...(values ? [{ label: colorBarLabel ?? 'value', values }] : []),
+      ...(values
+        ? [
+            {
+              label: colorBarLabel ?? 'value',
+              values,
+              format: getCategoryFormat(categories),
+            },
+          ]
+        : []),
       ...(sizeValues
         ? [{ label: sizeLabel ?? 'size', values: sizeValues }]
         : []),
@@ -124,6 +134,7 @@ function Scatter3DVis(props: PropsWithChildren<Props>) {
       zLabel,
       values,
       colorBarLabel,
+      categories,
       sizeValues,
       sizeLabel,
     ],
@@ -145,6 +156,7 @@ function Scatter3DVis(props: PropsWithChildren<Props>) {
       belowColor={belowColor}
       aboveColor={aboveColor}
       showColorBar={!!values}
+      categories={categories}
       overlay={
         <>
           {sizeDomain && (

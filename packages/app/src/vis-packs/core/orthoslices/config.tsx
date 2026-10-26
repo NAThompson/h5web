@@ -1,4 +1,4 @@
-import { type CustomDomain } from '@h5web/lib';
+import { type CustomDomain, type PaletteName } from '@h5web/lib';
 import { ScaleType } from '@h5web/shared/vis-models';
 import {
   createContext,
@@ -9,6 +9,7 @@ import {
 import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { DEFAULT_CATEGORICAL_PALETTE } from '../categorical';
 import { type ColorMap } from '../heatmap/models';
 import { useSuggestions } from '../hooks';
 import {
@@ -35,6 +36,13 @@ export interface OrthoslicesConfig {
 
   keepRatio: boolean;
   setKeepRatio: (keepRatio: boolean) => void;
+
+  /* Integer labels (e.g. material IDs): a color per value from a palette, and a discrete legend */
+  categorical: boolean;
+  setCategorical: (categorical: boolean) => void;
+
+  categoricalPalette: PaletteName;
+  setCategoricalPalette: (categoricalPalette: PaletteName) => void;
 }
 
 function createOrthoslicesConfigStore() {
@@ -58,11 +66,27 @@ function createOrthoslicesConfigStore() {
 
         keepRatio: true,
         setKeepRatio: (keepRatio) => set({ keepRatio }),
+
+        categorical: false,
+        setCategorical: (categorical) => set({ categorical }),
+
+        categoricalPalette: DEFAULT_CATEGORICAL_PALETTE,
+        setCategoricalPalette: (categoricalPalette) =>
+          set({ categoricalPalette }),
       }),
       {
         name: 'h5web:orthoslices',
-        version: 2,
-        migrate: migrateSqrtToRoot, // v2: Root replaces Sqrt in the toolbar
+        version: 3,
+        // v2: Root replaces Sqrt in the toolbar; v3: palette of categorical colors
+        migrate: (persisted) => {
+          const state = migrateSqrtToRoot(persisted) as Record<string, unknown>;
+          if (state.categoricalPalette === undefined) {
+            state.categoricalPalette = DEFAULT_CATEGORICAL_PALETTE;
+          }
+          return state as never;
+        },
+        // Categorical colors are for label data: on for the session only, or by a hint
+        partialize: ({ categorical, ...state }) => state,
       },
     ),
   );

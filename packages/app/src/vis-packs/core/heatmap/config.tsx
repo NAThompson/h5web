@@ -1,4 +1,4 @@
-import { type CustomDomain } from '@h5web/lib';
+import { type CustomDomain, type PaletteName } from '@h5web/lib';
 import {
   type ComplexHeatmapVisType,
   ComplexVisType,
@@ -13,6 +13,7 @@ import {
 import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { DEFAULT_CATEGORICAL_PALETTE } from '../categorical';
 import { useSuggestions } from '../hooks';
 import {
   type ColorOrRootScaleType,
@@ -116,6 +117,13 @@ export interface HeatmapConfig {
   /* Click a pixel of a stack to plot its values along a sliced dimension */
   probe: boolean;
   setProbe: (probe: boolean) => void;
+
+  /* Integer labels / classes: a color per value from a palette, and a discrete legend */
+  categorical: boolean;
+  setCategorical: (categorical: boolean) => void;
+
+  categoricalPalette: PaletteName;
+  setCategoricalPalette: (categoricalPalette: PaletteName) => void;
 }
 
 function createHeatmapConfigStore() {
@@ -206,28 +214,41 @@ function createHeatmapConfigStore() {
 
         probe: false,
         setProbe: (probe) => set({ probe }),
+
+        categorical: false,
+        setCategorical: (categorical) => set({ categorical }),
+
+        categoricalPalette: DEFAULT_CATEGORICAL_PALETTE,
+        setCategoricalPalette: (categoricalPalette) =>
+          set({ categoricalPalette }),
       }),
       {
         name: 'h5web:heatmap',
-        version: 15,
+        version: 16,
         // v13: HSL (not perceptually uniform) was the default phase colour map; use Twilight
         // v14: Root replaces Sqrt in the toolbar; v15: on 3D complex surfaces too
+        // v16: palette of categorical colors
         migrate: (persisted) => {
           const state = persisted as Record<string, unknown>;
           if (state.phaseColorMap === 'HSL') {
             state.phaseColorMap = 'Twilight';
+          }
+          if (state.categoricalPalette === undefined) {
+            state.categoricalPalette = DEFAULT_CATEGORICAL_PALETTE;
           }
           return migrateSqrtToRoot(state);
         },
         // 3D mode and probe are opt-in for the session: not restored after a reload
         // Custom and emphasized contour levels are dataset-specific: don't restore them either
         // Custom domain of complex surfaces is dataset-specific
+        // Categorical colors are for label data: on for the session only, or by a hint
         partialize: ({
           surface,
           contourLevels,
           contourEmphasis,
           probe,
           surfaceCustomDomain,
+          categorical,
           ...state
         }) => state,
       },

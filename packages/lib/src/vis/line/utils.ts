@@ -9,15 +9,19 @@ import { range } from 'd3-array';
 import { schemeCategory10, schemeTableau10 } from 'd3-scale-chromatic';
 import { useMemo } from 'react';
 
+import { GLASBEY } from '../categorical/glasbey';
 import { type VisScaleType } from '../models';
 import { createScale } from '../utils';
 import { type LegendObstacle } from './models';
 
-// Categorical colour tables (e.g. of the curves of a multi-plot)
+// Categorical colour tables (e.g. of the curves of a multi-plot, of categorical heatmaps)
 export const PALETTES = {
   Category10: schemeCategory10,
   Tableau10: schemeTableau10,
+  Glasbey: GLASBEY, // many categories (Tableau10 first)
 };
+
+export type PaletteName = keyof typeof PALETTES;
 
 export function getAxisValues(
   rawValues: NumArray | undefined,

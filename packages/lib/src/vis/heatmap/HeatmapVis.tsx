@@ -16,12 +16,17 @@ import {
 import {
   type MagnificationTextureFilter,
   type MinificationTextureFilter,
+  NearestFilter,
 } from 'three';
 
 import DefaultInteractions, {
   type DefaultInteractionsConfig,
 } from '../../interactions/DefaultInteractions';
 import ResetZoomButton from '../../toolbar/floating/ResetZoomButton';
+import CategoryLegend from '../categorical/CategoryLegend';
+import { type CategoryArray, useCategoryArray } from '../categorical/hooks';
+import { type Category } from '../categorical/models';
+import { findCategory } from '../categorical/utils';
 import { useAxisDomain, useValueToIndexScale } from '../hooks';
 import {
   type Aspect,
@@ -39,7 +44,7 @@ import {
   isIntegerAxis,
 } from '../utils';
 import ColorBar from './ColorBar';
-import HeatmapMesh from './HeatmapMesh';
+import HeatmapMesh, { type HeatmapMeshProps } from './HeatmapMesh';
 import styles from './HeatmapVis.module.css';
 import { useHeatmapAxis, useMask, useTextureSafeNdArray } from './hooks';
 import { type ColorMap, type TooltipData } from './models';
@@ -76,6 +81,43 @@ interface Props extends ClassStyleAttrs {
   aboveColor?: string;
   valueTransform?: ValueTransform; // values are logarithms: shown as powers in the colour bar
   showColorBar?: boolean; // e.g. not on panels that share one
+  /* Integer labels / classes: a discrete color per category (nearest sampling) and a legend
+   * instead of the color bar; other values are drawn as ignored */
+  categories?: Category[];
+}
+
+/* Values and coloring of the mesh: indices of categories looked up in their colors, without
+ * interpolation, else values as given */
+function getMeshColoring(
+  dataArray: NdArray<NumArray>,
+  categorical: CategoryArray | undefined,
+  props: Pick<
+    HeatmapMeshProps,
+    | 'domain'
+    | 'scaleType'
+    | 'magFilter'
+    | 'minFilter'
+    | 'belowColor'
+    | 'aboveColor'
+  >,
+): {
+  values: NdArray<NumArray>;
+  colorProps: Partial<HeatmapMeshProps> &
+    Pick<HeatmapMeshProps, 'domain' | 'scaleType'>;
+} {
+  if (!categorical) {
+    return { values: dataArray, colorProps: props };
+  }
+  return {
+    values: categorical.indices,
+    colorProps: {
+      domain: categorical.domain,
+      scaleType: categorical.scaleType,
+      magFilter: NearestFilter,
+      minFilter: NearestFilter,
+      categoryColors: categorical.colors,
+    },
+  };
 }
 
 function HeatmapVis(props: PropsWithChildren<Props>) {
@@ -106,6 +148,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     aboveColor,
     valueTransform,
     showColorBar = true,
+    categories,
     className = '',
     style,
   } = props;
@@ -140,7 +183,18 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
   const xCentres = xAxis.centres;
   const yCentres = yAxis.centres;
 
-  const safeDataArray = useTextureSafeNdArray(dataArray);
+  // Categories: indices of the values, looked up in a texture of their colors (not interpolated)
+  const categorical = useCategoryArray(dataArray, categories);
+  const { values, colorProps } = getMeshColoring(dataArray, categorical, {
+    domain,
+    scaleType,
+    magFilter,
+    minFilter,
+    belowColor,
+    aboveColor,
+  });
+
+  const safeDataArray = useTextureSafeNdArray(values);
   const safeAlphaArray = useTextureSafeNdArray(alpha?.array);
   const maskArray = useMask(dataArray, ignoreValue);
 
@@ -187,6 +241,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
             if (renderTooltip) {
               return renderTooltip({ abscissa, ordinate, xi, yi, x, y });
             }
+            const category = findCategory(categories, dataArray.get(yi, xi));
 
             return (
               <>
@@ -201,6 +256,7 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
                     )}
                   </strong>
                   {dtype && <em>{` (${dtype})`}</em>}
+                  {category?.label && ` ${category.label}`}
                   {alpha && ` (${formatTooltipVal(alpha.array.get(yi, xi))})`}
                 </div>
               </>
@@ -210,21 +266,16 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
 
         <HeatmapMesh
           values={safeDataArray}
-          domain={domain}
           colorMap={colorMap}
           invertColorMap={invertColorMap}
-          scaleType={scaleType}
+          {...colorProps}
           alphaValues={safeAlphaArray}
           alphaDomain={alpha?.domain}
           alphaLog={alpha?.log}
           alphaGamma={alpha?.gamma}
           scale={[flipXAxis ? -1 : 1, flipYAxis ? -1 : 1, 1]}
-          magFilter={magFilter}
-          minFilter={minFilter}
           mask={maskArray}
           badColor={ignoredColor}
-          belowColor={belowColor}
-          aboveColor={aboveColor}
           xEdges={xAxis.meshEdges}
           yEdges={yAxis.meshEdges}
           xCentres={xAxis.meshCentres}
@@ -234,19 +285,22 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
         {children}
       </VisCanvas>
 
-      {showColorBar && (
-        <ColorBar
-          domain={domain}
-          scaleType={scaleType}
-          colorMap={colorMap}
-          invertColorMap={invertColorMap}
-          withBounds
-          label={colorBarLabel}
-          belowColor={belowColor}
-          aboveColor={aboveColor}
-          valueTransform={valueTransform}
-        />
-      )}
+      {showColorBar &&
+        (categories ? (
+          <CategoryLegend categories={categories} label={colorBarLabel} />
+        ) : (
+          <ColorBar
+            domain={domain}
+            scaleType={scaleType}
+            colorMap={colorMap}
+            invertColorMap={invertColorMap}
+            withBounds
+            label={colorBarLabel}
+            belowColor={belowColor}
+            aboveColor={aboveColor}
+            valueTransform={valueTransform}
+          />
+        ))}
     </figure>
   );
 }

@@ -80,6 +80,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
         getAxisScaleHint(dimScales, dimMapping, dims, axis, true).scaleType,
     );
   const [dataDomain, setDataDomain] = useState<Domain>(); // for hints that depend on the data
+  const [categoryNotes, setCategoryNotes] = useState<string[]>([]);
   const config = useHeatmapConfig(
     getHeatmapSuggestions(
       isRatioMeaningless ? { ...hint, keepRatio: false } : hint,
@@ -203,6 +204,8 @@ function HeatmapVisContainer(props: VisContainerProps) {
                       : { point: probePoint, onProbe: setProbePoint }
                   }
                   projection={projection}
+                  categoryHint={hint}
+                  onCategoryNotesChange={setCategoryNotes}
                   projectionControl={
                     controlProps && (
                       <ProjectionControl
@@ -228,6 +231,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
           ...overlays.notes,
           ...contourOf.notes,
           ...dimScaleNotes,
+          ...categoryNotes,
         ]}
       />
       <OverlayLegend items={overlays.legend} />

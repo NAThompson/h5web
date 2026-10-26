@@ -10,6 +10,8 @@ import DefaultInteractions, {
   type DefaultInteractionsConfig,
 } from '../../interactions/DefaultInteractions';
 import ResetZoomButton from '../../toolbar/floating/ResetZoomButton';
+import CategoryLegend from '../categorical/CategoryLegend';
+import { getCategoryFormat } from '../categorical/utils';
 import ColorBar from '../heatmap/ColorBar';
 import { useAxisDomain } from '../hooks';
 import { type ClassStyleAttrs } from '../models';
@@ -59,6 +61,7 @@ function ScatterPlotVis(props: PropsWithChildren<Props>) {
     belowColor,
     aboveColor,
     sizes: sizeValues,
+    categories,
     xLabel = '𝑥',
     yLabel = '𝑦',
     xScaleType = ScaleType.Linear,
@@ -109,7 +112,15 @@ function ScatterPlotVis(props: PropsWithChildren<Props>) {
       { label: xLabel, values: x },
       { label: yLabel, values: y },
       ...(extraChannels ?? []),
-      ...(values ? [{ label: colorBarLabel ?? 'value', values }] : []),
+      ...(values
+        ? [
+            {
+              label: colorBarLabel ?? 'value',
+              values,
+              format: getCategoryFormat(categories),
+            },
+          ]
+        : []),
       ...(sizeValues
         ? [{ label: sizeLabel ?? 'size', values: sizeValues }]
         : []),
@@ -122,6 +133,7 @@ function ScatterPlotVis(props: PropsWithChildren<Props>) {
       extraChannels,
       values,
       colorBarLabel,
+      categories,
       sizeValues,
       sizeLabel,
     ],
@@ -177,7 +189,10 @@ function ScatterPlotVis(props: PropsWithChildren<Props>) {
         {children}
       </VisCanvas>
 
-      {values && (
+      {values && categories && (
+        <CategoryLegend categories={categories} label={colorBarLabel} />
+      )}
+      {values && !categories && (
         <ColorBar
           domain={domain}
           scaleType={scaleType}

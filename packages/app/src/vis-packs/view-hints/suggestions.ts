@@ -117,7 +117,9 @@ export function getColorSuggestions(
 }
 
 /* Colour scale of a hint, nth root as gamma (of exponent 1/`rootN`) */
-export function getColorScaleType(hint: ViewHint): ColorOrRootScaleType | undefined {
+export function getColorScaleType(
+  hint: ViewHint,
+): ColorOrRootScaleType | undefined {
   return hint.rootN ? ScaleType.Gamma : hint.scaleType;
 }
 
@@ -160,6 +162,8 @@ export function getHeatmapSuggestions(
     contourColorMode: hint.contourColor ? ContourColorMode.Single : undefined,
     contourEmphasis: hint.contourEmphasize,
     probe: hint.probeDim === undefined ? undefined : true,
+    categorical: hint.categorical,
+    categoricalPalette: hint.paletteName,
   };
 }
 
@@ -241,6 +245,8 @@ export function getOrthoslicesSuggestions(
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
     keepRatio: hint.keepRatio,
+    categorical: hint.categorical,
+    categoricalPalette: hint.paletteName,
   };
 }
 

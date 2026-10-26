@@ -14,6 +14,8 @@ import {
 } from 'react';
 import { BoxGeometry, EdgesGeometry } from 'three';
 
+import { useCategoryArray } from '../categorical/hooks';
+import { type Category } from '../categorical/models';
 import { type ColorMap } from '../heatmap/models';
 import { type ClassStyleAttrs, type VisScaleType } from '../models';
 import R3FCanvas from '../shared/R3FCanvas';
@@ -53,6 +55,7 @@ interface Props extends ClassStyleAttrs {
   axisValues?: AxisValues;
   /* Points at coordinates along the axes (as `VolumeVis`) */
   points?: VolumePointSet[];
+  categories?: Category[]; // integer labels: a color per category (others as NaN)
 }
 
 /* Three orthogonal slices of a volume through a voxel, in its bounding box, in 3D (the GPU samples
@@ -74,6 +77,7 @@ function OrthoPlanesVis(props: PropsWithChildren<Props>) {
     boxSize: customBoxSize,
     axisValues = NO_AXIS_VALUES,
     points,
+    categories,
     children,
     className = '',
     style,
@@ -103,6 +107,17 @@ function OrthoPlanesVis(props: PropsWithChildren<Props>) {
     [xValues, yValues, zValues, cols, rows, depth],
   );
 
+  // Categories: indices of the values, looked up in a texture of their colors (not interpolated)
+  const categorical = useCategoryArray(dataArray, categories, ignoreValue);
+  const colorProps = categorical
+    ? {
+        dataArray: categorical.indices,
+        domain: categorical.domain,
+        scaleType: categorical.scaleType,
+        categoryColors: categorical.colors, // ignored values are NaN indices
+      }
+    : { dataArray, domain, scaleType, ignoreValue, belowColor, aboveColor };
+
   const boxSize = customBoxSize
     ? normalizeBoxSize(customBoxSize)
     : getBoxSize(dataArray.shape);
@@ -120,17 +135,12 @@ function OrthoPlanesVis(props: PropsWithChildren<Props>) {
           <VolumeControls interactingRef={interactingRef} />
           <group scale={boxSize}>
             <OrthoPlanes
-              dataArray={dataArray}
               point={point}
-              domain={domain}
-              scaleType={scaleType}
               colorMap={colorMap}
               invertColorMap={invertColorMap}
               axisLookups={axisLookups}
-              ignoreValue={ignoreValue}
               nanColor={nanColor}
-              belowColor={belowColor}
-              aboveColor={aboveColor}
+              {...colorProps}
             />
             <lineSegments geometry={edges} renderOrder={1}>
               <lineBasicMaterial

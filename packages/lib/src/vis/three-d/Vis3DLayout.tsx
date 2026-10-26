@@ -2,6 +2,8 @@ import { type Domain } from '@h5web/shared/vis-models';
 import { type PropsWithChildren, type ReactNode } from 'react';
 import { type Vector3Tuple } from 'three';
 
+import CategoryLegend from '../categorical/CategoryLegend';
+import { type Category } from '../categorical/models';
 import ColorBar from '../heatmap/ColorBar';
 import { type ColorMap } from '../heatmap/models';
 import {
@@ -38,6 +40,7 @@ interface Props extends ClassStyleAttrs {
   headlight?: boolean; // light follows camera, rather than lighting the box from above
   renderer?: string; // as `data-renderer`, e.g. `webgpu`
   showColorBar?: boolean; // e.g. not for points of a single colour
+  categories?: Category[]; // discrete legend instead of the color bar
   overlay?: ReactNode; // HTML over the canvas, e.g. tooltip or legend
 }
 
@@ -60,6 +63,7 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
     headlight = false,
     renderer,
     showColorBar = true,
+    categories,
     overlay,
     children,
     className = '',
@@ -95,7 +99,10 @@ function Vis3DLayout(props: PropsWithChildren<Props>) {
           {overlay}
         </div>
       </div>
-      {showColorBar && (
+      {showColorBar && categories && (
+        <CategoryLegend categories={categories} label={colorBarLabel} />
+      )}
+      {showColorBar && !categories && (
         <ColorBar
           domain={domain}
           scaleType={scaleType}

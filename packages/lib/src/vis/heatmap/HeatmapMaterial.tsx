@@ -10,6 +10,7 @@ import {
   Vector4,
 } from 'three';
 
+import { getCategoryTexture } from '../categorical/utils';
 import { type VisScaleType } from '../models';
 import { type VisMeshProps } from '../shared/VisMesh';
 import { DEFAULT_DOMAIN, getUniforms, VERTEX_SHADER } from '../utils';
@@ -43,6 +44,7 @@ interface Props extends VisMeshProps {
   mask?: NdArray<Uint8Array>;
   xPixels?: Float32Array; // relative pixels of non-uniform axes (cf. `getRelativePixels`)
   yPixels?: Float32Array;
+  categoryColors?: string[]; // values are category indices: colors looked up, not interpolated
 }
 
 const DEFAULT_BAD_COLOR = rgb(255, 255, 255, 0);
@@ -84,6 +86,7 @@ function HeatmapMaterial(props: Props) {
     mask,
     xPixels,
     yPixels,
+    categoryColors,
   } = props;
 
   const dataTexture = useDataTexture(values, magFilter, minFilter);
@@ -98,8 +101,11 @@ function HeatmapMaterial(props: Props) {
   );
 
   const colorMapTexture = useMemo(
-    () => getColorMapTexture(colorMap, invertColorMap),
-    [colorMap, invertColorMap],
+    () =>
+      categoryColors
+        ? getCategoryTexture(categoryColors)
+        : getColorMapTexture(colorMap, invertColorMap),
+    [colorMap, invertColorMap, categoryColors],
   );
 
   useDisposeOnChange(dataTexture);

@@ -1,11 +1,14 @@
 import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { useMemo } from 'react';
 
+import { type Category } from '../categorical/models';
 import { type ColorMap } from '../heatmap/models';
 import { type VisScaleType } from '../models';
 import { getColorParams } from '../three-d/utils';
 import {
   getAutoPointSize,
+  getCategoryLut,
+  getCategoryParams,
   getFiniteExtent,
   getPointColors,
   getPointSizes,
@@ -30,6 +33,7 @@ export interface PointStyleParams {
   sizes?: NumArray; // size channel
   sizeRange?: [number, number]; // diameters in CSS pixels
   pointSize?: number; // diameter without size channel (default: from number of points)
+  categories?: Category[]; // integer labels: a color per category (others as NaN)
 }
 
 export interface PointStyle {
@@ -57,12 +61,17 @@ export function usePointStyle(
     sizes: sizeValues,
     sizeRange = DEFAULT_SIZE_RANGE,
     pointSize,
+    categories,
   } = params;
   const count = positions.length / 3;
 
   const colorParams = useMemo(
-    () => values && getColorParams(values, domain, scaleType),
-    [values, domain, scaleType],
+    () =>
+      values &&
+      (categories
+        ? getCategoryParams(values, categories)
+        : getColorParams(values, domain, scaleType)),
+    [values, domain, scaleType, categories],
   );
 
   const colors = useMemo(
@@ -72,10 +81,12 @@ export function usePointStyle(
         colorParams,
         colorParams
           ? {
-              lut: getSrgbLut(colorMap, invertColorMap),
+              lut: categories
+                ? getCategoryLut(categories)
+                : getSrgbLut(colorMap, invertColorMap),
               nan: toRgb255(nanColor),
-              below: toRgb255(belowColor),
-              above: toRgb255(aboveColor),
+              below: categories ? undefined : toRgb255(belowColor),
+              above: categories ? undefined : toRgb255(aboveColor),
             }
           : (toRgb255(color) ?? DEFAULT_COLOR),
       ),
@@ -88,6 +99,7 @@ export function usePointStyle(
       belowColor,
       aboveColor,
       color,
+      categories,
     ],
   );
 

@@ -3,6 +3,7 @@ import { useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import { type ShaderMaterial, Vector3 } from 'three';
 
+import { getCategoryTexture } from '../categorical/utils';
 import { type ColorMap } from '../heatmap/models';
 import {
   getColorMapTexture,
@@ -39,6 +40,7 @@ interface ColorOpts {
   colorMap: ColorMap;
   invertColorMap: boolean;
   axisLookups: AxisLookups; // non-uniform axes (cf. `getAxisLookup`)
+  categoryColors?: string[]; // values are category indices: colors looked up, not interpolated
 }
 
 /* Volume texture, colour map and lookup tables of non-uniform axes, and the colour scale, as
@@ -50,13 +52,16 @@ export function useVolumeColorUniforms(
 ): void {
   const { uniforms } = material;
   const { domain, scaleType: visScaleType, colorMap, invertColorMap } = opts;
-  const { axisLookups } = opts;
+  const { axisLookups, categoryColors } = opts;
   const { texture, shape, valueScale, valueOffset } = volume;
   const invalidate = useThree((state) => state.invalidate);
 
   const colorMapTexture = useMemo(
-    () => getColorMapTexture(colorMap, invertColorMap),
-    [colorMap, invertColorMap],
+    () =>
+      categoryColors
+        ? getCategoryTexture(categoryColors)
+        : getColorMapTexture(colorMap, invertColorMap),
+    [colorMap, invertColorMap, categoryColors],
   );
   useEffect(() => () => colorMapTexture.dispose(), [colorMapTexture]);
 

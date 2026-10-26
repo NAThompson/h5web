@@ -6,6 +6,7 @@ import styles from './ScatterVis.module.css';
 export interface PointChannel {
   label: string;
   values: NumArray;
+  format?: (val: number) => string; // e.g. label of a category
 }
 
 interface Props {
@@ -20,10 +21,10 @@ function PointTooltip(props: Props) {
   return (
     <>
       <span>{`#${index}`}</span>
-      {channels.map(({ label, values }) => (
+      {channels.map(({ label, values, format = formatTooltipVal }) => (
         <div key={label} className={styles.tooltipRow}>
           {`${label} = `}
-          <strong>{formatTooltipVal(values[index])}</strong>
+          <strong>{format(values[index])}</strong>
         </div>
       ))}
     </>

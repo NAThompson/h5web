@@ -1,4 +1,5 @@
 import {
+  type Category,
   type ContourLinesProps,
   type DimensionMapping,
   getContourLevels,
@@ -8,6 +9,7 @@ import {
   useSlicedDimsAndMapping,
   type VisScaleType,
 } from '@h5web/lib';
+import { type Dataset } from '@h5web/shared/hdf5-models';
 import {
   type Domain,
   type IgnoreValue,
@@ -26,6 +28,11 @@ import { withoutEmphasized } from '../../view-hints/contours';
 import { type ContourSource } from '../../view-hints/hooks';
 import { type ViewHint } from '../../view-hints/models';
 import { getHaloColor } from '../../view-hints/OverlayLayer2D';
+import {
+  canBeCategorical,
+  getCategoryList,
+  useCategories,
+} from '../categorical';
 import { useMappedArray, useToNumArray } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { type HeatmapConfig } from './config';
@@ -262,4 +269,39 @@ export function useHeatmapProjection(
           }
         : undefined,
   };
+}
+
+/* Categorical colors of a heatmap, when on and possible: not of projections (e.g. means of labels)
+ * nor of 3D surfaces; `withCategorical`: whether they can be turned on */
+export function useHeatmapCategories(
+  dataArray: NdArray<NumArray>,
+  config: HeatmapConfig,
+  opts: {
+    dataset: Dataset;
+    hint?: Pick<ViewHint, 'categorical' | 'categoryList'>;
+    isProjection: boolean;
+    is3D: boolean;
+    ignoreValue?: IgnoreValue;
+    onNotesChange?: (notes: string[]) => void;
+  },
+): { withCategorical: boolean; categories?: Category[] } {
+  const { dataset, hint = {}, isProjection, is3D, ignoreValue } = opts;
+  const withCategorical =
+    !isProjection && !is3D && canBeCategorical(dataset, hint);
+  const { categoryList } = hint;
+  const list = useMemo(
+    () => getCategoryList(dataset, { categoryList }),
+    [dataset, categoryList],
+  );
+  const { categories } = useCategories(
+    dataArray.data,
+    withCategorical && config.categorical,
+    {
+      palette: config.categoricalPalette,
+      list,
+      ignoreValue,
+      onNotesChange: opts.onNotesChange,
+    },
+  );
+  return { withCategorical, categories };
 }

@@ -28,6 +28,7 @@ import {
 } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import CategoricalControl from '../CategoricalControl';
 import RootScaleSelector from '../RootScaleSelector';
 import {
   type ColorOrRootScaleType,
@@ -57,6 +58,8 @@ interface Props {
   onCustomContourLevelsChange?: (levels: number[]) => void;
   withProbe?: boolean; // probe pixels of a stack
   projectionControl?: ReactNode; // stacks: reduce a dimension instead of slicing it
+  withCategorical?: boolean; // e.g. integer labels (not in 3D)
+  isCategorical?: boolean; // shown with categorical colors: no domain, color map nor scale
 }
 
 /**
@@ -91,6 +94,7 @@ function getBoundSettings(
   config: HeatmapConfig,
   isComplex: boolean,
   showSurface: boolean,
+  isCategorical: boolean, // no domain, color map nor scale
 ) {
   const isComplexSurface = isComplex && showSurface;
   const complexVisType = isComplexSurface
@@ -140,6 +144,7 @@ function getBoundSettings(
       ? config.setSurfaceScaleType
       : config.setScaleType,
     withScale: !(isComplex && complexVisType === ComplexVisType.Phase), // phase is linear
+    withColorMap: !isCategorical,
     scaleOptions,
     domainScaleType: scalesBrightness
       ? ScaleType.Linear
@@ -161,6 +166,8 @@ function HeatmapToolbar(props: Props) {
     onCustomContourLevelsChange = () => {},
     withProbe,
     projectionControl,
+    withCategorical,
+    isCategorical,
   } = props;
   const {
     showGrid,
@@ -194,7 +201,8 @@ function HeatmapToolbar(props: Props) {
     withScale,
     domainScaleType,
     scaleOptions,
-  } = getBoundSettings(config, !!isComplex, showSurface);
+    withColorMap,
+  } = getBoundSettings(config, !!isComplex, showSurface, !!isCategorical);
 
   return (
     <Toolbar
@@ -231,32 +239,48 @@ function HeatmapToolbar(props: Props) {
         </>
       )}
 
-      <DomainWidget
-        dataDomain={dataDomain}
-        customDomain={customDomain}
-        scaleType={withScale ? domainScaleType : ScaleType.Linear}
-        onCustomDomainChange={setCustomDomain}
-      />
-      <Separator />
+      {withCategorical && (
+        <>
+          <CategoricalControl
+            value={config.categorical}
+            onToggle={() => config.setCategorical(!config.categorical)}
+            palette={config.categoricalPalette}
+            onPaletteChange={config.setCategoricalPalette}
+          />
+          <Separator />
+        </>
+      )}
 
-      <ColorMapSelector
-        value={colorMap}
-        onValueChange={setColorMap}
-        invert={invertColorMap}
-        onInversionChange={() => setInvertColorMap(!invertColorMap)}
-      />
+      {withColorMap && (
+        <>
+          <DomainWidget
+            dataDomain={dataDomain}
+            customDomain={customDomain}
+            scaleType={withScale ? domainScaleType : ScaleType.Linear}
+            onCustomDomainChange={setCustomDomain}
+          />
+          <Separator />
 
-      <Separator />
+          <ColorMapSelector
+            value={colorMap}
+            onValueChange={setColorMap}
+            invert={invertColorMap}
+            onInversionChange={() => setInvertColorMap(!invertColorMap)}
+          />
 
-      {/* Phase as height is always linear */}
-      {withScale && (
-        <RootScaleSelector
-          value={scaleType}
-          onScaleChange={setScaleType}
-          options={scaleOptions}
-          rootN={config.rootN}
-          onRootNChange={config.setRootN}
-        />
+          <Separator />
+
+          {/* Phase as height is always linear */}
+          {withScale && (
+            <RootScaleSelector
+              value={scaleType}
+              onScaleChange={setScaleType}
+              options={scaleOptions}
+              rootN={config.rootN}
+              onRootNChange={config.setRootN}
+            />
+          )}
+        </>
       )}
 
       {isComplex && (

@@ -163,6 +163,7 @@ export { default as Line } from './vis/line/Line';
 export { default as Glyphs } from './vis/line/Glyphs';
 export { default as ErrorBars } from './vis/line/ErrorBars';
 export { default as ColorBar } from './vis/heatmap/ColorBar';
+export { default as CategoryLegend } from './vis/categorical/CategoryLegend';
 export { default as HeatmapMesh } from './vis/heatmap/HeatmapMesh';
 export { default as ContourLines } from './vis/contours/ContourLines';
 export type { DataCurveProps } from './vis/line/DataCurve';
@@ -170,6 +171,14 @@ export type { LineProps } from './vis/line/Line';
 export type { GlyphsProps } from './vis/line/Glyphs';
 export type { ErrorBarsProps } from './vis/line/ErrorBars';
 export type { ColorBarProps } from './vis/heatmap/ColorBar';
+export type { CategoryLegendProps } from './vis/categorical/CategoryLegend';
+export type { Category, CategoryValues } from './vis/categorical/models';
+export {
+  findCategoryValues,
+  formatCategoryValue,
+  getCategories,
+  MAX_CATEGORIES,
+} from './vis/categorical/utils';
 export type { HeatmapMeshProps } from './vis/heatmap/HeatmapMesh';
 export type { ContourLinesProps } from './vis/contours/ContourLines';
 export {
@@ -250,6 +259,7 @@ export {
 } from './vis/hooks';
 
 export { getAxisValues, getSplineDomain, PALETTES } from './vis/line/utils';
+export type { PaletteName } from './vis/line/utils';
 export { useAxisValues } from './vis/line/hooks';
 
 export {

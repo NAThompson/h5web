@@ -1,5 +1,6 @@
 import {
   type AxisTicks,
+  CategoryLegend,
   ColorBar,
   getBoxSizeFromAxes,
   getRealValue,
@@ -37,8 +38,9 @@ import {
   useVisScaleType,
 } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
-import { type SpecialColorsHint } from '../../view-hints/models';
+import { type SpecialColorsHint, type ViewHint } from '../../view-hints/models';
 import OverlayLegend from '../../view-hints/OverlayLegend';
+import { canBeCategorical, useCategories } from '../categorical';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN } from '../utils';
 import { type OrthoslicesConfig } from './config';
@@ -81,6 +83,9 @@ interface Props {
   specialColors?: SpecialColorsHint;
   points?: VolumePointSet[]; // drawn in the 3D view (e.g. overlays of a view hint)
   legend?: LegendItem[]; // of the points, below the grid
+  /* `H5WEB_categorical`, and CF `flag_values` and `flag_meanings` */
+  categoryHint?: Pick<ViewHint, 'categorical' | 'categoryList'>;
+  onCategoryNotesChange?: (notes: string[]) => void; // why categorical colors can't be shown
 }
 
 function MappedOrthoslicesVis(props: Props) {
@@ -104,6 +109,8 @@ function MappedOrthoslicesVis(props: Props) {
     specialColors = {},
     points,
     legend = [],
+    categoryHint = {},
+    onCategoryNotesChange,
   } = props;
   const { customDomain, colorMap, scaleType, invertColorMap, keepRatio } =
     config;
@@ -125,6 +132,19 @@ function MappedOrthoslicesVis(props: Props) {
     scaleType,
     symlogThreshold,
     config.rootN,
+  );
+
+  // Categories of the whole volume, so that the legend doesn't change as the planes move
+  const withCategorical = canBeCategorical(dataset, categoryHint);
+  const { categories } = useCategories(
+    dataArray.data,
+    withCategorical && config.categorical,
+    {
+      palette: config.categoricalPalette,
+      list: categoryHint.categoryList,
+      ignoreValue,
+      onNotesChange: onCategoryNotesChange,
+    },
   );
 
   const [point, setPoint] = useState<OrthoPoint>(() =>
@@ -198,6 +218,8 @@ function MappedOrthoslicesVis(props: Props) {
             sizes={sizes}
             dimLabels={names}
             onIndexChange={moveTo}
+            withCategorical={withCategorical}
+            isCategorical={!!categories}
           />,
           toolbarContainer,
         )}
@@ -244,6 +266,7 @@ function MappedOrthoslicesVis(props: Props) {
                   aboveColor={specialColors.aboveColor}
                   valueTransform={valueTransform}
                   showColorBar={false}
+                  categories={categories}
                 >
                   <CrosshairLayer
                     abscissas={boxValues[u]}
@@ -281,20 +304,28 @@ function MappedOrthoslicesVis(props: Props) {
               boxSize={boxSize}
               axisValues={boxValues}
               points={points}
+              categories={categories}
             />
           </div>
           <div className={styles.colorBar}>
-            <ColorBar
-              domain={safeDomain}
-              scaleType={visScaleType}
-              colorMap={colorMap}
-              invertColorMap={invertColorMap}
-              withBounds
-              label={renderMarkup(valueLabel)}
-              belowColor={specialColors.belowColor}
-              aboveColor={specialColors.aboveColor}
-              valueTransform={valueTransform}
-            />
+            {categories ? (
+              <CategoryLegend
+                categories={categories}
+                label={renderMarkup(valueLabel)}
+              />
+            ) : (
+              <ColorBar
+                domain={safeDomain}
+                scaleType={visScaleType}
+                colorMap={colorMap}
+                invertColorMap={invertColorMap}
+                withBounds
+                label={renderMarkup(valueLabel)}
+                belowColor={specialColors.belowColor}
+                aboveColor={specialColors.aboveColor}
+                valueTransform={valueTransform}
+              />
+            )}
           </div>
         </div>
         <OverlayLegend items={legend} inline />

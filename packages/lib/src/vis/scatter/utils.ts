@@ -1,6 +1,8 @@
 import { type Domain, type NumArray } from '@h5web/shared/vis-models';
 import { rgb } from 'd3-color';
 
+import { type Category } from '../categorical/models';
+import { getCategoryIndices } from '../categorical/utils';
 import { type ColorMap } from '../heatmap/models';
 import { getInterpolator } from '../heatmap/utils';
 
@@ -58,6 +60,25 @@ export function getSrgbLut(
     lut.set([r, g, b], i * 3);
   }
   return lut;
+}
+
+/** Colors of categories as a lookup table (cf. `getCategoryParams`). */
+export function getCategoryLut(categories: Category[]): Uint8Array {
+  const lut = new Uint8Array(Math.max(categories.length, 1) * 3);
+  categories.forEach(({ color }, i) => {
+    lut.set(toRgb255(color) ?? [0, 0, 0], i * 3);
+  });
+  return lut;
+}
+
+/** Positions of the values' categories in their lookup table (`NaN`: not a category). */
+export function getCategoryParams(
+  values: NumArray,
+  categories: Category[],
+): Float32Array {
+  const indices = getCategoryIndices(values, categories);
+  const last = categories.length - 1;
+  return last > 0 ? indices.map((i) => i / last) : indices;
 }
 
 /** CSS colour as sRGB bytes; `undefined` if invalid or not given. */

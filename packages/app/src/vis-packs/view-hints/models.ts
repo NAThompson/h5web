@@ -1,5 +1,6 @@
 import {
   type Interpolation,
+  type PaletteName,
   type PlaybackSettings,
   type ValueTransform,
 } from '@h5web/lib';
@@ -144,8 +145,11 @@ export interface ViewHint {
   multiDim?: number; // line: dimension whose slices are all plotted
   interpolation?: Interpolation; // line: between samples (until changed in the toolbar)
   palette?: readonly string[]; // line multi-plots: colours of the curves, cycled
+  paletteName?: PaletteName; // categorical colors: palette of the categories
   paletteBy?: string; // path of a 1D string dataset along `multiDim`: alike labels, alike colours
   paletteByAnchor?: string; // `paletteBy` is resolved relative to this path
+  categorical?: boolean; // integer labels / classes: a color per value, discrete legend
+  categoryList?: { values: number[]; labels?: string[] }; // CF `flag_values`, `flag_meanings`
   probeDim?: number; // heatmap stacks: clicking a pixel plots its values along this dimension
   projection?: Projection; // heatmap stacks: reduce a dimension instead of slicing it
   projectionDim?: number; // dimension reduced (default: the first sliced dimension)

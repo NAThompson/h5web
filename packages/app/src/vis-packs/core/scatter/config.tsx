@@ -1,4 +1,4 @@
-import { type CustomDomain } from '@h5web/lib';
+import { type CustomDomain, type PaletteName } from '@h5web/lib';
 import { type AxisScaleType, ScaleType } from '@h5web/shared/vis-models';
 import {
   createContext,
@@ -9,6 +9,7 @@ import {
 import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { DEFAULT_CATEGORICAL_PALETTE } from '../categorical';
 import { type ColorMap } from '../heatmap/models';
 import { useSuggestion } from '../hooks';
 import {
@@ -53,6 +54,13 @@ export interface ScatterConfig {
 
   showAxes: boolean; // 3D
   setShowAxes: (showAxes: boolean) => void;
+
+  /* Integer labels (e.g. cluster IDs): a color per value from a palette, and a discrete legend */
+  categorical: boolean;
+  setCategorical: (categorical: boolean) => void;
+
+  categoricalPalette: PaletteName;
+  setCategoricalPalette: (categoricalPalette: PaletteName) => void;
 }
 
 function createScatterConfigStore() {
@@ -93,11 +101,27 @@ function createScatterConfigStore() {
 
         showAxes: true,
         setShowAxes: (showAxes) => set({ showAxes }),
+
+        categorical: false,
+        setCategorical: (categorical) => set({ categorical }),
+
+        categoricalPalette: DEFAULT_CATEGORICAL_PALETTE,
+        setCategoricalPalette: (categoricalPalette) =>
+          set({ categoricalPalette }),
       }),
       {
         name: 'h5web:scatter',
-        version: 3,
-        migrate: migrateSqrtToRoot, // v3: Root replaces Sqrt in the toolbar
+        version: 4,
+        // v3: Root replaces Sqrt in the toolbar; v4: palette of categorical colors
+        migrate: (persisted) => {
+          const state = migrateSqrtToRoot(persisted) as Record<string, unknown>;
+          if (state.categoricalPalette === undefined) {
+            state.categoricalPalette = DEFAULT_CATEGORICAL_PALETTE;
+          }
+          return state as never;
+        },
+        // Categorical colors are for label data: on for the session only, or by a hint
+        partialize: ({ categorical, ...state }) => state,
       },
     ),
   );

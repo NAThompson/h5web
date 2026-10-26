@@ -42,7 +42,7 @@ import {
   useVisScaleType,
 } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
-import { type SpecialColorsHint } from '../../view-hints/models';
+import { type SpecialColorsHint, type ViewHint } from '../../view-hints/models';
 import OverlayLayer2D from '../../view-hints/OverlayLayer2D';
 import OverlayLayer3D from '../../view-hints/OverlayLayer3D';
 import { type OverlayShapes } from '../../view-hints/overlays';
@@ -59,6 +59,7 @@ import { type HeatmapConfig } from './config';
 import HeatmapToolbar from './HeatmapToolbar';
 import {
   type EmphasisStyle,
+  useHeatmapCategories,
   useHeatmapContours,
   useProjectedArray,
 } from './hooks';
@@ -88,6 +89,9 @@ interface Props {
   /* Dimension reduced instead of sliced: `value` holds it whole (cf. `getProjectionSelection`) */
   projection?: HeatmapProjection;
   projectionControl?: ReactNode; // in the toolbar
+  /* `H5WEB_categorical`, and CF `flag_values` and `flag_meanings` */
+  categoryHint?: Pick<ViewHint, 'categorical' | 'categoryList'>;
+  onCategoryNotesChange?: (notes: string[]) => void; // why categorical colors can't be shown
 }
 
 function MappedHeatmapVis(props: Props) {
@@ -114,6 +118,8 @@ function MappedHeatmapVis(props: Props) {
     panel,
     projection,
     projectionControl,
+    categoryHint,
+    onCategoryNotesChange,
   } = props;
 
   const {
@@ -202,6 +208,20 @@ function MappedHeatmapVis(props: Props) {
 
   const exportEntries = useExportEntries(['tiff', 'npy'], dataset, selection);
 
+  // Categorical colors: 2D only, not of projections (e.g. means of labels)
+  const { withCategorical, categories } = useHeatmapCategories(
+    dataArray,
+    config,
+    {
+      dataset,
+      hint: categoryHint,
+      isProjection: !!projection,
+      is3D: surface && canShowSurface,
+      ignoreValue,
+      onNotesChange: onCategoryNotesChange,
+    },
+  );
+
   const contours = useHeatmapContours(dataArray, config, {
     path: dataset.path,
     domain: safeDomain,
@@ -230,6 +250,8 @@ function MappedHeatmapVis(props: Props) {
             }
             withProbe={!!probe}
             projectionControl={projectionControl}
+            withCategorical={withCategorical}
+            isCategorical={!!categories}
           />,
           toolbarContainer,
         )}
@@ -284,6 +306,7 @@ function MappedHeatmapVis(props: Props) {
           aboveColor={specialColors.aboveColor}
           valueTransform={valueTransform}
           showColorBar={panel?.showColorBar}
+          categories={categories}
         >
           <PanelLayer
             panel={panel}

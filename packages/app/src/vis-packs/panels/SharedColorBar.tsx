@@ -1,5 +1,7 @@
-import { ColorBar } from '@h5web/lib';
+import { CategoryLegend, ColorBar } from '@h5web/lib';
+import { useMemo } from 'react';
 
+import { canBeCategorical, getSharedCategories } from '../core/categorical';
 import { useHeatmapConfig } from '../core/heatmap/config';
 import { renderMarkup } from '../view-hints/markup';
 import { getHeatmapSuggestions } from '../view-hints/suggestions';
@@ -18,6 +20,33 @@ function SharedColorBar(props: Props) {
   const { hint, dataset } = spec;
   const config = useHeatmapConfig(getHeatmapSuggestions(hint, dataset.path));
   const scaleType = getPanelScaleType(hint, config); // as the panels draw it
+
+  // Categorical panels: categories of the shared domain, colored as the panels color them
+  const [min, max] = colors.domain;
+  const isCategorical = config.categorical && canBeCategorical(dataset, hint);
+  const categories = useMemo(
+    () =>
+      isCategorical
+        ? getSharedCategories(
+            [min, max],
+            config.categoricalPalette,
+            hint.categoryList,
+          )
+        : undefined,
+    [isCategorical, min, max, config.categoricalPalette, hint.categoryList],
+  );
+
+  if (isCategorical) {
+    // Without categories (e.g. sparse labels over a wide domain): no legend rather than a wrong one
+    return (
+      categories && (
+        <CategoryLegend
+          categories={categories}
+          label={renderMarkup(hint.valueLabel)}
+        />
+      )
+    );
+  }
 
   return (
     <ColorBar

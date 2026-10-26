@@ -44,6 +44,7 @@ interface Props extends VisMeshProps {
   /* Pixel centres along non-uniform axes (default: mid-points of the edges) */
   xCentres?: NumArray;
   yCentres?: NumArray;
+  categoryColors?: string[]; // values are category indices (cf. `getCategoryIndices`)
 }
 
 function HeatmapMesh(props: Props) {
@@ -67,6 +68,7 @@ function HeatmapMesh(props: Props) {
     yEdges,
     xCentres,
     yCentres,
+    categoryColors,
     size,
     ...meshProps
   } = props;
@@ -151,6 +153,7 @@ function HeatmapMesh(props: Props) {
     aboveColor,
     magFilter,
     minFilter,
+    categoryColors,
   };
 
   if (!chunks || !geometries || !valuesChunks) {

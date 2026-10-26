@@ -34,6 +34,7 @@ import {
 } from '@h5web/shared/mock-utils';
 import { ScaleType } from '@h5web/shared/vis-models';
 
+import { makeCategoricalGroup } from './categorical';
 import { makeScatterGroup } from './scatter';
 import { TEAPOT_PATCHES, TEAPOT_VERTICES } from './teapot';
 import { makeVectorGroup } from './vector';
@@ -2300,6 +2301,7 @@ export function makeMockFile(): GroupWithChildren {
         ),
       ]),
       makeScatterGroup(),
+      makeCategoricalGroup(),
       makeVectorGroup(),
       makeVtkhdfGroup(),
       group('resilience', [

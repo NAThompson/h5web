@@ -9,7 +9,7 @@ import { type NumArray } from '@h5web/shared/vis-models';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
-import { useVisScaleType } from '../../view-hints/hooks';
+import { useViewHint, useVisScaleType } from '../../view-hints/hooks';
 import { renderMarkup } from '../../view-hints/markup';
 import { type ViewHint } from '../../view-hints/models';
 import OverlayNotes from '../../view-hints/OverlayNotes';
@@ -17,6 +17,7 @@ import {
   getColorScaleType,
   getColorSuggestions,
 } from '../../view-hints/suggestions';
+import { canBeCategorical, useCategories } from '../categorical';
 import { useSuggestions } from '../hooks';
 import { DEFAULT_DOMAIN, sqrtAsRoot } from '../utils';
 import { type ScatterConfig } from './config';
@@ -62,12 +63,22 @@ function MappedPointsVis(props: Props) {
   const { config: storedConfig } = props;
   const { channels } = source;
 
+  // Categorical colors: asked for by the hint, or CF flags of the color values' dataset
+  const colorDataset = channels.color?.dataset;
+  const colorHint = useViewHint(colorDataset ?? channels.x.dataset);
+  const categoryHint = {
+    categorical: hint.categorical ?? (colorDataset && colorHint.categorical),
+    categoryList: colorDataset && (colorHint.categoryList ?? hint.categoryList),
+  };
+
   // A file's `H5WEB_*` view hint: scale first, since the data domain depends on it
   const hinted = useSuggestions(storedConfig, {
     ...sqrtAsRoot(getColorScaleType(hint), hint.rootN),
     invertColorMap: hint.invertColorMap,
     keepRatio: hint.keepRatio,
     opacity: source.opacity,
+    categorical: categoryHint.categorical,
+    categoricalPalette: hint.paletteName,
   });
   const { scaleType } = hinted;
 
@@ -89,6 +100,14 @@ function MappedPointsVis(props: Props) {
     scaleType,
     hint.symlogThreshold,
     config.rootN,
+  );
+
+  const withCategorical =
+    !!colorDataset && canBeCategorical(colorDataset, categoryHint);
+  const { categories, notes: categoryNotes } = useCategories(
+    colorValues,
+    withCategorical && config.categorical,
+    { palette: config.categoricalPalette, list: categoryHint.categoryList },
   );
 
   const common = {
@@ -115,6 +134,7 @@ function MappedPointsVis(props: Props) {
     sizeLabel: channels.size?.label,
     showGrid,
     title: renderMarkup(title),
+    categories,
   };
 
   return (
@@ -125,6 +145,8 @@ function MappedPointsVis(props: Props) {
             dataDomain={colorValues && dataDomain}
             config={config}
             is3D={is3D}
+            withCategorical={withCategorical}
+            isCategorical={!!categories}
           />,
           toolbarContainer,
         )}
@@ -149,7 +171,9 @@ function MappedPointsVis(props: Props) {
           }
         />
       )}
-      <OverlayNotes notes={[...hint.notes, ...source.notes]} />
+      <OverlayNotes
+        notes={[...hint.notes, ...source.notes, ...categoryNotes]}
+      />
     </>
   );
 }

@@ -15,6 +15,7 @@ import { FiBox } from 'react-icons/fi';
 import { MdAspectRatio, MdBubbleChart, MdGridOn } from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
+import CategoricalControl from '../CategoricalControl';
 import RootScaleSelector from '../RootScaleSelector';
 import { BASE_INTERACTIONS, SURFACE_INTERACTIONS } from '../utils';
 import { type ScatterConfig } from './config';
@@ -24,12 +25,14 @@ interface Props {
   dataDomain: Domain | undefined; // without colour values: no colour controls
   config: ScatterConfig;
   is3D: boolean;
+  withCategorical?: boolean; // e.g. integer labels
+  isCategorical?: boolean; // shown with categorical colors: no domain, color map nor scale
 }
 
 /* Toolbar of points (`H5WEB_vis = "scatter"` / `"scatter3d"`) */
 function PointsToolbar(props: Props) {
   const visArea = useVisArea();
-  const { dataDomain, config, is3D } = props;
+  const { dataDomain, config, is3D, withCategorical, isCategorical } = props;
   const {
     customDomain,
     colorMap,
@@ -74,7 +77,19 @@ function PointsToolbar(props: Props) {
         </>
       )}
 
-      {dataDomain && (
+      {dataDomain && withCategorical && (
+        <>
+          <CategoricalControl
+            value={config.categorical}
+            onToggle={() => config.setCategorical(!config.categorical)}
+            palette={config.categoricalPalette}
+            onPaletteChange={config.setCategoricalPalette}
+          />
+          <Separator />
+        </>
+      )}
+
+      {dataDomain && !isCategorical && (
         <>
           <DomainWidget
             dataDomain={dataDomain}

@@ -86,6 +86,7 @@ function HeatmapPanel(props: Props) {
       specialColors={hint}
       valueTransform={hint.valueTransform}
       onDataDomainChange={setDataDomain}
+      categoryHint={hint}
       contourSource={contourOf.source}
       emphasisStyle={{
         width: hint.contourEmphasizeWidth,
