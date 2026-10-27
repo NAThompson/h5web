@@ -26,6 +26,7 @@ test(
     expect(getVisTabs()).toEqual([
       Vis.Matrix,
       Vis.ComplexCurve,
+      Vis.ComplexPoints,
       Vis.ComplexLine,
     ]);
     expect(getSelectedVisTab()).toBe(Vis.ComplexLine);

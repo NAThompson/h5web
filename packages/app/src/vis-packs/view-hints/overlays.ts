@@ -1,6 +1,7 @@
 import { isNonUniformAxis, type VolumePointSet } from '@h5web/lib';
 import {
   hasArrayShape,
+  hasComplexType,
   hasNumericType,
   hasScalarShape,
   hasStringType,
@@ -9,6 +10,7 @@ import {
 import {
   type ArrayShape,
   type AttributeValues,
+  type ComplexType,
   type Dataset,
   type NumericType,
   type ProvidedEntity,
@@ -27,8 +29,10 @@ import {
 import { isPhonyScaleName } from '../dimscales/utils';
 import { parseOverlay } from './attrs';
 import {
+  type CircleOverlay,
   type CurveOverlay,
   type EllipseOverlay,
+  type Marker,
   type OverlayHint,
   type PointsOverlay,
   type ReferenceOverlay,
@@ -73,7 +77,11 @@ export function createOverlayContext(
 }
 
 type OverlayDatasetShape = ScalarShape | ArrayShape;
-export type OverlayDataset = Dataset<OverlayDatasetShape, NumericType>;
+// Complex datasets only as points, (N,) read as (N, 2) (cf. `getPointDims`)
+export type OverlayDataset = Dataset<
+  OverlayDatasetShape,
+  NumericType | ComplexType
+>;
 
 /* Dimension along which datasets are sliced together: a dimension scale shared by the base
  * dataset and the overlays' datasets (e.g. `generation`) */
@@ -136,6 +144,8 @@ function getRoles(hint: OverlayHint): Role[] {
           ? [{ role: 'scale', path: hint.scale, rank: 0, required: false }]
           : []),
       ];
+    case 'circle':
+      return [{ role: 'circle', path: hint.circle, rank: 1, required: true }];
     case 'text':
       return []; // no dataset
     case 'hline':
@@ -171,17 +181,23 @@ export function isReference(hint: OverlayHint): hint is ReferenceOverlay {
 
 function isOverlayDataset(
   entity: ProvidedEntity | undefined,
+  role?: string,
 ): entity is OverlayDataset {
   return (
     !!entity &&
     isDataset(entity) &&
     (hasScalarShape(entity) || hasArrayShape(entity)) &&
-    hasNumericType(entity)
+    (hasNumericType(entity) || (role === 'points' && hasComplexType(entity)))
   );
 }
 
 function getDims(dataset: OverlayDataset): number[] {
   return hasArrayShape(dataset) ? dataset.shape.dims : [];
+}
+
+/* Dimensions of the numbers of a dataset: complex values as (re, im) pairs, i.e. (N,) as (N, 2) */
+function getPointDims(dataset: OverlayDataset): number[] {
+  return hasComplexType(dataset) ? [...getDims(dataset), 2] : getDims(dataset);
 }
 
 /* Dimension of a dataset that has the link's scale attached. Datasets with no scale at all
@@ -376,8 +392,8 @@ async function findLink(
   const axisScales = new Set(baseScales?.slice(-axisDimsCount).flat());
 
   const datasets = found.flatMap(({ roles }) =>
-    roles.flatMap(({ entity, rank }) =>
-      isOverlayDataset(entity) ? [{ dataset: entity, rank }] : [],
+    roles.flatMap(({ entity, rank, role }) =>
+      isOverlayDataset(entity, role) ? [{ dataset: entity, rank }] : [],
     ),
   );
   const allScales = await Promise.all(
@@ -389,7 +405,9 @@ async function findLink(
     .find((path) => slicedScales.some((paths) => paths.includes(path)));
   const leading = datasets
     .map(({ dataset, rank }, i) =>
-      getDims(dataset).length === rank + 1 ? allScales[i]?.[0]?.[0] : undefined,
+      getPointDims(dataset).length === rank + 1
+        ? allScales[i]?.[0]?.[0]
+        : undefined,
     )
     .find((path) => path !== undefined && !axisScales.has(path));
 
@@ -461,7 +479,7 @@ async function checkOverlay(
   const inputs: Partial<Record<string, OverlayInput>> = {};
 
   for (const { role, path, rank, required, entity } of roles) {
-    if (!isOverlayDataset(entity)) {
+    if (!isOverlayDataset(entity, role)) {
       const reason = entity
         ? `"${path}" is not a numeric dataset`
         : `"${path}" not found`;
@@ -472,7 +490,7 @@ async function checkOverlay(
       continue;
     }
 
-    const dims = getDims(entity);
+    const dims = getPointDims(entity);
     const rawScales = await getRawScales(entity, ctx); // eslint-disable-line no-await-in-loop -- cached
     const scales = await withoutPhonyScales(rawScales, ctx); // eslint-disable-line no-await-in-loop -- cached
     // An overlay's `H5WEB_slice_by` links its leading dimension, scale attached or not
@@ -720,6 +738,8 @@ export function getEllipsePoints(
 export interface OverlayPoints {
   x: number[];
   y: number[];
+  marker?: Marker; // default: dot
+  counts?: number[]; // multiplicity of each point (coincident points drawn once), labelled if > 1
   z?: number[]; // heights (values of the base dataset); on the surface if undefined
   values?: number[]; // coloured with the base colour map
   fill: string;
@@ -770,7 +790,7 @@ export type ShapeBuilder<T> = (
 
 /* Dimensions of an input once sliced at the linked index (or of a trail's rows) */
 function getSlicedDims({ dataset, linkedDim }: OverlayInput): number[] {
-  return getDims(dataset).filter((_, i) => i !== linkedDim);
+  return getPointDims(dataset).filter((_, i) => i !== linkedDim);
 }
 
 /* Columns shown along the x and y axes; `undefined` if an axis shows a dimension that no column
@@ -916,6 +936,7 @@ function buildPoints(
   return {
     x: column(values, cols, cx),
     y: column(values, cols, cy),
+    marker: hint.marker,
     z: zValues,
     values: colorValues,
     fill: hint.color ?? 'white',
@@ -923,6 +944,32 @@ function buildPoints(
     size: hint.size ?? 5,
     halo: hint.halo ?? true,
     label: hint.label,
+  };
+}
+
+const CIRCLE_SEGMENTS = 128;
+
+/* Circle [cx, cy, r] in the axes' coordinates (e.g. the unit circle of a z-plane) */
+function buildCircle(
+  overlay: ResolvedOverlay,
+  hint: CircleOverlay,
+  getValues: ValueGetter,
+): OverlayLine | undefined {
+  const { circle } = overlay.inputs;
+  const values = circle && getValues(overlay, circle);
+  if (values?.length !== 3) {
+    return undefined;
+  }
+  const [cx, cy, r] = values;
+  const angles = Array.from(
+    { length: CIRCLE_SEGMENTS + 1 },
+    (_, i) => (2 * Math.PI * i) / CIRCLE_SEGMENTS,
+  );
+  return {
+    x: angles.map((t) => cx + r * Math.cos(t)),
+    y: angles.map((t) => cy + r * Math.sin(t)),
+    ...getLineStyle(hint),
+    head: false,
   };
 }
 
@@ -1163,9 +1210,11 @@ export function buildOverlayShapes(
       const lines =
         hint.kind === 'ellipse'
           ? buildEllipses(overlay, hint, getValues, axes)
-          : [buildCurve(overlay, hint, getValues, index, axes)].filter(
-              (line) => line !== undefined,
-            );
+          : [
+              hint.kind === 'circle'
+                ? buildCircle(overlay, hint, getValues)
+                : buildCurve(overlay, hint, getValues, index, axes),
+            ].filter((line) => line !== undefined);
       shapes.lines.push(...lines);
       if (lines.length > 0) {
         shapes.texts.push(...getInlineLabel(hint, lines[0], lines[0].stroke));

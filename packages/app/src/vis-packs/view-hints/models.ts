@@ -28,6 +28,7 @@ export enum HintVis {
   ComplexLine = 'complexline',
   ComplexHeatmap = 'complexheatmap',
   ComplexCurve = 'complexcurve',
+  ComplexPoints = 'complexpoints', // 1D complex values as points of the complex plane
   RGB = 'rgb',
   Scatter = 'scatter', // NeXus scatter, or points (cf. `core/scatter/source.ts`)
   Scatter3D = 'scatter3d', // point cloud
@@ -51,9 +52,13 @@ interface OverlayBase {
   sliceBy?: string; // dimension scale linking the overlay's leading dimension
 }
 
+/* Marker of points: filled disc, cross, or hollow circle (e.g. poles and zeros) */
+export type Marker = 'dot' | 'x' | 'o';
+
 export interface PointsOverlay extends OverlayBase {
   kind: 'points';
-  points: string; // path of an (N, 2+) dataset
+  points: string; // path of an (N, 2+) dataset, or of a complex (N,) dataset (re, im)
+  marker?: Marker;
   /* 3D: height of each point - path of an (N,) dataset, `"value"` (the `colorBy` values) or
    * `"surface"` (default, unless a 3rd column is given) */
   z?: string;
@@ -72,6 +77,12 @@ export interface CurveOverlay extends OverlayBase {
   kind: 'curve';
   curve: string; // path of an (M, 2+) dataset
   trail: boolean; // rows up to the linked index only, i.e. path followed so far
+}
+
+/* Circle [cx, cy, r] in data coordinates, e.g. the unit circle of a z-plane */
+export interface CircleOverlay extends OverlayBase {
+  kind: 'circle';
+  circle: string; // path of a (3,) dataset
 }
 
 export type TextAnchor = 'top' | 'bottom' | 'left' | 'right' | 'center';
@@ -94,6 +105,7 @@ export type OverlayHint =
   | PointsOverlay
   | EllipseOverlay
   | CurveOverlay
+  | CircleOverlay
   | TextOverlay
   | ReferenceOverlay;
 
@@ -135,6 +147,8 @@ export interface ViewHint {
   curveLabel?: string; // line: legend entry of the dataset's own curve (default: CF `long_name`)
   curveColor?: string; // line: colour of the dataset's own curve (not in multi-plots)
   curveWidth?: number; // line: width of the dataset's own curve in CSS pixels
+  marker?: Marker; // complex points: marker of the dataset's own points
+  markerSize?: number; // complex points: radius of the dataset's own points in CSS pixels
   seriesPaths?: string[]; // line: extra datasets on the same axes (their attributes say how)
   seriesAnchor?: string; // series paths are resolved relative to this path
   bandPaths?: string[]; // line: lower and upper bounds of a filled area around each curve (same shape)

@@ -17,6 +17,7 @@ import {
   hasScalarShape,
   hasStringType,
   isColorScaleType,
+  isComplexArray,
   isDataset,
   isGroup,
 } from '@h5web/shared/guards';
@@ -32,9 +33,11 @@ import { findAttribute } from '../../utils';
 import { type ColorMap } from '../core/heatmap/models';
 import { DEFAULT_ROOT_N, snapRootN } from '../core/utils';
 import {
+  type CircleOverlay,
   type Envelope,
   HINT_ATTR_PREFIX,
   HintVis,
+  type Marker,
   type OverlayHint,
   type Projection,
   type ReferenceOverlay,
@@ -43,8 +46,12 @@ import {
   type ViewHint,
 } from './models';
 
-/* Values as plain numbers (a scalar selection may come back as a number) */
+/* Values as plain numbers (a scalar selection may come back as a number); complex values as
+ * interleaved real and imaginary parts, i.e. (N,) as (N, 2) */
 export function toNumbers(value: unknown): number[] | undefined {
+  if (isComplexArray(value)) {
+    return value.flat();
+  }
   if (typeof value === 'number' || typeof value === 'bigint') {
     return [Number(value)];
   }
@@ -85,6 +92,8 @@ function parseAmong<T extends string>(values: T[]) {
     return values.find((v) => v === key);
   };
 }
+
+const parseMarker = parseAmong<Marker>(['dot', 'x', 'o']);
 
 /* Only the settings that are given */
 function readPlayback(read: AttrReader): Partial<PlaybackSettings> | undefined {
@@ -538,6 +547,8 @@ export function parseViewHint(
       ? undefined
       : toRgbaColor(read.str('H5WEB_color', isCssColor)),
     curveWidth: read.num('H5WEB_width', isPos),
+    marker: read.oneOf('H5WEB_marker', parseMarker),
+    markerSize: read.num('H5WEB_size', isPos),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     interpolation: read.oneOf('H5WEB_interpolation', (val) =>
@@ -632,6 +643,16 @@ function parseReference(
   return { kind: geometry, value: entity.path, axis, ...style };
 }
 
+/* Circle [cx, cy, r] in data coordinates */
+function parseCircle(
+  entity: Entity,
+  style: Omit<CircleOverlay, 'kind' | 'circle'>,
+): CircleOverlay | string {
+  return isDataset(entity) && getDims(entity).join(',') === '3'
+    ? { kind: 'circle', circle: entity.path, ...style }
+    : '"circle" needs a (3,) dataset [cx, cy, r]';
+}
+
 /**
  * Overlay drawn by an object listed in `H5WEB_overlays`, from its attributes: `H5WEB_geometry`
  * and style. `text`: value of a scalar string dataset. Returns why if it can't be drawn.
@@ -680,6 +701,7 @@ export function parseOverlay(
       ? {
           kind: 'points',
           points: entity.path,
+          marker: read.oneOf('H5WEB_marker', parseMarker),
           z: parseZ(read.str('H5WEB_z')),
           size: read.num('H5WEB_size', (v) => Number.isFinite(v) && v > 0),
           ...style,
@@ -690,6 +712,10 @@ export function parseOverlay(
           trail: read.bool('H5WEB_trail') ?? false,
           ...style,
         };
+  }
+
+  if (geometry === 'circle') {
+    return parseCircle(entity, style);
   }
 
   if (geometry === 'ellipse') {

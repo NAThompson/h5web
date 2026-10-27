@@ -34,6 +34,7 @@ import { type VisDef } from '../models';
 import MultiplesVisContainer from '../panels/MultiplesVisContainer';
 import { getHintSafely } from '../view-hints/utils';
 import ComplexCurveVisContainer from './complex/ComplexCurveVisContainer';
+import ComplexPointsVisContainer from './complex/ComplexPointsVisContainer';
 import { ComplexCurveConfigProvider } from './complex/curve-config';
 import {
   HeatmapConfigProvider,
@@ -75,6 +76,7 @@ export enum Vis {
   ComplexHeatmap = 'ComplexHeatmap',
   ComplexLine = 'Complex Line',
   ComplexCurve = 'Complex Curve',
+  ComplexPoints = 'Complex Points',
   RGB = 'RGB',
   Compound = 'Compound',
   Volume = 'Volume',
@@ -167,6 +169,21 @@ export const CORE_VIS = {
       isDataset(entity) &&
       hasArrayShape(entity) &&
       entity.shape.dims.length === 1,
+  },
+
+  // Points of the complex plane (e.g. poles and zeros): on demand or when hinted
+  [Vis.ComplexPoints]: {
+    name: Vis.ComplexPoints,
+    Icon: MdScatterPlot,
+    Container: ComplexPointsVisContainer,
+    ConfigProvider: ScatterConfigProvider,
+    supportsDataset: async (dataset) => {
+      return (
+        hasArrayShape(dataset) &&
+        hasComplexType(dataset) &&
+        dataset.shape.dims.length === 1
+      );
+    },
   },
 
   [Vis.ComplexLine]: {

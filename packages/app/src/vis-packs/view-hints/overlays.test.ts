@@ -9,6 +9,8 @@ import {
 } from '@h5web/shared/hdf5-models';
 import {
   arrayShape,
+  cplx,
+  cplxType,
   floatType,
   intType,
   strType,
@@ -26,7 +28,7 @@ import { describe, expect, it } from 'vitest';
 
 import { findMockEntity } from '../../providers/mock/utils';
 import { findStrAttr } from '../core/geometry/utils';
-import { parseViewHint } from './attrs';
+import { parseViewHint, toNumbers } from './attrs';
 import { type OverlayHint } from './models';
 import {
   buildOverlayShapes,
@@ -341,6 +343,57 @@ describe('resolveOverlays', () => {
       at: [1.5, 0],
       anchor: 'top',
     });
+  });
+
+  it('read complex (N,) points as (N, 2), circles and markers', async () => {
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'zeros circle' }, [
+      dataset('zeros', arrayShape([2]), cplxType(floatType()), null, {
+        attributes: attrs({ H5WEB_geometry: 'points', H5WEB_marker: 'O' }),
+      }),
+      arr('circle', [3], undefined, { H5WEB_geometry: 'circle' }),
+    ]);
+    const resolved = await resolveOverlays(hint, base, ctx);
+    expect(resolved.notes).toEqual([]);
+    expect(resolved.overlays.map((o) => o.hint)).toMatchObject([
+      { kind: 'points', marker: 'o' },
+      { kind: 'circle' },
+    ]);
+
+    const shapes = buildOverlayShapes(
+      resolved.overlays,
+      (_, input) =>
+        input.dataset.name === 'zeros'
+          ? toNumbers([cplx(1, 2), cplx(3, -4)])
+          : [1, 0, 2],
+      undefined,
+      { x: 1, y: 0 },
+    );
+    expect(shapes.points[0]).toMatchObject({
+      x: [1, 3],
+      y: [2, -4],
+      marker: 'o',
+    });
+    const [circle] = shapes.lines;
+    expect(Math.max(...circle.x)).toBeCloseTo(3);
+    expect(Math.min(...circle.y)).toBeCloseTo(-2);
+  });
+
+  it('draw nothing for empty points, and need (3,) circles', async () => {
+    const { base, ctx, hint } = setup({ H5WEB_overlays: 'none bad_circle' }, [
+      dataset('none', arrayShape([0]), cplxType(floatType()), null, {
+        attributes: attrs({ H5WEB_geometry: 'points' }),
+      }),
+      arr('bad_circle', [2], undefined, { H5WEB_geometry: 'circle' }),
+    ]);
+    const resolved = await resolveOverlays(hint, base, ctx);
+    expect(resolved.notes).toEqual([
+      'overlay "bad_circle": "circle" needs a (3,) dataset [cx, cy, r]',
+    ]);
+    const shapes = buildOverlayShapes(resolved.overlays, () => [], undefined, {
+      x: 1,
+      y: 0,
+    });
+    expect(shapes.points).toMatchObject([{ x: [], y: [] }]);
   });
 
   it('skip broken overlays with a note, keep the others', async () => {

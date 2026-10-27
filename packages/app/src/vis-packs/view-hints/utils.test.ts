@@ -91,6 +91,22 @@ describe('parseViewHint', () => {
     });
   });
 
+  it('parse complex points, with marker and size', () => {
+    expect(
+      hint({
+        H5WEB_vis: 'complex_points',
+        H5WEB_marker: 'X',
+        H5WEB_size: 4,
+      }),
+    ).toMatchObject({
+      vis: HintVis.ComplexPoints,
+      marker: 'x',
+      markerSize: 4,
+      notes: [],
+    });
+    expect(hint({ H5WEB_marker: 'star' }).notes).toHaveLength(1);
+  });
+
   it('read scalars stored as scalars or as 1-element arrays, booleans of any integer type', () => {
     const scalars = [
       scalarAttr('H5WEB_z_stretch', 0.5),

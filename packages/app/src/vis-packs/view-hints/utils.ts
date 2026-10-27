@@ -266,6 +266,7 @@ const VIS_NAMES: Record<HintVis, string[]> = {
   [HintVis.ComplexLine]: ['Complex Line', 'NX Complex Line'],
   [HintVis.ComplexHeatmap]: ['Heatmap', 'NX Heatmap'],
   [HintVis.ComplexCurve]: ['Complex Curve', 'NX Complex Curve'],
+  [HintVis.ComplexPoints]: ['Complex Points'],
   [HintVis.Volume]: ['Volume', 'NX Volume'],
   [HintVis.Orthoslices]: ['Orthoslices'],
   [HintVis.Curve]: ['Curve', 'NX Curve', 'Complex Curve', 'NX Complex Curve'],

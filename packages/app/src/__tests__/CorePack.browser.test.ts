@@ -83,7 +83,12 @@ test('visualize 1D enum dataset', async () => {
 test('visualize 1D complex dataset', async () => {
   await renderApp('/arrays/oneD_complex');
 
-  expect(getVisTabs()).toEqual([Vis.Matrix, Vis.ComplexCurve, Vis.ComplexLine]);
+  expect(getVisTabs()).toEqual([
+    Vis.Matrix,
+    Vis.ComplexCurve,
+    Vis.ComplexPoints,
+    Vis.ComplexLine,
+  ]);
   expect(getSelectedVisTab()).toBe(Vis.ComplexLine);
   expect(page.getByRole('figure', { name: 'oneD_complex' })).toBeVisible();
 });

@@ -24,6 +24,7 @@ import {
   type OverlayShapes,
   toPixelCentres,
 } from './overlays';
+import PointMarker from './PointMarker';
 import styles from './ViewHints.module.css';
 
 interface ColorParams {
@@ -123,9 +124,10 @@ interface Props {
   shapes: OverlayShapes;
   colorParams: ColorParams;
   // Axis values and number of pixels of the heatmap, to draw coordinates where samples are
-  abscissas: NumArray | undefined;
-  ordinates: NumArray | undefined;
-  shape: number[]; // rows, cols
+  // (no heatmap: coordinates drawn as is)
+  abscissas?: NumArray;
+  ordinates?: NumArray;
+  shape?: number[]; // rows, cols
 }
 
 /* Overlays on a heatmap, drawn in SVG in the heatmap's data coordinates */
@@ -137,19 +139,31 @@ function OverlayLayer2D(props: Props) {
     ordinates,
     shape,
   } = props;
-  const [rows, cols] = shape;
+  const isHeatmap = !!shape;
+  const [rows, cols] = shape ?? [0, 0];
   const { abscissaConfig, ordinateConfig, canvasSize } = useVisCanvasContext();
   const { scaleType: xScaleType } = abscissaConfig;
   const { scaleType: yScaleType } = ordinateConfig;
 
   const allShapes = useMemo(
     () =>
-      toPixelCentres(
-        dataShapes,
-        getScaledCentreShift(abscissas, cols, xScaleType),
-        getScaledCentreShift(ordinates, rows, yScaleType),
-      ),
-    [dataShapes, abscissas, ordinates, rows, cols, xScaleType, yScaleType],
+      isHeatmap
+        ? toPixelCentres(
+            dataShapes,
+            getScaledCentreShift(abscissas, cols, xScaleType),
+            getScaledCentreShift(ordinates, rows, yScaleType),
+          )
+        : dataShapes,
+    [
+      dataShapes,
+      abscissas,
+      ordinates,
+      isHeatmap,
+      rows,
+      cols,
+      xScaleType,
+      yScaleType,
+    ],
   );
 
   // Large point sets as GL points: SVG elements are re-rendered on every pan and zoom
@@ -282,31 +296,46 @@ function OverlayLayer2D(props: Props) {
                       const ring =
                         points.stroke ??
                         (isColoured ? '#202020' : getHaloColor(points.fill));
+                      const count = points.counts?.[j] ?? 1;
                       return (
                         // eslint-disable-next-line react/no-array-index-key
                         <g key={j}>
-                          {points.halo && (
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r={points.size + 2.5}
-                              fill={ring}
-                            />
-                          )}
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={points.size}
-                            fill={fills[i][j]}
-                            stroke={
+                          <PointMarker
+                            marker={points.marker}
+                            x={pt.x}
+                            y={pt.y}
+                            size={points.size}
+                            color={fills[i][j]}
+                            ring={points.halo ? ring : undefined}
+                            inner={
                               points.halo
                                 ? isColoured
                                   ? 'white'
                                   : undefined
                                 : points.stroke
                             }
-                            strokeWidth={1.5}
                           />
+                          {count > 1 && (
+                            // Multiplicity of coincident points (e.g. a double pole)
+                            <text
+                              x={pt.x + points.size + 2}
+                              y={pt.y - points.size - 2}
+                              fill={points.fill}
+                              stroke={
+                                points.halo
+                                  ? getHaloColor(points.fill)
+                                  : undefined
+                              }
+                              strokeOpacity={TEXT_HALO_OPACITY}
+                              strokeWidth={TEXT_HALO_WIDTH}
+                              strokeLinejoin="round"
+                              paintOrder="stroke"
+                              fontSize={12}
+                              fontWeight={600}
+                            >
+                              {count}
+                            </text>
+                          )}
                         </g>
                       );
                     })}

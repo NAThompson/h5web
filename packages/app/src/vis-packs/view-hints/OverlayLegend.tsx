@@ -1,5 +1,6 @@
 import { getLegendKey, type LegendItem } from './hooks';
 import { renderMarkup } from './markup';
+import PointMarker from './PointMarker';
 import styles from './ViewHints.module.css';
 
 interface Props {
@@ -20,7 +21,7 @@ function OverlayLegend(props: Props) {
       aria-label="Overlays"
     >
       {items.map((item) => {
-        const { label, color, kind, dash } = item;
+        const { label, color, kind, dash, marker = 'dot' } = item;
         return (
           <li key={getLegendKey(item)} className={styles.legendItem}>
             <svg
@@ -29,9 +30,19 @@ function OverlayLegend(props: Props) {
               aria-hidden
               data-keep-colors
             >
-              {kind === 'points' ? (
+              {kind === 'points' && marker === 'dot' && (
                 <circle cx={10} cy={6} r={4} fill={color} stroke="#202020" />
-              ) : (
+              )}
+              {kind === 'points' && marker !== 'dot' && (
+                <PointMarker
+                  marker={marker}
+                  x={10}
+                  y={6}
+                  size={4}
+                  color={color}
+                />
+              )}
+              {kind === 'line' && (
                 <line
                   x1={1}
                   y1={6}

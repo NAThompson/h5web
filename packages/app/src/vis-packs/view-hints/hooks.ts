@@ -37,7 +37,7 @@ import { formatBytes, getValueSize, MAX_AUTO_FETCH_SIZE } from '../utils';
 import { toNumbers } from './attrs';
 import { getContourOfSlicing } from './contours';
 import type LinkedDimMapper from './LinkedDimMapper';
-import { EMPTY_HINT, type ViewHint } from './models';
+import { EMPTY_HINT, type Marker, type ViewHint } from './models';
 import {
   type AxisDims,
   buildOverlayShapes,
@@ -211,6 +211,7 @@ export interface LegendItem {
   color: string;
   kind: 'points' | 'line';
   dash: boolean;
+  marker?: Marker; // of points (default: dot)
 }
 
 /* Legend items without repeats (e.g. one entry for several overlays of a kind) */
@@ -222,8 +223,9 @@ export function uniqueLegendItems(items: LegendItem[]): LegendItem[] {
   );
 }
 
-export function getLegendKey({ label, color, kind, dash }: LegendItem): string {
-  return [label, color, kind, dash].join('|');
+export function getLegendKey(item: LegendItem): string {
+  const { label, color, kind, dash, marker } = item;
+  return [label, color, kind, dash, marker].join('|');
 }
 
 export interface LinkedOverlays {
@@ -236,10 +238,12 @@ export interface LinkedOverlays {
   extraSlider?: Omit<ComponentProps<typeof LinkedDimMapper>, 'children'>;
 }
 
-/* Legend of the labelled overlays of a hint (not reference lines), unless the hint hides it */
+/* Legend of the labelled overlays of a hint (not reference lines, unless `withReferences`), unless
+ * the hint hides it */
 export function getOverlayLegend(
   hint: ViewHint,
   overlays: ResolvedOverlays['overlays'],
+  withReferences = false,
 ): LegendItem[] {
   if (hint.legend === false) {
     return [];
@@ -249,13 +253,16 @@ export function getOverlayLegend(
       const label =
         overlay.legendLabel ??
         (overlay.labelMode === 'inline' ? undefined : overlay.label);
-      return label && overlay.kind !== 'text' && !isReference(overlay)
+      return label &&
+        overlay.kind !== 'text' &&
+        (withReferences || !isReference(overlay))
         ? [
             {
               label,
               color: overlay.color ?? 'white',
               kind: overlay.kind === 'points' ? 'points' : 'line',
               dash: overlay.dash ?? false,
+              marker: overlay.kind === 'points' ? overlay.marker : undefined,
             },
           ]
         : [];

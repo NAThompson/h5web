@@ -35,6 +35,7 @@ import {
 import { ScaleType } from '@h5web/shared/vis-models';
 
 import { makeCategoricalGroup } from './categorical';
+import { makePoleZeroGroup } from './pole-zero';
 import { makeScatterGroup } from './scatter';
 import { TEAPOT_PATCHES, TEAPOT_VERTICES } from './teapot';
 import { makeVectorGroup } from './vector';
@@ -2301,6 +2302,7 @@ export function makeMockFile(): GroupWithChildren {
         ),
       ]),
       makeScatterGroup(),
+      makePoleZeroGroup(),
       makeCategoricalGroup(),
       makeVectorGroup(),
       makeVtkhdfGroup(),
