@@ -11,6 +11,7 @@ import {
   type Dataset,
 } from '@h5web/shared/hdf5-models';
 import { ScaleType } from '@h5web/shared/vis-models';
+import { getBounds } from '@h5web/shared/vis-utils';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -30,7 +31,6 @@ import OverlayLegend from '../../view-hints/OverlayLegend';
 import OverlayNotes from '../../view-hints/OverlayNotes';
 import {
   buildOverlayShapes,
-  isReference,
   type OverlayPoints,
   type ShapeBuilder,
 } from '../../view-hints/overlays';
@@ -40,9 +40,7 @@ import {
   type ReferenceShape,
 } from '../../view-hints/references';
 import styles from '../../view-hints/ViewHints.module.css';
-import { useSuggestions } from '../hooks';
-import { type ScatterConfig } from '../scatter/config';
-import PointsToolbar from '../scatter/PointsToolbar';
+import ComplexPointsToolbar from './ComplexPointsToolbar';
 import { useRealImag } from './hooks';
 import {
   getPlaneDomains,
@@ -50,17 +48,27 @@ import {
   mergeCoincidentPoints,
   withPlaneStyle,
 } from './points';
+import { useComplexPointsConfig } from './points-config';
 import PointsTooltip from './PointsTooltip';
 
 const PALETTE = PALETTES.Tableau10;
 const POINT_SIZE = 5; // px, radius
 const AXES = { x: 0, y: -1 }; // overlay columns 0 and 1 (cf. `getColumnOf` on a 1D base)
-const COLOR_PARAMS: ColorParams = {
-  domain: [0, 1],
-  scaleType: ScaleType.Linear,
-  colorMap: 'Viridis',
-  invertColorMap: false,
-};
+const NO_REFERENCES: ReferenceShape[] = [];
+
+/* Colours of points with `H5WEB_color_by` values: over the range of all these values, with the
+ * colour map of the hint (default Viridis) */
+function getColorParams(points: OverlayPoints[], hint: ViewHint): ColorParams {
+  const bounds = getBounds(points.flatMap(({ values }) => values ?? []));
+  const [min, max] = bounds ? [bounds.min, bounds.max] : [0, 1];
+  return {
+    domain: min < max ? [min, max] : [min - 1, max + 1],
+    scaleType: ScaleType.Linear,
+    colorMap:
+      hint.colorMap && hint.colorMap !== 'auto' ? hint.colorMap : 'Viridis',
+    invertColorMap: hint.invertColorMap ?? false,
+  };
+}
 
 interface PlaneShapes {
   shapes: ReturnType<typeof buildOverlayShapes>;
@@ -98,7 +106,6 @@ function usePlaneOverlays(base: Dataset<ArrayShape>, hint: ViewHint) {
     shapes,
     notes: [...new Set([...hint.notes, ...notes])],
     legend: getOverlayLegend(hint, styled?.overlays ?? [], true),
-    hasReferences: styled?.overlays.some(({ hint: o }) => isReference(o)),
   };
 }
 
@@ -108,7 +115,6 @@ interface Props {
   hint: ViewHint;
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
-  config: ScatterConfig;
 }
 
 /**
@@ -118,15 +124,17 @@ interface Props {
  */
 function MappedComplexPointsVis(props: Props) {
   const { dataset, value, hint, title, toolbarContainer } = props;
-  const { config: storedConfig } = props;
-  const config = useSuggestions(storedConfig, {
-    keepRatio: hint.keepRatio ?? true,
-  });
-  const { keepRatio, showGrid, sizeScale } = config;
 
   const { real, imag } = useRealImag(value);
   const overlays = usePlaneOverlays(dataset, hint);
-  const { shapes, references = [] } = overlays.shapes ?? {};
+  const { shapes, references = NO_REFERENCES } = overlays.shapes ?? {};
+
+  // Equal aspect by default only to keep circles round (e.g. unit circle of the z-plane)
+  const hasCircle = shapes?.lines.some((line) => line.circle);
+  const config = useComplexPointsConfig({
+    keepRatio: hint.keepRatio ?? hasCircle,
+  });
+  const { keepRatio, showGrid, sizeScale } = config;
 
   const basePoints = useMemo<OverlayPoints>(
     () => ({
@@ -162,6 +170,10 @@ function MappedComplexPointsVis(props: Props) {
       texts: shapes?.texts ?? [],
     };
   }, [basePoints, shapes, extent, sizeScale]);
+  const colorParams = useMemo(
+    () => getColorParams(drawn.points, hint),
+    [drawn, hint],
+  );
 
   const baseLegend: LegendItem[] =
     hint.legend === false || !hint.curveLabel
@@ -180,12 +192,7 @@ function MappedComplexPointsVis(props: Props) {
     <>
       {toolbarContainer &&
         createPortal(
-          <PointsToolbar
-            dataDomain={undefined}
-            config={config}
-            is3D={false}
-            isPlane
-          />,
+          <ComplexPointsToolbar config={config} />,
           toolbarContainer,
         )}
 
@@ -202,8 +209,8 @@ function MappedComplexPointsVis(props: Props) {
           <DefaultInteractions />
           <ResetZoomButton />
           <PointsTooltip points={drawn.points} />
-          {overlays.hasReferences && <ReferenceLayer shapes={references} />}
-          <OverlayLayer2D shapes={drawn} colorParams={COLOR_PARAMS} />
+          {references.length > 0 && <ReferenceLayer shapes={references} />}
+          <OverlayLayer2D shapes={drawn} colorParams={colorParams} />
         </VisCanvas>
       </figure>
       <OverlayNotes notes={overlays.notes} />

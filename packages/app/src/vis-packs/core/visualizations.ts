@@ -36,6 +36,7 @@ import { getHintSafely } from '../view-hints/utils';
 import ComplexCurveVisContainer from './complex/ComplexCurveVisContainer';
 import ComplexPointsVisContainer from './complex/ComplexPointsVisContainer';
 import { ComplexCurveConfigProvider } from './complex/curve-config';
+import { ComplexPointsConfigProvider } from './complex/points-config';
 import {
   HeatmapConfigProvider,
   LineConfigProvider,
@@ -176,7 +177,7 @@ export const CORE_VIS = {
     name: Vis.ComplexPoints,
     Icon: MdScatterPlot,
     Container: ComplexPointsVisContainer,
-    ConfigProvider: ScatterConfigProvider,
+    ConfigProvider: ComplexPointsConfigProvider,
     supportsDataset: async (dataset) => {
       return (
         hasArrayShape(dataset) &&

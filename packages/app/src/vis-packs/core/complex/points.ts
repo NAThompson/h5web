@@ -1,4 +1,5 @@
 import { type Domain } from '@h5web/shared/vis-models';
+import { getBounds } from '@h5web/shared/vis-utils';
 
 import {
   type OverlayLine,
@@ -11,16 +12,12 @@ import {
 } from '../../view-hints/references';
 
 const PADDING = 0.08; // of the larger extent, around the shapes (markers on the edge are whole)
-export const MERGE_TOLERANCE = 1e-3; // of the larger extent: points closer than this coincide
+// Of the larger extent: points closer than this coincide (numerically repeated roots)
+export const MERGE_TOLERANCE = 1e-6;
 
-function getBounds(values: number[]): Domain | undefined {
-  let [min, max] = [Infinity, -Infinity];
-  for (const val of values) {
-    if (Number.isFinite(val)) {
-      [min, max] = [Math.min(min, val), Math.max(max, val)];
-    }
-  }
-  return min <= max ? [min, max] : undefined;
+function getDomain(values: number[]): Domain | undefined {
+  const bounds = getBounds(values);
+  return bounds && [bounds.min, bounds.max];
 }
 
 function spanOf(domain: Domain | undefined): number {
@@ -53,7 +50,7 @@ export function getPlaneDomains(
 ): { xDomain: Domain; yDomain: Domain; extent: number } {
   const shapes = [...points, ...lines];
   const [xBounds, yBounds] = (['x', 'y'] as const).map((axis) =>
-    getBounds([
+    getDomain([
       ...shapes.flatMap((shape) => shape[axis]),
       ...references.flatMap((ref) => (ref.axis === axis ? ref.values : [])),
     ]),
@@ -75,7 +72,8 @@ export function getPlaneDomains(
 }
 
 /* Points within `tolerance` of each other (on both axes) drawn once, with their multiplicity in
- * `counts` (e.g. a double pole); the first point of each group is kept */
+ * `counts` (e.g. a double pole) and their own coordinates in `merged`; the first point of each
+ * group is kept (with its colour value) */
 export function mergeCoincidentPoints(
   points: OverlayPoints,
   tolerance: number,
@@ -84,12 +82,14 @@ export function mergeCoincidentPoints(
   const cells = new Map<string, number[]>(); // indices of kept points by grid cell
   const kept: number[] = [];
   const counts: number[] = [];
+  const merged: number[][] = []; // indices of the points of each kept one
 
   for (const [i, xi] of x.entries()) {
     const yi = y[i];
     if (!Number.isFinite(xi) || !Number.isFinite(yi) || tolerance <= 0) {
       kept.push(i);
       counts.push(1);
+      merged.push([i]);
       continue;
     }
 
@@ -107,8 +107,10 @@ export function mergeCoincidentPoints(
       cells.set(key, [...(cells.get(key) ?? []), kept.length]);
       kept.push(i);
       counts.push(1);
+      merged.push([i]);
     } else {
       counts[near] += 1;
+      merged[near].push(i);
     }
   }
 
@@ -122,6 +124,7 @@ export function mergeCoincidentPoints(
     z: undefined,
     values: values && kept.map((i) => values[i]),
     counts,
+    merged: merged.map((group) => group.map((i) => [x[i], y[i]])),
   };
 }
 

@@ -62,6 +62,11 @@ test('draw the imaginary axis of the s-plane as a reference line', async () => {
   expect(
     page.getByRole('note', { name: 'View hint notes' }).query(),
   ).toBeNull();
+
+  // No circle to keep round: each axis fits its own range
+  await expect
+    .element(page.getByRole('button', { name: 'Keep ratio' }))
+    .toHaveAttribute('aria-pressed', 'false');
 });
 
 test('show empty axes and overlays without poles', async () => {

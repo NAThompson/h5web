@@ -27,14 +27,12 @@ interface Props {
   is3D: boolean;
   withCategorical?: boolean; // e.g. integer labels
   isCategorical?: boolean; // shown with categorical colors: no domain, color map nor scale
-  isPlane?: boolean; // complex plane: no axis scales nor opacity, keep ratio
 }
 
-/* Toolbar of points (`H5WEB_vis = "scatter"` / `"scatter3d"`, or `"complex_points"`) */
+/* Toolbar of points (`H5WEB_vis = "scatter"` / `"scatter3d"`) */
 function PointsToolbar(props: Props) {
   const visArea = useVisArea();
-  const { dataDomain, config, is3D, withCategorical, isCategorical, isPlane } =
-    props;
+  const { dataDomain, config, is3D, withCategorical, isCategorical } = props;
   const {
     customDomain,
     colorMap,
@@ -61,7 +59,7 @@ function PointsToolbar(props: Props) {
   } = config;
   return (
     <Toolbar interactions={is3D ? SURFACE_INTERACTIONS : BASE_INTERACTIONS}>
-      {!is3D && !isPlane && (
+      {!is3D && (
         <>
           <ScaleSelector
             label="X"
@@ -119,21 +117,21 @@ function PointsToolbar(props: Props) {
         </>
       )}
 
-      {(is3D || isPlane) && (
-        <ToggleBtn
-          label="Keep ratio"
-          Icon={MdAspectRatio}
-          value={keepRatio}
-          onToggle={() => setKeepRatio(!keepRatio)}
-        />
-      )}
       {is3D && (
-        <ToggleBtn
-          label="Axes"
-          Icon={FiBox}
-          value={showAxes}
-          onToggle={() => setShowAxes(!showAxes)}
-        />
+        <>
+          <ToggleBtn
+            label="Keep ratio"
+            Icon={MdAspectRatio}
+            value={keepRatio}
+            onToggle={() => setKeepRatio(!keepRatio)}
+          />
+          <ToggleBtn
+            label="Axes"
+            Icon={FiBox}
+            value={showAxes}
+            onToggle={() => setShowAxes(!showAxes)}
+          />
+        </>
       )}
       <ToggleBtn
         label="Grid"
@@ -151,16 +149,14 @@ function PointsToolbar(props: Props) {
           unit="times"
           onChange={setSizeScale}
         />
-        {!isPlane && (
-          <LogSlider
-            label="Opacity"
-            value={opacity}
-            min={0.01}
-            max={1}
-            unit="percent"
-            onChange={setOpacity}
-          />
-        )}
+        <LogSlider
+          label="Opacity"
+          value={opacity}
+          min={0.01}
+          max={1}
+          unit="percent"
+          onChange={setOpacity}
+        />
       </Menu>
       <Separator />
 

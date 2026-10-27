@@ -105,6 +105,12 @@ describe('parseViewHint', () => {
       notes: [],
     });
     expect(hint({ H5WEB_marker: 'star' }).notes).toHaveLength(1);
+
+    // Scatter: `H5WEB_size` is the path of the size values, not a radius
+    const scatter = hint({ H5WEB_vis: 'scatter', H5WEB_size: 'weight' });
+    expect(scatter.markerSize).toBeUndefined();
+    expect(scatter.notes).toEqual([]);
+    expect(hint({ H5WEB_size: 'weight' }).notes).toEqual([]);
   });
 
   it('read scalars stored as scalars or as 1-element arrays, booleans of any integer type', () => {

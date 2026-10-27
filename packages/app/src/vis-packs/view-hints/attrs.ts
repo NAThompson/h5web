@@ -29,7 +29,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type ColorScaleType, ComplexVisType } from '@h5web/shared/vis-models';
 
-import { findAttribute } from '../../utils';
+import { findAttribute, findScalarStrAttr } from '../../utils';
 import { type ColorMap } from '../core/heatmap/models';
 import { DEFAULT_ROOT_N, snapRootN } from '../core/utils';
 import {
@@ -450,6 +450,18 @@ function isPos(val: number): boolean {
   return Number.isFinite(val) && val > 0;
 }
 
+/* Radius of complex points; scatter: `H5WEB_size` is the path of the size values (cf.
+ * `core/scatter/source.ts`) */
+function readMarkerSize(
+  entity: Entity,
+  read: AttrReader,
+  vis: HintVis | undefined,
+): number | undefined {
+  return isScatterHint(vis) || findScalarStrAttr(entity, 'H5WEB_size')
+    ? undefined
+    : read.num('H5WEB_size', isPos);
+}
+
 /**
  * View hint of a dataset (or NXdata group) from its `H5WEB_*` attributes, CF `long_name` as
  * title. `dimNames`: names of the dimensions of the dataset, for `H5WEB_x_dim`/`multi_dim`.
@@ -548,7 +560,7 @@ export function parseViewHint(
       : toRgbaColor(read.str('H5WEB_color', isCssColor)),
     curveWidth: read.num('H5WEB_width', isPos),
     marker: read.oneOf('H5WEB_marker', parseMarker),
-    markerSize: read.num('H5WEB_size', isPos),
+    markerSize: readMarkerSize(entity, read, vis),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     interpolation: read.oneOf('H5WEB_interpolation', (val) =>
@@ -643,12 +655,13 @@ function parseReference(
   return { kind: geometry, value: entity.path, axis, ...style };
 }
 
-/* Circle [cx, cy, r] in data coordinates */
+/* Circle [cx, cy, r] in data coordinates: (3,), or (G, 3) sliced along a linked dimension */
 function parseCircle(
   entity: Entity,
   style: Omit<CircleOverlay, 'kind' | 'circle'>,
 ): CircleOverlay | string {
-  return isDataset(entity) && getDims(entity).join(',') === '3'
+  const dims = isDataset(entity) ? getDims(entity) : [];
+  return dims.length > 0 && dims.length <= 2 && dims.at(-1) === 3
     ? { kind: 'circle', circle: entity.path, ...style }
     : '"circle" needs a (3,) dataset [cx, cy, r]';
 }

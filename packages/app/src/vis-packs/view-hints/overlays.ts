@@ -740,6 +740,7 @@ export interface OverlayPoints {
   y: number[];
   marker?: Marker; // default: dot
   counts?: number[]; // multiplicity of each point (coincident points drawn once), labelled if > 1
+  merged?: [number, number][][]; // coordinates of the coincident points drawn as each point
   z?: number[]; // heights (values of the base dataset); on the surface if undefined
   values?: number[]; // coloured with the base colour map
   fill: string;
@@ -758,6 +759,7 @@ export interface OverlayLine {
   halo: boolean;
   label?: string;
   head: boolean; // marker at the last point (e.g. current position of a trail)
+  circle?: boolean; // keeps its shape only with equal aspect
 }
 
 export interface OverlayText {
@@ -949,18 +951,21 @@ function buildPoints(
 
 const CIRCLE_SEGMENTS = 128;
 
-/* Circle [cx, cy, r] in the axes' coordinates (e.g. the unit circle of a z-plane) */
+/* Circle [c0, c1, r] (e.g. the unit circle of a z-plane): centre coordinates in columns 0 and 1,
+ * mapped to the axes as the columns of points */
 function buildCircle(
   overlay: ResolvedOverlay,
   hint: CircleOverlay,
   getValues: ValueGetter,
+  axes: AxisDims,
 ): OverlayLine | undefined {
   const { circle } = overlay.inputs;
   const values = circle && getValues(overlay, circle);
-  if (values?.length !== 3) {
+  const columns = getColumns(overlay, axes);
+  if (values?.length !== 3 || !columns || Math.max(...columns) > 1) {
     return undefined;
   }
-  const [cx, cy, r] = values;
+  const [cx, cy, r] = [values[columns[0]], values[columns[1]], values[2]];
   const angles = Array.from(
     { length: CIRCLE_SEGMENTS + 1 },
     (_, i) => (2 * Math.PI * i) / CIRCLE_SEGMENTS,
@@ -970,6 +975,7 @@ function buildCircle(
     y: angles.map((t) => cy + r * Math.sin(t)),
     ...getLineStyle(hint),
     head: false,
+    circle: true,
   };
 }
 
@@ -1212,7 +1218,7 @@ export function buildOverlayShapes(
           ? buildEllipses(overlay, hint, getValues, axes)
           : [
               hint.kind === 'circle'
-                ? buildCircle(overlay, hint, getValues)
+                ? buildCircle(overlay, hint, getValues, axes)
                 : buildCurve(overlay, hint, getValues, index, axes),
             ].filter((line) => line !== undefined);
       shapes.lines.push(...lines);

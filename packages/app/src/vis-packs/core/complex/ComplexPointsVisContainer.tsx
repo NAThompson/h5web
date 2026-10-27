@@ -7,7 +7,6 @@ import {
 import { type VisContainerProps } from '../../models';
 import { useViewHint } from '../../view-hints/hooks';
 import VisBoundary from '../../VisBoundary';
-import { useScatterConfig } from '../scatter/config';
 import ValueFetcher from '../ValueFetcher';
 import MappedComplexPointsVis from './MappedComplexPointsVis';
 
@@ -19,7 +18,6 @@ function ComplexPointsVisContainer(props: VisContainerProps) {
   assertComplexType(entity);
 
   const hint = useViewHint(entity);
-  const config = useScatterConfig();
 
   return (
     <VisBoundary>
@@ -32,7 +30,6 @@ function ComplexPointsVisContainer(props: VisContainerProps) {
             hint={hint}
             title={hint.title ?? entity.name}
             toolbarContainer={toolbarContainer}
-            config={config}
           />
         )}
       />

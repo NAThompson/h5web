@@ -21,7 +21,9 @@ import { renderSvgMarkup } from './markup';
 import { type TextAnchor } from './models';
 import {
   getPixelCentreShift,
+  type OverlayPoints,
   type OverlayShapes,
+  type OverlayText,
   toPixelCentres,
 } from './overlays';
 import PointMarker from './PointMarker';
@@ -120,6 +122,30 @@ function getScaledCentreShift(
     : shift;
 }
 
+/* Large sets of dots, drawn as GL points */
+function isGl({ x, marker = 'dot' }: OverlayPoints): boolean {
+  return x.length > MAX_SVG_POINTS && marker === 'dot';
+}
+
+/* Multiplicities of the merged points of a set (cf. `OverlayPoints.counts`), as texts */
+function getCountTexts(points: OverlayPoints): OverlayText[] {
+  const { x, y, counts = [], fill, halo } = points;
+  return counts.flatMap((count, i) =>
+    count > 1
+      ? [
+          {
+            x: x[i],
+            y: y[i],
+            text: String(count),
+            anchor: 'right',
+            color: fill,
+            halo,
+          },
+        ]
+      : [],
+  );
+}
+
 interface Props {
   shapes: OverlayShapes;
   colorParams: ColorParams;
@@ -166,17 +192,19 @@ function OverlayLayer2D(props: Props) {
     ],
   );
 
-  // Large point sets as GL points: SVG elements are re-rendered on every pan and zoom
-  const [shapes, glPoints] = useMemo(
-    () => [
+  // Large sets of dots as GL points: SVG elements are re-rendered on every pan and zoom (crosses
+  // and rings stay in SVG); multiplicities of their merged points as SVG texts
+  const [shapes, glPoints] = useMemo(() => {
+    const gl = allShapes.points.filter(isGl);
+    return [
       {
         ...allShapes,
-        points: allShapes.points.filter(({ x }) => x.length <= MAX_SVG_POINTS),
+        points: allShapes.points.filter((pts) => !isGl(pts)),
+        texts: [...allShapes.texts, ...gl.flatMap(getCountTexts)],
       },
-      allShapes.points.filter(({ x }) => x.length > MAX_SVG_POINTS),
-    ],
-    [allShapes],
-  );
+      gl,
+    ];
+  }, [allShapes]);
   const fills = useFillColors(shapes, colorParams);
 
   // All points to convert to HTML coordinates, followed by their offsets per shape

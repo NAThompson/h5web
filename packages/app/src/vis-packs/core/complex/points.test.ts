@@ -58,6 +58,11 @@ describe('mergeCoincidentPoints', () => {
     );
     expect(merged.x).toEqual([0.5, 0.9, Number.NaN]);
     expect(merged.counts).toEqual([3, 1, 1]);
+    expect(merged.merged?.[0]).toEqual([
+      [0.5, 0],
+      [0.5 + 1e-9, 0],
+      [0.5, 0],
+    ]);
   });
 
   it('keep points as they are when none coincide', () => {

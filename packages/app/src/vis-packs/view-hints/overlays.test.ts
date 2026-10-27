@@ -378,6 +378,16 @@ describe('resolveOverlays', () => {
     expect(Math.min(...circle.y)).toBeCloseTo(-2);
   });
 
+  it('slice (G, 3) circles along the linked dimension', async () => {
+    const { base, ctx, hint } = setup(
+      { H5WEB_overlays: 'circles', H5WEB_slice_by: 'generation' },
+      [arr('circles', [10, 3], [[G], []], { H5WEB_geometry: 'circle' })],
+    );
+    const resolved = await resolveOverlays(hint, base, ctx);
+    expect(resolved.notes).toEqual([]);
+    expect(resolved.overlays[0].inputs.circle?.linkedDim).toBe(0);
+  });
+
   it('draw nothing for empty points, and need (3,) circles', async () => {
     const { base, ctx, hint } = setup({ H5WEB_overlays: 'none bad_circle' }, [
       dataset('none', arrayShape([0]), cplxType(floatType()), null, {
@@ -781,6 +791,19 @@ describe('shapes', () => {
       { x: 0, y: 1 }, // transposed
     );
     expect(shapes.lines[0]).toMatchObject({ x: [0, 10], y: [0, 1] });
+  });
+
+  it('map the centre of circles to the axes as the columns of points', () => {
+    const circle = { dataset: arr('c', [3]) };
+    const shapes = buildOverlayShapes(
+      [overlay({ kind: 'circle', circle: 'c' }, { circle })],
+      () => [1, 2, 0.5],
+      undefined,
+      { x: 0, y: 1 }, // transposed
+    );
+    const [{ x, y }] = shapes.lines;
+    expect(Math.max(...x)).toBeCloseTo(2.5); // centre (2, 1)
+    expect(Math.max(...y)).toBeCloseTo(1.5);
   });
 
   it('draw points coloured by values, with z from a third column', () => {
