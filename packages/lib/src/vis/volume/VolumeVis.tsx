@@ -39,6 +39,7 @@ import {
   hasPoints,
   normalizeBoxSize,
 } from './utils';
+import VolumeAxes from './VolumeAxes';
 import VolumeControls from './VolumeControls';
 import VolumeLegend from './VolumeLegend';
 import VolumeMesh, { type AxisLookups } from './VolumeMesh';
@@ -83,6 +84,9 @@ interface Props extends ClassStyleAttrs {
    * mesh (NaN outside): voxels with coverage below half are not rendered, so the boundary is a
    * smooth surface rather than a voxel staircase */
   coverage?: Uint8Array;
+  /* Labels of the x, y and z axes, e.g. from dimension scales: the box is drawn with ticks and
+   * these titles on its edges, in its axes' coordinates */
+  axisLabels?: [x?: string, y?: string, z?: string];
 }
 
 function VolumeVis(props: PropsWithChildren<Props>) {
@@ -111,6 +115,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     axisValues = NO_AXIS_VALUES,
     points,
     coverage,
+    axisLabels,
     children,
     className = '',
     style,
@@ -217,6 +222,14 @@ function VolumeVis(props: PropsWithChildren<Props>) {
               depthTest={false}
             />
           </lineSegments>
+          <VolumeAxes
+            labels={axisLabels}
+            visible={showBox}
+            shape={dataArray.shape}
+            boxSize={boxSize}
+            axisValues={axisValues}
+            background={background}
+          />
           {children}
         </R3FCanvas>
         <CanvasOverlay

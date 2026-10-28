@@ -40,6 +40,9 @@ interface Props {
   yConfig: Axis3DConfig;
   zConfig: Axis3DConfig;
   showGrid: boolean;
+  /* Colors as drawn on the canvas, used as they are: e.g. on a canvas with a background of its own,
+   * where the page's theme colours (and their inversion in dark mode) don't apply */
+  colors?: Partial<Pick<Theme, 'tickLabels' | 'axisLabels' | 'ticks'>>;
 }
 
 interface Theme {
@@ -257,13 +260,17 @@ const PRIORITY = { axisLabel: 3, tick: 2, valueTick: 1 };
  * floor and back walls - i.e. the walls furthest from the camera, whatever the view angle.
  */
 function Axes3D(props: Props) {
-  const { boxSize, xConfig, yConfig, zConfig, showGrid } = props;
+  const { boxSize, xConfig, yConfig, zConfig, showGrid, colors } = props;
   const { domain: valueDomain, scaleType = ScaleType.Linear } = zConfig;
 
   const [w, h, zHeight] = boxSize;
   const domElement = useThree((state) => state.gl.domElement);
   const invalidate = useThree((state) => state.invalidate);
-  const theme = useTheme(domElement);
+  const pageTheme = useTheme(domElement);
+  const theme = useMemo(
+    () => ({ ...pageTheme, ...colors }),
+    [pageTheme, colors],
+  );
 
   useEffect(() => invalidate(), [theme, invalidate]);
 

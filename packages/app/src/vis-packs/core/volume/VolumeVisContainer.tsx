@@ -97,7 +97,7 @@ function VolumeVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisValues }) => (
+              render={({ axisValues, axisLabels }) => (
                 <MappedVolumeVis
                   dataset={entity}
                   points={overlays.points}
@@ -109,6 +109,7 @@ function VolumeVisContainer(props: VisContainerProps) {
                   toolbarContainer={toolbarContainer}
                   config={config}
                   axisValues={axisValues.slice(-3)}
+                  axisLabels={axisLabels.slice(-3)}
                   withPhysicalAspect={withPhysicalAspect}
                   axisUnit={withPhysicalAspect ? dimUnits[0] : undefined}
                 />

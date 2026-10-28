@@ -51,6 +51,8 @@ interface Props {
   dims?: number[];
   /* Values along dimensions `[z, y, x]` of the volume */
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  /* Labels of dimensions `[z, y, x]` of the volume, e.g. from dimension scales, to title its axes */
+  axisLabels?: AxisMapping<string>;
   title?: string;
   /* Whether axis values can be used to size the volume and for gradients (i.e. they share a unit) */
   withPhysicalAspect?: boolean;
@@ -69,6 +71,7 @@ function MappedVolumeVis(props: Props) {
     config,
     dims = dataset.shape.dims,
     axisValues = [],
+    axisLabels,
     withPhysicalAspect = false,
     axisUnit,
     title,
@@ -214,6 +217,9 @@ function MappedVolumeVis(props: Props) {
         gradientLabel={gradientLabel}
         boxSize={boxSize}
         axisValues={axisCoords}
+        axisLabels={
+          axisLabels && [axisLabels[2], axisLabels[1], axisLabels[0]] // along x, y, z
+        }
         points={points}
         coverage={coverage}
       />

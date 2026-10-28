@@ -125,6 +125,20 @@ export function hasPoints(points: VolumePointSet[] | undefined): boolean {
   return !!points?.some(({ x }) => x.length > 0);
 }
 
+/* Coordinates at the two faces of the box along an axis of `count` voxels, which a coordinate
+ * maps to linearly in between (cf. `getCoordToUnit`), e.g. for the axes' ticks */
+export function getAxisDomain(
+  values: NumArray | undefined,
+  count: number,
+): Domain {
+  const edges = getCellEdges(values, count);
+  // Evenly spaced values (or indices) are the starts of the voxels: shift by half a voxel
+  const isStarts =
+    !values || (values.length === count && !isNonUniformAxis(values, count));
+  const shift = isStarts ? (edges[1] - edges[0]) / 2 : 0;
+  return [edges[0] - shift, edges[count] - shift];
+}
+
 /* Relative position (from 0 to 1) in the box of a coordinate along an axis of `count` voxels, e.g.
  * of an overlay's point: the coordinate of a voxel (or its index, without values) lands at its
  * centre, where the volume draws it (cf. `getVoxelCentre`) */
@@ -132,13 +146,8 @@ export function getCoordToUnit(
   values: NumArray | undefined,
   count: number,
 ): (coord: number) => number {
-  const edges = getCellEdges(values, count);
-  // Evenly spaced values (or indices) are the starts of the voxels: shift by half a voxel
-  const isStarts =
-    !values || (values.length === count && !isNonUniformAxis(values, count));
-  const shift = isStarts ? (edges[1] - edges[0]) / 2 : 0;
-  const [first, last] = [edges[0], edges[count]];
-  return (coord) => (coord + shift - first) / (last - first);
+  const [first, last] = getAxisDomain(values, count);
+  return (coord) => (coord - first) / (last - first);
 }
 
 /* Corners of the plane normal to `axis` (x, y, z) at relative position `offset` in the unit

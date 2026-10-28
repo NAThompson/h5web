@@ -14,6 +14,7 @@ import { type VisScaleType } from '../models';
 import { createScale } from '../utils';
 import {
   canAllocateVolumeTexture,
+  getAxisDomain,
   getAxisLookup,
   getBoxSize,
   getBoxSizeFromAxes,
@@ -294,6 +295,25 @@ describe('getCoordToUnit', () => {
     expect(toUnit(1)).toBeCloseTo(
       getVoxelCentre(getAxisLookup([0, 1, 10], 3), 1, 3),
     );
+  });
+});
+
+describe('getAxisDomain', () => {
+  it('should give the coordinates at the faces of the box, where points map to 0 and 1', () => {
+    expect(getAxisDomain(undefined, 4)).toStrictEqual([-0.5, 3.5]); // index
+    expect(getAxisDomain([10, 20, 30, 40], 4)).toStrictEqual([5, 45]); // evenly spaced: half a voxel beyond
+    expect(getAxisDomain([0, 1, 2, 4], 3)).toStrictEqual([0, 4]); // bin edges
+    for (const [values, count] of [
+      [undefined, 4],
+      [[10, 20, 30, 40], 4],
+      [[0, 1, 2, 4], 3],
+      [[0, 1, 10], 3],
+    ] as const) {
+      const [first, last] = getAxisDomain(values && [...values], count);
+      const toUnit = getCoordToUnit(values && [...values], count);
+      expect(toUnit(first)).toBeCloseTo(0);
+      expect(toUnit(last)).toBeCloseTo(1);
+    }
   });
 });
 
