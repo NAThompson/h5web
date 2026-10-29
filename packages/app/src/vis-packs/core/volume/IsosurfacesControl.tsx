@@ -13,10 +13,12 @@ interface Props {
   scaleType: ColorOrRootScaleType;
   colorMode: IsoColorMode;
   step: number;
+  smooth: boolean | undefined; // `undefined`: grid too large
   onAdd: (value: number) => void;
   onUpdate: (id: number, update: Partial<Omit<IsoLevel, 'id'>>) => void;
   onRemove: (id: number) => void;
   onColorModeChange: (colorMode: IsoColorMode) => void;
+  onSmoothChange: (smooth: boolean) => void;
 }
 
 function IsosurfacesControl(props: Props) {
@@ -26,10 +28,12 @@ function IsosurfacesControl(props: Props) {
     scaleType,
     colorMode,
     step,
+    smooth,
     onAdd,
     onUpdate,
     onRemove,
     onColorModeChange,
+    onSmoothChange,
   } = props;
 
   const sliderScale = getSliderScale(domain, scaleType);
@@ -58,6 +62,16 @@ function IsosurfacesControl(props: Props) {
             hint="Gradient magnitude, with the color map"
           />
         </ToggleGroup>
+        <label title="Surfaces (and pass region) follow a cubic spline through the data, not straight lines between grid points">
+          <input
+            type="checkbox"
+            aria-label="Smooth surfaces"
+            checked={!!smooth}
+            disabled={smooth === undefined}
+            onChange={() => onSmoothChange(!smooth)}
+          />{' '}
+          Smooth
+        </label>
       </div>
 
       {levels.length > 0 && (
@@ -88,6 +102,12 @@ function IsosurfacesControl(props: Props) {
       >
         <MdAdd aria-hidden /> Add level
       </button>
+
+      {smooth === undefined && (
+        <p className={styles.note}>
+          Smooth surfaces disabled above 128³ grid cells
+        </p>
+      )}
 
       {step > 1 && (
         <p className={styles.note}>

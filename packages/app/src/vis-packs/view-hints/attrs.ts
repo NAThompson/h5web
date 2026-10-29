@@ -548,6 +548,7 @@ export function parseViewHint(
       'H5WEB_iso_levels',
       (arr) => arr.length > 0 && arr.every(Number.isFinite),
     ),
+    isoSmooth: read.bool('H5WEB_iso_smooth'),
     passMin: read.num('H5WEB_pass_min', Number.isFinite),
     passMax: read.num('H5WEB_pass_max', Number.isFinite),
     valueTransform: read.oneOf(

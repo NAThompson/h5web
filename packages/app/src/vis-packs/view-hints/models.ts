@@ -142,6 +142,7 @@ export interface ViewHint {
   contourOfAnchor?: string; // `contourOf` is resolved relative to this path
   complex?: ComplexVisType;
   isoLevels?: number[];
+  isoSmooth?: boolean; // volumes: smooth isosurfaces and pass region (default: on small grids)
   passMin?: number; // volumes: region where `passMin ≤ value ≤ passMax`, shown on open
   passMax?: number;
   valueTransform?: ValueTransform; // values are log10 / log2: shown as powers

@@ -97,6 +97,7 @@ function MappedVolumeVis(props: Props) {
     showVolume,
     isoLevels,
     isoColorMode,
+    isoSmooth,
     passRegion,
   } = config;
 
@@ -159,14 +160,20 @@ function MappedVolumeVis(props: Props) {
   // Pass region extracted with the isosurfaces, as bounds after the levels
   const visibleLevels = isoLevels.filter((level) => level.visible);
   const passBounds = getPassBounds(passRegion);
-  const { geometries, progress, step, error, workerError } = useIsosurfaces(
-    dataArray,
-    [
-      ...visibleLevels.map((level) => level.value),
-      ...(passBounds ? [passBounds] : []),
-    ],
-    { scaleType: visScaleType, ignoreValue, axisValues: isoAxisValues },
-  );
+  const { geometries, progress, step, smooth, canSmooth, error, workerError } =
+    useIsosurfaces(
+      dataArray,
+      [
+        ...visibleLevels.map((level) => level.value),
+        ...(passBounds ? [passBounds] : []),
+      ],
+      {
+        scaleType: visScaleType,
+        ignoreValue,
+        axisValues: isoAxisValues,
+        smooth: isoSmooth,
+      },
+    );
   const region = usePassRegion(
     passBounds,
     geometries.at(-1),
@@ -218,6 +225,7 @@ function MappedVolumeVis(props: Props) {
             dataDomain={dataDomain}
             config={config}
             isoStep={step}
+            isoSmooth={canSmooth ? smooth : undefined}
           />,
           toolbarContainer,
         )}

@@ -89,6 +89,9 @@ export interface VolumeConfig {
   isoColorMode: IsoColorMode;
   setIsoColorMode: (isoColorMode: IsoColorMode) => void;
 
+  isoSmooth: boolean | undefined; // `undefined`: smooth small grids (cf. `useIsosurfaces`), not stored
+  setIsoSmooth: (isoSmooth: boolean) => void;
+
   passRegion: PassRegion;
   setPassRegion: (passRegion: PassRegion) => void;
 }
@@ -154,6 +157,9 @@ function createVolumeConfigStore() {
         isoColorMode: IsoColorMode.Solid,
         setIsoColorMode: (isoColorMode) => set({ isoColorMode }),
 
+        isoSmooth: undefined,
+        setIsoSmooth: (isoSmooth) => set({ isoSmooth }),
+
         passRegion: DEFAULT_PASS_REGION,
         setPassRegion: (passRegion) => set({ passRegion }),
       }),
@@ -161,9 +167,15 @@ function createVolumeConfigStore() {
         name: 'h5web:volume',
         version: 2,
         migrate: migrateSqrtToRoot, // v2: Root replaces Sqrt in the toolbar
-        // Iso levels depend on the dataset, so don't restore them after a reload, nor a hidden
+        // Iso levels and smoothing depend on the dataset, so don't restore them after a reload, nor a hidden
         // volume (which, without levels, would leave an empty canvas), nor pass region bounds
-        partialize: ({ isoLevels, showVolume, passRegion, ...state }) => ({
+        partialize: ({
+          isoLevels,
+          isoSmooth,
+          showVolume,
+          passRegion,
+          ...state
+        }) => ({
           ...state,
           passRegion: { ...passRegion, enabled: false, min: null, max: null },
         }),

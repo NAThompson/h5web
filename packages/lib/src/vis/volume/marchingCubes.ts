@@ -188,6 +188,26 @@ export function getSampleIndices(size: number, step: number): Int32Array {
   return Int32Array.from(indices);
 }
 
+/* Sampled grid interval containing a position in units of sampled grid points */
+function getSampleInterval(samples: Int32Array, pos: number): number {
+  return Math.min(
+    Math.max(Math.floor(pos), 0),
+    Math.max(samples.length - 2, 0),
+  );
+}
+
+/* Voxel index of a position in units of sampled grid points (cf. `getSampleIndices`) */
+export function sampleToVoxel(samples: Int32Array, pos: number): number {
+  const i = getSampleInterval(samples, pos);
+  return samples[i] + (pos - i) * (samples[i + 1] - samples[i]);
+}
+
+/* Voxels between the sampled grid points around a position */
+export function getSampleWidth(samples: Int32Array, pos: number): number {
+  const i = getSampleInterval(samples, pos);
+  return samples[i + 1] - samples[i];
+}
+
 /* Cells visited between progress reports (i.e. chances to cancel), whatever the shape of the volume */
 const CELLS_PER_STEP = 1 << 16;
 

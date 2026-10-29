@@ -31,11 +31,12 @@ interface Props {
   dataDomain: Domain;
   config: VolumeConfig;
   isoStep: number;
+  isoSmooth: boolean | undefined; // `undefined`: grid too large
 }
 
 function VolumeToolbar(props: Props) {
   const visArea = useVisArea();
-  const { dataDomain, config, isoStep } = props;
+  const { dataDomain, config, isoStep, isoSmooth } = props;
   const {
     customDomain,
     colorMap,
@@ -78,10 +79,12 @@ function VolumeToolbar(props: Props) {
         scaleType={scaleType}
         colorMode={isoColorMode}
         step={isoStep}
+        smooth={isoSmooth}
         onAdd={addIsoLevel}
         onUpdate={updateIsoLevel}
         onRemove={removeIsoLevel}
         onColorModeChange={setIsoColorMode}
+        onSmoothChange={config.setIsoSmooth}
       />
       <PassRegionControl
         region={config.passRegion}

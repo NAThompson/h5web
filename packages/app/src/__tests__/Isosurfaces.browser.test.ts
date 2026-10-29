@@ -44,6 +44,12 @@ test('add, edit and remove iso levels', async () => {
     .toBeVisible();
   expect(page.getByRole('listitem')).not.toBeInTheDocument();
 
+  // 63³ cells: above the smoothing budget, so not smooth by default
+  const smooth = page.getByRole('checkbox', { name: 'Smooth surfaces' });
+  await expect.element(smooth).not.toBeChecked();
+  await user.click(smooth);
+  await expect.element(smooth).toBeChecked();
+
   // New levels start in the middle of the domain, i.e. near E = 0 for a symmetric band
   await user.click(addLevelBtn());
   const value1 = page.getByRole('textbox', { name: 'Level 1 value' });

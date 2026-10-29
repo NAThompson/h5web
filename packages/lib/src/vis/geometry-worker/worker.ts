@@ -152,7 +152,7 @@ export function handleRequest(msg: WorkerRequest): void {
     }
 
     case 'isosurface': {
-      const { jobId, dataId, level, scaleType, step } = msg;
+      const { jobId, dataId, level, scaleType, step, smooth } = msg;
       queue.push({
         jobId,
         *run() {
@@ -164,6 +164,7 @@ export function handleRequest(msg: WorkerRequest): void {
             level,
             scaleType,
             step,
+            smooth,
           );
           return { type: 'isosurface', jobId, geometry };
         },

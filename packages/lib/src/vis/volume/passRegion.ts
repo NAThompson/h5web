@@ -3,7 +3,13 @@ import {
   getSampleIndices,
   type IsosurfaceGeometry,
   marchingCubesSteps,
+  sampleToVoxel,
 } from './marchingCubes';
+import {
+  getSmoothField,
+  smoothSurfaceSteps,
+  withProgress,
+} from './smoothSurface';
 
 /* Region where `min ≤ value ≤ max` (either bound optional), or where that fails if `invert` */
 export interface PassBounds {
@@ -13,7 +19,7 @@ export interface PassBounds {
 }
 
 /* Grid points sampled along z, y and x (cf. `getSampleIndices`) */
-type Samples = [Int32Array, Int32Array, Int32Array];
+export type Samples = [Int32Array, Int32Array, Int32Array];
 
 /*
  * Field whose level 0 is the boundary of the region, sampled with a stride (negative inside, so
@@ -89,14 +95,9 @@ export function capRegion(
       const idx = indices[axis];
       const pos = positions[v + axis] - 1; // padding
       const last = idx.length - 1;
-      const i = Math.min(Math.max(Math.floor(pos), 0), Math.max(last - 1, 0));
       outward[axis] = pos < 0 ? -1 : pos > last ? 1 : 0;
       positions[v + axis] =
-        pos <= 0
-          ? -0.5
-          : pos >= last
-            ? n - 0.5
-            : idx[i] + (pos - i) * (idx[i + 1] - idx[i]);
+        pos <= 0 ? -0.5 : pos >= last ? n - 0.5 : sampleToVoxel(idx, pos);
     });
     const len = Math.hypot(...outward);
     if (len > 0) {
@@ -108,17 +109,59 @@ export function capRegion(
   return { ...geometry, positions, normals };
 }
 
-/* Closed surface of a pass region, with grid points sampled with a stride (cf. `useIsosurfaces`) */
+/*
+ * Closed surface of a pass region, with grid points sampled with a stride (cf. `useIsosurfaces`).
+ * When smoothing, the surface follows the spline of the signed distance to the nearest bound
+ * (cf. `smoothIsosurfaceSteps`), while caps stay on the faces of the box.
+ */
 export function* passRegionSteps(
   values: DataValues,
   shape: [number, number, number],
   bounds: PassBounds,
   step: number,
+  smooth = false,
 ): Generator<number, IsosurfaceGeometry> {
   const samples = shape.map((n) => getSampleIndices(n, step)) as Samples;
-  const field = getPassField(values, shape, samples, bounds);
-  const geometry = yield* marchingCubesSteps(field.data, field.shape, 0);
-  return { ...capRegion(geometry, shape, samples), step };
+  if (!smooth) {
+    const field = getPassField(values, shape, samples, bounds);
+    const geometry = yield* marchingCubesSteps(field.data, field.shape, 0);
+    return { ...capRegion(geometry, shape, samples), step };
+  }
+
+  // Region of the data's spline: field `max(min - s, s - max)`, negated if inverted (as `getPassField`)
+  const { spline, fine, ref } = getSmoothField(values, shape, undefined, step);
+  const { min = -Infinity, max = Infinity, invert = false } = bounds;
+  const [relMin, relMax] = [min - ref, max - ref];
+  const fineSamples = fine.shape.map((n) => getSampleIndices(n, 1)) as Samples;
+  const field = getPassField(fine.data, fine.shape, fineSamples, {
+    min: relMin,
+    max: relMax,
+    invert,
+  });
+  const gen = marchingCubesSteps(field.data, field.shape, 0);
+  const geometry = yield* withProgress(gen, 0, 0.5);
+  const positions = geometry.positions.map((val) => (val + 1) / 2); // padding stays one sample
+
+  const sign = invert ? -1 : 1;
+  function toField(out: Float64Array): void {
+    const isBelow = relMin - out[0] > out[0] - relMax; // nearer the lower bound
+    const dir = isBelow ? -sign : sign;
+    const [s, gx, gy, gz] = out;
+    out.set([
+      dir * (s - (isBelow ? relMin : relMax)),
+      dir * gx,
+      dir * gy,
+      dir * gz,
+    ]);
+  }
+  const smoothed = smoothSurfaceSteps(
+    { ...geometry, positions },
+    spline,
+    toField,
+    1, // padding
+  );
+  const surface = yield* withProgress(smoothed, 0.5, 0.5);
+  return { ...capRegion(surface, shape, samples), step };
 }
 
 /* Volume enclosed by a closed surface wound counter-clockwise from outside (divergence theorem) */

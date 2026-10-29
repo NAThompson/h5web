@@ -1693,6 +1693,14 @@ export function makeMockFile(): GroupWithChildren {
             floatAttr('H5WEB_iso_levels', -1, 1),
           ],
         }),
+        // Coarse grid of a rippled surface: smoothing removes the creases of marching cubes
+        array('volume_smooth', {
+          valueId: 'threeD_marschner_lobb',
+          attributes: [
+            scalarAttr('H5WEB_vis', 'volume'),
+            floatAttr('H5WEB_iso_levels', 0.5),
+          ],
+        }),
         array('volume_plain', {
           valueId: 'threeD_fermi',
           attributes: [scalarAttr('H5WEB_vis', 'volume')],

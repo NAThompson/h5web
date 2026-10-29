@@ -31,6 +31,14 @@ export const DEFAULT_CACHE_BUDGET = 256 * 1024 * 1024;
 /* Surfaces kept for levels that are no longer requested (e.g. to toggle a level back and forth) */
 const MAX_HISTORY = 4;
 
+/* Grids with at most this many cells get smooth surfaces by default (cf. `smoothIsosurfaceSteps`),
+ * so that changing a level stays interactive: smoothing takes ~0.9 s at 64³ for the (very curved)
+ * Marschner-Lobb signal, about a quarter of that at 40³ */
+export const SMOOTH_CELL_BUDGET = 2 ** 16; // e.g. 40³
+
+/* Grids with more cells are never smoothed (~3 s and hundreds of MB at 128³) */
+export const MAX_SMOOTH_CELLS = 2 ** 21; // e.g. 128³
+
 /* Largest extraction done on the main thread when the worker is unavailable */
 export const FALLBACK_CELL_BUDGET = 2 ** 21; // e.g. 128³
 
@@ -41,6 +49,9 @@ export interface IsosurfacesState {
   progress: number | undefined;
   /* Grid stride used for extraction (1 = full resolution) */
   step: number;
+  /* Whether surfaces are smoothed, and can be (cf. `MAX_SMOOTH_CELLS`) */
+  smooth: boolean;
+  canSmooth: boolean;
   /* Last extraction failure, cleared when a new extraction starts */
   error: Error | undefined;
   /* Set when the worker is unavailable and surfaces are extracted on the main thread */
@@ -59,6 +70,9 @@ interface Options {
   ];
   cellBudget?: number;
   cacheBudget?: number;
+  /* Smooth surfaces (cf. `smoothIsosurfaceSteps`), up to `MAX_SMOOTH_CELLS`; by default, if the grid
+   * has at most `SMOOTH_CELL_BUDGET` cells and the worker runs */
+  smooth?: boolean;
 }
 
 let nextSourceId = 0;
@@ -122,6 +136,10 @@ export function useIsosurfaces(
     (acc, size) => acc * Math.max(Math.ceil((size - 1) / step), 1),
     1,
   );
+  const loadFailure = getWorkerLoadFailure();
+  const canSmooth = cells <= MAX_SMOOTH_CELLS;
+  const smooth =
+    canSmooth && (opts.smooth ?? (!loadFailure && cells <= SMOOTH_CELL_BUDGET));
   const scaleKey = JSON.stringify(scaleType ?? null);
   const levelsKey = JSON.stringify(levels);
 
@@ -141,7 +159,6 @@ export function useIsosurfaces(
   );
 
   const generation = useWorkerGeneration();
-  const loadFailure = getWorkerLoadFailure();
 
   const isRequested = useLatch(levels.length > 0, source);
   const { dataId, error: dataError } = useWorkerData(
@@ -174,7 +191,7 @@ export function useIsosurfaces(
   }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function getKey(level: number | PassBounds): string {
-    return `${sourceId}|${JSON.stringify(level)}|${scaleKey}|${step}`;
+    return `${sourceId}|${JSON.stringify(level)}|${scaleKey}|${step}|${smooth}`;
   }
 
   // Extraction on the main thread, for when the worker can't be used
@@ -193,6 +210,7 @@ export function useIsosurfaces(
         level,
         scaleType,
         step,
+        smooth,
       ),
     );
   }
@@ -275,7 +293,7 @@ export function useIsosurfaces(
       }
 
       const task = requestIsosurface(
-        { dataId, level, scaleType, step },
+        { dataId, level, scaleType, step, smooth },
         (progress) => {
           setProgressByKey((prev) => new Map(prev).set(key, progress));
         },
@@ -313,7 +331,17 @@ export function useIsosurfaces(
         }
       })();
     }
-  }, [sourceId, dataId, generation, loadFailure, levelsKey, scaleKey, step]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sourceId,
+    dataId,
+    generation,
+    loadFailure,
+    levelsKey,
+    scaleKey,
+    step,
+    smooth,
+  ]);
 
   // Cancel everything on unmount
   useEffect(() => {
@@ -336,13 +364,15 @@ export function useIsosurfaces(
   // Keep the same array while surfaces don't change, e.g. for memoizing their gradient domain
   const geometries = useMemo(
     () => levels.map((level) => cache.get(getKey(level))),
-    [cache, sourceId, levelsKey, scaleKey, step], // eslint-disable-line react-hooks/exhaustive-deps
+    [cache, sourceId, levelsKey, scaleKey, step, smooth], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return {
     geometries,
     progress,
     step,
+    smooth,
+    canSmooth,
     error: error ?? dataError,
     workerError: loadFailure,
   };

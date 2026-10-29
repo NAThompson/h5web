@@ -231,6 +231,7 @@ export function getVolumeSuggestions(
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
+    isoSmooth: hint.isoSmooth,
     passRegion:
       hint.passMin !== undefined || hint.passMax !== undefined
         ? {

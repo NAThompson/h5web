@@ -48,6 +48,7 @@ export type WorkerRequest =
       level: number | PassBounds;
       scaleType: ScaleTypeParam;
       step: number;
+      smooth?: boolean;
     }
   | {
       type: 'contours';

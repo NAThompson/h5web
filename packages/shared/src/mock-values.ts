@@ -126,6 +126,24 @@ const threeD_fermi = () => {
   );
 };
 
+// Marschner-Lobb test signal (1994) on [-1, 1]³, sampled coarsely: its level 0.5 has ripples barely above the grid spacing
+const ML_SIZE = 41;
+const threeD_marschner_lobb = () => {
+  const grid = range(ML_SIZE).map((i) => -1 + (2 * i) / (ML_SIZE - 1));
+  const rho = (x: number, y: number, z: number) => {
+    const r = Math.cos(
+      2 * Math.PI * 6 * Math.cos((Math.PI * Math.hypot(x, y)) / 2),
+    );
+    return (1 - Math.sin((Math.PI * z) / 2) + 0.25 * (1 + r)) / 2.5;
+  };
+  return ndarray(
+    Float32Array.from(
+      grid.flatMap((z) => grid.flatMap((y) => grid.map((x) => rho(x, y, z)))),
+    ),
+    [ML_SIZE, ML_SIZE, ML_SIZE],
+  );
+};
+
 // Smooth image with peaks, troughs and saddles, for contour lines
 const twoD_contours = () => {
   const [rows, cols] = [96, 128];
@@ -380,6 +398,7 @@ export const mockValues = {
   threeD_rgba,
   threeD_volume,
   threeD_fermi,
+  threeD_marschner_lobb,
   twoD_contours,
   K: () => ndarray(kGrid()),
   // Bin edges around the points of `K`
