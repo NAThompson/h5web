@@ -157,6 +157,28 @@ test('suggest iso levels without storing them until edited', async () => {
   await page.viewport(1920, 1080);
 });
 
+test('show pass region of volume with its passing fraction', async () => {
+  await page.viewport(2560, 1080); // whole volume toolbar
+  const { user } = await renderApp('/view_hints/volume_pass');
+
+  expect(getSelectedVisTab()).toBe(Vis.Volume);
+  await expect
+    .element(
+      page.getByText(/^Passing: [\d.]+% of the box \([\d.]+ \(1\/a\)³\)$/u),
+    )
+    .toBeVisible();
+
+  await user.click(page.getByRole('button', { name: 'Pass region' }));
+  await expect
+    .element(page.getByRole('textbox', { name: 'Min bound' }))
+    .toHaveValue('−4'); // true minus
+  await expect
+    .element(page.getByRole('textbox', { name: 'Max bound' }))
+    .toHaveValue('0');
+
+  await page.viewport(1920, 1080);
+});
+
 test('draw points overlays inside volumes and orthoslices', async () => {
   const { selectVisTab } = await renderApp('/view_hints/volume_points');
 

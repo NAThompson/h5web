@@ -14,10 +14,13 @@ import {
   useWorkerGeneration,
 } from '../geometry-worker/hooks';
 import { isosurfaceSteps, runSteps } from '../geometry-worker/jobs';
-import { type AxisCoords } from '../geometry-worker/models';
+import { type AxisCoords, type DataValues } from '../geometry-worker/models';
 import { toAxisCoords, toFloatValues } from '../geometry-worker/utils';
 import { type VisScaleType } from '../models';
 import { getDecimationStep, type IsosurfaceGeometry } from './marchingCubes';
+import { type AxisValues } from './models';
+import { getEnclosedVolume, type PassBounds } from './passRegion';
+import { remapIsosurface } from './utils';
 
 /* Above this many cells, the grid is decimated before extracting isosurfaces */
 export const DEFAULT_CELL_BUDGET = 2 ** 24; // e.g. 256³
@@ -101,12 +104,13 @@ export function pruneCache(
  * Extract isosurfaces of a 3D array in a web worker.
  * The array is sent to the worker when the first level is requested, and kept there while
  * the array stays the same; each level is extracted (and cached) separately, and extractions
- * of levels that are no longer requested are cancelled. If the worker can't run (e.g. because of
+ * of levels that are no longer requested are cancelled. Bounds in place of a level extract the
+ * closed surface of a pass region (cf. `passRegionSteps`). If the worker can't run (e.g. because of
  * a Content Security Policy), small volumes are processed on the main thread instead.
  */
 export function useIsosurfaces(
   dataArray: NdArray<NumArray>,
-  levels: number[],
+  levels: (number | PassBounds)[],
   opts: Options = {},
 ): IsosurfacesState {
   const { scaleType, ignoreValue, axisValues, cellBudget, cacheBudget } = opts;
@@ -119,7 +123,7 @@ export function useIsosurfaces(
     1,
   );
   const scaleKey = JSON.stringify(scaleType ?? null);
-  const levelsKey = levels.join(',');
+  const levelsKey = JSON.stringify(levels);
 
   const axisCoords = useMemo(
     (): AxisCoords => [
@@ -161,7 +165,7 @@ export function useIsosurfaces(
   const retriesRef = useRef(new Map<string, number>());
   const fallbackValuesRef = useRef<{
     source: object;
-    values: ArrayLike<number>;
+    values: DataValues;
   }>(undefined);
 
   const sourceId = useMemo(() => {
@@ -169,12 +173,12 @@ export function useIsosurfaces(
     return nextSourceId;
   }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function getKey(level: number): string {
-    return `${sourceId}|${level}|${scaleKey}|${step}`;
+  function getKey(level: number | PassBounds): string {
+    return `${sourceId}|${JSON.stringify(level)}|${scaleKey}|${step}`;
   }
 
   // Extraction on the main thread, for when the worker can't be used
-  function extractOnMainThread(level: number): IsosurfaceGeometry {
+  function extractOnMainThread(level: number | PassBounds): IsosurfaceGeometry {
     if (fallbackValuesRef.current?.source !== source) {
       fallbackValuesRef.current = {
         source,
@@ -364,4 +368,58 @@ export function getGradientDomain(
     }
   }
   return min <= max ? [min, max] : undefined;
+}
+
+export interface PassRegionState {
+  geometry: IsosurfaceGeometry;
+  /* Fraction of the box filled by the region */
+  fraction: number;
+}
+
+/* Fraction of the box filled by a closed region, along the axes' coordinates (cf. `remapIsosurface`) */
+export function getRegionFraction(
+  geometry: IsosurfaceGeometry,
+  shape: number[],
+  axisValues: AxisValues,
+): number {
+  const { positions } =
+    remapIsosurface(geometry.positions, geometry.normals, shape, axisValues) ??
+    geometry;
+  const [depth, rows, cols] = shape;
+  const volume = getEnclosedVolume(positions, geometry.indices);
+  return Math.min(Math.max(volume / (depth * rows * cols), 0), 1);
+}
+
+/*
+ * Pass region extracted by `useIsosurfaces` (bounds in place of a level), with the fraction of the
+ * box it fills. While new bounds are being extracted (`isPending`), the previous region of the
+ * same array is kept.
+ */
+export function usePassRegion(
+  bounds: PassBounds | undefined, // nothing shown without bounds
+  lastGeometry: IsosurfaceGeometry | undefined,
+  isExtracting: boolean,
+  dataArray: NdArray<NumArray>,
+  axisValues: AxisValues, // voxels of non-uniform axes at their coordinates
+): PassRegionState | undefined {
+  const { shape } = dataArray;
+  const geometry = bounds && lastGeometry;
+  const isPending = !!bounds && isExtracting;
+  const region = useMemo(
+    () =>
+      geometry && {
+        geometry,
+        fraction: getRegionFraction(geometry, shape, axisValues),
+      },
+    [geometry, shape, axisValues],
+  );
+
+  const [last, setLast] = useState({ region, dataArray });
+  if (region && region !== last.region) {
+    setLast({ region, dataArray }); // derived state, updated during render
+  }
+  return (
+    region ??
+    (isPending && last.dataArray === dataArray ? last.region : undefined)
+  );
 }

@@ -2,7 +2,11 @@ import {
   getBoxSizeFromAxes,
   getDomain,
   getGradientDomain,
+  IsoColorMode,
+  type IsosurfaceParams,
+  type PassBounds,
   useIsosurfaces,
+  usePassRegion,
   useSafeDomain,
   useVisDomain,
   useVolumeDomain,
@@ -18,6 +22,7 @@ import {
 } from '@h5web/shared/hdf5-models';
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { type NumArray } from '@h5web/shared/vis-models';
+import { formatNumber } from '@h5web/shared/vis-utils';
 import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -39,7 +44,7 @@ import {
 import { renderMarkup } from '../../view-hints/markup';
 import { useBaseArray, useToNumArray, useToNumArrays } from '../hooks';
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
-import { type VolumeConfig } from './config';
+import { type PassRegion, type VolumeConfig } from './config';
 import VolumeToolbar from './VolumeToolbar';
 
 interface Props {
@@ -92,6 +97,7 @@ function MappedVolumeVis(props: Props) {
     showVolume,
     isoLevels,
     isoColorMode,
+    passRegion,
   } = config;
 
   const packing = usePacking(dataset); // NetCDF `scale_factor`/`add_offset`
@@ -150,22 +156,34 @@ function MappedVolumeVis(props: Props) {
     isoAxisValues ? (axisUnit ?? 'axis unit') : 'voxel',
   );
 
+  // Pass region extracted with the isosurfaces, as bounds after the levels
   const visibleLevels = isoLevels.filter((level) => level.visible);
+  const passBounds = getPassBounds(passRegion);
   const { geometries, progress, step, error, workerError } = useIsosurfaces(
     dataArray,
-    visibleLevels.map((level) => level.value),
+    [
+      ...visibleLevels.map((level) => level.value),
+      ...(passBounds ? [passBounds] : []),
+    ],
     { scaleType: visScaleType, ignoreValue, axisValues: isoAxisValues },
+  );
+  const region = usePassRegion(
+    passBounds,
+    geometries.at(-1),
+    progress !== undefined && !error,
+    dataArray,
+    axisCoords,
   );
 
   const message = error
     ? `Isosurface extraction failed: ${error.message}`
-    : !showVolume && visibleLevels.length === 0
+    : !showVolume && visibleLevels.length === 0 && !passBounds
       ? 'Volume hidden and no visible isosurface: add a level or show the volume'
       : workerError
         ? `${workerError.message}: extracting on the main thread`
         : undefined;
 
-  const isosurfaces = visibleLevels.flatMap((level, i) => {
+  const isosurfaces: IsosurfaceParams[] = visibleLevels.flatMap((level, i) => {
     const geometry = geometries[i];
     return geometry
       ? [
@@ -178,9 +196,18 @@ function MappedVolumeVis(props: Props) {
         ]
       : [];
   });
+  if (region) {
+    isosurfaces.push({
+      id: 'pass-region',
+      geometry: region.geometry,
+      color: passRegion.color,
+      opacity: REGION_OPACITY,
+      colorMode: IsoColorMode.Solid,
+    });
+  }
   const gradientDomain = useMemo(
-    () => getGradientDomain(geometries),
-    [geometries],
+    () => getGradientDomain(geometries.slice(0, visibleLevels.length)), // not the pass region
+    [geometries, visibleLevels.length],
   );
 
   return (
@@ -214,6 +241,12 @@ function MappedVolumeVis(props: Props) {
         gradientDomain={gradientDomain}
         isoProgress={progress}
         isoMessage={message}
+        regionInfo={getRegionInfo(
+          region?.fraction,
+          passRegion.invert,
+          boxSize,
+          axisUnit,
+        )}
         gradientLabel={gradientLabel}
         boxSize={boxSize}
         axisValues={axisCoords}
@@ -225,6 +258,36 @@ function MappedVolumeVis(props: Props) {
       />
     </>
   );
+}
+
+const REGION_OPACITY = 0.6;
+
+function getPassBounds(region: PassRegion): PassBounds | undefined {
+  const { enabled, min, max, invert } = region;
+  return enabled
+    ? { min: min ?? undefined, max: max ?? undefined, invert }
+    : undefined;
+}
+
+/* Passing fraction of the box, and passing volume if the axes share a unit */
+function getRegionInfo(
+  shownFraction: number | undefined,
+  invert: boolean,
+  boxSize: [number, number, number] | undefined,
+  axisUnit: string | undefined,
+): string | undefined {
+  if (shownFraction === undefined) {
+    return undefined;
+  }
+  const fraction = invert ? 1 - shownFraction : shownFraction;
+  const percent = `Passing: ${formatNumber(fraction * 100, 3)}% of the box`;
+  const unit = axisUnit && formatUnits(axisUnit);
+  if (!boxSize || !unit) {
+    return percent;
+  }
+  const volume = fraction * boxSize[0] * boxSize[1] * boxSize[2];
+  const cube = /^\p{L}+$/u.test(unit) ? `${unit}³` : `(${unit})³`;
+  return `${percent} (${formatNumber(volume, 3)} ${cube})`;
 }
 
 function getGradientLabel(dataUnit: string | undefined, per: string): string {

@@ -6,9 +6,11 @@ import {
   type IsosurfaceGeometry,
   marchingCubesSteps,
 } from '../volume/marchingCubes';
+import { type PassBounds, passRegionSteps } from '../volume/passRegion';
 import {
   type AxisCoords,
   type ContourResult,
+  type DataValues,
   type LabelOptions,
   type ScaleTypeParam,
 } from './models';
@@ -41,13 +43,16 @@ export function* contoursSteps(
 }
 
 export function isosurfaceSteps(
-  values: ArrayLike<number>,
+  values: DataValues,
   shape: [number, number, number],
   axisValues: AxisCoords,
-  level: number,
+  level: number | PassBounds, // bounds: closed surface of a pass region
   scaleType: ScaleTypeParam,
   step: number,
 ): Generator<number, IsosurfaceGeometry> {
+  if (typeof level === 'object') {
+    return passRegionSteps(values, shape, level, step);
+  }
   return marchingCubesSteps(values, shape, level, {
     scaleType,
     step,

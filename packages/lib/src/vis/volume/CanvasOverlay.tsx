@@ -7,12 +7,13 @@ interface Props {
   title: ReactNode;
   isoProgress: number | undefined;
   isoMessage: string | undefined;
+  regionInfo?: string;
 }
 
 /* Title and isosurface status over the canvas; rendered after the canvas to paint over it,
  * but without z-index so as to stay under toolbar popovers */
 function CanvasOverlay(props: Props) {
-  const { title, isoProgress, isoMessage } = props;
+  const { title, isoProgress, isoMessage, regionInfo } = props;
 
   return (
     <>
@@ -25,7 +26,7 @@ function CanvasOverlay(props: Props) {
           {title}
         </p>
       )}
-      {(isoProgress !== undefined || isoMessage) && (
+      {(isoProgress !== undefined || isoMessage || regionInfo) && (
         <div
           className={styles.overlay}
           data-below-title={!!title || undefined}
@@ -41,6 +42,7 @@ function CanvasOverlay(props: Props) {
               {isoMessage}
             </p>
           )}
+          {regionInfo && <p className={styles.progress}>{regionInfo}</p>}
         </div>
       )}
     </>

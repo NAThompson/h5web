@@ -24,6 +24,7 @@ export interface IsosurfaceParams {
   geometry: IsosurfaceGeometry;
   color: string;
   opacity: number;
+  colorMode?: IsoColorMode; // instead of the vis' (e.g. solid for a pass region)
 }
 
 /* Points drawn inside a volume, at coordinates along its x, y and z axes (cf. `AxisValues`; voxel

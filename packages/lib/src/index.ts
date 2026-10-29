@@ -35,10 +35,12 @@ export { ORTHO_PLANE_COLORS } from './vis/volume/OrthoPlanes';
 export type { IsosurfaceGeometry } from './vis/volume/marchingCubes';
 export {
   useIsosurfaces,
+  usePassRegion,
   getGradientDomain,
   DEFAULT_CELL_BUDGET,
 } from './vis/volume/hooks';
-export type { IsosurfacesState } from './vis/volume/hooks';
+export type { IsosurfacesState, PassRegionState } from './vis/volume/hooks';
+export type { PassBounds } from './vis/volume/passRegion';
 export { getBoxSizeFromAxes } from './vis/volume/utils';
 export { useVolumeDomain } from './vis/volume/prepare/hooks';
 export {

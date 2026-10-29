@@ -1697,6 +1697,24 @@ export function makeMockFile(): GroupWithChildren {
           valueId: 'threeD_fermi',
           attributes: [scalarAttr('H5WEB_vis', 'volume')],
         }),
+        // Pass region -4 ≤ E ≤ 0: a shell around Γ, capped where it meets the faces of the zone
+        withDimScales(
+          array('volume_pass', {
+            valueId: 'threeD_fermi',
+            attributes: [
+              scalarAttr('H5WEB_vis', 'volume'),
+              floatAttr('H5WEB_pass_min', -4),
+              floatAttr('H5WEB_pass_max', 0),
+            ],
+          }),
+          {
+            scales: [
+              ['/dimension_scales/K'],
+              ['/dimension_scales/K'],
+              ['/dimension_scales/K'],
+            ],
+          },
+        ),
         // Points inside a volume, in axis coordinates (x, y, z): high-symmetry points Γ, Δ, X, Σ,
         // M, Λ and R of the Brillouin zone
         dataset(

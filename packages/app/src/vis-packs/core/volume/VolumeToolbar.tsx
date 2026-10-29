@@ -18,6 +18,7 @@ import { useVisArea } from '../../../visualizer/vis-area';
 import RootScaleSelector from '../RootScaleSelector';
 import { type VolumeConfig } from './config';
 import IsosurfacesControl from './IsosurfacesControl';
+import PassRegionControl from './PassRegionControl';
 import RangeControl from './RangeControl';
 
 const QUALITY_LABELS: Record<VolumeQuality, string> = {
@@ -81,6 +82,12 @@ function VolumeToolbar(props: Props) {
         onUpdate={updateIsoLevel}
         onRemove={removeIsoLevel}
         onColorModeChange={setIsoColorMode}
+      />
+      <PassRegionControl
+        region={config.passRegion}
+        domain={dataDomain}
+        scaleType={scaleType}
+        onChange={config.setPassRegion}
       />
       <Separator />
 

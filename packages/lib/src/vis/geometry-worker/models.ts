@@ -8,6 +8,7 @@ import {
   type UnstructuredMesh,
 } from '../unstructured/resample';
 import { type IsosurfaceGeometry } from '../volume/marchingCubes';
+import { type PassBounds } from '../volume/passRegion';
 
 export type ScaleTypeParam = string | [string, number] | undefined;
 
@@ -44,7 +45,7 @@ export type WorkerRequest =
       type: 'isosurface';
       jobId: number;
       dataId: number;
-      level: number;
+      level: number | PassBounds;
       scaleType: ScaleTypeParam;
       step: number;
     }

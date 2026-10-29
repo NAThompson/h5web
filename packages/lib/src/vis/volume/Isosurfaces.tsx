@@ -27,13 +27,13 @@ function Isosurfaces(props: Props) {
   return (
     <>
       <Headlight />
-      {isosurfaces.map(({ id, geometry, color, opacity }, i) => (
+      {isosurfaces.map(({ id, geometry, color, opacity, ...surface }, i) => (
         <IsosurfaceMesh
           key={id ?? i}
           geometry={geometry}
           color={color}
           opacity={opacity}
-          colorMode={colorMode}
+          colorMode={surface.colorMode ?? colorMode}
           renderOrder={opacity < 1 ? i + 2 : 0} // transparent surfaces after the box edges
           {...meshProps}
         />

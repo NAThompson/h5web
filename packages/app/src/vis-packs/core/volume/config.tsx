@@ -30,6 +30,23 @@ export interface IsoLevel {
   color: string;
 }
 
+/* Region where `min ≤ value ≤ max` (bounds optional), e.g. where a spec passes */
+export interface PassRegion {
+  enabled: boolean;
+  min: number | null;
+  max: number | null;
+  color: string;
+  invert: boolean; // show where it fails instead
+}
+
+export const DEFAULT_PASS_REGION: PassRegion = {
+  enabled: false,
+  min: null,
+  max: null,
+  color: '#57cc99',
+  invert: false,
+};
+
 const ISO_COLORS = ['#4cc9f0', '#f72585', '#90be6d', '#f9c74f', '#b388ff'];
 
 export interface VolumeConfig {
@@ -71,6 +88,9 @@ export interface VolumeConfig {
 
   isoColorMode: IsoColorMode;
   setIsoColorMode: (isoColorMode: IsoColorMode) => void;
+
+  passRegion: PassRegion;
+  setPassRegion: (passRegion: PassRegion) => void;
 }
 
 function createVolumeConfigStore() {
@@ -133,14 +153,20 @@ function createVolumeConfigStore() {
 
         isoColorMode: IsoColorMode.Solid,
         setIsoColorMode: (isoColorMode) => set({ isoColorMode }),
+
+        passRegion: DEFAULT_PASS_REGION,
+        setPassRegion: (passRegion) => set({ passRegion }),
       }),
       {
         name: 'h5web:volume',
         version: 2,
         migrate: migrateSqrtToRoot, // v2: Root replaces Sqrt in the toolbar
         // Iso levels depend on the dataset, so don't restore them after a reload, nor a hidden
-        // volume (which, without levels, would leave an empty canvas)
-        partialize: ({ isoLevels, showVolume, ...state }) => state,
+        // volume (which, without levels, would leave an empty canvas), nor pass region bounds
+        partialize: ({ isoLevels, showVolume, passRegion, ...state }) => ({
+          ...state,
+          passRegion: { ...passRegion, enabled: false, min: null, max: null },
+        }),
       },
     ),
   );
@@ -160,9 +186,19 @@ export function useVolumeConfig(
   suggestions: Partial<VolumeConfig> = {},
 ): VolumeConfig {
   const config = useStore(useContext(StoreContext));
+  const { passRegion: hinted } = suggestions;
 
-  // e.g. NeXus `SILX_style` signal scale type, or a file's `H5WEB_*` view hint
-  return useSuggestions(config, suggestions);
+  // e.g. NeXus `SILX_style` signal scale type, or a file's `H5WEB_*` view hint (pass region bounds,
+  // with the stored color and inversion)
+  return useSuggestions(config, {
+    ...suggestions,
+    passRegion: hinted && {
+      ...config.passRegion,
+      enabled: hinted.enabled,
+      min: hinted.min,
+      max: hinted.max,
+    },
+  });
 }
 
 /* Iso levels suggested for the dataset (e.g. by a file's `H5WEB_*` view hint): shown in place of

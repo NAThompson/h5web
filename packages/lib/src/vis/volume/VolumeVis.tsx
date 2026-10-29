@@ -73,6 +73,8 @@ interface Props extends ClassStyleAttrs {
   isoProgress?: number;
   /* Message about isosurfaces (e.g. an error or a hint), shown over the canvas */
   isoMessage?: string;
+  /* Summary of a pass region (e.g. the fraction of the box it fills), shown over the canvas */
+  regionInfo?: string;
   /* Physical size of the volume along x, y and z (defaults to the shape) */
   boxSize?: [number, number, number];
   /* Coordinates of the voxels along x, y and z: voxels of non-uniform axes (cf.
@@ -111,6 +113,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
     gradientLabel,
     isoProgress,
     isoMessage,
+    regionInfo,
     boxSize: customBoxSize,
     axisValues = NO_AXIS_VALUES,
     points,
@@ -236,6 +239,7 @@ function VolumeVis(props: PropsWithChildren<Props>) {
           title={title}
           isoProgress={isoProgress}
           isoMessage={isoMessage}
+          regionInfo={regionInfo}
         />
       </div>
       <VolumeLegend

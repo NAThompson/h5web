@@ -15,7 +15,7 @@ import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
 import { type OrthoslicesConfig } from '../core/orthoslices/config';
 import { type ColorOrRootScaleType, sqrtAsRoot } from '../core/utils';
-import { type VolumeConfig } from '../core/volume/config';
+import { DEFAULT_PASS_REGION, type VolumeConfig } from '../core/volume/config';
 import { type DefaultSlice } from '../nexus/models';
 import { HintVis, type ViewHint } from './models';
 import { isSurfaceHint } from './utils';
@@ -231,6 +231,15 @@ export function getVolumeSuggestions(
     colorMap: hint.colorMap === 'auto' ? undefined : hint.colorMap,
     invertColorMap: hint.invertColorMap,
     customDomain: Array.isArray(hint.domain) ? hint.domain : undefined,
+    passRegion:
+      hint.passMin !== undefined || hint.passMax !== undefined
+        ? {
+            ...DEFAULT_PASS_REGION, // color and inversion: stored ones (cf. `useVolumeConfig`)
+            enabled: true,
+            min: hint.passMin ?? null,
+            max: hint.passMax ?? null,
+          }
+        : undefined,
   };
 }
 

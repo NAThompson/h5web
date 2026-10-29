@@ -142,6 +142,8 @@ export interface ViewHint {
   contourOfAnchor?: string; // `contourOf` is resolved relative to this path
   complex?: ComplexVisType;
   isoLevels?: number[];
+  passMin?: number; // volumes: region where `passMin ≤ value ≤ passMax`, shown on open
+  passMax?: number;
   valueTransform?: ValueTransform; // values are log10 / log2: shown as powers
   envelope?: Envelope; // line: running min / max
   curveLabel?: string; // line: legend entry of the dataset's own curve (default: CF `long_name`)
