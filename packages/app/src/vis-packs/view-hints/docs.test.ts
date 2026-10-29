@@ -15,6 +15,10 @@ const DOC = readFileSync(
   path.resolve(SRC_DIR, '../../../docs/view-hints.md'),
   'utf8',
 );
+const SKILL = readFileSync(
+  path.resolve(SRC_DIR, '../../../docs/view-hints-skill.md'),
+  'utf8',
+);
 
 /* Quoted names in the source that are not attributes to document: none for now. (`H5WEB_VIEW_SCHEMA`
  * only appears in a comment of `core/scatter/source.ts`, as the name of a schema document, and is
@@ -58,9 +62,14 @@ test('every attribute read by the app has a row in the doc', () => {
   ).toEqual([]);
 });
 
-test('every documented attribute is read by the app', () => {
+test('every attribute in the doc and the skill is read by the app', () => {
   const known = sourceNames();
-  const documented = namesIn(DOC, /\b(H5WEB_\w+)/gu);
+  const documented = namesIn(DOC + SKILL, /\b(H5WEB_\w+)/gu);
 
   expect([...documented].filter((name) => !known.has(name))).toEqual([]);
+});
+
+// The VS Code extension fills in the path of its copy of the doc
+test('the skill links to the installed doc', () => {
+  expect(SKILL).toContain('{{VIEW_HINTS_PATH}}');
 });
