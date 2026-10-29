@@ -26,6 +26,7 @@
     "build": "vite build && pnpm \"/^build:/\"",
     "build:css": "vite build --config vite.styles.config.js && concat dist-css/lib.css dist/app.css -o dist/styles.css && rimraf dist/app.css",
     "build:dts": "tsc --build tsconfig.build.json && rollup -c",
+    "build:docs": "node -e \"fs.copyFileSync('../../docs/view-hints.md', 'dist/view-hints.md')\"",
     "lint:eslint": "eslint --max-warnings=0",
     "lint:tsc": "tsc",
     "sync-version": "dot-json ../../package.json version | xargs dot-json package.json version"
