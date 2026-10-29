@@ -10,7 +10,14 @@ import { type LegendBox } from './utils';
 
 /* Entries of the visible curves, then the given entries (e.g. of children) */
 export function getLegendEntries(
-  curve: { label?: string; ordinateLabel?: ReactNode; color: string } | false,
+  curve:
+    | {
+        label?: string;
+        ordinateLabel?: ReactNode;
+        color: string;
+        dash?: boolean;
+      }
+    | false,
   auxiliaries: AuxiliaryParams[],
   auxColors: string[],
   extraEntries: LegendEntry[],
@@ -22,6 +29,7 @@ export function getLegendEntries(
             label:
               curve.label || getTextContent(curve.ordinateLabel) || 'Signal',
             color: curve.color,
+            dash: curve.dash,
           },
         ]
       : []),

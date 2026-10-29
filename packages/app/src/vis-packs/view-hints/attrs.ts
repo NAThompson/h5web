@@ -561,6 +561,7 @@ export function parseViewHint(
       ? undefined
       : toRgbaColor(read.str('H5WEB_color', isCssColor)),
     curveWidth: read.num('H5WEB_width', isPos),
+    curveDash: read.bool('H5WEB_dash'),
     marker: read.oneOf('H5WEB_marker', parseMarker),
     markerSize: readMarkerSize(entity, read, vis),
     xDim: readDim(read, 'H5WEB_x_dim', entity, dimNames),

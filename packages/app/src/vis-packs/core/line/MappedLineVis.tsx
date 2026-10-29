@@ -112,6 +112,7 @@ interface Props {
   dataLabel?: string; // of the curve, in the legend and tooltip (not in multi-plots)
   dataColor?: string; // of the curve (not in multi-plots)
   dataWidth?: number;
+  dataDash?: boolean;
   legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
   nanColor?: string; // of the marks of values that can't be drawn (e.g. 0 in log scale)
   panel?: PanelVisOptions; // one of several panels (e.g. small multiples)
@@ -218,6 +219,7 @@ function MappedLineVis(props: Props) {
     dataLabel,
     dataColor,
     dataWidth,
+    dataDash,
     legend,
     nanColor,
     panel,
@@ -534,7 +536,7 @@ function MappedLineVis(props: Props) {
         dataLabel={isMultiPlot ? getSliceLabel(0) : dataLabel}
         {...(isMultiPlot // style of the dataset's curve, else of its first slice
           ? { dataColor: getSliceColor(0) }
-          : { dataColor, dataWidth })}
+          : { dataColor, dataWidth, dataDash })}
         domain={safeDomain}
         scaleType={yScaleType}
         symlogConstant={symlogThreshold}

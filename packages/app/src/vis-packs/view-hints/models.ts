@@ -149,6 +149,7 @@ export interface ViewHint {
   curveLabel?: string; // line: legend entry of the dataset's own curve (default: CF `long_name`)
   curveColor?: string; // line: colour of the dataset's own curve (not in multi-plots)
   curveWidth?: number; // line: width of the dataset's own curve in CSS pixels
+  curveDash?: boolean; // line: dashed curve of the dataset
   marker?: Marker; // complex points: marker of the dataset's own points
   markerSize?: number; // complex points: radius of the dataset's own points in CSS pixels
   seriesPaths?: string[]; // line: extra datasets on the same axes (their attributes say how)

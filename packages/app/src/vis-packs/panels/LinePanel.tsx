@@ -43,6 +43,7 @@ function LinePanel(props: Props) {
       envelope={hint.envelope}
       dataColor={hint.curveColor}
       dataWidth={hint.curveWidth}
+      dataDash={hint.curveDash}
       nanColor={hint.nanColor}
       panel={panel}
     />

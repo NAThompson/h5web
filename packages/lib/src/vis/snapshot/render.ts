@@ -1,5 +1,6 @@
 /* eslint-disable no-param-reassign -- painting mutates the 2D context's state */
 import { expandScrollers, getCanvasPanels, renderPanel } from './panels';
+import { getRepeatingStripes } from './svgUtils';
 import {
   combineFilters,
   getColorAlpha,
@@ -155,6 +156,10 @@ function boxLayer(elem: HTMLElement, style: CSSStyleDeclaration) {
   const { x, y, width, height } = elem.getBoundingClientRect();
   const { backgroundColor, backgroundImage, borderTopColor } = style;
   const gradient = parseLinearGradient(backgroundImage);
+  const { direction: stripesDirection, stripes } = getRepeatingStripes(
+    backgroundImage,
+    backgroundImage.includes('to bottom') ? height : width,
+  ); // e.g. dashed legend marks
   const hasBg = getColorAlpha(backgroundColor) > 0;
   const border = Math.max(
     ...['top', 'right', 'bottom', 'left'].map((side) =>
@@ -164,7 +169,7 @@ function boxLayer(elem: HTMLElement, style: CSSStyleDeclaration) {
     ),
   );
 
-  if (!hasBg && !gradient && !border) {
+  if (!hasBg && !gradient && stripes.length === 0 && !border) {
     return undefined;
   }
 
@@ -187,6 +192,17 @@ function boxLayer(elem: HTMLElement, style: CSSStyleDeclaration) {
       });
       ctx.fillStyle = gradientFill;
       ctx.fillRect(x, y, width, height);
+    }
+
+    for (const [start, end, color] of stripes) {
+      // Some engines keep `currentcolor` in computed gradients
+      ctx.fillStyle =
+        color.toLowerCase() === 'currentcolor' ? style.color : color;
+      if (stripesDirection === 'right') {
+        ctx.fillRect(x + start, y, end - start, height);
+      } else {
+        ctx.fillRect(x, y + start, width, end - start);
+      }
     }
 
     if (border) {

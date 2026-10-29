@@ -582,10 +582,10 @@ test('draw series of a hint on the same axes, sliced along with the dataset', as
   const marks = [...document.querySelectorAll<HTMLElement>('figure li > span')];
   expect(marks[0].style.color).toBe('rgb(235, 104, 52)'); // `H5WEB_color` of the dataset
   expect(marks.map((el) => el.dataset.dash)).toEqual([
-    undefined,
+    'true',
     undefined,
     'true',
-  ]); // `H5WEB_dash` of the bound
+  ]); // `H5WEB_dash` of the dataset (first curve) and of the bound
   await expect(getLineTooltip(0, 10)).resolves.toMatch(
     /fit.* = 1(?!\d).*bound = 4/u,
   ); // k = 1

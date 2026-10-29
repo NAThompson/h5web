@@ -61,6 +61,7 @@ interface Props extends ClassStyleAttrs {
   dataLabel?: string;
   dataColor?: string;
   dataWidth?: number; // line width in CSS pixels
+  dataDash?: boolean; // dashed line
   domain: Domain | undefined;
   scaleType?: AxisScaleType;
   symlogConstant?: number; // width of the linear band around 0 of the symlog scale (default 1)
@@ -103,6 +104,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     dataLabel,
     dataColor,
     dataWidth,
+    dataDash,
     domain,
     curveType = CurveType.LineOnly,
     showGrid = true,
@@ -193,7 +195,12 @@ function LineVis(props: PropsWithChildren<Props>) {
   const entries =
     hasVisibleAux || legendEntries.length > 0
       ? getLegendEntries(
-          visible && { label: dataLabel, ordinateLabel, color: curveColor },
+          visible && {
+            label: dataLabel,
+            ordinateLabel,
+            color: curveColor,
+            dash: dataDash,
+          },
           auxiliaries,
           auxColors,
           legendEntries,
@@ -361,6 +368,7 @@ function LineVis(props: PropsWithChildren<Props>) {
             showErrors={showErrors}
             color={curveColor}
             width={dataWidth}
+            dash={dataDash}
             curveType={curveType}
             ignoreValue={ignoreValue}
             interpolation={interpolation}

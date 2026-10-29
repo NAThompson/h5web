@@ -1972,6 +1972,7 @@ export function makeMockFile(): GroupWithChildren {
               scalarAttr('long_name', 'data'),
               scalarAttr('H5WEB_label', 'measured'), // of its own curve
               scalarAttr('H5WEB_color', '#eb6834'),
+              intAttr('H5WEB_dash', 1),
               scalarAttr('H5WEB_vis', 'line'),
               scalarAttr(
                 'H5WEB_series',

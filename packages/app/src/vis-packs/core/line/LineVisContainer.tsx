@@ -158,6 +158,7 @@ function LineVisContainer(props: VisContainerProps) {
                   }
                   dataColor={hint.curveColor}
                   dataWidth={hint.curveWidth}
+                  dataDash={hint.curveDash}
                   legend={hint.legend}
                   nanColor={hint.nanColor}
                 />

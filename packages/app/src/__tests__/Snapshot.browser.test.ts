@@ -286,6 +286,25 @@ test('export line with legend for auxiliary signals', async () => {
   expect(countInk(img, getRegion(root, abscissa))).toBeGreaterThan(100);
 });
 
+test('export dashed legend marks', async () => {
+  await renderApp('/view_hints/series_data'); // dataset's own curve dashed
+
+  const root = page.getByRole('figure').element() as HTMLElement;
+  const mark = root.querySelector('li > span[data-dash]');
+  assertNonNull(mark);
+
+  const img = await snapshotWhenRendered(root);
+  const region = getRegion(root, mark);
+  const row = {
+    ...region,
+    y: region.y + Math.floor(region.height / 2),
+    height: 1,
+  };
+  const dashPixels = countColor(img, row, [235, 104, 52], 30); // #eb6834
+  expect(dashPixels).toBeGreaterThan(0.4 * row.width); // not empty
+  expect(dashPixels).toBeLessThan(0.8 * row.width); // with gaps
+});
+
 test('draw line as cubic spline', async () => {
   const { user } = await renderApp('/arrays/oneD');
 
