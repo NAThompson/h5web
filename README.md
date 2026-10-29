@@ -26,6 +26,12 @@ or at the [JupyterLab extension](https://github.com/silx-kit/jupyterlab-h5web).
 
 ![H5Web GIF demo](https://user-images.githubusercontent.com/2936402/107791492-4c512980-6d54-11eb-8ba4-4a1433bdfeea.gif)
 
+## View hints
+
+A file can say how each dataset should be viewed (visualization, scale, color
+map, contours, overlays...) with native HDF5 attributes named `H5WEB_*`. See
+[docs/view-hints.md](docs/view-hints.md).
+
 ## NPM packages 📚
 
 ### [@h5web/lib](https://www.npmjs.com/package/@h5web/lib)
