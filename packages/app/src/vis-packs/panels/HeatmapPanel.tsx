@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 
 import { useHeatmapConfig } from '../core/heatmap/config';
 import MappedHeatmapVis from '../core/heatmap/MappedHeatmapVis';
-import { guessKeepRatio } from '../core/utils';
-import { type DimScaleAxes, useDimInfo } from '../dimscales/hooks';
+import { guessDimScalesKeepRatio } from '../core/utils';
+import { type DimScaleAxes, useCachedDimScales } from '../dimscales/hooks';
 import { useContourSource } from '../view-hints/hooks';
 import { type OverlayShapes } from '../view-hints/overlays';
 import { getHeatmapSuggestions } from '../view-hints/suggestions';
@@ -32,11 +32,12 @@ function HeatmapPanel(props: Props) {
   const { dataset, hint, mapping, key } = spec;
 
   // Keep the ratio as the single view does: hinted, or when the axes share a unit
-  const { dimUnits } = useDimInfo(dataset);
-  const [xUnit, yUnit] = [
-    dimUnits[mapping.indexOf('x')],
-    dimUnits[mapping.indexOf('y')],
+  const dimScales = useCachedDimScales(dataset);
+  const [xScale, yScale] = [
+    dimScales[mapping.indexOf('x')],
+    dimScales[mapping.indexOf('y')],
   ];
+  const [xUnit, yUnit] = [xScale?.unit, yScale?.unit];
   const isRatioMeaningless =
     (!!xUnit && !!yUnit && xUnit !== yUnit) ||
     axes.axisScales.some((scale) => !!scale?.scaleType);
@@ -45,7 +46,9 @@ function HeatmapPanel(props: Props) {
     getHeatmapSuggestions(
       isRatioMeaningless ? { ...hint, keepRatio: false } : hint,
       dataset.path,
-      { keepRatio: guessKeepRatio({ unit: xUnit }, { unit: yUnit }) },
+      {
+        keepRatio: guessDimScalesKeepRatio(xScale, yScale),
+      },
       dataDomain,
     ),
   );

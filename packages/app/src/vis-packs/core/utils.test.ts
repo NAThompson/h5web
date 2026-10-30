@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getBaseArray,
+  guessDimScalesKeepRatio,
   guessKeepRatio,
   migrateSqrtToRoot,
   toHeightScaleType,
@@ -58,6 +59,35 @@ describe('guessKeepRatio', () => {
     expect(guessKeepRatio(axisDefNoUnit, undefined)).toBeUndefined();
     expect(guessKeepRatio(undefined, axisDefNoUnit)).toBeUndefined();
     expect(guessKeepRatio(axisDefNoUnit, axisDefNoUnit)).toBeUndefined();
+  });
+});
+
+describe('guessDimScalesKeepRatio', () => {
+  const values = { value: [0, 1, 2] };
+  const labels = { sliceLabels: ['mass', 'length', 'stiffness'] };
+
+  it('should not keep the ratio of labels (e.g. string-valued scale)', () => {
+    expect(guessDimScalesKeepRatio(labels, values)).toBe(false);
+    expect(guessDimScalesKeepRatio(undefined, labels)).toBe(false);
+    expect(guessDimScalesKeepRatio(labels, labels)).toBe(false);
+  });
+
+  it('should not keep the ratio when only one axis has values', () => {
+    expect(guessDimScalesKeepRatio(values, undefined)).toBe(false);
+    expect(guessDimScalesKeepRatio({}, values)).toBe(false);
+  });
+
+  it('should guess from units when both axes have values', () => {
+    const mm = { ...values, unit: 'mm' };
+    expect(guessDimScalesKeepRatio(mm, mm)).toBe(true);
+    expect(guessDimScalesKeepRatio(mm, { ...values, unit: 's' })).toBe(false);
+    expect(guessDimScalesKeepRatio(values, values)).toBeUndefined();
+    // Numeric scales labelled by `H5WEB_slice_labels` have values
+    expect(guessDimScalesKeepRatio({ ...mm, ...labels }, mm)).toBe(true);
+  });
+
+  it('should leave images without scales to the default', () => {
+    expect(guessDimScalesKeepRatio(undefined, undefined)).toBeUndefined();
   });
 });
 

@@ -33,7 +33,7 @@ import {
 import ProbePanel from '../../view-hints/ProbePanel';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
-import { guessKeepRatio } from '../utils';
+import { guessDimScalesKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
 import { useHeatmapConfig } from './config';
 import { useHeatmapProjection } from './hooks';
@@ -54,7 +54,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
     axesCount: 2,
   });
 
-  const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
   const dimScales = useCachedDimScales(entity);
   const xDim = dimMapping.indexOf('x');
   const yDim = dimMapping.indexOf('y');
@@ -71,7 +71,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
-  const [xUnit, yUnit] = [dimUnits[xDim], dimUnits[yDim]];
+  const [xUnit, yUnit] = [xDim, yDim].map((dim) => dimScales[dim]?.unit);
   // Not even if hinted when they have different units, or a log / symlog scale
   const isRatioMeaningless =
     (!!xUnit && !!yUnit && xUnit !== yUnit) ||
@@ -85,7 +85,7 @@ function HeatmapVisContainer(props: VisContainerProps) {
     getHeatmapSuggestions(
       isRatioMeaningless ? { ...hint, keepRatio: false } : hint,
       entity.path,
-      { keepRatio: guessKeepRatio({ unit: xUnit }, { unit: yUnit }) },
+      { keepRatio: guessDimScalesKeepRatio(dimScales[xDim], dimScales[yDim]) },
       dataDomain,
     ),
   );

@@ -29,6 +29,8 @@ import {
 } from '@h5web/shared/vis-utils';
 import ndarray, { type NdArray } from 'ndarray';
 
+import { type DimScale } from '../dimscales/utils';
+
 export const DEFAULT_DOMAIN: Domain = [0.1, 1];
 
 /* Colour scales with the nth root, offered as a gamma scale of exponent 1/n (`rootN`) */
@@ -217,6 +219,22 @@ export function guessKeepRatio(
   }
 
   return xAxis?.unit === yAxis?.unit;
+}
+
+/* As `guessKeepRatio`, but not when an axis only has labels (e.g. a string-valued scale) or when
+ * only one axis has values: square pixels then mean nothing. Undecided without any values. */
+export function guessDimScalesKeepRatio(
+  xScale: Pick<DimScale, 'unit' | 'value' | 'sliceLabels'> | undefined,
+  yScale: Pick<DimScale, 'unit' | 'value' | 'sliceLabels'> | undefined,
+): boolean | undefined {
+  const [hasX, hasY] = [!!xScale?.value, !!yScale?.value];
+  if (hasX !== hasY) {
+    return false;
+  }
+  if (!hasX) {
+    return xScale?.sliceLabels || yScale?.sliceLabels ? false : undefined;
+  }
+  return guessKeepRatio(xScale, yScale);
 }
 
 function isBigIntArray(val: ArrayValue<NumericLikeType>): val is bigint[] {

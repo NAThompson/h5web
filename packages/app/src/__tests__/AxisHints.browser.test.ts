@@ -242,6 +242,15 @@ test('label curves with the values of a string-valued scale', async () => {
   expect(page.getByTestId('D0 slice label')).toHaveTextContent('0 deg');
 });
 
+test('do not keep the ratio of a string-valued scale', async () => {
+  await page.viewport(2560, 1080); // "Keep ratio" not in the "More controls" menu
+  onTestFinished(async () => page.viewport(1920, 1080));
+  await renderApp('/axis_hints/jacobian');
+
+  const keepRatioBtn = page.getByRole('button', { name: 'Keep ratio' });
+  await expect.element(keepRatioBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('label slices of the dimension named by the dataset', async () => {
   const { selectExplorerNode } = await renderApp('/axis_hints/own_labels');
 

@@ -64,6 +64,15 @@ function floatAttr(name: string, ...values: number[]) {
 // Axis values of `axis_hints`: log-spaced ρ from 1e-3 to 1e2, χ from -1000 to 1000
 const RHO = Array.from({ length: 12 }, (_, i) => 10 ** (-3 + (5 * i) / 11));
 const CHI = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
+const JACOBIAN_INPUTS = [
+  'mass',
+  'length',
+  'stiffness',
+  'damping',
+  'temperature',
+  'pressure',
+  'viscosity',
+];
 // Log-spaced from 0.01 to 100, and a volume that is 1 where x < 1 (first half of the voxels)
 const RHO_VOLUME = Array.from(
   { length: 16 },
@@ -1199,6 +1208,34 @@ export function makeMockFile(): GroupWithChildren {
             ],
           }),
           { scales: [['/axis_hints/blend_angle'], []] },
+        ),
+        // String-valued scale on an axis: tick labels, and no square pixels by default
+        dataset(
+          'component',
+          arrayShape([64]),
+          intType(),
+          indices(64).map((i) => i + 1),
+          {
+            attributes: [
+              scalarAttr('CLASS', 'DIMENSION_SCALE'),
+              scalarAttr('NAME', 'component'),
+            ],
+          },
+        ),
+        dataset('input', arrayShape([7]), strType(), JACOBIAN_INPUTS, {
+          attributes: [
+            scalarAttr('CLASS', 'DIMENSION_SCALE'),
+            scalarAttr('NAME', 'input'),
+          ],
+        }),
+        withDimScales(
+          dataset(
+            'jacobian',
+            arrayShape([64, 7]),
+            floatType(),
+            indices(448).map((i) => Math.sin(i * 1.7) * Math.exp(-(i % 7) / 4)),
+          ),
+          { scales: [['/axis_hints/component'], ['/axis_hints/input']] },
         ),
         // On the dataset: labels the only dimension of their length
         dataset('own_labels', arrayShape([4, 3, 5]), floatType(), indices(), {

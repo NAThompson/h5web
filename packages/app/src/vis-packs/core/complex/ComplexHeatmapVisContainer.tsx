@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
-import { useDimInfo } from '../../dimscales/hooks';
+import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
 import { useDatasetSlicingProps } from '../../slicing';
 import { useViewHint } from '../../view-hints/hooks';
@@ -18,7 +18,7 @@ import OverlayNotes from '../../view-hints/OverlayNotes';
 import { getHeatmapSuggestions } from '../../view-hints/suggestions';
 import VisBoundary from '../../VisBoundary';
 import { useHeatmapConfig } from '../heatmap/config';
-import { guessKeepRatio } from '../utils';
+import { guessDimScalesKeepRatio } from '../utils';
 import ValueFetcher from '../ValueFetcher';
 import MappedComplexHeatmapVis from './MappedComplexHeatmapVis';
 
@@ -35,7 +35,8 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
     axesCount: 2,
   });
 
-  const { dimHints, dimLabels, sliceLabels, dimUnits } = useDimInfo(entity);
+  const { dimHints, dimLabels, sliceLabels } = useDimInfo(entity);
+  const dimScales = useCachedDimScales(entity);
 
   // Suggest keeping the ratio only when the mapped axes share a unit, as NeXus does
   const hint = useViewHint(entity);
@@ -45,9 +46,9 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
       hint,
       entity.path,
       {
-        keepRatio: guessKeepRatio(
-          { unit: dimUnits[dimMapping.indexOf('x')] },
-          { unit: dimUnits[dimMapping.indexOf('y')] },
+        keepRatio: guessDimScalesKeepRatio(
+          dimScales[dimMapping.indexOf('x')],
+          dimScales[dimMapping.indexOf('y')],
         ),
       },
       dataDomain,
