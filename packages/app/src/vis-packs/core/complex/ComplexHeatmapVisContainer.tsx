@@ -85,13 +85,15 @@ function ComplexHeatmapVisContainer(props: VisContainerProps) {
           render={(value) => (
             <DimScalesFetcher
               dataset={entity}
-              render={({ axisLabels, axisValues }) => (
+              render={({ axisLabels, axisValues, axisScales }) => (
                 <MappedComplexHeatmapVis
                   value={value}
                   dims={dims}
                   dimMapping={dimMapping}
                   axisLabels={axisLabels}
                   axisValues={axisValues}
+                  xTickLabels={axisScales[dimMapping.indexOf('x')]?.tickLabels}
+                  yTickLabels={axisScales[dimMapping.indexOf('y')]?.tickLabels}
                   title={hint.title ?? entity.name}
                   toolbarContainer={toolbarContainer}
                   config={config}

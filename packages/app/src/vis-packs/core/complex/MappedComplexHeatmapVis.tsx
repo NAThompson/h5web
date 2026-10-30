@@ -47,6 +47,8 @@ interface Props {
   dimMapping: DimensionMapping;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  xTickLabels?: string[]; // labels of the indices of the axes (e.g. string-valued scale)
+  yTickLabels?: string[];
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: HeatmapConfig;
@@ -60,6 +62,8 @@ function MappedComplexHeatmapVis(props: Props) {
     dimMapping,
     axisLabels = [],
     axisValues = [],
+    xTickLabels,
+    yTickLabels,
     title,
     toolbarContainer,
     config,
@@ -152,10 +156,12 @@ function MappedComplexHeatmapVis(props: Props) {
   const abscissaParams = {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
+    tickLabels: xTickLabels,
   };
   const ordinateParams = {
     label: axisLabels[yDimIndex],
     value: numAxisArrays[yDimIndex],
+    tickLabels: yTickLabels,
   };
 
   const toolbar =

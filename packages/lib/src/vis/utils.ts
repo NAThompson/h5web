@@ -37,6 +37,7 @@ import {
   type Aspect,
   type AxisConfig,
   type AxisOffsets,
+  type AxisParams,
   type AxisTicks,
   type ExtractScaleType,
   type GetDomainOpts,
@@ -378,6 +379,71 @@ export function getRealValue(val: number, transform: ValueTransform): number {
 /* Powers on axes of logarithms spanning two decades or more, else plain real values */
 export function hasPowerTicks(domain: Domain): boolean {
   return Math.abs(domain[1] - domain[0]) >= 2;
+}
+
+const LABEL_CHAR_WIDTH = 7; // about that of tick labels, in pixels
+const LABEL_SPACING = 12;
+const LABEL_HEIGHT = 20;
+const MAX_ORDINATE_LABEL = 10; // characters, to fit the left axis: longer ones end with `…`
+const longestLabels = new WeakMap<string[], number>();
+
+function getLongestLabel(labels: string[]): number {
+  let longest = longestLabels.get(labels);
+  if (longest === undefined) {
+    longest = 0;
+    for (const label of labels) {
+      longest = Math.max(longest, label.length);
+    }
+    longestLabels.set(labels, longest);
+  }
+  return longest;
+}
+
+/* Labels of the indices of an axis without values (cf. `AxisParams`) */
+export function getIndexLabels(params: AxisParams): string[] | undefined {
+  return params.value ? undefined : params.tickLabels;
+}
+
+/* Ticks at the indices of labels (index `i` at `tickLabelsOffset + i`), one every 1, 2, 5, 10...
+ * indices so that labels don't overlap (truncated on the ordinate); else at multiples of π or at powers (`getCustomTicks`) */
+export function getAxisCustomTicks(
+  config: AxisConfig,
+  domain: Domain,
+  axisLength: number,
+  isAbscissa: boolean,
+): ReturnType<typeof getCustomTicks> {
+  const { tickLabels: labels, tickLabelsOffset: offset = 0 } = config;
+  if (!labels) {
+    const { ticks, scaleType = ScaleType.Linear } = config;
+    return getCustomTicks(
+      ticks,
+      scaleType,
+      domain,
+      adaptedNumTicks(axisLength),
+    );
+  }
+
+  const labelSize = isAbscissa
+    ? getLongestLabel(labels) * LABEL_CHAR_WIDTH + LABEL_SPACING
+    : LABEL_HEIGHT;
+  const minStep = Math.ceil(
+    (labelSize * Math.abs(domain[1] - domain[0])) / axisLength,
+  );
+  const power = 10 ** Math.floor(Math.log10(Math.max(minStep, 1)));
+  const step = ([1, 2, 5].find((m) => m * power >= minStep) ?? 10) * power;
+
+  const min = Math.max(Math.ceil(Math.min(...domain) - offset), 0);
+  const max = Math.min(Math.max(...domain) - offset, labels.length - 1);
+  const start = Math.ceil(min / step) * step;
+  return {
+    values: range(start, Math.floor(max) + 1, step).map((i) => i + offset),
+    format: (val) => {
+      const label = labels[Math.round(val - offset)] ?? '';
+      return isAbscissa || label.length <= MAX_ORDINATE_LABEL
+        ? label
+        : `${label.slice(0, MAX_ORDINATE_LABEL - 1)}…`;
+    },
+  };
 }
 
 /* Integer exponents on axes spanning two decades or more, else plain nice ticks */

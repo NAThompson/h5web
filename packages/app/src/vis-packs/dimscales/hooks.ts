@@ -16,10 +16,13 @@ export interface DimScaleAxes {
   axisLabels: AxisMapping<string>;
   axisValues: AxisMapping<ArrayValue<NumericType>>;
   axisTicks: AxisMapping<AxisTicks>; // from the scales' `H5WEB_ticks`
-  axisScales: AxisMapping<AxisScaleHint>; // from the scales' `H5WEB_axis_scale`
+  axisScales: AxisMapping<AxisScaleHint>; // `H5WEB_axis_scale`, labels of string-valued scales
 }
 
-export type AxisScaleHint = Pick<AxisParams, 'scaleType' | 'symlogConstant'>;
+export type AxisScaleHint = Pick<
+  AxisParams,
+  'scaleType' | 'symlogConstant' | 'tickLabels'
+>;
 
 function getQueryKey(cacheScope: string, dataset: Dataset) {
   return [cacheScope, 'dimScales', dataset.path];
@@ -45,10 +48,12 @@ export function useDimScales(dataset: Dataset<ArrayShape>): DimScaleAxes {
     axisTicks: dimScales.map((scale) => scale?.ticks),
     axisScales: dimScales.map(
       (scale) =>
-        scale?.scaleType && {
-          scaleType: scale.scaleType,
-          symlogConstant: scale.symlogConstant,
-        },
+        scale?.value
+          ? scale.scaleType && {
+              scaleType: scale.scaleType,
+              symlogConstant: scale.symlogConstant,
+            }
+          : scale?.sliceLabels && { tickLabels: scale.sliceLabels }, // index axis
     ),
   };
 }

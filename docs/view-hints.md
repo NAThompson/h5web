@@ -185,6 +185,14 @@ the dataset itself) and apply to every dataset it is attached to:
 | `H5WEB_ticks`            | string | `pi`: ticks at multiples of π.                                                                                                                                                                                                                                                                                                                           |
 | `H5WEB_slice_labels`     | string | Path of a 1D string dataset (at most 10000 strings) labelling the indices of the dimension on its slider. On a numeric scale, labels its dimension; on a dataset, labels the dimension that shares a dimension scale with the labels, else the only one of their length. A string-valued scale attached to a dimension labels it without this attribute. |
 
+Labels of a dimension without numeric values (a string-valued scale, or the
+dataset's own `H5WEB_slice_labels` on a dimension without a numeric scale) are
+also the tick labels of its axis, and name the index in tooltips, on heatmaps
+and complex heatmaps and on the x axis of line and complex line plots (not on
+NeXus or 3D views): one tick per index (at pixel centers on heatmaps), thinned
+out when the labels don't fit. On the y axis, labels longer than 10 characters
+end with `…`.
+
 ## Overlays
 
 `H5WEB_overlays` lists objects to draw on top of the dataset (the **base**), in
@@ -364,7 +372,7 @@ Entries of `/axis_hints`:
 | `log_heatmap`, `log_line` (scales `rho`, `chi`)                    | `H5WEB_axis_scale` (`log`, `symlog`) with `H5WEB_symlog_threshold`             |
 | `log_fallback`                                                     | notes for an invalid `H5WEB_axis_scale` and non-positive values on a log axis  |
 | `packages`, `own_labels`, `bad_labels`, `too_many_labels`, `blend` | `H5WEB_slice_labels`                                                           |
-| `jacobian` (scales `component`, `input`)                           | string-valued scale: no square pixels by default                               |
+| `jacobian` (scales `component`, `input`)                           | string-valued scale: tick labels, no square pixels by default                  |
 | `playback_dim`                                                     | `H5WEB_playback_dim` as the path of a scale                                    |
 | `volume_log`, `volume_exp10`, `volume_symlog`                      | `H5WEB_scale` and `H5WEB_value_transform` of volumes, `H5WEB_symlog_threshold` |
 

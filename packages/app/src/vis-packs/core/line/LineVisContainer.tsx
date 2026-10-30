@@ -142,6 +142,7 @@ function LineVisContainer(props: VisContainerProps) {
                   xSymlogConstant={
                     axisScales[lineMapping.indexOf('x')]?.symlogConstant
                   }
+                  xTickLabels={axisScales[lineMapping.indexOf('x')]?.tickLabels}
                   title={hint.title ?? entity.name}
                   valueLabel={hint.valueLabel}
                   toolbarContainer={toolbarContainer}

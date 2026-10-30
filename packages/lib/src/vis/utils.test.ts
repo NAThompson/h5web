@@ -6,17 +6,20 @@ import { describe, expect, it } from 'vitest';
 
 import { getScaleTransform } from './geometry-worker/scale';
 import { scaleDomain } from './heatmap/utils';
+import { type AxisConfig } from './models';
 import {
   clampBound,
   createScale,
   extendDomain,
   formatPiTick,
   formatPowerTick,
+  getAxisCustomTicks,
   getAxisDomain,
   getCombinedDomain,
   getCustomTicks,
   getDomain,
   getDomains,
+  getIndexLabels,
   getIntegerTicks,
   getLogTickFormat,
   getPiTicks,
@@ -477,6 +480,53 @@ describe('getPowerTicks', () => {
       '3.16',
       '10',
     ]);
+  });
+});
+
+describe('getAxisCustomTicks', () => {
+  const tickLabels = ['mass', 'length', 'stiffness', 'damping', 'temperature'];
+
+  it('should label the indices, at pixel centers given an offset', () => {
+    const config: AxisConfig = { visDomain: [0, 5], tickLabels };
+    const ticks = getAxisCustomTicks(config, [0, 5], 600, true);
+    expect(ticks?.values).toEqual([0, 1, 2, 3, 4]); // not beyond the labels
+    expect(ticks?.values.map((t) => ticks.format(t))).toEqual(tickLabels);
+
+    const centered = { ...config, tickLabelsOffset: 0.5 };
+    const atCenters = getAxisCustomTicks(centered, [0, 5], 600, true);
+    expect(atCenters?.values).toEqual([0.5, 1.5, 2.5, 3.5, 4.5]);
+    expect(atCenters?.format(2.5)).toBe('stiffness');
+  });
+
+  it('should thin out labels that would overlap, as integer ticks', () => {
+    const config: AxisConfig = { visDomain: [0, 5], tickLabels };
+    // `temperature` needs about 90 pixels: one label every two indices (100 pixels)
+    const ticks = getAxisCustomTicks(config, [0, 5], 250, true);
+    expect(ticks?.values.map((t) => ticks.format(t))).toEqual([
+      'mass',
+      'stiffness',
+      'temperature',
+    ]);
+    // Vertical axis: one row of text per label
+    const rows = getAxisCustomTicks(config, [0, 5], 60, false);
+    expect(rows?.values).toEqual([0, 2, 4]);
+  });
+
+  it('should truncate long labels on the ordinate only', () => {
+    const config: AxisConfig = { visDomain: [0, 5], tickLabels };
+    expect(getAxisCustomTicks(config, [0, 5], 600, false)?.format(4)).toBe(
+      'temperatu…',
+    );
+    expect(getAxisCustomTicks(config, [0, 5], 600, true)?.format(4)).toBe(
+      'temperature',
+    );
+  });
+
+  it('should ignore labels of axes with values', () => {
+    expect(getIndexLabels({ tickLabels })).toBe(tickLabels);
+    expect(
+      getIndexLabels({ tickLabels, value: [1, 2, 3, 4, 5] }),
+    ).toBeUndefined();
   });
 });
 

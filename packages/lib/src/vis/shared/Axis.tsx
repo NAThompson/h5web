@@ -9,7 +9,7 @@ import { type AxisConfig, type AxisScale, type Size } from '../models';
 import {
   adaptedNumTicks,
   createScale,
-  getCustomTicks,
+  getAxisCustomTicks,
   getIntegerTicks,
   getScaleTickValues,
   getTickFormatter,
@@ -73,7 +73,13 @@ function Axis(props: Props) {
 
   const numTicks = adaptedNumTicks(axisLength);
   const scaleTickValues = getScaleTickValues(scaleType, domain, numTicks);
-  const customTicks = getCustomTicks(ticks, scaleType, domain, numTicks); // π or powers
+  // Labels of indices, π or powers
+  const customTicks = getAxisCustomTicks(
+    config,
+    domain,
+    axisLength,
+    isAbscissa,
+  );
   const ticksProp = customTicks
     ? { tickValues: customTicks.values }
     : isIndexAxis

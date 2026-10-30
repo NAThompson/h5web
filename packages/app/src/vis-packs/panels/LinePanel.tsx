@@ -35,6 +35,7 @@ function LinePanel(props: Props) {
       axisValues={axes.axisValues}
       axisTicks={axes.axisTicks}
       xSymlogConstant={xScale?.symlogConstant}
+      xTickLabels={xScale?.tickLabels}
       title="" // in the panel's header
       valueLabel={hint.valueLabel}
       config={config}

@@ -39,6 +39,7 @@ interface Props {
   dimMapping: DimensionMapping;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
+  xTickLabels?: string[]; // labels of the indices of the x axis (e.g. string-valued scale)
   title: string;
   toolbarContainer: HTMLDivElement | undefined;
   config: LineConfig;
@@ -56,6 +57,7 @@ function MappedComplexLineVis(props: Props) {
     dimMapping,
     axisLabels = [],
     axisValues = [],
+    xTickLabels,
     title,
     toolbarContainer,
     config,
@@ -136,6 +138,7 @@ function MappedComplexLineVis(props: Props) {
     label: axisLabels[xDimIndex],
     value: numAxisArrays[xDimIndex],
     scaleType: xScaleType,
+    tickLabels: xTickLabels,
   };
 
   const auxiliaries = auxArrays.map((array, i) => ({

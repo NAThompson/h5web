@@ -51,6 +51,8 @@ export interface AxisConfig {
   nice?: boolean;
   formatTick?: (val: number) => string;
   ticks?: AxisTicks;
+  tickLabels?: string[]; // labels of the indices (e.g. categories), at `tickLabelsOffset` + index
+  tickLabelsOffset?: number; // e.g. 0.5 at pixel centers
 }
 
 export type AxisTicks = 'pi' | ValueTransform; // ticks at multiples of π (π/4, π/2, π...), or powers
@@ -97,6 +99,7 @@ export interface AxisParams {
   scaleType?: AxisScaleType;
   symlogConstant?: number; // width of the linear band around 0 of a symlog axis (default 1)
   ticks?: AxisTicks;
+  tickLabels?: string[]; // labels of the indices (e.g. categories); ignored if `value` is given
 }
 
 export type Coords = [x: number, y: number];

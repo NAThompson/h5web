@@ -100,6 +100,7 @@ interface Props {
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
   axisTicks?: AxisMapping<AxisTicks>;
   xSymlogConstant?: number; // `H5WEB_symlog_threshold` of the scale on the x axis
+  xTickLabels?: string[]; // labels of the indices of the x axis (e.g. string-valued scale)
   multiSliceLabels?: string[]; // labels of the slices of the multi-plotting dimension
   multiSliceColors?: string[]; // colours of the slices (default: sampled from viridis)
   title: string;
@@ -207,6 +208,7 @@ function MappedLineVis(props: Props) {
     axisValues = [],
     axisTicks = [],
     xSymlogConstant,
+    xTickLabels,
     multiSliceLabels,
     multiSliceColors,
     title,
@@ -356,6 +358,7 @@ function MappedLineVis(props: Props) {
     ticks: axisTicks[xDimIndex],
     scaleType: xScaleType,
     symlogConstant: xSymlogConstant,
+    tickLabels: xTickLabels,
   };
 
   function getSliceLabel(index: number) {

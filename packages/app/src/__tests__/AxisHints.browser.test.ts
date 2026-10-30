@@ -242,6 +242,36 @@ test('label curves with the values of a string-valued scale', async () => {
   expect(page.getByTestId('D0 slice label')).toHaveTextContent('0 deg');
 });
 
+test('label the indices of a string-valued scale on the axis', async () => {
+  const { user } = await renderApp('/axis_hints/jacobian');
+
+  await expect
+    .poll(() => getTickLabels('abscissa'))
+    .toEqual([
+      'mass',
+      'length',
+      'stiffness',
+      'damping',
+      'temperature',
+      'pressure',
+      'viscosity',
+      'input', // axis label
+    ]);
+
+  // Tooltip: label of the hovered index, not the index
+  const canvas = page.getByRole('figure').element().querySelector('canvas');
+  assertNonNull(canvas);
+  const { width, height } = canvas.getBoundingClientRect();
+  await userEvent.hover(canvas, { position: { x: width / 2, y: height / 2 } });
+  await expect.element(page.getByText(/input=damping,/u)).toBeVisible();
+
+  // Long labels truncated on the ordinate, to fit beside it
+  await user.click(getDimMappingBtn('x', 'component'));
+  await expect
+    .poll(() => getTickLabels('ordinate'))
+    .toEqual(expect.arrayContaining(['stiffness', 'temperatu…']));
+});
+
 test('do not keep the ratio of a string-valued scale', async () => {
   await page.viewport(2560, 1080); // "Keep ratio" not in the "More controls" menu
   onTestFinished(async () => page.viewport(1920, 1080));

@@ -33,6 +33,7 @@ import {
   createScale,
   DEFAULT_DOMAIN,
   extendDomain,
+  getIndexLabels,
   getRealValue,
   getTextContent,
   isIntegerAxis,
@@ -142,6 +143,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     symlogConstant: abscissaSymlogConstant,
     ticks: abscissaTicks,
   } = abscissaParams;
+  const abscissaTickLabels = getIndexLabels(abscissaParams);
 
   assertLength(errorsArray, dataArray.size, 'error');
   auxiliaries.forEach(({ label, array, band }, index) => {
@@ -273,6 +275,7 @@ function LineVis(props: PropsWithChildren<Props>) {
           isIndexAxis: isIntegerAxis(abscissaValue, abscissaScaleType),
           label: abscissaLabel,
           ticks: abscissaTicks,
+          tickLabels: abscissaTickLabels,
         }}
         ordinateConfig={{
           visDomain: dataDomain,
@@ -300,7 +303,7 @@ function LineVis(props: PropsWithChildren<Props>) {
 
             return (
               <>
-                {`${abscissaLabel ?? 'x'} = ${formatTooltipVal(abscissa)}`}
+                {`${abscissaLabel ?? 'x'} = ${abscissaTickLabels?.[xi] ?? formatTooltipVal(abscissa)}`}
 
                 <div
                   className={styles.tooltipValue}

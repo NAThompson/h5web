@@ -39,6 +39,7 @@ import TooltipMesh from '../shared/TooltipMesh';
 import VisCanvas from '../shared/VisCanvas';
 import {
   DEFAULT_DOMAIN,
+  getIndexLabels,
   getRealValue,
   getTextContent,
   isIntegerAxis,
@@ -162,6 +163,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
     value: ordinateValue,
     ticks: ordinateTicks,
   } = ordinateParams;
+  const abscissaTickLabels = getIndexLabels(abscissaParams);
+  const ordinateTickLabels = getIndexLabels(ordinateParams);
   const [rows, cols] = dataArray.shape;
 
   // Log and symlog axes are non-uniform axes in the scale's space (cf. `getHeatmapAxis`)
@@ -216,6 +219,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           label: abscissaLabel,
           flip: flipXAxis,
           ticks: abscissaTicks,
+          tickLabels: abscissaTickLabels,
+          tickLabelsOffset: 0.5, // pixel `i` spans `[i, i + 1]`
         }}
         ordinateConfig={{
           visDomain: ordinateDomain,
@@ -225,6 +230,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
           label: ordinateLabel,
           flip: flipYAxis,
           ticks: ordinateTicks,
+          tickLabels: ordinateTickLabels,
+          tickLabelsOffset: 0.5,
         }}
       >
         <DefaultInteractions {...interactions} />
@@ -245,8 +252,8 @@ function HeatmapVis(props: PropsWithChildren<Props>) {
 
             return (
               <>
-                {`${abscissaLabel ?? 'x'}=${formatTooltipVal(abscissa)}, `}
-                {`${ordinateLabel ?? 'y'}=${formatTooltipVal(ordinate)}`}
+                {`${abscissaLabel ?? 'x'}=${abscissaTickLabels?.[xi] ?? formatTooltipVal(abscissa)}, `}
+                {`${ordinateLabel ?? 'y'}=${ordinateTickLabels?.[yi] ?? formatTooltipVal(ordinate)}`}
                 <div className={styles.tooltipValue}>
                   <strong>
                     {formatTooltipVal(
