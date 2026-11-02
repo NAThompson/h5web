@@ -49,6 +49,7 @@ export interface SeriesCurve extends SeriesStyle {
   label: string;
   array: NdArray<NumArray>;
   ignoreValue?: IgnoreValue;
+  visible?: boolean; // default: shown
 }
 
 /* Base dimension of each dimension of a series: the one with the same dimension scale, else the

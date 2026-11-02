@@ -15,6 +15,10 @@ interface Props {
   signalChecked: boolean;
   auxLabels: string[];
   auxChecked: boolean[];
+  auxGroupLabel?: string;
+  signalColor?: string; // of the curves, if not the default ones
+  auxColors?: (string | undefined)[];
+  auxOffset?: number; // of the first auxiliary curve among those of `LineVis`
   onSignalChange: (newValue: boolean) => void;
   onAuxChange: (newValue: boolean[]) => void;
   toolbarContainer: HTMLDivElement | undefined;
@@ -26,17 +30,21 @@ function NxLineSignalPicker(props: Props) {
     signalChecked,
     auxLabels,
     auxChecked,
+    auxGroupLabel = 'Auxiliary signals',
+    signalColor,
+    auxColors,
+    auxOffset = 0,
     onSignalChange,
     onAuxChange,
     toolbarContainer,
   } = props;
 
   // Same colors as the curves in `LineVis`
-  const [[signalColor, auxColorList], rootRef] = useCssColors([
+  const [[curveColor, auxColorList], rootRef] = useCssColors([
     '--curve-color',
     '--aux-colors',
   ]);
-  const auxColors = auxColorList.split(',').map((col) => col.trim());
+  const palette = auxColorList.split(',').map((col) => col.trim());
 
   if (!toolbarContainer) {
     return null;
@@ -52,7 +60,7 @@ function NxLineSignalPicker(props: Props) {
       <Menu label="Signals" Icon={MdLineAxis}>
         <Checkbox
           label={signalLabel}
-          color={signalColor}
+          color={signalColor ?? curveColor}
           checked={signalChecked}
           onChange={onSignalChange}
         />
@@ -60,7 +68,7 @@ function NxLineSignalPicker(props: Props) {
         <MenuSeparator />
         <Checkbox
           className={styles.allAuxOption}
-          label="Auxiliary signals"
+          label={auxGroupLabel}
           color="gray" // not a curve's color
           checked={allAuxChecked}
           indeterminate={someAuxChecked && !allAuxChecked}
@@ -72,9 +80,12 @@ function NxLineSignalPicker(props: Props) {
         {auxLabels.map((label, index) => {
           return (
             <Checkbox
-              key={label}
+              key={index} // labels may repeat
               label={label}
-              color={auxColors[index % auxColors.length]}
+              color={
+                auxColors?.[index] ??
+                palette[(index + auxOffset) % palette.length]
+              }
               checked={auxChecked[index]}
               onChange={(checked) => {
                 const newValue = [...auxChecked];

@@ -4,13 +4,14 @@ import {
   assertDataset,
   assertNumericLikeType,
 } from '@h5web/shared/guards';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useDimMappingState } from '../../../dim-mapping-store';
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
 import DimScalesFetcher from '../../dimscales/DimScalesFetcher';
 import { useCachedDimScales, useDimInfo } from '../../dimscales/hooks';
 import { type VisContainerProps } from '../../models';
+import NxLineSignalPicker from '../../nexus/NxLineSignalPicker';
 import { useDatasetSlicingProps } from '../../slicing';
 import { toUnicodeScripts } from '../../view-hints/attrs';
 import {
@@ -75,19 +76,36 @@ function LineVisContainer(props: VisContainerProps) {
     multiDim,
     multiDim === undefined ? undefined : dims[multiDim],
   );
+  // Curves unchecked in the picker (not in multi-plots)
+  const isMultiPlot = multiDim !== undefined;
+  const [isDataVisible, setDataVisible] = useState(true);
+  const [hiddenSeries, setHiddenSeries] = useState<number[]>([]); // indices
+
   const extras = useMemo(
     () => ({
-      series: series.curves,
+      series: series.curves.map((curve, i) => ({
+        ...curve,
+        visible: isMultiPlot || !hiddenSeries.includes(i),
+      })),
       references: references.shapes,
       legendEntries: references.legend,
       band: band.band,
     }),
-    [series.curves, references.shapes, references.legend, band.band],
+    [
+      series.curves,
+      isMultiPlot,
+      hiddenSeries,
+      references.shapes,
+      references.legend,
+      band.band,
+    ],
   );
   const hasExtraCurves =
     hint.envelope?.mode === 'add' ||
     series.curves.length > 0 ||
     references.legend.length > 0; // the dataset's curve is named in the legend
+  const dataLabel =
+    toUnicodeScripts(hint.curveLabel ?? hint.longName) ?? entity.name;
 
   const { slicingProps, playbackRange } = useDatasetSlicingProps(
     entity,
@@ -104,6 +122,26 @@ function LineVisContainer(props: VisContainerProps) {
 
   return (
     <>
+      {!isMultiPlot && series.curves.length > 0 && (
+        <NxLineSignalPicker
+          signalLabel={dataLabel}
+          signalChecked={isDataVisible}
+          signalColor={hint.curveColor}
+          auxLabels={series.curves.map(({ label }) => label)}
+          auxChecked={extras.series.map(({ visible }) => visible)}
+          auxGroupLabel="Series"
+          auxColors={series.curves.map(({ color }) => color)}
+          auxOffset={hint.envelope?.mode === 'add' ? 1 : 0} // envelope's curve first
+          onSignalChange={setDataVisible}
+          onAuxChange={(checked) => {
+            setHiddenSeries(
+              series.curves.flatMap((_, i) => (checked[i] ? [] : [i])),
+            );
+          }}
+          toolbarContainer={toolbarContainer}
+        />
+      )}
+
       <DimensionMapper
         className={visualizerStyles.dimMapper}
         dims={dims}
@@ -145,18 +183,14 @@ function LineVisContainer(props: VisContainerProps) {
                   xTickLabels={axisScales[lineMapping.indexOf('x')]?.tickLabels}
                   title={hint.title ?? entity.name}
                   valueLabel={hint.valueLabel}
+                  valueVisible={isMultiPlot || isDataVisible}
                   toolbarContainer={toolbarContainer}
                   config={config}
                   symlogThreshold={hint.symlogThreshold}
                   valueTransform={hint.valueTransform}
                   envelope={hint.envelope}
                   extras={extras}
-                  dataLabel={
-                    hasExtraCurves
-                      ? (toUnicodeScripts(hint.curveLabel ?? hint.longName) ??
-                        entity.name)
-                      : undefined
-                  }
+                  dataLabel={hasExtraCurves ? dataLabel : undefined}
                   dataColor={hint.curveColor}
                   dataWidth={hint.curveWidth}
                   dataDash={hint.curveDash}

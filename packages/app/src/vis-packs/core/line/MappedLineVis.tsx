@@ -338,8 +338,10 @@ function MappedLineVis(props: Props) {
   // Series and values of references along y (e.g. a tolerance) in the domain
   const extraDomains = useMemo(
     () => [
-      ...series.map(({ array, ignoreValue: ignore }) =>
-        getDomain(array, { scaleType: yScaleType, ignoreValue: ignore }),
+      ...series.map(({ array, ignoreValue: ignore, visible }) =>
+        visible === false
+          ? undefined
+          : getDomain(array, { scaleType: yScaleType, ignoreValue: ignore }),
       ),
       getDomain(
         references.flatMap(({ axis, values }) => (axis === 'y' ? values : [])),
@@ -429,7 +431,7 @@ function MappedLineVis(props: Props) {
     })),
     ...series.map((curve) => ({
       ...curve,
-      visible: true,
+      visible: curve.visible ?? true,
       ignoreValue: curve.ignoreValue ?? ignoreNone, // not the signal's
     })),
   ];
@@ -491,7 +493,7 @@ function MappedLineVis(props: Props) {
         ...bandDomains,
         splineDomain,
       ]),
-      `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${showErrors}:${drawsSplines}`, // splines overshoot
+      `${yScaleType}:${valueVisible}:${auxVisible.join(',')}:${series.map((curve) => curve.visible !== false).join(',')}:${showErrors}:${drawsSplines}`, // splines overshoot
       (sequenceValue) =>
         valueVisible
           ? getDomain(
