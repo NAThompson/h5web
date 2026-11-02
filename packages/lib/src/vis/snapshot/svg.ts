@@ -81,7 +81,8 @@ function splitAlpha(color: string): [string, number] {
   return [match ? `rgb(${match[1]},${match[2]},${match[3]})` : color, alpha];
 }
 
-const THEME_COLOR_PROPS = ['--curve-color', '--aux-colors'];
+// Paired by position between themes: single colors before the list
+const THEME_COLOR_PROPS = ['--curve-color', '--fg-color', '--aux-colors'];
 
 function readThemeColors(elem: Element): string[] {
   const style = getComputedStyle(elem);

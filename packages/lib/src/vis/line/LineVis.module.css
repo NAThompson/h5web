@@ -5,6 +5,7 @@
   min-height: 0;
   margin: 0;
   --curve-color: var(--h5w-line--color, darkblue);
+  --fg-color: var(--h5w-line--colorForeground, black); /* `foreground` color */
   --aux-colors: var(
     --h5w-line--colorAux,
     orangered,

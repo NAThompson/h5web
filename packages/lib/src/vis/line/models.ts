@@ -25,7 +25,7 @@ export interface AuxiliaryParams {
   array: NdArray<NumArray>;
   label?: string;
   errors?: NdArray<NumArray>;
-  color?: string;
+  color?: string; // CSS color, or `foreground`: the theme's text color
   width?: number; // line width in CSS pixels (default 1)
   dash?: boolean; // dashed line
   visible?: boolean;

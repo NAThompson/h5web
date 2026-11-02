@@ -24,6 +24,11 @@ interface Props {
   toolbarContainer: HTMLDivElement | undefined;
 }
 
+// `foreground`: the theme's text color (as in `LineVis`)
+function toThemeColor(color: string | undefined, fgColor: string) {
+  return color?.toLowerCase() === 'foreground' ? fgColor : color;
+}
+
 function NxLineSignalPicker(props: Props) {
   const {
     signalLabel,
@@ -40,9 +45,10 @@ function NxLineSignalPicker(props: Props) {
   } = props;
 
   // Same colors as the curves in `LineVis`
-  const [[curveColor, auxColorList], rootRef] = useCssColors([
+  const [[curveColor, auxColorList, fgColor], rootRef] = useCssColors([
     '--curve-color',
     '--aux-colors',
+    '--fg-color',
   ]);
   const palette = auxColorList.split(',').map((col) => col.trim());
 
@@ -60,7 +66,7 @@ function NxLineSignalPicker(props: Props) {
       <Menu label="Signals" Icon={MdLineAxis}>
         <Checkbox
           label={signalLabel}
-          color={signalColor ?? curveColor}
+          color={toThemeColor(signalColor, fgColor) ?? curveColor}
           checked={signalChecked}
           onChange={onSignalChange}
         />
@@ -83,7 +89,7 @@ function NxLineSignalPicker(props: Props) {
               key={index} // labels may repeat
               label={label}
               color={
-                auxColors?.[index] ??
+                toThemeColor(auxColors?.[index], fgColor) ??
                 palette[(index + auxOffset) % palette.length]
               }
               checked={auxChecked[index]}

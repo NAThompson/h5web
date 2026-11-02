@@ -387,6 +387,11 @@ export function isCssColor(val: string): boolean {
   return typeof CSS === 'undefined' || CSS.supports('color', val);
 }
 
+/* Color of a line curve: CSS color, or `foreground`, the theme's text color */
+function isLineColor(val: string): boolean {
+  return isCssColor(val) || val.toLowerCase() === 'foreground';
+}
+
 /* CSS colour as `rgba(…)`, which the renderer parses (unlike e.g. `oklch(…)` or space-separated
  * `rgb(…)`), from a pixel painted with it; as is without a DOM (e.g. in unit tests) */
 export function toRgbaColor(val: string | undefined): string | undefined {
@@ -396,6 +401,9 @@ export function toRgbaColor(val: string | undefined): string | undefined {
       : null;
   if (!val || !ctx) {
     return val;
+  }
+  if (val.toLowerCase() === 'foreground') {
+    return 'foreground';
   }
   ctx.fillStyle = val;
   ctx.fillRect(0, 0, 1, 1);
@@ -560,7 +568,7 @@ export function parseViewHint(
     // Scatter: path of colour values, or colour of all points (cf. `core/scatter/source.ts`)
     curveColor: isScatterHint(vis)
       ? undefined
-      : toRgbaColor(read.str('H5WEB_color', isCssColor)),
+      : toRgbaColor(read.str('H5WEB_color', isLineColor)),
     curveWidth: read.num('H5WEB_width', isPos),
     curveDash: read.bool('H5WEB_dash'),
     marker: read.oneOf('H5WEB_marker', parseMarker),
@@ -617,7 +625,7 @@ export function parseSeriesStyle(
   const read = createAttrReader(entity, values, notes, prefix);
   return {
     label: read.str('H5WEB_label') ?? read.str('long_name'),
-    color: toRgbaColor(read.str('H5WEB_color', isCssColor)),
+    color: toRgbaColor(read.str('H5WEB_color', isLineColor)),
     width: read.num('H5WEB_width', isPos),
     dash: read.bool('H5WEB_dash'),
   };

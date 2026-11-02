@@ -2008,6 +2008,7 @@ export function makeMockFile(): GroupWithChildren {
         array('series_bound', {
           attributes: [
             scalarAttr('long_name', 'bound'), // no scale: along x
+            scalarAttr('H5WEB_color', 'Foreground'), // theme's text color
             intAttr('H5WEB_dash', 1),
           ],
         }),

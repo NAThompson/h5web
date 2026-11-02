@@ -141,7 +141,10 @@ function MappedComplexPointsVis(props: Props) {
       x: [...real],
       y: [...imag],
       marker: hint.marker,
-      fill: hint.curveColor ?? PALETTE[0],
+      fill:
+        hint.curveColor === 'foreground' // line curves only
+          ? PALETTE[0]
+          : (hint.curveColor ?? PALETTE[0]),
       size: hint.markerSize ?? POINT_SIZE,
       halo: false,
       label: hint.curveLabel ?? dataset.name,

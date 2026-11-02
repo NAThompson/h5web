@@ -62,7 +62,9 @@ test('toggle series of a hint on Line, with checkboxes colored like their curves
 
   expect(accent('measured')).toBe('rgb(235, 104, 52)'); // `H5WEB_color` of the dataset
   expect(accent('fit e⁻ˣ/⁶')).toBe('rgb(207, 23, 23)'); // `H5WEB_color` of the series
-  expect(accent('bound')).toBe('rgb(34, 139, 34)'); // second auxiliary color
+  expect(accent('bound')).toBe('rgb(0, 0, 0)'); // `foreground`: black in light mode
+  const marks = document.querySelectorAll<HTMLElement>('figure li > span');
+  expect(getComputedStyle(marks[2]).color).toBe('rgb(0, 0, 0)'); // its curve's
 
   await page.getByRole('checkbox', { name: 'fit e⁻ˣ/⁶' }).click();
   await expect.poll(getLegend).toEqual(['measured', 'bound']);

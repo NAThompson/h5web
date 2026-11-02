@@ -57,10 +57,15 @@ import { getLegendCorner, type LegendBox } from './utils';
 
 const MAX_TOOLTIP_ROWS = 10; // split auxiliary values into columns beyond this
 
+// `foreground`: the theme's text color
+function toThemeColor(color: string | undefined, fgColor: string) {
+  return color?.toLowerCase() === 'foreground' ? fgColor : color;
+}
+
 interface Props extends ClassStyleAttrs {
   dataArray: NdArray<NumArray>;
   dataLabel?: string;
-  dataColor?: string;
+  dataColor?: string; // CSS color, or `foreground`: the theme's text color (as for auxiliaries)
   dataWidth?: number; // line width in CSS pixels
   dataDash?: boolean; // dashed line
   domain: Domain | undefined;
@@ -118,7 +123,7 @@ function LineVis(props: PropsWithChildren<Props>) {
     errorsArray,
     showErrors = true,
     dataBand,
-    auxiliaries = [],
+    auxiliaries: auxiliaryParams = [],
     renderTooltip,
     children,
     interactions,
@@ -146,7 +151,7 @@ function LineVis(props: PropsWithChildren<Props>) {
   const abscissaTickLabels = getIndexLabels(abscissaParams);
 
   assertLength(errorsArray, dataArray.size, 'error');
-  auxiliaries.forEach(({ label, array, band }, index) => {
+  auxiliaryParams.forEach(({ label, array, band }, index) => {
     assertLength(array, dataArray.size, `'${label || index}' auxiliary`);
     assertBandLength(band, dataArray.size, `'${label || index}' band`);
   });
@@ -183,11 +188,20 @@ function LineVis(props: PropsWithChildren<Props>) {
     return domain ? extendDomain(domain, 0.05, scaleType) : DEFAULT_DOMAIN;
   }, [scaleType, domain]);
 
-  const [[cssCurveColor, auxColorList], rootRef] = useCssColors([
+  const [[cssCurveColor, auxColorList, fgColor], rootRef] = useCssColors([
     '--curve-color',
     '--aux-colors',
+    '--fg-color',
   ]);
-  const curveColor = dataColor ?? cssCurveColor;
+  const curveColor = toThemeColor(dataColor, fgColor) ?? cssCurveColor;
+  const auxiliaries = useMemo(
+    () =>
+      auxiliaryParams.map((aux) => ({
+        ...aux,
+        color: toThemeColor(aux.color, fgColor),
+      })),
+    [auxiliaryParams, fgColor],
+  );
   const auxColors = useMemo(
     () => auxColorList.split(',').map((col) => col.trim()), // support comma-separated list of colors
     [auxColorList],

@@ -5,6 +5,7 @@
   font-size: 0.875rem;
   /* Same defaults as `LineVis` */
   --curve-color: var(--h5w-line--color, darkblue);
+  --fg-color: var(--h5w-line--colorForeground, black);
   --aux-colors: var(
     --h5w-line--colorAux,
     orangered,
