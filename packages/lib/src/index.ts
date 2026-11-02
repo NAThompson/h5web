@@ -258,6 +258,7 @@ export {
   useValueToIndexScale,
   useCameraState,
   useUpdateGeometry,
+  useCssColors,
 } from './vis/hooks';
 
 export { getAxisValues, getSplineDomain, PALETTES } from './vis/line/utils';

@@ -9,6 +9,7 @@ interface Props extends ClassStyleAttrs {
   disabled?: boolean;
   checked: boolean;
   indeterminate?: boolean;
+  color?: string; // of the box when checked, kept in inverted dark themes (e.g. of a curve)
   onChange?: (checked: boolean) => void;
 }
 
@@ -20,6 +21,7 @@ function Checkbox(props: Props) {
     disabled,
     checked,
     indeterminate,
+    color,
     onChange,
   } = props;
   const labelId = useId();
@@ -46,6 +48,8 @@ function Checkbox(props: Props) {
         id={inputId}
         type="checkbox"
         checked={checked}
+        style={color ? { accentColor: color } : undefined}
+        data-keep-colors={color && checked ? '' : undefined}
         onChange={() => onChange?.(!checked)}
         aria-labelledby={labelId}
       />

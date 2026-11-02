@@ -1,4 +1,10 @@
-import { Checkbox, Menu, MenuSeparator, Separator } from '@h5web/lib';
+import {
+  Checkbox,
+  Menu,
+  MenuSeparator,
+  Separator,
+  useCssColors,
+} from '@h5web/lib';
 import { createPortal } from 'react-dom';
 import { MdLineAxis } from 'react-icons/md';
 
@@ -25,6 +31,13 @@ function NxLineSignalPicker(props: Props) {
     toolbarContainer,
   } = props;
 
+  // Same colors as the curves in `LineVis`
+  const [[signalColor, auxColorList], rootRef] = useCssColors([
+    '--curve-color',
+    '--aux-colors',
+  ]);
+  const auxColors = auxColorList.split(',').map((col) => col.trim());
+
   if (!toolbarContainer) {
     return null;
   }
@@ -33,12 +46,13 @@ function NxLineSignalPicker(props: Props) {
   const allAuxChecked = auxChecked.every(Boolean);
 
   return createPortal(
-    <div className={styles.wrapper}>
+    <div ref={rootRef} className={styles.wrapper}>
       <Separator />
 
       <Menu label="Signals" Icon={MdLineAxis}>
         <Checkbox
           label={signalLabel}
+          color={signalColor}
           checked={signalChecked}
           onChange={onSignalChange}
         />
@@ -47,6 +61,7 @@ function NxLineSignalPicker(props: Props) {
         <Checkbox
           className={styles.allAuxOption}
           label="Auxiliary signals"
+          color="gray" // not a curve's color
           checked={allAuxChecked}
           indeterminate={someAuxChecked && !allAuxChecked}
           onChange={() => {
@@ -59,6 +74,7 @@ function NxLineSignalPicker(props: Props) {
             <Checkbox
               key={label}
               label={label}
+              color={auxColors[index % auxColors.length]}
               checked={auxChecked[index]}
               onChange={(checked) => {
                 const newValue = [...auxChecked];

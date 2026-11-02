@@ -30,3 +30,20 @@ test('pick auxiliary signal on NX Heatmap', async () => {
 
   expect(page.getByRole('figure', { name: 'tertiary' })).toBeVisible();
 });
+
+test('color auxiliary signal checkboxes like their curves on NX Line', async () => {
+  await renderApp('/nexus/spectrum_with_aux');
+  await page.getByRole('button', { name: 'Signals' }).click();
+
+  const accent = (name: string) =>
+    getComputedStyle(
+      page.getByRole('checkbox', { name, exact: true }).element(),
+    ).accentColor;
+
+  await expect
+    .element(page.getByRole('checkbox', { name: 'secondary' }))
+    .toBeVisible();
+  expect(accent('twoD (arb. units)')).toBe('rgb(0, 0, 139)'); // darkblue
+  expect(accent('secondary')).toBe('rgb(255, 69, 0)'); // orangered
+  expect(accent('tertiary_cplx')).toBe('rgb(34, 139, 34)'); // forestgreen
+});

@@ -3,6 +3,16 @@
   display: flex;
   padding: 0 0.5rem;
   font-size: 0.875rem;
+  /* Same defaults as `LineVis` */
+  --curve-color: var(--h5w-line--color, darkblue);
+  --aux-colors: var(
+    --h5w-line--colorAux,
+    orangered,
+    forestgreen,
+    red,
+    mediumorchid,
+    olive
+  );
 }
 
 .inner {
