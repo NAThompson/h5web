@@ -56,6 +56,10 @@ f["err"].attrs.update({"H5WEB_vis": "line", "H5WEB_scale": "log",
   `H5WEB_geometry` (`points`, `curve`, `ellipse`, `circle`, `hline`, `vline`,
   `band`...) and `H5WEB_columns` (which axis each column holds; always give it).
 - Axis scale of a dimension scale: `H5WEB_axis_scale` on the scale dataset.
+- Line curves (the dataset's own, `H5WEB_series` members, `NXdata` auxiliary
+  signals): `H5WEB_label`, `H5WEB_color`, `H5WEB_width`, `H5WEB_dash` on each
+  dataset; `H5WEB_color = "foreground"` follows the theme (black, or white in
+  dark mode).
 
 Check exact names, types and defaults in the full reference; don't invent
 attributes. H5Web reports a misspelled hint value as a note in the viewer.

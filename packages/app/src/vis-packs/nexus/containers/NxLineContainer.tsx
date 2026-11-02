@@ -9,8 +9,10 @@ import MappedLineVis from '../../core/line/MappedLineVis';
 import { getMultiPlotMapping } from '../../core/line/utils';
 import { type VisContainerProps } from '../../models';
 import { useNxSlicingProps } from '../../slicing';
+import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useViewHint } from '../../view-hints/hooks';
 import OverlayNotes from '../../view-hints/OverlayNotes';
+import { useAuxStyles } from '../../view-hints/series';
 import { getLineSuggestions } from '../../view-hints/suggestions';
 import { getRootScaleNotes } from '../../view-hints/utils';
 import VisBoundary from '../../VisBoundary';
@@ -47,7 +49,11 @@ function NxLineContainer(props: VisContainerProps) {
     [dimMapping, multiDim],
   );
 
-  const auxLabels = auxDefs.map((def) => def.label);
+  // `H5WEB_label`, `H5WEB_color`... of each signal
+  const auxStyles = useAuxStyles(auxDefs.map((def) => def.dataset));
+  const auxLabels = auxDefs.map(
+    (def, i) => toUnicodeScripts(auxStyles.styles[i].label) ?? def.label,
+  );
   const axisLabels = axisDefs.map((def) => def?.label);
   const xDimIndex = dimMapping.indexOf('x');
 
@@ -56,6 +62,7 @@ function NxLineContainer(props: VisContainerProps) {
 
   // `H5WEB_*` view hint > NeXus `SILX_style`
   const hint = useViewHint(entity, signalDef.dataset);
+  const signalLabel = toUnicodeScripts(hint.curveLabel);
   const config = useLineConfig(
     getLineSuggestions(hint, {
       xScaleType: silxStyle.axisScaleTypes?.[xDimIndex],
@@ -78,10 +85,12 @@ function NxLineContainer(props: VisContainerProps) {
     <>
       {auxDefs.length > 0 && (
         <NxLineSignalPicker
-          signalLabel={signalDef.label}
+          signalLabel={signalLabel ?? signalDef.label}
           signalChecked={isSignalVisible}
+          signalColor={hint.curveColor}
           auxLabels={auxLabels}
           auxChecked={auxVisible}
+          auxColors={auxStyles.styles.map(({ color }) => color)}
           onSignalChange={setSignalVisible}
           onAuxChange={setAuxVisible}
           toolbarContainer={toolbarContainer}
@@ -122,6 +131,11 @@ function NxLineContainer(props: VisContainerProps) {
                 auxErrors={auxErrors}
                 auxErrorsDatasets={auxDefs.map((def) => def.errorDataset)}
                 auxVisible={auxVisible}
+                auxStyles={auxStyles.styles}
+                dataLabel={signalLabel}
+                dataColor={hint.curveColor}
+                dataWidth={hint.curveWidth}
+                dataDash={hint.curveDash}
                 dimMapping={lineMapping}
                 axisLabels={axisLabels}
                 axisValues={axisValues}
@@ -134,7 +148,9 @@ function NxLineContainer(props: VisContainerProps) {
           }}
         />
       </VisBoundary>
-      <OverlayNotes notes={[...hint.notes, ...getRootScaleNotes(hint)]} />
+      <OverlayNotes
+        notes={[...hint.notes, ...getRootScaleNotes(hint), ...auxStyles.notes]}
+      />
     </>
   );
 }

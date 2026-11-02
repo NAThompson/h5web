@@ -49,7 +49,7 @@ import { toUnicodeScripts } from '../../view-hints/attrs';
 import { useEnvelopes } from '../../view-hints/envelope';
 import { useStableObjects } from '../../view-hints/hooks';
 import { renderMarkup, renderSvgMarkup } from '../../view-hints/markup';
-import { type Envelope } from '../../view-hints/models';
+import { type Envelope, type SeriesStyle } from '../../view-hints/models';
 import ReferenceLayer from '../../view-hints/ReferenceLayer';
 import { type ReferenceShape } from '../../view-hints/references';
 import { type SeriesCurve } from '../../view-hints/series';
@@ -95,6 +95,7 @@ interface Props {
   auxErrors?: (ArrayValue<NumericType> | undefined)[];
   auxErrorsDatasets?: (Dataset<ArrayShape, NumericType> | undefined)[];
   auxVisible?: boolean[];
+  auxStyles?: SeriesStyle[]; // color, width and dash of each auxiliary curve
   dimMapping: DimensionMapping;
   axisLabels?: AxisMapping<string>;
   axisValues?: AxisMapping<ArrayValue<NumericType>>;
@@ -203,6 +204,7 @@ function MappedLineVis(props: Props) {
     auxErrors = [],
     auxErrorsDatasets = [],
     auxVisible = [],
+    auxStyles,
     dimMapping,
     axisLabels = [],
     axisValues = [],
@@ -411,6 +413,7 @@ function MappedLineVis(props: Props) {
         band: bands.at(i + 1),
       }))
     : auxArrays.map((array, i) => ({
+        ...auxStyles?.[i],
         label: auxLabels[i],
         array,
         errors: auxErrorsArrays[i],

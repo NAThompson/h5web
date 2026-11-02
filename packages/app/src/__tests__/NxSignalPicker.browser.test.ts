@@ -73,3 +73,26 @@ test('toggle series of a hint on Line, with checkboxes colored like their curves
   await page.getByRole('checkbox', { name: 'measured' }).click();
   await expect.poll(getLegend).toEqual(['bound']);
 });
+
+test('style signals of NX Line by their own attributes', async () => {
+  await renderApp('/nexus/spectrum_styled_aux');
+  const getMarks = () =>
+    [...document.querySelectorAll<HTMLElement>('figure li')].map((li) => {
+      const mark = li.querySelector('span') as HTMLElement;
+      return `${li.textContent} ${getComputedStyle(mark).color} ${mark.dataset.dash}`;
+    });
+  await expect.poll(getMarks).toEqual([
+    'main rgb(0, 0, 0) undefined', // `foreground`
+    'fit rgb(0, 0, 255) true',
+    'tertiary rgb(34, 139, 34) undefined',
+  ]);
+
+  await page.getByRole('button', { name: 'Signals' }).click();
+  const accent = (name: string) =>
+    getComputedStyle(
+      page.getByRole('checkbox', { name, exact: true }).element(),
+    ).accentColor;
+  expect(accent('main')).toBe('rgb(0, 0, 0)');
+  expect(accent('fit')).toBe('rgb(0, 0, 255)');
+  expect(accent('tertiary')).toBe('rgb(34, 139, 34)');
+});

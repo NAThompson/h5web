@@ -104,9 +104,11 @@ without hints are shown using heuristics, as before.
 | `H5WEB_envelope_mode`, `H5WEB_envelope_direction`         | string, string             | `add` (default: drawn over the data) or `replace`; `forward` (default) or `reverse` (from each value to the end).                                                                                                                                                                                                                         |
 | `H5WEB_marker`, `H5WEB_size`                              | string, float              | Complex points: marker of the dataset's own points (`dot`, `x`, `o`) and radius in CSS pixels. On scatter plots, `H5WEB_size` is the path of the size values.                                                                                                                                                                             |
 
-`H5WEB_color = "foreground"` (case-insensitive) on a line curve (the dataset's
-own or a series) draws it in the theme's text color: black, or white in dark
-mode.
+On an `NXdata` group, the curve of each auxiliary signal is styled like a series
+by that dataset's own `H5WEB_label`, `H5WEB_color`, `H5WEB_width` and
+`H5WEB_dash`. `H5WEB_color = "foreground"` (case-insensitive) on a line curve
+(the dataset's own, a series or an auxiliary signal) draws it in the theme's
+text color: black, or white in dark mode.
 
 ### Stacks, playback and panels
 

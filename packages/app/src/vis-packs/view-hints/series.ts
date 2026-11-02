@@ -23,7 +23,7 @@ import { resolveCoordinate } from '../core/geometry/utils';
 import { toNumArray } from '../core/utils';
 import { ignoreValueQuery, packingQuery } from '../netcdf/hooks';
 import { type Packing, unpackNumArray } from '../netcdf/utils';
-import { parseSeriesStyle, toUnicodeScripts } from './attrs';
+import { hasViewAttrs, parseSeriesStyle, toUnicodeScripts } from './attrs';
 import { isAffordable, useStableArray } from './hooks';
 import { type SeriesStyle, type ViewHint } from './models';
 import {
@@ -307,6 +307,42 @@ export function useLineSeries(
   );
 
   return { curves, notes };
+}
+
+/* Style of the auxiliary signals of an NXdata group from their own attributes, as of series
+ * (label only from `H5WEB_label`, else the NeXus one): none until fetched */
+export function useAuxStyles(datasets: Dataset[]): {
+  styles: SeriesStyle[];
+  notes: string[];
+} {
+  const dataContext = useDataContext();
+  const results = useQueries({
+    queries: datasets.map((dataset) => ({
+      ...dataContext.queries.attrValues(dataset),
+      enabled: hasViewAttrs(dataset),
+    })),
+  });
+  const stableDatasets = useStableArray(datasets);
+  const values = useStableArray(results.map(({ data }) => data));
+  return useMemo(() => {
+    const notes: string[] = [];
+    const styles = stableDatasets.map((dataset, i) => {
+      const attrs = values[i];
+      if (!attrs) {
+        return {};
+      }
+      const prefix = `auxiliary signal "${dataset.name}": `;
+      const { label, ...style } = parseSeriesStyle(
+        dataset,
+        attrs,
+        notes,
+        prefix,
+      );
+      const hasLabel = typeof attrs.H5WEB_label === 'string'; // else the NeXus label
+      return { ...style, label: hasLabel ? label : undefined };
+    });
+    return { styles, notes };
+  }, [stableDatasets, values]);
 }
 
 /* Bounds of `H5WEB_band` at the base's selection, which they share with the same shape (ignored

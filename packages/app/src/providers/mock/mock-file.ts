@@ -557,6 +557,32 @@ export function makeMockFile(): GroupWithChildren {
             auxAttr: ['secondary', 'tertiary_cplx'],
             children: [array('secondary_errors', { valueId: 'twoD_errors' })],
           }),
+          // `H5WEB_*` style of the signal and of an auxiliary signal
+          nxData('spectrum_styled_aux', {
+            signal: withNxAttr(
+              array('twoD', {
+                attributes: [
+                  scalarAttr('H5WEB_label', 'main'),
+                  scalarAttr('H5WEB_color', 'foreground'),
+                ],
+              }),
+              { interpretation: 'spectrum' },
+            ),
+            errors: array('errors', { valueId: 'twoD_errors' }),
+            auxiliary: {
+              secondary: array('secondary', {
+                attributes: [
+                  scalarAttr('H5WEB_label', 'fit'),
+                  scalarAttr('H5WEB_color', '#00f'),
+                  floatAttr('H5WEB_width', 2),
+                  intAttr('H5WEB_dash', 1),
+                ],
+              }),
+              tertiary: array('tertiary'),
+            },
+            auxAttr: ['secondary', 'tertiary'],
+            children: [array('secondary_errors', { valueId: 'twoD_errors' })],
+          }),
           nxData('spectrum_log', {
             signal: array('oneD'),
             errors: array('oneD_errors'),
