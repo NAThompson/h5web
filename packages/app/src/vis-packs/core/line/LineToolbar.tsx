@@ -19,12 +19,18 @@ import {
   type Domain,
   type ExportEntry,
 } from '@h5web/shared/vis-models';
-import { MdAutoGraph, MdGridOn } from 'react-icons/md';
+import {
+  MdAutoGraph,
+  MdEqualizer,
+  MdGridOn,
+  MdScatterPlot,
+} from 'react-icons/md';
 
 import { useVisArea } from '../../../visualizer/vis-area';
 import { CURVE_TYPE_LABELS, INTERACTIONS_WITH_AXIAL_ZOOM } from '../utils';
 import { type LineConfig } from './config';
 import ErrorsIcon from './ErrorsIcon';
+import { QQ_DISTRIBUTIONS } from './qq';
 
 const COMPLEX_VIS_TYPES: ComplexLineVisType[] = [
   ComplexVisType.Amplitude,
@@ -39,12 +45,22 @@ interface Props {
   withErrors?: boolean;
   config: LineConfig;
   exportEntries?: ExportEntry[];
+  spectrum?: { value: boolean; onToggle: () => void; blocker?: string };
+  qq?: { value: boolean; onToggle: () => void; blocker?: string };
 }
 
 function LineToolbar(props: Props) {
   const visArea = useVisArea();
-  const { dataDomain, isSlice, isComplex, withErrors, config, exportEntries } =
-    props;
+  const {
+    dataDomain,
+    isSlice,
+    isComplex,
+    withErrors,
+    config,
+    exportEntries,
+    spectrum,
+    qq,
+  } = props;
 
   const {
     customDomain,
@@ -117,23 +133,60 @@ function LineToolbar(props: Props) {
         onToggle={() => setShowGrid(!showGrid)}
       />
 
-      <Menu label="Aspect" Icon={MdAutoGraph}>
-        <RadioGroup
-          name="curvetype"
-          value={curveType}
-          options={Object.values(CurveType)}
-          optionsLabels={CURVE_TYPE_LABELS}
-          onChange={setCurveType}
+      {/* Q-Q plots draw their own points and lines */}
+      {!qq?.value && (
+        <Menu label="Aspect" Icon={MdAutoGraph}>
+          <RadioGroup
+            name="curvetype"
+            value={curveType}
+            options={Object.values(CurveType)}
+            optionsLabels={CURVE_TYPE_LABELS}
+            onChange={setCurveType}
+          />
+          <RadioGroup
+            name="interpolation"
+            label="Interpolation"
+            options={Object.values(Interpolation)}
+            disabled={curveType === CurveType.GlyphsOnly}
+            value={interpolation}
+            onChange={setInterpolation}
+          />
+        </Menu>
+      )}
+
+      {spectrum && (
+        <ToggleBtn
+          label="Spectrum"
+          iconOnly
+          Icon={MdEqualizer}
+          value={spectrum.value}
+          onToggle={spectrum.onToggle}
+          disabled={!!spectrum.blocker}
+          title={spectrum.blocker ?? 'Power spectrum'}
         />
-        <RadioGroup
-          name="interpolation"
-          label="Interpolation"
-          options={Object.values(Interpolation)}
-          disabled={curveType === CurveType.GlyphsOnly}
-          value={interpolation}
-          onChange={setInterpolation}
+      )}
+      {qq && (
+        <ToggleBtn
+          label="Q-Q"
+          iconOnly
+          Icon={MdScatterPlot}
+          value={qq.value}
+          onToggle={qq.onToggle}
+          disabled={!!qq.blocker}
+          title={qq.blocker ?? 'Q-Q plot'}
         />
-      </Menu>
+      )}
+      {/* Also when blocked (lognormal of values ≤ 0), to pick another one */}
+      {qq && config.showQQ && (
+        <Menu label="Distribution">
+          <RadioGroup
+            name="qqdistribution"
+            options={[...QQ_DISTRIBUTIONS]}
+            value={config.qqDistribution}
+            onChange={config.setQQDistribution}
+          />
+        </Menu>
+      )}
 
       <Separator />
 

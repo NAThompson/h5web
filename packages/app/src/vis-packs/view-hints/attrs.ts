@@ -1,5 +1,6 @@
 import {
   clampPlaybackFps,
+  CurveType,
   Interpolation,
   INTERPOLATORS,
   type PaletteName,
@@ -31,6 +32,7 @@ import { type ColorScaleType, ComplexVisType } from '@h5web/shared/vis-models';
 
 import { findAttribute, findScalarStrAttr } from '../../utils';
 import { type ColorMap } from '../core/heatmap/models';
+import { QQ_DISTRIBUTIONS } from '../core/line/qq';
 import { DEFAULT_ROOT_N, snapRootN } from '../core/utils';
 import {
   type CircleOverlay,
@@ -72,6 +74,11 @@ const COLOR_MAPS = new Map(
 const INTERPOLATIONS = new Map(
   Object.values(Interpolation).map((type) => [toKey(type), type]),
 );
+const CURVE_TYPES = new Map([
+  ['line', CurveType.LineOnly],
+  ['points', CurveType.GlyphsOnly],
+  ['linepoints', CurveType.LineAndGlyphs],
+]);
 const PALETTE_NAMES = new Map(
   Object.keys(PALETTES).map((name) => [toKey(name), name as PaletteName]),
 );
@@ -563,6 +570,8 @@ export function parseViewHint(
       'H5WEB_value_transform',
       parseAmong<ValueTransform>(['exp10', 'exp2']),
     ),
+    spectrum: read.oneOf('H5WEB_spectrum', parseAmong<'power'>(['power'])),
+    qq: read.oneOf('H5WEB_qq', parseAmong([...QQ_DISTRIBUTIONS])),
     envelope: readEnvelope(read),
     curveLabel: read.str('H5WEB_label'),
     // Scatter: path of colour values, or colour of all points (cf. `core/scatter/source.ts`)
@@ -577,6 +586,9 @@ export function parseViewHint(
     multiDim: readDim(read, 'H5WEB_multi_dim', entity, dimNames),
     interpolation: read.oneOf('H5WEB_interpolation', (val) =>
       INTERPOLATIONS.get(toKey(val)),
+    ),
+    curveType: read.oneOf('H5WEB_curve_type', (val) =>
+      CURVE_TYPES.get(toKey(val)),
     ),
     palette,
     paletteName,

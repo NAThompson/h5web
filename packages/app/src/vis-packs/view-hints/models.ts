@@ -1,4 +1,5 @@
 import {
+  type CurveType,
   type Interpolation,
   type PaletteName,
   type PlaybackSettings,
@@ -10,6 +11,7 @@ import {
 } from '@h5web/shared/vis-models';
 
 import { type ColorMap } from '../core/heatmap/models';
+import { type QQDistribution } from '../core/line/qq';
 
 export const HINT_ATTR_PREFIX = 'H5WEB_'; // prefix of view attributes
 
@@ -146,6 +148,8 @@ export interface ViewHint {
   passMin?: number; // volumes: region where `passMin ≤ value ≤ passMax`, shown on open
   passMax?: number;
   valueTransform?: ValueTransform; // values are log10 / log2: shown as powers
+  spectrum?: 'power'; // line: power spectrum of the slice (string, for future kinds)
+  qq?: QQDistribution; // line: Q-Q plot of the slice against this distribution
   envelope?: Envelope; // line: running min / max
   curveLabel?: string; // line: legend entry of the dataset's own curve (default: CF `long_name`)
   curveColor?: string; // line: colour of the dataset's own curve (not in multi-plots)
@@ -162,6 +166,7 @@ export interface ViewHint {
   xDim?: number; // line: dimension on the x axis; scatter: of the rows form
   multiDim?: number; // line: dimension whose slices are all plotted
   interpolation?: Interpolation; // line: between samples (until changed in the toolbar)
+  curveType?: CurveType; // line: line, points, or both (until changed in the toolbar)
   palette?: readonly string[]; // line multi-plots: colours of the curves, cycled
   paletteName?: PaletteName; // categorical colors: palette of the categories
   paletteBy?: string; // path of a 1D string dataset along `multiDim`: alike labels, alike colours

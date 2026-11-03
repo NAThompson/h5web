@@ -15,6 +15,7 @@ import { createStore, type StoreApi, useStore } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { useSuggestion } from '../hooks';
+import { type QQDistribution } from './qq';
 
 export interface LineConfig {
   customDomain: CustomDomain;
@@ -39,12 +40,28 @@ export interface LineConfig {
 
   interpolation: Interpolation;
   setInterpolation: (interpolation: Interpolation) => void;
+
+  showSpectrum: boolean; // power spectrum of the slice instead of the slice
+  setShowSpectrum: (showSpectrum: boolean) => void;
+  spectrumScaleType: AxisScaleType;
+  setSpectrumScaleType: (type: AxisScaleType) => void;
+
+  showQQ: boolean; // Q-Q plot of the slice instead of the slice
+  setShowQQ: (showQQ: boolean) => void;
+  qqDistribution: QQDistribution;
+  setQQDistribution: (distribution: QQDistribution) => void;
 }
 
+// Per dataset, not in the store (see `useLineConfig`)
+type StoredLineConfig = Omit<
+  LineConfig,
+  'showSpectrum' | 'setShowSpectrum' | 'showQQ' | 'setShowQQ'
+>;
+
 function createLineConfigStore() {
-  return createStore<LineConfig>()(
+  return createStore<StoredLineConfig>()(
     persist(
-      (set): LineConfig => ({
+      (set): StoredLineConfig => ({
         customDomain: [null, null],
         setCustomDomain: (customDomain) => set({ customDomain }),
 
@@ -67,6 +84,12 @@ function createLineConfigStore() {
 
         interpolation: Interpolation.Linear,
         setInterpolation: (interpolation) => set({ interpolation }),
+
+        spectrumScaleType: ScaleType.Log,
+        setSpectrumScaleType: (spectrumScaleType) => set({ spectrumScaleType }),
+
+        qqDistribution: 'normal',
+        setQQDistribution: (qqDistribution) => set({ qqDistribution }),
       }),
       {
         name: 'h5web:line',
@@ -76,7 +99,7 @@ function createLineConfigStore() {
   );
 }
 
-const StoreContext = createContext({} as StoreApi<LineConfig>);
+const StoreContext = createContext({} as StoreApi<StoredLineConfig>);
 
 export function LineConfigProvider(props: PropsWithChildren) {
   const { children } = props;
@@ -90,7 +113,15 @@ export function useLineConfig(
   suggestions: Partial<
     Pick<
       LineConfig,
-      'xScaleType' | 'yScaleType' | 'complexVisType' | 'interpolation'
+      | 'xScaleType'
+      | 'yScaleType'
+      | 'complexVisType'
+      | 'interpolation'
+      | 'curveType'
+      | 'showSpectrum'
+      | 'spectrumScaleType'
+      | 'showQQ'
+      | 'qqDistribution'
     >
   > = {},
 ): LineConfig {
@@ -120,15 +151,58 @@ export function useLineConfig(
     config.setInterpolation,
   );
 
+  const [curveType, setCurveType] = useSuggestion(
+    suggestions.curveType,
+    config.curveType,
+    config.setCurveType,
+  );
+
+  // Spectrum and Q-Q change what is plotted: off for each dataset (the vis remounts) unless hinted
+  const [spectrumState, setSpectrumState] = useState(false);
+  const [showSpectrum, setShowSpectrum] = useSuggestion(
+    suggestions.showSpectrum,
+    spectrumState,
+    setSpectrumState,
+  );
+
+  const [spectrumScaleType, setSpectrumScaleType] = useSuggestion(
+    suggestions.spectrumScaleType,
+    config.spectrumScaleType,
+    config.setSpectrumScaleType,
+  );
+
+  const [qqState, setQQState] = useState(false);
+  const [showQQ, setShowQQ] = useSuggestion(
+    suggestions.showQQ,
+    qqState,
+    setQQState,
+  );
+
+  const [qqDistribution, setQQDistribution] = useSuggestion(
+    suggestions.qqDistribution,
+    config.qqDistribution,
+    config.setQQDistribution,
+  );
+
   return {
     ...config,
+    showQQ,
+    qqDistribution,
+    setShowQQ,
+    setQQDistribution,
+    showSpectrum,
+    spectrumScaleType,
+    setShowSpectrum,
+    setSpectrumScaleType,
     xScaleType,
     yScaleType,
     complexVisType,
     interpolation,
+    curveType,
     setXScaleType,
     setYScaleType,
     setComplexVisType,
     setInterpolation,
+    setCurveType,
   };
 }

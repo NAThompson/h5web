@@ -10,7 +10,7 @@ import {
 
 /* Points (`H5WEB_vis = "scatter"` / `"scatter3d"`), cf. `H5WEB_VIEW_SCHEMA.md` */
 
-function random(seed: number): () => number {
+export function random(seed: number): () => number {
   let state = seed;
   return () => {
     state = (state * 16_807) % 2_147_483_647; // Park-Miller
@@ -18,7 +18,7 @@ function random(seed: number): () => number {
   };
 }
 
-function gaussian(rand: () => number): number {
+export function gaussian(rand: () => number): number {
   return Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
 }
 

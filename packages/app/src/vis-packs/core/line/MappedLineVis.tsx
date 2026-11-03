@@ -32,7 +32,7 @@ import {
 import { type AxisMapping } from '@h5web/shared/nexus-models';
 import { type NumArray } from '@h5web/shared/vis-models';
 import { type NdArray } from 'ndarray';
-import { useMemo } from 'react';
+import { use, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import visualizerStyles from '../../../visualizer/Visualizer.module.css';
@@ -63,6 +63,10 @@ import {
 import { DEFAULT_DOMAIN, toNumArray } from '../utils';
 import { type LineConfig } from './config';
 import LineToolbar from './LineToolbar';
+import { getQQBlocker } from './qq';
+import QQLineVis from './QQLineVis';
+import { getBoostMath, getSpectrumBlocker } from './spectrum';
+import SpectrumLineVis from './SpectrumLineVis';
 import {
   generateCsv,
   getMultiPlotSliceLabel,
@@ -118,6 +122,8 @@ interface Props {
   legend?: boolean; // default: shown with several curves of a multi-plot, or extra curves
   nanColor?: string; // of the marks of values that can't be drawn (e.g. 0 in log scale)
   panel?: PanelVisOptions; // one of several panels (e.g. small multiples)
+  spectrumBlocker?: string; // why the spectrum can't be shown, if it can't
+  qqBlocker?: string; // why the Q-Q plot can't be shown, if it can't
 }
 
 /* Drawn along with the dataset (`H5WEB_series` and overlays of a hint) */
@@ -190,7 +196,7 @@ function useMappedBands(
   return { bandRows, bands };
 }
 
-function MappedLineVis(props: Props) {
+function SignalLineVis(props: Props) {
   const {
     dataset,
     value,
@@ -227,6 +233,8 @@ function MappedLineVis(props: Props) {
     legend,
     nanColor,
     panel,
+    spectrumBlocker,
+    qqBlocker,
   } = props;
   const { series, references, legendEntries, band } = extras;
 
@@ -534,6 +542,22 @@ function MappedLineVis(props: Props) {
             withErrors={!!errors}
             config={config}
             exportEntries={exportEntries}
+            spectrum={{
+              value: false,
+              onToggle: () => {
+                config.setShowQQ(false); // mutually exclusive
+                config.setShowSpectrum(true);
+              },
+              blocker: spectrumBlocker,
+            }}
+            qq={{
+              value: false,
+              onToggle: () => {
+                config.setShowSpectrum(false); // mutually exclusive
+                config.setShowQQ(true);
+              },
+              blocker: qqBlocker,
+            }}
           />,
           toolbarContainer,
         )}
@@ -583,6 +607,71 @@ function MappedLineVis(props: Props) {
         {references.length > 0 && <ReferenceLayer shapes={references} />}
       </LineVis>
     </>
+  );
+}
+
+/* The slice, its power spectrum (`H5WEB_spectrum`) or its Q-Q plot (`H5WEB_qq`) */
+// eslint-disable-next-line react/no-multi-comp -- switches between the two views
+function MappedLineVis(props: Props) {
+  const { dataset, value, valueVisible = true, valueTransform } = props;
+  const { dimMapping, config, panel } = props;
+
+  // Unpacked and checked for invalid values once, for the blockers and the transformed views
+  const [packing] = usePackings([dataset]);
+  const [ignoreValue] = useIgnoreValues([dataset]);
+  const numArray = useToNumArray(useUnpackedNumArray(value, packing));
+  const reason = dimMapping.includes('y')
+    ? 'not in multi-plots'
+    : valueTransform
+      ? 'not of logarithms (H5WEB_value_transform)'
+      : valueVisible
+        ? undefined
+        : 'signal hidden';
+  const spectrumBlocker = useMemo(
+    () =>
+      reason
+        ? `Spectrum: ${reason}`
+        : getSpectrumBlocker(numArray, ignoreValue),
+    [reason, numArray, ignoreValue],
+  );
+  const qqBlocker = useMemo(
+    () =>
+      reason
+        ? `Q-Q: ${reason}`
+        : getQQBlocker(numArray, config.qqDistribution, ignoreValue),
+    [reason, numArray, config.qqDistribution, ignoreValue],
+  );
+
+  const showSpectrum = config.showSpectrum && !spectrumBlocker && !panel;
+  const showQQ = !showSpectrum && config.showQQ && !qqBlocker && !panel;
+  const boostMath = showSpectrum || showQQ ? use(getBoostMath()) : undefined; // suspends while it loads
+  if (boostMath instanceof Error) {
+    const blocker = 'Spectrum/Q-Q: Boost.Math failed to load';
+    return (
+      <SignalLineVis {...props} spectrumBlocker={blocker} qqBlocker={blocker} />
+    );
+  }
+  if (boostMath && showSpectrum) {
+    return (
+      <SpectrumLineVis {...props} numArray={numArray} boostMath={boostMath} />
+    );
+  }
+  if (boostMath && showQQ) {
+    return (
+      <QQLineVis
+        {...props}
+        numArray={numArray}
+        ignoreValue={ignoreValue}
+        boostMath={boostMath}
+      />
+    );
+  }
+  return (
+    <SignalLineVis
+      {...props}
+      spectrumBlocker={spectrumBlocker}
+      qqBlocker={qqBlocker}
+    />
   );
 }
 

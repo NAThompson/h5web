@@ -66,3 +66,27 @@ test('visualize dataset with `scale_factor` and `valid_range` in unpacked units'
   expect(page.getByLabelText('Min: 0')).toBeVisible(); // valid_range[0]
   expect(page.getByLabelText('Max: 50')).toBeVisible(); // valid_range[1]
 });
+
+test('drop invalid values from Q-Q plots, and turn Q-Q off for the next dataset', async () => {
+  const { selectVisTab, selectExplorerNode } =
+    await renderApp('/netcdf/_FillValue');
+  await selectVisTab(Vis.Line);
+
+  const spectrumBtn = page.getByRole('button', { name: 'Spectrum' });
+  expect(spectrumBtn).toBeDisabled(); // values ≥ 100 (positive `_FillValue`) are invalid
+  expect(spectrumBtn).toHaveAttribute('title', expect.stringMatching('valid'));
+
+  await page.getByRole('button', { name: 'Q-Q' }).click();
+  await expect
+    .element(page.getByText(/Q-Q \(normal\).*, 22 dropped$/u))
+    .toBeVisible();
+  expect(page.getByRole('button', { name: 'Aspect' }).query()).toBeNull();
+
+  await selectExplorerNode('scale_factor'); // packed, no invalid values
+  await selectVisTab(Vis.Line);
+  await expect
+    .element(page.getByRole('figure', { name: 'scale_factor' }))
+    .toBeVisible();
+  expect(page.getByText(/Q-Q/u).query()).toBeNull();
+  expect(page.getByRole('button', { name: 'Spectrum' })).toBeEnabled();
+});

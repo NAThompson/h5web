@@ -36,7 +36,7 @@ import { ScaleType } from '@h5web/shared/vis-models';
 
 import { makeCategoricalGroup } from './categorical';
 import { makePoleZeroGroup } from './pole-zero';
-import { makeScatterGroup } from './scatter';
+import { gaussian, makeScatterGroup, random } from './scatter';
 import { TEAPOT_PATCHES, TEAPOT_VERTICES } from './teapot';
 import { makeVectorGroup } from './vector';
 import { makeVtkhdfGroup } from './vtkhdf';
@@ -345,6 +345,7 @@ function teapotTemperature(points: number[][][]): Record<string, number[][]> {
 }
 
 export function makeMockFile(): GroupWithChildren {
+  const qqRand = random(9); // `qq_hint`
   return nxGroup('source.h5', 'NXroot', {
     isRoot: true,
     defaultPath: 'nexus',
@@ -1975,6 +1976,41 @@ export function makeMockFile(): GroupWithChildren {
             ],
           }),
           { scales: [['/view_hints/angle'], []] },
+        ),
+        // `H5WEB_spectrum`: sines of 5 Hz and 12 Hz sampled at 100 Hz (peaks at 5 and 12)
+        dataset(
+          'spectrum_time',
+          arrayShape([200]),
+          floatType(),
+          indices(200).map((i) => i / 100),
+          { attributes: [scalarAttr('CLASS', 'DIMENSION_SCALE')] },
+        ),
+        withDimScales(
+          dataset(
+            'spectrum_hint',
+            arrayShape([200]),
+            floatType(),
+            indices(200).map(
+              (i) =>
+                Math.sin((2 * Math.PI * 5 * i) / 100) +
+                0.5 * Math.sin((2 * Math.PI * 12 * i) / 100),
+            ),
+            { attributes: [scalarAttr('H5WEB_spectrum', 'power')] },
+          ),
+          { scales: [['/view_hints/spectrum_time']] },
+        ),
+        // `H5WEB_qq`: 500 normal draws (μ = 2, σ = 0.5), seeded
+        dataset(
+          'qq_hint',
+          arrayShape([500]),
+          floatType(),
+          indices(500).map(() => 2 + 0.5 * gaussian(qqRand)),
+          {
+            attributes: [
+              scalarAttr('H5WEB_qq', 'normal'),
+              scalarAttr('H5WEB_curve_type', 'points'), // draws, not a curve
+            ],
+          },
         ),
         // `H5WEB_value_transform`: values are logarithms, labelled as powers
         array('value_transform_line', {

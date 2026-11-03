@@ -1,4 +1,4 @@
-import { type Interpolation } from '@h5web/lib';
+import { type CurveType, type Interpolation } from '@h5web/lib';
 import { isAxisScaleType } from '@h5web/shared/guards';
 import {
   type AxisScaleType,
@@ -13,6 +13,7 @@ import { type ComplexCurveConfig } from '../core/complex/curve-config';
 import { type ParamSurfaceConfig } from '../core/geometry/surface-config';
 import { type HeatmapSuggestions } from '../core/heatmap/config';
 import { ContourColorMode, ContourMode } from '../core/heatmap/models';
+import { type QQDistribution } from '../core/line/qq';
 import { type OrthoslicesConfig } from '../core/orthoslices/config';
 import { type ColorOrRootScaleType, sqrtAsRoot } from '../core/utils';
 import { DEFAULT_PASS_REGION, type VolumeConfig } from '../core/volume/config';
@@ -174,6 +175,11 @@ export function getLineSuggestions(
   xScaleType?: AxisScaleType;
   yScaleType?: AxisScaleType;
   interpolation?: Interpolation;
+  curveType?: CurveType;
+  showSpectrum?: boolean;
+  spectrumScaleType?: AxisScaleType;
+  showQQ?: boolean;
+  qqDistribution?: QQDistribution;
 } {
   const yFromScale = isAxisScaleType(hint.scaleType)
     ? hint.scaleType
@@ -182,6 +188,11 @@ export function getLineSuggestions(
     xScaleType: fallbacks.xScaleType,
     yScaleType: yFromScale ?? fallbacks.yScaleType,
     interpolation: hint.interpolation,
+    curveType: hint.curveType,
+    showSpectrum: hint.spectrum && true, // `H5WEB_spectrum`
+    spectrumScaleType: hint.spectrum && yFromScale, // else log
+    showQQ: hint.qq && true, // `H5WEB_qq`
+    qqDistribution: hint.qq,
   };
 }
 

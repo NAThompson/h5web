@@ -486,6 +486,9 @@ importers:
       '@types/ndarray':
         specifier: 1.1.0
         version: 1.1.0
+      boost-math-wasm:
+        specifier: https://github.com/NAThompson/math/releases/download/boost-math-v0.3.0/boost-math-wasm-0.3.0.tgz
+        version: https://github.com/NAThompson/math/releases/download/boost-math-v0.3.0/boost-math-wasm-0.3.0.tgz
       d3-format:
         specifier: 3.1.2
         version: 3.1.2
@@ -2874,6 +2877,10 @@ packages:
 
   bluebird@3.7.2:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
+
+  boost-math-wasm@https://github.com/NAThompson/math/releases/download/boost-math-v0.3.0/boost-math-wasm-0.3.0.tgz:
+    resolution: {integrity: sha512-MANur/DkG8scnn65b/Ui92qXbNKqdQJclnu+2Bkteq0ITNNQEQebagmom82KGCur44HcrWb2Dny3+3Mp7U+P2A==, tarball: https://github.com/NAThompson/math/releases/download/boost-math-v0.3.0/boost-math-wasm-0.3.0.tgz}
+    version: 0.3.0
 
   brace-expansion@1.1.15:
     resolution: {integrity: sha512-EwOCDEex4quD37XhqM3omwtMoJjr//isUZz1JopUNWms+4Z2ViyM/k1YIRePpoVNnQhENnxtFjLaxNHrT7xIUg==}
@@ -7532,6 +7539,8 @@ snapshots:
   blob-util@2.0.2: {}
 
   bluebird@3.7.2: {}
+
+  boost-math-wasm@https://github.com/NAThompson/math/releases/download/boost-math-v0.3.0/boost-math-wasm-0.3.0.tgz: {}
 
   brace-expansion@1.1.15:
     dependencies:

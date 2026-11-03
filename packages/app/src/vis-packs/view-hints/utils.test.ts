@@ -1,4 +1,4 @@
-import { Interpolation, PALETTES } from '@h5web/lib';
+import { CurveType, Interpolation, PALETTES } from '@h5web/lib';
 import { arrayShape, floatType, intType } from '@h5web/shared/hdf5-utils';
 import { arrayAttr, dataset, scalarAttr } from '@h5web/shared/mock-utils';
 import { ComplexVisType, ScaleType } from '@h5web/shared/vis-models';
@@ -645,6 +645,12 @@ describe('suggestions', () => {
     expect(
       getLineSuggestions(hint({ H5WEB_interpolation: 'spline' })),
     ).toMatchObject({ interpolation: Interpolation.Spline });
+    expect(
+      getLineSuggestions(hint({ H5WEB_curve_type: 'Line-Points' })),
+    ).toMatchObject({ curveType: CurveType.LineAndGlyphs });
+    expect(
+      getLineSuggestions(hint({ H5WEB_curve_type: 'dots' })).curveType,
+    ).toBeUndefined();
     expect(
       getLineSuggestions(hint({ H5WEB_scale: 'sqrt' }), {
         yScaleType: ScaleType.SymLog,

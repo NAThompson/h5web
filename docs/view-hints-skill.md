@@ -56,6 +56,12 @@ f["err"].attrs.update({"H5WEB_vis": "line", "H5WEB_scale": "log",
   `H5WEB_geometry` (`points`, `curve`, `ellipse`, `circle`, `hline`, `vline`,
   `band`...) and `H5WEB_columns` (which axis each column holds; always give it).
 - Axis scale of a dimension scale: `H5WEB_axis_scale` on the scale dataset.
+- Line plots of signals: `H5WEB_spectrum = "power"` opens them with Spectrum
+  on (power spectrum of the slice; log y unless `H5WEB_scale` is given).
+  `H5WEB_qq = "normal"` (or `lognormal`, `exponential`, `uniform`, `logistic`,
+  `gumbel`) opens them as a Q-Q plot against that distribution.
+  `H5WEB_curve_type = "points"` (or `line`, `line_points`) draws samples that
+  are not a series (e.g. independent draws) as points.
 - Line curves (the dataset's own, `H5WEB_series` members, `NXdata` auxiliary
   signals): `H5WEB_label`, `H5WEB_color`, `H5WEB_width`, `H5WEB_dash` on each
   dataset; `H5WEB_color = "foreground"` follows the theme (black, or white in
